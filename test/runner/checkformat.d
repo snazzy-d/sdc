@@ -9,11 +9,6 @@ import util;
 
 immutable SDFMT = "bin/sdfmt";
 
-string getTestFilename(int n) {
-	import std.format;
-	return format("test/valid/test%04s.d",n);
-}
-
 struct Task {
 	string name;
 	string formatter;
@@ -60,35 +55,12 @@ struct CheckFormat {
 			formatter = getAbsolutePath(SDFMT);
 		}
 		
-		string[] tests;
-		
-		import std.algorithm, std.range;
-		if (args.length > 1) {
-			tests = args[1 .. $].map!(a => getTestFilename(getInt(a))).array();
-		} else {
-			// Figure out how many tests there are.
-			uint testNumber = 0;
-			import std.file;
-			while (exists(getTestFilename(testNumber))) {
-				testNumber++;
-			}
-			
-			import std.exception;
-			enforce(testNumber > 0, "No tests found.");
-			
-			tests = iota(0, testNumber - 1).map!getTestFilename().array();
-		}
-		
-		import std.file;
-		foreach (f; ["test/invalid", "test/format"].map!(d => dirEntries(d, "*.d", SpanMode.breadth)).join()) {
-			if (!f.isFile()) {
-				continue;
-			}
-			
-			tests ~= f;
-		}
-		
-		return tests.map!(t => Task(t, formatter));
+		import std.algorithm, std.array, std.file;
+		return ["test/valid", "test/invalid", "test/format"]
+			.map!(d => dirEntries(d, "*.d", SpanMode.breadth))
+			.join()
+			.filter!(f => f.isFile())
+			.map!(t => Task(t, formatter));
 	}
 }
 

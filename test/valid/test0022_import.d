@@ -15,4 +15,3 @@ int addOne(int function() fn) {
 int function() tenptr() {
 	return &ten;
 }
-

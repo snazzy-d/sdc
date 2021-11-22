@@ -8,4 +8,3 @@ struct S {
 int foo(int* p) {
 	return *p + 10 + bazoooooooom();
 }
-
