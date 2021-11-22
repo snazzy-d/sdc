@@ -2095,8 +2095,8 @@ private:
 					nextToken();
 					break;
 				
-				case Abstract, Alias, Auto, Deprecated, Enum, Final, Lazy, Nothrow:
-				case Override, Pure, Ref, Return, Static, __Gshared:
+				case Abstract, Alias, Auto, Deprecated, Enum, Final, Lazy,
+				     Nothrow, Override, Pure, Ref, Return, Static, __Gshared:
 					nextToken();
 					break;
 				
