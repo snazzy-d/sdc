@@ -961,6 +961,8 @@ private:
 			
 			case OpenBrace: {
 				// Try to detect if it is a struct literal or a parameterless lambda.
+				kind = IdentifierKind.Expression;
+				
 				import source.parserutil;
 				auto lookahead = trange.getLookahead();
 				
@@ -1008,16 +1010,19 @@ private:
 			}
 			
 			StructLiteral:
+				kind = IdentifierKind.Expression;
 				parseStructLiteral();
 				break;
 			
 			Lambda:
+				kind = IdentifierKind.Expression;
 				parseBlock(Mode.Statement);
 				clearSplitType();
 				break;
 			
 			case OpenBracket:
 				// TODO: maps
+				kind = IdentifierKind.Expression;
 				parseArgumentList();
 				break;
 			
