@@ -1014,6 +1014,25 @@ private:
 				parseStructLiteral();
 				break;
 			
+			case Function, Delegate:
+				// Function and delegate literals.
+				kind = IdentifierKind.Expression;
+				
+				nextToken();
+				if (!match(OpenParen)) {
+					// We have an explicit type.
+					space();
+					parseType();
+				}
+				
+				if (match(OpenParen)) {
+					parseParameterList();
+				}
+				
+				space();
+				parseStorageClasses(true);
+				goto Lambda;
+			
 			Lambda:
 				kind = IdentifierKind.Expression;
 				parseBlock(Mode.Statement);
