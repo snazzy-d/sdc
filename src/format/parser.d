@@ -398,18 +398,6 @@ private:
 		}
 	}
 	
-	void parseColonBlock() {
-		runOnType!(TokenType.Colon, nextToken)();
-		if (!match(TokenType.OpenBrace) || newLineCount() > 0) {
-			newline(1);
-			return;
-		}
-		
-		auto guard = builder.unindent();
-		space();
-		parseBlock(mode);
-	}
-	
 	void parseStructuralElement() {
 		emitInFlightComments();
 		
@@ -1265,6 +1253,18 @@ private:
 			nextToken();
 			newline(2);
 		}
+	}
+	
+	void parseColonBlock() {
+		runOnType!(TokenType.Colon, nextToken)();
+		if (!match(TokenType.OpenBrace) || newLineCount() > 0) {
+			newline(1);
+			return;
+		}
+		
+		auto guard = builder.unindent();
+		space();
+		parseBlock(mode);
 	}
 	
 	bool parseControlFlowBlock(bool forceNewLine = true) {
