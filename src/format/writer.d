@@ -405,9 +405,11 @@ struct SolveState {
 	
 	import format.span, std.bitmanip;
 	mixin(taggedClassRef!(
+		// sdfmt off
 		// Spans that require indentation.
 		RedBlackTree!(const(Span)), "usedSpans",
 		bool, "canExpand", 1,
+		// sdfmt on
 	));
 	
 	this(ref LineWriter lineWriter) {
