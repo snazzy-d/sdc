@@ -11,7 +11,7 @@ immutable SDFMT = "bin/sdfmt";
 
 string getTestFilename(int n) {
 	import std.format;
-	return format("test/runner/test%04s.d",n);
+	return format("test/valid/test%04s.d",n);
 }
 
 struct Task {
