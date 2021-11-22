@@ -1674,40 +1674,38 @@ private:
 
 	void parseConditionalExpression() {
 		parseBinaryExpression();
-
-		while (match(TokenType.QuestionMark)) {
-			auto guard = spliceSpan!ConditionalSpan();
-
-			space();
-			split();
-
-			guard.registerFix(function(ConditionalSpan s, size_t i) {
-				s.setQuestionMarkIndex(i);
-			});
-
-			nextToken();
-			space();
-
-			parseBaseExpression();
-			parseBinaryExpression();
-
-			if (!match(TokenType.Colon)) {
-				continue;
-			}
-
-			space();
-			split();
-
-			guard.registerFix(function(ConditionalSpan s, size_t i) {
-				s.setColonIndex(i);
-			});
-
-			nextToken();
-			space();
-
-			parseBaseExpression();
-			parseBinaryExpression();
+		
+		if (!match(TokenType.QuestionMark)) {
+			return;
 		}
+
+		auto guard = spliceSpan!ConditionalSpan();
+
+		space();
+		split();
+
+		guard.registerFix(function(ConditionalSpan s, size_t i) {
+			s.setQuestionMarkIndex(i);
+		});
+
+		nextToken();
+		space();
+
+		parseExpression();
+
+		space();
+		split();
+
+		runOnType!(TokenType.Comma, nextToken)();
+		guard.registerFix(function(ConditionalSpan s, size_t i) {
+			s.setColonIndex(i);
+		});
+
+		nextToken();
+		space();
+
+		parseBaseExpression();
+		parseConditionalExpression();
 	}
 
 	bool isBangIsOrIn() in {
