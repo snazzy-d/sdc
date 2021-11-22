@@ -1260,9 +1260,42 @@ private:
 		}
 	}
 	
+	static isBasicBlockEntry(ref TokenRange r) {
+		auto t = r.front.type;
+		if (t == TokenType.Case || t == TokenType.Default) {
+			return true;
+		}
+		
+		if (t != TokenType.Identifier) {
+			return false;
+		}
+		
+		// Check for labeled statements.
+		r.popFront();
+		return r.front.type == TokenType.Colon;
+	}
+	
+	static isBasicBlockTerminator(TokenType t) {
+		return t == TokenType.CloseBrace || t == TokenType.Return
+			|| t == TokenType.Break || t == TokenType.Continue
+			|| t == TokenType.Goto || t == TokenType.Throw;
+	}
+	
+	static isBasicBlockBoundary(ref TokenRange r) {
+		return isBasicBlockTerminator(r.front.type) || isBasicBlockEntry(r);
+	}
+	
 	void parseColonBlock() {
 		runOnType!(TokenType.Colon, nextToken)();
-		if (!match(TokenType.OpenBrace) || newLineCount() > 0) {
+		if (!match(TokenType.OpenBrace)) {
+			newline(1);
+			return;
+		}
+		
+		import source.parserutil;
+		auto lookahead = trange.getLookahead();
+		lookahead.popMatchingDelimiter!(TokenType.OpenBrace)();
+		if (!isBasicBlockBoundary(lookahead)) {
 			newline(1);
 			return;
 		}
