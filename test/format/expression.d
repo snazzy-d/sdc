@@ -13,10 +13,12 @@ void fun() {
 			: nested_result_2_2;
 
 	auto a = (c
-		? long_result_1
-		: long_result_2) ? (a + b)
-		? long_result_3
-		: long_result_4 : (c + d)
-		? long_result_5
-		: long_result_6;
+			? long_result_1
+			: long_result_2)
+		? (a + b)
+			? long_result_3
+			: long_result_4
+		: (c + d)
+			? long_result_5
+			: long_result_6;
 }
