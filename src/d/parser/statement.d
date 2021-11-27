@@ -410,19 +410,20 @@ Statement parseStatement(ref TokenRange trange) {
 			
 			auto expr = trange.parseAssignExpression();
 			
-			alias MixinTpl = d.ast.conditional.Mixin;
-			
+			// To deambiguate vs TokenType.Mixin.
+			import d.ast.conditional : Mixin;
+
 			trange.match(CloseParen);
 			if (trange.front.type == Semicolon) {
 				// mixin(expr); is a statement.
 				location.spanTo(trange.front.location);
 				trange.popFront();
 				
-				return new MixinTpl!Statement(location, expr);
+				return new Mixin!Statement(location, expr);
 			}
 			
 			location.spanTo(trange.previous);
-			expr = new MixinTpl!AstExpression(location, expr);
+			expr = new Mixin!AstExpression(location, expr);
 			return trange.parseStatementSuffix(expr);
 		
 		case Static:
