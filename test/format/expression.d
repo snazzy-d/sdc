@@ -6,8 +6,8 @@ void fun() {
 
 	auto a = condition
 		? nested_condition_1
-				? nested_result_1_1
-				: nested_result_1_2
+			? nested_result_1_1
+			: nested_result_1_2
 		: nested_condition_2
 			? nested_result_2_1
 			: nested_result_2_2;

@@ -131,6 +131,7 @@ private:
 	
 	import format.span;
 	Span spanStack = null;
+	size_t spliceIndex = 0;
 	
 	struct Fixup {
 		size_t index;
@@ -317,12 +318,14 @@ public:
 			this(Builder* builder, S span) {
 				this.builder = builder;
 				this.span = span;
+				this.startPosition = builder.source.length;
 				builder.spanStack = span;
 			}
 			
 			~this() {
 				assert(builder.spanStack is span);
 				builder.spanStack = span.parent;
+				builder.spliceIndex = startPosition;
 			}
 			
 			void registerFix(void function(S s, size_t i) fix) {
@@ -340,6 +343,7 @@ public:
 		private:
 			Builder* builder;
 			S span;
+			size_t startPosition;
 		}
 		
 		return Guard(&this, new S(spanStack));
@@ -350,7 +354,7 @@ public:
 		Span insert;
 		
 		import std.range;
-		foreach (ref c; only(chunk).chain(source.retro())) {
+		foreach (ref c; source[spliceIndex .. $].chain(only(chunk)).retro()) {
 			if (c.span !is parent) {
 				insert = c.span;
 				break;
@@ -363,12 +367,12 @@ public:
 			insert = insert.parent;
 		}
 		
-		bool doSlice = insert !is null && insert !is spanStack;
-		if (doSlice) {
+		bool doSplice = insert !is null && insert !is spanStack;
+		if (doSplice) {
 			insert.parent = spanStack;
 		}
 		
-		return doSlice;
+		return doSplice;
 	}
 	
 	/**
