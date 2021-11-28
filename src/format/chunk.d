@@ -396,14 +396,8 @@ public:
 		
 		auto guard = Guard(&this, this);
 		
-		// Get ready to buidl the block.
-		source = [];
-		chunk = Chunk();
-		
-		pendingWhiteSpace = SplitType.None;
-		indentation = 0;
-		spanStack = null;
-		fixups = [];
+		// Get ready to build the block.
+		this = Builder();
 		
 		return guard;
 	}
