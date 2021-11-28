@@ -1343,6 +1343,10 @@ private:
 			auto guard = span!AlignedSpan();
 			split();
 
+			guard.registerFix(function(AlignedSpan s, size_t i) {
+				s.alignOn(i);
+			});
+
 			auto modeGuard = changeMode(Mode.Parameter);
 
 			parseStructuralElement();

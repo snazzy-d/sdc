@@ -177,9 +177,6 @@ public:
 			size_t indexinLine = i - start;
 			
 			scope(success) {
-				// Make sure we let the spans know where they are in the line.
-				c.span.register(i - start);
-				
 				// Run fixups that the parser may have registered.
 				while (fi < fixups.length && fixups[fi].index == i) {
 					fixups[fi++].fix(c, i - start, indexinLine);

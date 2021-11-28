@@ -41,8 +41,6 @@ class Span {
 	}
 
 protected:
-	void register(size_t i) {}
-
 	enum Split {
 		No,
 		Can,
@@ -59,13 +57,6 @@ protected:
 
 	Split computeSplit(const ref SolveState s, size_t i) const {
 		return Split.Can;
-	}
-}
-
-void register(Span span, size_t i) {
-	while (span !is null) {
-		span.register(i);
-		span = span.parent;
 	}
 }
 
@@ -169,8 +160,8 @@ final class AlignedSpan : Span {
 		super(parent);
 	}
 
-	override void register(size_t i) {
-		first = i < first ? i : first;
+	void alignOn(size_t i) {
+		first = i;
 	}
 
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
