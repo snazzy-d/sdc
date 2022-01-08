@@ -1942,7 +1942,7 @@ private:
 
 			// Variable, template parameters, whatever.
 			if (match(TokenType.Equal) || match(TokenType.Colon)) {
-				auto valueGuard = span();
+				auto valueGuard = spliceSpan();
 
 				space();
 				nextToken();
