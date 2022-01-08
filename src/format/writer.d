@@ -526,11 +526,11 @@ struct SolveState {
 			if (i > 0) {
 				// Try to avoid subsequent line to have the same indentation
 				// level if they belong to a different span.
-				length += computeNewLinePenality(
-					c, column, previousColumn, previousSpan);
+				uint penality = computeNewLinePenality(
+					c, column, length, previousColumn, previousSpan);
 
 				// End the previous line if there is one.
-				endLine(line, i, length, pageWidth);
+				endLine(line, i, length, pageWidth, penality);
 			}
 
 			previousSpan = c.span;
@@ -569,11 +569,21 @@ struct SolveState {
 		}
 	}
 
-	uint computeNewLinePenality(const ref Chunk c, uint column,
+	uint computeNewLinePenality(const ref Chunk c, uint column, uint length,
 	                            uint previousColumn,
 	                            const(Span) previousSpan) const {
-		// No penality for top level or mismatching levels.
-		if (column == 0 || column != previousColumn) {
+		// No penality for top level.
+		if (column == 0) {
+			return 0;
+		}
+
+		// Avoid line break that make the next lien starts past the previous line.
+		if (column >= length) {
+			return 1;
+		}
+
+		// No penality for mismatching levels.
+		if (column != previousColumn) {
 			return 0;
 		}
 
@@ -608,14 +618,16 @@ struct SolveState {
 		sunk = overflow;
 	}
 
-	void endLine(const Chunk[] line, size_t i, uint length, uint pageWidth) {
-		if (length <= pageWidth) {
-			return;
+	void endLine(const Chunk[] line,
+	             size_t i, uint length, uint pageWidth, uint penality = 0) {
+		if (length > pageWidth) {
+			penality += length - pageWidth;
 		}
 
-		uint lineOverflow = length - pageWidth;
-		overflow += lineOverflow;
-		updateSunk(line, i);
+		if (penality > 0) {
+			overflow += penality;
+			updateSunk(line, i);
+		}
 	}
 
 	bool canSplit(const Chunk[] line, size_t i) const {

@@ -2396,8 +2396,8 @@ private:
 		bool splice = false;
 	}
 
-	void parseList(alias fun)(
-		TokenType closingTokenType, bool addNewLines = false) {
+	void parseList(alias fun)(TokenType closingTokenType,
+	                          bool addNewLines = false) {
 		ListOptions options;
 		options.closingTokenType = closingTokenType;
 		options.addNewLines = addNewLines;
