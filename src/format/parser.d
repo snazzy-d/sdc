@@ -1678,7 +1678,7 @@ private:
 
 	void parseConditionalExpression() {
 		parseBinaryExpression();
-		
+
 		if (!match(TokenType.QuestionMark)) {
 			return;
 		}

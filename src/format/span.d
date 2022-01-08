@@ -238,7 +238,7 @@ final class ListSpan : Span {
 final class ConditionalSpan : Span {
 	size_t questionMarkIndex = size_t.max;
 	size_t colonIndex = size_t.max;
-	
+
 	ConditionalSpan parentConditional = null;
 
 	this(Span parent) {
@@ -247,24 +247,24 @@ final class ConditionalSpan : Span {
 
 	void setQuestionMarkIndex(size_t i) {
 		questionMarkIndex = i;
-		
+
 		// Use the opportinity to detect if this is a nested conditional.
 		static ConditionalSpan findParentConditional(const Span s, size_t i) {
 			auto p = s.parent;
 			if (p is null) {
 				return null;
 			}
-			
+
 			if (auto c = cast(ConditionalSpan) p) {
 				// Skip over if we are in the parent's condition rather than nested.
 				if (c.questionMarkIndex < i) {
 					return c;
 				}
 			}
-			
+
 			return findParentConditional(p, i);
 		}
-		
+
 		parentConditional = findParentConditional(this, i);
 	}
 
@@ -277,11 +277,11 @@ final class ConditionalSpan : Span {
 			auto pi = parentConditional.questionMarkIndex;
 			return s.isSplit(pi) ? Split.Can : Split.No;
 		}
-		
+
 		if (i == colonIndex) {
 			return s.isSplit(questionMarkIndex) ? Split.Must : Split.No;
 		}
-		
+
 		return Split.Can;
 	}
 }
