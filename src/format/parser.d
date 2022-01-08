@@ -1664,7 +1664,7 @@ private:
 			return;
 		}
 
-		auto guard = span();
+		auto guard = spliceSpan();
 		do {
 			space();
 			nextToken();
