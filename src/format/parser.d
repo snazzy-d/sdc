@@ -2279,14 +2279,6 @@ private:
 		if (match(TokenType.Identifier) || match(TokenType.This)) {
 			space();
 			nextToken();
-			return;
-		}
-
-		while (match(TokenType.Equal) || match(TokenType.Colon)) {
-			space();
-			nextToken();
-			space();
-			parseExpression();
 		}
 	}
 
