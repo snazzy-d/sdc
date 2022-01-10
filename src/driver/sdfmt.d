@@ -60,7 +60,7 @@ int main(string[] args) {
 		auto l = lex(base, context);
 		
 		import format.parser;
-		auto chunks = Parser(context, l).parse();
+		auto chunks = Parser(l).parse();
 		
 		if (dbg) {
 			import std.stdio;

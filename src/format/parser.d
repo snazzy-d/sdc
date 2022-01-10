@@ -11,9 +11,6 @@ module format.parser;
  */
 struct Parser {
 private:
-	import source.context;
-	Context context;
-
 	import source.dlexer;
 	TokenRange trange;
 
@@ -75,8 +72,7 @@ private:
 	}
 
 public:
-	this(Context context, ref TokenRange trange) {
-		this.context = context;
+	this(ref TokenRange trange) {
 		this.trange = trange.withStringDecoding(false).withComments();
 	}
 
@@ -160,6 +156,14 @@ private:
 
 	auto block() {
 		return builder.block();
+	}
+
+	/**
+	 * Miscellaneous and conveniences.
+	 */
+	@property
+	auto context() {
+		return trange.context;
 	}
 
 	/**
