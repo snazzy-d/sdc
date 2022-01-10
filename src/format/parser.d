@@ -53,9 +53,11 @@ private:
 
 	/**
 	 * Comments to be emitted before the next token.
+	 *  - inFlightComments: Comments which are on their own.
+	 *  - nextComments: Comment attached to what comes next.
 	 */
 	Location[] inFlightComments;
-	Location[] nextCommentBlock;
+	Location[] nextComments;
 
 	/**
 	 * Passthrough for portion of code not to be formatted.
@@ -350,19 +352,19 @@ private:
 
 	void emitInFlightComments() {
 		auto nextTokenLoc =
-			nextCommentBlock.length > 0 ? nextCommentBlock[0] : token.location;
+			nextComments.length > 0 ? nextComments[0] : token.location;
 
 		emitComments(inFlightComments, nextTokenLoc);
 	}
 
 	void flushComments() {
 		emitInFlightComments();
-		emitComments(nextCommentBlock, token.location);
+		emitComments(nextComments, token.location);
 	}
 
 	void parseComments() in {
 		assert(inFlightComments == []);
-		assert(nextCommentBlock == []);
+		assert(nextComments == []);
 	} do {
 		if (!match(TokenType.Comment)) {
 			return;
@@ -398,7 +400,7 @@ private:
 			commentBlock = [];
 		}
 
-		nextCommentBlock = commentBlock;
+		nextComments = commentBlock;
 	}
 
 	/**
