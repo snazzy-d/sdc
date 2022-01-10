@@ -231,6 +231,20 @@ final class ListSpan : Span {
 	}
 }
 
+final class TrainlingListSpan : Span {
+	this(Span parent) {
+		super(parent);
+	}
+
+	override uint computeIndent(const ref SolveState s) const {
+		return 0;
+	}
+
+	override Split computeSplit(const ref SolveState s, size_t i) const {
+		return Split.No;
+	}
+}
+
 /**
  * Span used to format Condition expression, of the form:
  *     condition ? ifTrue : ifFalse

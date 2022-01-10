@@ -165,7 +165,7 @@ public:
 			auto top = c.span.getTop();
 			
 			// Do not use the regular line splitter for blocks.
-			c._glued = isBlock || wasBlock;
+			c._glued = c.glued || isBlock || wasBlock;
 			
 			// If we have a new set of spans, then we have a new region.
 			c._startsRegion = top is null || top !is previousTop;
@@ -231,41 +231,50 @@ public:
 		pendingWhiteSpace = SplitType.None;
 	}
 	
-	void split() {
+	void split(bool glued = false) {
 		import std.stdio;
-		// writeln("split!");
+		// writeln("split!", glued ? " glued" : "");
 		
 		scope(success) {
-			chunk._indentation = indentation;
 			chunk._span = spanStack;
-		}
-		
-		uint nlCount = 0;
-		
-		size_t last = chunk.text.length;
-		while (last > 0) {
-			char lastChar = chunk.text[last - 1];
-			
-			import std.ascii;
-			if (!isWhite(lastChar)) {
-				break;
-			}
-			
-			last--;
-			if (lastChar == ' ') {
-				space();
-			}
-			
-			if (lastChar == '\n') {
-				nlCount++;
+			chunk._glued = glued;
+
+			if (glued) {
+				chunk._splitType = SplitType.None;
+				chunk._indentation = 0;
+			} else {
+				chunk._indentation = indentation;
 			}
 		}
 		
-		if (nlCount) {
-			newline(nlCount);
+		if (!glued) {
+			uint nlCount = 0;
+			
+			size_t last = chunk.text.length;
+			while (last > 0) {
+				char lastChar = chunk.text[last - 1];
+				
+				import std.ascii;
+				if (!isWhite(lastChar)) {
+					break;
+				}
+				
+				last--;
+				if (lastChar == ' ') {
+					space();
+				}
+				
+				if (lastChar == '\n') {
+					nlCount++;
+				}
+			}
+			
+			if (nlCount) {
+				newline(nlCount);
+			}
+			
+			chunk.text = chunk.text[0 .. last];
 		}
-		
-		chunk.text = chunk.text[0 .. last];
 		
 		// There is nothing to flush.
 		if (chunk.empty) {

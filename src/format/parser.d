@@ -136,11 +136,8 @@ private:
 	}
 
 	void split() {
-		if (skipFormatting()) {
-			return;
-		}
-
-		builder.split();
+		emitRawContent();
+		builder.split(skipFormatting());
 	}
 
 	auto indent(uint level = 1) {
@@ -167,6 +164,7 @@ private:
 	}
 
 	auto block() {
+		emitRawContent();
 		return builder.block();
 	}
 
@@ -306,6 +304,27 @@ private:
 	}
 
 	/**
+	 * Unformateed code management.
+	 */
+	void emitRawContent() {
+		auto upTo = inFlightComments.length > 0
+			? inFlightComments[0]
+			: nextComments.length > 0 ? nextComments[0] : token.location;
+
+		emitRawContent(upTo.start);
+	}
+
+	void emitRawContent(Position upTo) {
+		if (!skipFormatting()) {
+			return;
+		}
+
+		builder.write(
+			Location(sdfmtOffStart, upTo).getFullLocation(context).getSlice());
+		sdfmtOffStart = upTo;
+	}
+
+	/**
 	 * Comments management
 	 */
 	void emitComment(Location loc, Position previous) {
@@ -314,10 +333,8 @@ private:
 		import std.string;
 		auto comment = loc.getFullLocation(context).getSlice().strip();
 		if (skipFormatting() && comment == "// sdfmt on") {
-			auto content = Location(sdfmtOffStart, loc.start)
-				.getFullLocation(context).getSlice();
+			emitRawContent(loc.start);
 			sdfmtOffStart = Position();
-			write(content);
 		}
 
 		write(comment);
@@ -2429,6 +2446,7 @@ private:
 		}
 
 		if (foundClosingToken) {
+			auto trailingGuard = span!TrainlingListSpan();
 			if (addNewLines) {
 				newline(1);
 			}
