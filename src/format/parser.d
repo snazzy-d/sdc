@@ -141,6 +141,14 @@ private:
 		builder.split();
 	}
 
+	auto indent(uint level = 1) {
+		return builder.indent(level);
+	}
+
+	auto unindent(uint level = 1) {
+		return builder.unindent(level);
+	}
+
 	import format.span;
 	auto span(S = Span)() {
 		emitSkippedTokens();
@@ -442,7 +450,7 @@ private:
 
 				lookahead.popFront();
 				if (newLineCount(lookahead)) {
-					auto guard = builder.unindent();
+					auto guard = unindent();
 					newline(2);
 					nextToken();
 					parseColonBlock();
@@ -506,7 +514,7 @@ private:
 
 			case Case:
 				{
-					auto guard = builder.unindent();
+					auto guard = unindent();
 					newline();
 
 					while (true) {
@@ -529,7 +537,7 @@ private:
 				break;
 
 			case Default: {
-				auto guard = builder.unindent();
+				auto guard = unindent();
 				newline();
 				nextToken();
 				parseColonBlock();
@@ -599,7 +607,7 @@ private:
 
 				needDoubleIndent = true;
 
-				auto guard = builder.unindent();
+				auto guard = unindent();
 
 				nextToken();
 				space();
@@ -696,7 +704,7 @@ private:
 				}
 
 				{
-					auto guard = builder.unindent();
+					auto guard = unindent();
 					newline();
 					nextToken();
 					nextToken();
@@ -1211,7 +1219,7 @@ private:
 
 		{
 			// Flush comments so that they have the proper indentation.
-			auto guard = builder.indent();
+			auto guard = indent();
 			flushComments();
 		}
 
@@ -1235,7 +1243,7 @@ private:
 			clearSplitType();
 
 			auto blockGuard = block();
-			auto indentGuard = builder.indent(1 + needDoubleIndent);
+			auto indentGuard = indent(1 + needDoubleIndent);
 			auto modeGuard = changeMode(m);
 
 			auto oldNeedDoubleIndent = needDoubleIndent;
@@ -1307,7 +1315,7 @@ private:
 			return;
 		}
 
-		auto guard = builder.unindent();
+		auto guard = unindent();
 		space();
 		parseBlock(mode);
 	}
@@ -1899,7 +1907,7 @@ private:
 			clearSplitType();
 
 			auto blockGuard = block();
-			auto indentGuard = builder.indent();
+			auto indentGuard = indent();
 
 			newline(1);
 			split();
