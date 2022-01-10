@@ -56,11 +56,8 @@ int main(string[] args) {
 		import source.location;
 	    auto base = context.registerFile(Location.init, filename, "");
 		
-		import source.dlexer;
-		auto l = lex(base, context);
-		
 		import format.parser;
-		auto chunks = Parser(l).parse();
+		auto chunks = Parser(base, context).parse();
 		
 		if (dbg) {
 			import std.stdio;

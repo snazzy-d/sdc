@@ -72,8 +72,10 @@ private:
 	}
 
 public:
-	this(ref TokenRange trange) {
-		this.trange = trange.withStringDecoding(false).withComments();
+	import source.context;
+	this(Position base, Context context) {
+		this.trange =
+			lex(base, context).withStringDecoding(false).withComments();
 	}
 
 	Chunk[] parse() in {
