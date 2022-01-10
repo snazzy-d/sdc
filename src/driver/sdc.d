@@ -3,16 +3,16 @@ module driver.sdc;
 import source.context;
 
 int main(string[] args) {
-	version(DigitalMars) {
-		version(linux) {
+	version (DigitalMars) {
+		version (linux) {
 			import etc.linux.memoryerror;
 			// druntime not containe the necessary symbol.
 			// registerMemoryErrorHandler();
 		}
 	}
-	
+
 	auto context = new Context();
-	
+
 	import std.getopt, source.exception;
 	try {
 		return context.run(args);
@@ -21,10 +21,10 @@ int main(string[] args) {
 		writefln("%s", ex.msg);
 		writeln("Please use -h to get a list of valid options.");
 		return 1;
-	} catch(CompileException e) {
+	} catch (CompileException e) {
 		import util.terminal;
 		outputCaretDiagnostics(e.getFullLocation(context), e.msg);
-		
+
 		// Rethrow in debug, so we have the stack trace.
 		debug {
 			throw e;
@@ -32,7 +32,7 @@ int main(string[] args) {
 			return 1;
 		}
 	}
-	
+
 	// This is unreachable, but dmd can't figure this out.
 	assert(0);
 }
@@ -40,17 +40,18 @@ int main(string[] args) {
 int run(Context context, string[] args) {
 	import sdc.config;
 	Config conf;
-	
+
 	import config.build;
 	conf.buildGlobalConfig("sdconfig", context);
-	
+
 	string[] includePaths, linkerPaths;
 	bool dontLink, generateMain;
 	string outputFile;
 	bool outputLLVM, outputAsm;
-	
+
 	import std.getopt;
 	auto help_info = getopt(
+		// sdfmt off
 		args, std.getopt.config.caseSensitive,
 		"I",         "Include path",        &includePaths,
 		"L",         "Library path",        &linkerPaths,
@@ -60,8 +61,9 @@ int run(Context context, string[] args) {
 		"S",         "Stop before assembling and output assembly file", &outputAsm,
 		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM,
 		"main",      "Generate the main function", &generateMain,
+		// sdfmt on
 	);
-	
+
 	if (help_info.helpWanted || args.length == 1) {
 		import std.stdio;
 		writeln("The Snazzy D Compiler");
@@ -69,30 +71,28 @@ int run(Context context, string[] args) {
 		writeln("Options:");
 
 		foreach (option; help_info.options) {
-			writefln(
-				"  %-16s %s",
-				// bug : optShort is empty if there is no long version
-				option.optShort.length
-					? option.optShort
-					: (option.optLong.length == 3)
-						? option.optLong[1 .. $]
-						: option.optLong,
-				option.help
-			);
+			writefln("  %-16s %s",
+			         // bug : optShort is empty if there is no long version
+			         option.optShort.length
+				         ? option.optShort
+				         : (option.optLong.length == 3)
+					         ? option.optLong[1 .. $]
+					         : option.optLong,
+			         option.help);
 		}
-		
+
 		return 0;
 	}
-	
+
 	conf.includePaths = includePaths ~ conf.includePaths;
 	conf.linkerPaths = linkerPaths ~ conf.linkerPaths;
-	
+
 	auto files = args[1 .. $];
-	
+
 	if (outputAsm) {
 		dontLink = true;
 	}
-	
+
 	auto executable = "a.out";
 	auto defaultExtension = ".o";
 	if (outputAsm) {
@@ -100,8 +100,8 @@ int run(Context context, string[] args) {
 	} else if (dontLink) {
 		defaultExtension = outputLLVM ? ".bc" : ".o";
 	}
-	
-	auto objFile = files[0][0 .. $-2] ~ defaultExtension;
+
+	auto objFile = files[0][0 .. $ - 2] ~ defaultExtension;
 	if (outputFile.length) {
 		if (dontLink || outputAsm) {
 			objFile = outputFile;
@@ -109,23 +109,23 @@ int run(Context context, string[] args) {
 			executable = outputFile;
 		}
 	}
-	
+
 	// If we are generating an executable, we want a main function.
 	generateMain = generateMain || !dontLink;
-	
+
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
 	import sdc.sdc;
 	auto c = new SDC(context, files[0], conf);
-	
+
 	foreach (file; files) {
 		c.compile(file);
 	}
-	
+
 	if (generateMain) {
 		c.buildMain();
 	}
-	
+
 	if (outputAsm) {
 		if (outputLLVM) {
 			c.outputLLVMAsm(objFile);
@@ -142,6 +142,6 @@ int run(Context context, string[] args) {
 		c.outputObj(objFile);
 		c.linkExecutable(objFile, executable);
 	}
-	
+
 	return 0;
 }
