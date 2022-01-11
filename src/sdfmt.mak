@@ -13,7 +13,7 @@ $(LIBSDFMT): obj/format.o
 
 $(SDFMT): obj/driver/sdfmt.o $(LIBSDFMT) $(LIBCONFIG) $(LIBSOURCE)
 	@mkdir -p bin
-	$(GCC) -o "$@" $^ $(ARCHFLAG) $(LDFLAGS)
+	$(DMD) -of"$@" $^ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS))
 
 check-libfmt: $(LIBSDFMT_SRC)
 	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="/* Do nothing */"
