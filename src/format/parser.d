@@ -2396,56 +2396,9 @@ private:
 			return;
 		}
 
-		bool foundClosingToken = false;
+		parseInnerList!fun(closingTokenType, addNewLines);
 
-		{
-			auto guard = span!ListSpan();
-
-			while (!foundClosingToken) {
-				scope(success) {
-					foundClosingToken = match(closingTokenType);
-				}
-
-				if (addNewLines) {
-					newline(1);
-				}
-
-				split();
-				guard.registerFix(function(ListSpan s, size_t i) {
-					s.registerElement(i);
-				});
-
-				fun();
-
-				switch (token.type) with (TokenType) {
-					case DotDot:
-						auto rangeGuard = spliceSpan();
-						space();
-						split();
-
-						nextToken();
-						space();
-						fun();
-						break;
-
-					case DotDotDot:
-						nextToken();
-						break;
-
-					default:
-						break;
-				}
-
-				if (!match(TokenType.Comma)) {
-					break;
-				}
-
-				nextToken();
-				space();
-			}
-		}
-
-		if (foundClosingToken) {
+		if (match(closingTokenType)) {
 			auto trailingGuard = span!TrainlingListSpan();
 			if (addNewLines) {
 				newline(1);
@@ -2456,6 +2409,50 @@ private:
 
 		if (addNewLines) {
 			newline(2);
+		}
+	}
+
+	void parseInnerList(alias fun)(
+		TokenType closingTokenType, bool addNewLines = false) {
+		auto guard = span!ListSpan();
+
+		while (!match(closingTokenType)) {
+			if (addNewLines) {
+				newline(1);
+			}
+
+			split();
+			guard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
+
+			fun();
+
+			switch (token.type) with (TokenType) {
+				case DotDot:
+					auto rangeGuard = spliceSpan();
+					space();
+					split();
+
+					nextToken();
+					space();
+					fun();
+					break;
+
+				case DotDotDot:
+					nextToken();
+					break;
+
+				default:
+					break;
+			}
+
+			if (!match(TokenType.Comma)) {
+				break;
+			}
+
+			nextToken();
+			space();
 		}
 	}
 }
