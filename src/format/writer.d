@@ -515,7 +515,7 @@ struct SolveState {
 					break;
 
 				case Text:
-					if (!c.glued && !isSplit(i)) {
+					if (!isSplit(i)) {
 						length += (c.splitType == SplitType.Space) + c.length;
 						continue;
 					}
@@ -526,24 +526,19 @@ struct SolveState {
 					break;
 			}
 
-			// Try to avoid subsequent line to have the same indentation level if
-			// they belong to a different span.
-			length +=
-				computeNewLinePenality(c, column, previousColumn, previousSpan);
-
-			previousSpan = c.span;
-			previousColumn = column;
-
 			if (i > 0) {
+				// Try to avoid subsequent line to have the same indentation
+				// level if they belong to a different span.
+				length += computeNewLinePenality(
+					c, column, previousColumn, previousSpan);
+
 				// End the previous line if there is one.
 				endLine(line, i, length, pageWidth);
 			}
 
+			previousSpan = c.span;
+			previousColumn = column;
 			length = column + lineLength;
-
-			if (c.glued) {
-				continue;
-			}
 
 			cost += 1;
 
