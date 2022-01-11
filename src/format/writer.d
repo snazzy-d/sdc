@@ -507,10 +507,7 @@ struct SolveState {
 
 					cost += f.cost;
 					overflow += f.overflow;
-
-					if (!tryWrap(line, i)) {
-						sunk += f.overflow;
-					}
+					updateSunk(line, i);
 
 					break;
 
@@ -595,19 +592,20 @@ struct SolveState {
 		return 1;
 	}
 
-	bool tryWrap(const Chunk[] line, size_t i) {
+	void updateSunk(const Chunk[] line, size_t i) {
 		if (canExpand) {
-			return true;
+			return;
 		}
 
 		foreach (j; ruleValues.frozen .. i) {
 			if (canSplit(line, j)) {
 				canExpand = true;
-				return true;
+				return;
 			}
 		}
 
-		return false;
+		// If the line overflow, but has no split point, it is sunk.
+		sunk = overflow;
 	}
 
 	void endLine(const Chunk[] line, size_t i, uint length, uint pageWidth) {
@@ -617,11 +615,7 @@ struct SolveState {
 
 		uint lineOverflow = length - pageWidth;
 		overflow += lineOverflow;
-
-		// If the line overflow, but has no split point, it is sunk.
-		if (!tryWrap(line, i)) {
-			sunk += lineOverflow;
-		}
+		updateSunk(line, i);
 	}
 
 	bool canSplit(const Chunk[] line, size_t i) const {
