@@ -157,10 +157,10 @@ private:
 	}
 
 	auto spliceSpan(S = Span)() {
-		auto guard = span!S();
-		builder.spliceSpan();
+		emitSkippedTokens();
+		emitInFlightComments();
 
-		return guard;
+		return builder.spliceSpan!S();
 	}
 
 	auto block() {
@@ -1961,6 +1961,19 @@ private:
 	/**
 	 * Declarations
 	 */
+	void parseParameterPacks() {
+		ListOptions options;
+		options.closingTokenType = TokenType.CloseParen;
+
+		auto guard = changeMode(Mode.Parameter);
+
+		while (match(TokenType.OpenParen)) {
+			nextToken();
+			parseList!parseStructuralElement(options);
+			options.splice = true;
+		}
+	}
+
 	void parseTypedDeclaration() in {
 		assert(match(TokenType.Identifier));
 	} do {
@@ -1971,7 +1984,7 @@ private:
 			space();
 			runOnType!(TokenType.Identifier, nextToken)();
 
-			while (parseParameterList()) {}
+			parseParameterPacks();
 
 			// Variable, template parameters, whatever.
 			if (match(TokenType.Equal) || match(TokenType.Colon)) {
@@ -1999,9 +2012,7 @@ private:
 		assert(match(TokenType.This));
 	} do {
 		nextToken();
-
-		while (parseParameterList()) {}
-
+		parseParameterPacks();
 		parseFunctionBody();
 	}
 
@@ -2389,35 +2400,50 @@ private:
 		return true;
 	}
 
+	struct ListOptions {
+		TokenType closingTokenType;
+		bool addNewLines = false;
+		bool splice = false;
+	}
+
 	void parseList(alias fun)(
 		TokenType closingTokenType, bool addNewLines = false) {
-		if (match(closingTokenType)) {
+		ListOptions options;
+		options.closingTokenType = closingTokenType;
+		options.addNewLines = addNewLines;
+
+		return parseList!fun(options);
+	}
+
+	void parseList(alias fun)(ListOptions options) {
+		auto guard = builder.virtualSpan();
+
+		if (match(options.closingTokenType)) {
 			nextToken();
 			return;
 		}
 
-		parseInnerList!fun(closingTokenType, addNewLines);
+		parseInnerList!fun(options);
 
-		if (match(closingTokenType)) {
+		if (match(options.closingTokenType)) {
 			auto trailingGuard = span!TrainlingListSpan();
-			if (addNewLines) {
+			if (options.addNewLines) {
 				newline(1);
 			}
 
 			nextToken();
 		}
 
-		if (addNewLines) {
+		if (options.addNewLines) {
 			newline(2);
 		}
 	}
 
-	void parseInnerList(alias fun)(
-		TokenType closingTokenType, bool addNewLines = false) {
-		auto guard = span!ListSpan();
+	void parseInnerList(alias fun)(ListOptions options) {
+		auto guard = options.splice ? spliceSpan!ListSpan() : span!ListSpan();
 
-		while (!match(closingTokenType)) {
-			if (addNewLines) {
+		while (!match(options.closingTokenType)) {
+			if (options.addNewLines) {
 				newline(1);
 			}
 

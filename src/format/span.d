@@ -198,7 +198,9 @@ final class ListSpan : Span {
 	}
 
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
-		return (s.isSplit(elements[0]) || !s.isUsed(this)) ? 0 : elements[0];
+		return (i < elements[0] || s.isSplit(elements[0]) || !s.isUsed(this))
+			? 0
+			: elements[0];
 	}
 
 	override Split computeSplit(const ref SolveState s, size_t i) const {

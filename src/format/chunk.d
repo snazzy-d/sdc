@@ -322,14 +322,14 @@ public:
 			this(Builder* builder, S span) {
 				this.builder = builder;
 				this.span = span;
-				this.startPosition = builder.source.length;
+				this.spliceIndex = builder.source.length;
 				builder.spanStack = span;
 			}
 
 			~this() {
 				assert(builder.spanStack is span);
 				builder.spanStack = span.parent;
-				builder.spliceIndex = startPosition;
+				builder.spliceIndex = spliceIndex;
 			}
 
 			void registerFix(void function(S s, size_t i) fix) {
@@ -345,36 +345,73 @@ public:
 		private:
 			Builder* builder;
 			S span;
-			size_t startPosition;
+			size_t spliceIndex;
 		}
 
 		return Guard(&this, new S(spanStack));
 	}
 
-	bool spliceSpan() {
-		Span parent = spanStack.parent;
-		Span insert;
+	auto virtualSpan() {
+		emitPendingWhiteSpace();
+
+		static struct Guard {
+			this(Builder* builder) {
+				this.builder = builder;
+				this.spliceIndex = builder.source.length;
+			}
+
+			~this() {
+				builder.spliceIndex = spliceIndex;
+			}
+
+		private:
+			Builder* builder;
+			size_t spliceIndex;
+		}
+
+		return Guard(&this);
+	}
+
+	auto spliceSpan(S = Span)() {
+		Span parent = spanStack;
+		auto guard = span!S();
+
+		Span span = guard.span;
+		Span previous = parent;
 
 		import std.range;
 		foreach (ref c; source[spliceIndex .. $].chain(only(chunk)).retro()) {
-			if (c.span !is parent) {
-				insert = c.span;
+			Span current = c.span;
+			scope(success) {
+				previous = current;
+			}
+
+			if (current is parent) {
+				c._span = span;
+				continue;
+			}
+
+			if (current is previous) {
+				// We already handled this.
+				continue;
+			}
+
+			Span insert = current;
+			while (insert !is null && insert.parent !is parent) {
+				insert = insert.parent;
+			}
+
+			if (insert is null) {
+				// We reached the end of the parent span.
 				break;
 			}
 
-			c._span = spanStack;
+			if (insert !is span) {
+				insert.parent = span;
+			}
 		}
 
-		while (insert !is null && insert.parent !is parent) {
-			insert = insert.parent;
-		}
-
-		bool doSplice = insert !is null && insert !is spanStack;
-		if (doSplice) {
-			insert.parent = spanStack;
-		}
-
-		return doSplice;
+		return guard;
 	}
 
 	/**
