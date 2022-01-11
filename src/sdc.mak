@@ -29,11 +29,11 @@ obj/driver/%.o: src/driver/%.d
 
 $(SDC): obj/driver/sdc.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE)
 	@mkdir -p bin
-	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS) $(LDFLAGS_LLVM)
+	$(DMD) -of"$@" $+ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS)) $(addprefix -Xcc=,$(LDFLAGS_LLVM))
 
 $(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE)
 	@mkdir -p bin
-	$(GCC) -o "$@" $+ $(ARCHFLAG) $(LDFLAGS) $(LDFLAGS_LLVM)
+	$(DMD) -of"$@" $+ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS)) $(addprefix -Xcc=,$(LDFLAGS_LLVM))
 
 bin/sdconfig:
 	@mkdir -p bin

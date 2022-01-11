@@ -1,5 +1,4 @@
 DMD ?= dmd
-GCC ?= gcc
 NASM ?= nasm
 RDMD ?= rdmd
 
@@ -20,8 +19,6 @@ LDFLAGS ?=
 ifdef LD_PATH
 	override LDFLAGS += $(addprefix -L, $(LD_PATH))
 endif
-
-override LDFLAGS += -lphobos2
 
 ifeq ($(PLATFORM),Linux)
 	LD_LLD = $(shell which ld.lld | xargs basename)
