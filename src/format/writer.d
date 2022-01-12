@@ -474,6 +474,7 @@ struct SolveState {
 		const indentationSize = writer.config.indentationSize;
 		const pageWidth = writer.config.pageWidth;
 
+		wasBlock = false;
 		foreach (i, ref c; line) {
 			uint lineLength = 0;
 			uint column = 0;
@@ -482,45 +483,46 @@ struct SolveState {
 				regionStart = i;
 			}
 
-			final switch (c.kind) with (ChunkKind) {
-				case Block:
-					auto f = writer.formatBlock(
-						c.chunks, getIndent(line, i), getAlign(line, i));
+			bool foundSplit = isSplit(i);
+			bool isBlock = c.kind == ChunkKind.Block;
+			scope(success) {
+				wasBlock = isBlock;
+			}
 
-					// Compute the column at which the block starts.
-					auto text = f.text;
-					assert(text[0] == '\n');
+			if (isBlock) {
+				auto f = writer.formatBlock(
+					c.chunks, getIndent(line, i), getAlign(line, i));
 
-					foreach (n; 1 .. f.text.length) {
-						if (text[n] == ' ') {
-							column++;
-							continue;
-						}
+				// Compute the column at which the block starts.
+				auto text = f.text;
+				assert(text[0] == '\n');
 
-						if (text[n] == '\t') {
-							column += indentationSize;
-							continue;
-						}
-
-						break;
-					}
-
-					cost += f.cost;
-					overflow += f.overflow;
-					updateSunk(line, i);
-
-					break;
-
-				case Text:
-					if (!isSplit(i)) {
-						length += (c.splitType == SplitType.Space) + c.length;
+				foreach (n; 1 .. f.text.length) {
+					if (text[n] == ' ') {
+						column++;
 						continue;
 					}
 
-					lineLength = c.length;
-					column = getIndent(line, i) * indentationSize
-						+ getAlign(line, i);
+					if (text[n] == '\t') {
+						column += indentationSize;
+						continue;
+					}
+
 					break;
+				}
+
+				cost += f.cost;
+				overflow += f.overflow;
+				updateSunk(line, i);
+			} else {
+				if (!wasBlock && !foundSplit) {
+					length += (c.splitType == SplitType.Space) + c.length;
+					continue;
+				}
+
+				lineLength = c.length;
+				column =
+					getIndent(line, i) * indentationSize + getAlign(line, i);
 			}
 
 			if (i > 0) {
@@ -537,12 +539,16 @@ struct SolveState {
 			previousColumn = column;
 			length = column + lineLength;
 
-			cost += 1;
-
 			// If we do not plan to expand, freeze previous regions.
 			if (!canExpand && regionStart > ruleValues.frozen) {
 				ruleValues.frozen = regionStart;
 			}
+
+			if (!foundSplit) {
+				continue;
+			}
+
+			cost += 1;
 
 			auto span = c.span;
 			bool needInsert = true;

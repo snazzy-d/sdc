@@ -321,7 +321,7 @@ public:
 	/**
 	 * Span management.
 	 */
-	auto span(S = Span)() {
+	auto span(S = Span, T...)(T args) {
 		emitPendingWhiteSpace();
 
 		static struct Guard {
@@ -354,7 +354,7 @@ public:
 			size_t spliceIndex;
 		}
 
-		return Guard(&this, new S(spanStack));
+		return Guard(&this, new S(spanStack, args));
 	}
 
 	auto virtualSpan() {
@@ -378,9 +378,9 @@ public:
 		return Guard(&this);
 	}
 
-	auto spliceSpan(S = Span)() {
+	auto spliceSpan(S = Span, T...)(T args) {
 		Span parent = spanStack;
-		auto guard = span!S();
+		auto guard = span!S(args);
 
 		Span span = guard.span;
 		Span previous = parent;

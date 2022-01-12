@@ -138,6 +138,23 @@ bool mustSplit(const Span span, const ref SolveState s, size_t i) {
 }
 
 /**
+ * This span can indent multiple times.
+ */
+final class IndentSpan : Span {
+	uint indent;
+
+	this(Span parent, uint indent) {
+		super(parent);
+
+		this.indent = indent;
+	}
+
+	override uint computeIndent(const ref SolveState s) const {
+		return super.computeIndent(s) ? indent : 0;
+	}
+}
+
+/**
  * This span only has a cost when directly broken.
  */
 final class PrefixSpan : Span {

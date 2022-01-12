@@ -149,18 +149,18 @@ private:
 	}
 
 	import format.span;
-	auto span(S = Span)() {
+	auto span(S = Span, T...)(T args) {
 		emitSkippedTokens();
 		emitInFlightComments();
 
-		return builder.span!S();
+		return builder.span!S(args);
 	}
 
-	auto spliceSpan(S = Span)() {
+	auto spliceSpan(S = Span, T...)(T args) {
 		emitSkippedTokens();
 		emitInFlightComments();
 
-		return builder.spliceSpan!S();
+		return builder.spliceSpan!S(args);
 	}
 
 	auto block() {
@@ -2061,7 +2061,7 @@ private:
 		space();
 
 		if (match(TokenType.If)) {
-			auto guard = span();
+			auto guard = span!IndentSpan(2);
 			split();
 			nextToken();
 			space();
