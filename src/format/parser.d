@@ -1857,7 +1857,23 @@ private:
 	}
 
 	bool parseArgumentList() {
-		return parseList!parseExpression();
+		TokenType closingTokenType;
+		switch (token.type) with (TokenType) {
+			case OpenParen:
+				closingTokenType = CloseParen;
+				break;
+
+			case OpenBracket:
+				closingTokenType = CloseBracket;
+				break;
+
+			default:
+				return false;
+		}
+
+		nextToken();
+		parseList!parseExpression(closingTokenType);
+		return true;
 	}
 
 	void parseIsExpression() in {
@@ -2099,8 +2115,14 @@ private:
 	}
 
 	bool parseParameterList() {
+		if (!match(TokenType.OpenParen)) {
+			return false;
+		}
+
 		auto guard = changeMode(Mode.Parameter);
-		return parseList!parseStructuralElement();
+		nextToken();
+		parseList!parseStructuralElement(TokenType.CloseParen);
+		return true;
 	}
 
 	void parseImport() in {
@@ -2383,26 +2405,6 @@ private:
 	/**
 	 * Parsing utilities
 	 */
-	bool parseList(alias fun)() {
-		TokenType closingTokenType;
-		switch (token.type) with (TokenType) {
-			case OpenParen:
-				closingTokenType = CloseParen;
-				break;
-
-			case OpenBracket:
-				closingTokenType = CloseBracket;
-				break;
-
-			default:
-				return false;
-		}
-
-		nextToken();
-		parseList!fun(closingTokenType);
-		return true;
-	}
-
 	struct ListOptions {
 		TokenType closingTokenType;
 		bool addNewLines = false;
