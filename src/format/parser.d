@@ -2352,7 +2352,7 @@ private:
 				}
 
 				case If: {
-					auto guard = span();
+					auto guard = span!IndentSpan(2);
 					split();
 					nextToken();
 					space();
