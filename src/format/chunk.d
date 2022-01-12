@@ -228,21 +228,27 @@ public:
 		pendingWhiteSpace = SplitType.None;
 	}
 
+	void prepareChunk(bool glued = false) in {
+		assert(chunk.empty);
+	} do {
+		chunk._span = spanStack;
+		chunk._glued = glued;
+
+		if (glued) {
+			chunk._splitType = SplitType.None;
+			chunk._indentation = 0;
+		} else {
+			chunk._indentation = indentation;
+		}
+	}
+
 	void split(bool glued = false) {
 		import std.stdio;
 
 		// writeln("split!", glued ? " glued" : "");
 
 		scope(success) {
-			chunk._span = spanStack;
-			chunk._glued = glued;
-
-			if (glued) {
-				chunk._splitType = SplitType.None;
-				chunk._indentation = 0;
-			} else {
-				chunk._indentation = indentation;
-			}
+			prepareChunk(glued);
 		}
 
 		if (!glued) {
@@ -430,6 +436,9 @@ public:
 
 				// Restore the outer builder.
 				*builder = outerBuilder;
+
+				builder.chunk = Chunk();
+				builder.prepareChunk();
 			}
 
 		private:
