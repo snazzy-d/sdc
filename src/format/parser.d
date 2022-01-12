@@ -2007,46 +2007,59 @@ private:
 	}
 
 	void parseFunctionBody() {
-		bool foundBody = false;
-		while (!foundBody) {
+		if (parseFunctionPostfix()) {
+			space();
+			parseBlock(Mode.Statement);
+		}
+	}
+
+	bool parseFunctionPostfix() {
+		auto guard = span!IndentSpan(2);
+
+		while (true) {
 			clearSplitType();
 			space();
-
-			parseStorageClasses(true);
 
 			switch (token.type) with (TokenType) {
 				case OpenBrace:
 					// Function declaration.
-					foundBody = true;
-					break;
+					return true;
 
 				case Body, Do:
-					foundBody = true;
 					nextToken();
+					return true;
+
+				case In:
+					nextToken();
+					if (!parseParameterList()) {
+						space();
+						parseBlock(Mode.Statement);
+					}
+
 					break;
 
-				case In, Out:
+				case Out:
+					// FIXME: This doesn't looks like it is doing the right thing.
 					nextToken();
 					parseParameterList();
+					space();
+					parseBlock(Mode.Statement);
 					break;
 
-				case If: {
-					auto guard = span();
+				case If:
 					split();
 					nextToken();
 					space();
 					parseCondition();
-					continue;
-				}
+					break;
 
 				default:
-					clearSplitType();
-					return;
-			}
+					if (!parseStorageClasses(true)) {
+						clearSplitType();
+						return false;
+					}
 
-			space();
-			if (match(TokenType.OpenBrace)) {
-				parseBlock(Mode.Statement);
+					break;
 			}
 		}
 	}
