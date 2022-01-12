@@ -1246,7 +1246,7 @@ private:
 		return true;
 	}
 
-	void parseBlock(Mode m) {
+	void parseBlock(alias fun = parseBlockContent, T...)(T args) {
 		if (!match(TokenType.OpenBrace)) {
 			return;
 		}
@@ -1262,28 +1262,7 @@ private:
 			clearSplitType();
 
 			auto blockGuard = block();
-			auto indentGuard = indent(1 + needDoubleIndent);
-			auto modeGuard = changeMode(m);
-
-			auto oldNeedDoubleIndent = needDoubleIndent;
-			auto oldDoubleIndentBlock = doubleIndentBlock;
-			scope(exit) {
-				needDoubleIndent = oldNeedDoubleIndent;
-				doubleIndentBlock = oldDoubleIndentBlock;
-			}
-
-			doubleIndentBlock = needDoubleIndent;
-			needDoubleIndent = false;
-
-			newline(1);
-			split();
-
-			while (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
-				parseStructuralElement();
-			}
-
-			// Flush comments so that they have the proper indentation.
-			flushComments();
+			fun(args);
 		}
 
 		if (match(TokenType.CloseBrace)) {
@@ -1292,6 +1271,31 @@ private:
 			nextToken();
 			newline(2);
 		}
+	}
+
+	void parseBlockContent(Mode m) {
+		auto indentGuard = indent(1 + needDoubleIndent);
+		auto modeGuard = changeMode(m);
+
+		auto oldNeedDoubleIndent = needDoubleIndent;
+		auto oldDoubleIndentBlock = doubleIndentBlock;
+		scope(exit) {
+			needDoubleIndent = oldNeedDoubleIndent;
+			doubleIndentBlock = oldDoubleIndentBlock;
+		}
+
+		doubleIndentBlock = needDoubleIndent;
+		needDoubleIndent = false;
+
+		newline(1);
+		split();
+
+		while (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
+			parseStructuralElement();
+		}
+
+		// Flush comments so that they have the proper indentation.
+		flushComments();
 	}
 
 	static isBasicBlockEntry(ref TokenRange r) {
@@ -1913,39 +1917,25 @@ private:
 		parseList!parseStructuralElement(TokenType.CloseParen);
 	}
 
-	void parseStructLiteral() in {
-		assert(match(TokenType.OpenBrace));
-	} do {
-		nextToken();
-		if (parseEmptyBlock()) {
-			return;
-		}
+	void parseStructLiteral() {
+		parseBlock!parseStructLiteralContent();
+		clearSplitType();
+	}
 
-		{
-			// We have an actual block.
-			clearSplitType();
+	void parseStructLiteralContent() {
+		auto indentGuard = indent();
 
-			auto blockGuard = block();
-			auto indentGuard = indent();
+		newline(1);
+		split();
 
+		while (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
+			parseMapEntry();
+			runOnType!(TokenType.Comma, nextToken)();
 			newline(1);
-			split();
-
-			while (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
-				parseMapEntry();
-				runOnType!(TokenType.Comma, nextToken)();
-				newline(1);
-			}
-
-			// Flush comments so that they have the proper indentation.
-			flushComments();
 		}
 
-		if (match(TokenType.CloseBrace)) {
-			clearSplitType();
-			newline(1);
-			nextToken();
-		}
+		// Flush comments so that they have the proper indentation.
+		flushComments();
 	}
 
 	void parseMapEntry() {
