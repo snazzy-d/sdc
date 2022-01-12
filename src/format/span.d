@@ -11,7 +11,7 @@ class Span {
 	}
 
 	uint getCost(const ref SolveState s) const {
-		return 3;
+		return 10;
 	}
 
 	// lhs < rhs => rhs.opCmp(rhs) < 0
@@ -163,7 +163,7 @@ final class PrefixSpan : Span {
 	}
 
 	override uint getCost(const ref SolveState s) const {
-		return s.isUsed(this) ? 5 : 0;
+		return s.isUsed(this) ? 15 : 0;
 	}
 }
 
@@ -197,7 +197,7 @@ final class ListSpan : Span {
 	}
 
 	override uint getCost(const ref SolveState s) const {
-		return elements.length <= 1 ? 5 : 3;
+		return elements.length <= 1 ? 15 : 13;
 	}
 
 	void registerElement(size_t i) in {
