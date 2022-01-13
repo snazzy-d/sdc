@@ -180,55 +180,47 @@ private:
 	 * Whitespace management.
 	 */
 	import source.location;
-	uint getStartLineNumber(Location loc) {
-		return loc.getFullLocation(context).getStartLineNumber();
-	}
-
 	uint getLineNumber(Position p) {
 		return p.getFullPosition(context).getLineNumber();
 	}
 
-	int newLineCount(Location location, Position previous) {
-		return getStartLineNumber(location) - getLineNumber(previous);
+	int newLineCount(Position start, Position stop) {
+		return getLineNumber(stop) - getLineNumber(start);
 	}
 
 	int newLineCount(ref TokenRange r) {
-		return newLineCount(r.front.location, r.previous);
+		return newLineCount(r.previous, r.front.location.start);
 	}
 
 	int newLineCount() {
 		return newLineCount(trange);
 	}
 
-	uint getStartOffset(Location loc) {
-		return loc.getFullLocation(context).getStartOffset();
-	}
-
 	uint getSourceOffset(Position p) {
 		return p.getFullPosition(context).getSourceOffset();
 	}
 
-	int whiteSpaceLength(Location location, Position previous) {
-		return getStartOffset(location) - getSourceOffset(previous);
+	int whiteSpaceLength(Position start, Position stop) {
+		return getSourceOffset(stop) - getSourceOffset(start);
 	}
 
 	int whiteSpaceLength() {
-		return whiteSpaceLength(token.location, trange.previous);
+		return whiteSpaceLength(trange.previous, token.location.start);
 	}
 
-	void emitSourceBasedWhiteSpace(Location location, Position previous) {
-		if (auto nl = newLineCount(location, previous)) {
+	void emitSourceBasedWhiteSpace(Position previous, Location current) {
+		if (auto nl = newLineCount(previous, current.start)) {
 			newline(nl);
 			return;
 		}
 
-		if (whiteSpaceLength(location, previous) > 0) {
+		if (whiteSpaceLength(previous, current.start) > 0) {
 			space();
 		}
 	}
 
 	void emitSourceBasedWhiteSpace() {
-		emitSourceBasedWhiteSpace(token.location, trange.previous);
+		emitSourceBasedWhiteSpace(trange.previous, token.location);
 	}
 
 	/**
@@ -328,7 +320,7 @@ private:
 	 * Comments management
 	 */
 	void emitComment(Location loc, Position previous) {
-		emitSourceBasedWhiteSpace(loc, previous);
+		emitSourceBasedWhiteSpace(previous, loc);
 
 		import std.string;
 		auto comment = loc.getFullLocation(context).getSlice().strip();
@@ -364,7 +356,7 @@ private:
 			emitComment(loc, previous);
 		}
 
-		emitSourceBasedWhiteSpace(nextTokenLoc, previous);
+		emitSourceBasedWhiteSpace(previous, nextTokenLoc);
 	}
 
 	void emitInFlightComments() {
