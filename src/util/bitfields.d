@@ -14,17 +14,17 @@ private:
 
 size_t computeEnumSize(E)() {
 	size_t size = 0;
-	
+
 	import std.traits;
 	foreach (m; EnumMembers!E) {
 		size_t ms = 0;
 		while ((m >> ms) != 0) {
 			ms++;
 		}
-		
+
 		import std.algorithm;
 		size = max(size, ms);
 	}
-	
+
 	return size;
 }
