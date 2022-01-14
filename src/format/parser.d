@@ -127,12 +127,12 @@ private:
 		builder.newline(nl);
 	}
 
-	void clearSplitType() {
+	void clearSeparator() {
 		if (skipFormatting()) {
 			return;
 		}
 
-		builder.clearSplitType();
+		builder.clearSeparator();
 	}
 
 	void split() {
@@ -1055,7 +1055,7 @@ private:
 			Lambda:
 				kind = IdentifierKind.Expression;
 				parseBlock(Mode.Statement);
-				clearSplitType();
+				clearSeparator();
 				break;
 
 			case OpenBracket:
@@ -1251,14 +1251,14 @@ private:
 
 		{
 			// We have an actual block.
-			clearSplitType();
+			clearSeparator();
 
 			auto blockGuard = block();
 			fun(args);
 		}
 
 		if (match(TokenType.CloseBrace)) {
-			clearSplitType();
+			clearSeparator();
 			newline(1);
 			nextToken();
 			newline(2);
@@ -1394,7 +1394,7 @@ private:
 	}
 
 	void emitBlockControlFlowWhitespace(bool isBlock) {
-		clearSplitType();
+		clearSeparator();
 		if (isBlock) {
 			space();
 		} else {
@@ -1502,7 +1502,7 @@ private:
 				nextToken();
 			} else {
 				parseStructuralElement();
-				clearSplitType();
+				clearSeparator();
 			}
 
 			if (match(TokenType.Semicolon)) {
@@ -1927,7 +1927,7 @@ private:
 
 	void parseStructLiteral() {
 		parseBlock!parseStructLiteralContent();
-		clearSplitType();
+		clearSeparator();
 	}
 
 	void parseStructLiteralContent() {
@@ -2025,7 +2025,7 @@ private:
 		auto guard = span!IndentSpan(2);
 
 		while (true) {
-			clearSplitType();
+			clearSeparator();
 			space();
 
 			switch (token.type) with (TokenType) {
@@ -2063,7 +2063,7 @@ private:
 
 				default:
 					if (!parseStorageClasses(true)) {
-						clearSplitType();
+						clearSeparator();
 						return false;
 					}
 
@@ -2234,7 +2234,7 @@ private:
 
 		switch (token.type) with (TokenType) {
 			case Colon:
-				clearSplitType();
+				clearSeparator();
 				parseColonBlock();
 				break;
 

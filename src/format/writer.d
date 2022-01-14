@@ -157,13 +157,13 @@ struct LineWriter {
 			if (newline || (i > 0 && state.isSplit(i))) {
 				output('\n');
 
-				if (c.splitType == SplitType.TwoNewLines) {
+				if (c.separator == Separator.TwoNewLines) {
 					output('\n');
 				}
 
 				indent(state.getIndent(line, i));
 				outputAlign(state.getAlign(line, i));
-			} else if (c.splitType == SplitType.Space) {
+			} else if (c.separator == Separator.Space) {
 				output(' ');
 			}
 
@@ -516,7 +516,7 @@ struct SolveState {
 				updateSunk(line, i);
 			} else {
 				if (!wasBlock && !foundSplit) {
-					length += (c.splitType == SplitType.Space) + c.length;
+					length += (c.separator == Separator.Space) + c.length;
 					continue;
 				}
 
@@ -599,7 +599,7 @@ struct SolveState {
 		}
 
 		// No penality for double line breaks.
-		if (c.splitType == SplitType.TwoNewLines) {
+		if (c.separator == Separator.TwoNewLines) {
 			return 0;
 		}
 
@@ -672,7 +672,7 @@ struct SolveState {
 		// Find the preceding line break.
 		size_t c = line[i].span.getAlignIndex(this, i);
 		while (c > 0 && !isSplit(c)) {
-			ret += line[c].splitType == SplitType.Space;
+			ret += line[c].separator == Separator.Space;
 			ret += line[--c].length;
 		}
 

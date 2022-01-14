@@ -1,15 +1,15 @@
 module format.chunk;
 
-enum SplitType {
+enum ChunkKind {
+	Text,
+	Block,
+}
+
+enum Separator {
 	None,
 	Space,
 	NewLine,
 	TwoNewLines,
-}
-
-enum ChunkKind {
-	Text,
-	Block,
 }
 
 struct Chunk {
@@ -18,7 +18,7 @@ private:
 	alias FieldsTuple = TypeTuple!(
 		// sdfmt off
 		ChunkKind, "_kind", EnumSize!ChunkKind,
-		SplitType, "_splitType", EnumSize!SplitType,
+		Separator, "_separator", EnumSize!Separator,
 		bool, "_glued", 1,
 		bool, "_startsUnwrappedLine", 1,
 		bool, "_startsRegion", 1,
@@ -47,13 +47,13 @@ public:
 	}
 
 	@property
-	SplitType splitType() const {
-		return _splitType;
+	Separator separator() const {
+		return _separator;
 	}
 
 	bool mustSplit() const {
-		return splitType == SplitType.TwoNewLines
-			|| splitType == SplitType.NewLine;
+		return separator == Separator.TwoNewLines
+			|| separator == Separator.NewLine;
 	}
 
 	@property
@@ -111,7 +111,7 @@ public:
 
 	string toString() const {
 		import std.conv;
-		return "Chunk(" ~ splitType.to!string ~ ", " ~ Span.print(span) ~ ", "
+		return "Chunk(" ~ separator.to!string ~ ", " ~ Span.print(span) ~ ", "
 			~ startsUnwrappedLine.to!string ~ ", " ~ startsRegion.to!string
 			~ ", " ~ indentation.to!string ~ ", " ~ length.to!string
 			~ ", " ~ (kind ? chunks.to!string : [text].to!string) ~ ")";
@@ -123,7 +123,7 @@ private:
 	Chunk chunk;
 	Chunk[] source;
 
-	SplitType pendingWhiteSpace = SplitType.None;
+	Separator pendingSeparator = Separator.None;
 	uint indentation;
 
 	import format.span;
@@ -203,7 +203,7 @@ public:
 	 * Write into the next chunk.
 	 */
 	void write(string s) {
-		emitPendingWhiteSpace();
+		emitPendingSeparator();
 
 		import std.stdio;
 		// writeln("write: ", [s]);
@@ -213,19 +213,19 @@ public:
 	void space() {
 		import std.stdio;
 		// writeln("space!");
-		setWhiteSpace(SplitType.Space);
+		setWhiteSpace(Separator.Space);
 	}
 
 	void newline(int nLines = 1) {
 		import std.stdio;
 		// writeln("newline ", nLines);
-		setWhiteSpace(nLines > 1 ? SplitType.TwoNewLines : SplitType.NewLine);
+		setWhiteSpace(nLines > 1 ? Separator.TwoNewLines : Separator.NewLine);
 	}
 
-	void clearSplitType() {
+	void clearSeparator() {
 		import std.stdio;
-		// writeln("clearSplitType!");
-		pendingWhiteSpace = SplitType.None;
+		// writeln("clearSeparator!");
+		pendingSeparator = Separator.None;
 	}
 
 	void prepareChunk(bool glued = false) in {
@@ -235,7 +235,7 @@ public:
 		chunk._glued = glued;
 
 		if (glued) {
-			chunk._splitType = SplitType.None;
+			chunk._separator = Separator.None;
 			chunk._indentation = 0;
 		} else {
 			chunk._indentation = indentation;
@@ -322,7 +322,7 @@ public:
 	 * Span management.
 	 */
 	auto span(S = Span, T...)(T args) {
-		emitPendingWhiteSpace();
+		emitPendingSeparator();
 
 		static struct Guard {
 			this(Builder* builder, S span) {
@@ -358,7 +358,7 @@ public:
 	}
 
 	auto virtualSpan() {
-		emitPendingWhiteSpace();
+		emitPendingSeparator();
 
 		static struct Guard {
 			this(Builder* builder) {
@@ -425,7 +425,7 @@ public:
 	 */
 	auto block() {
 		split();
-		emitPendingWhiteSpace();
+		emitPendingSeparator();
 
 		static struct Guard {
 			~this() {
@@ -455,20 +455,20 @@ public:
 	}
 
 private:
-	void setWhiteSpace(SplitType st) {
+	void setWhiteSpace(Separator s) {
 		import std.algorithm;
-		pendingWhiteSpace = max(pendingWhiteSpace, st);
+		pendingSeparator = max(pendingSeparator, s);
 	}
 
-	void emitPendingWhiteSpace() {
+	void emitPendingSeparator() {
 		scope(success) {
 			import std.algorithm;
-			chunk._splitType = max(chunk.splitType, pendingWhiteSpace);
+			chunk._separator = max(chunk.separator, pendingSeparator);
 
-			pendingWhiteSpace = SplitType.None;
+			pendingSeparator = Separator.None;
 		}
 
-		final switch (pendingWhiteSpace) with (SplitType) {
+		final switch (pendingSeparator) with (Separator) {
 			case None:
 				// nothing to do.
 				return;
@@ -476,7 +476,7 @@ private:
 			case Space:
 				if (!chunk.empty) {
 					chunk.text ~= ' ';
-					pendingWhiteSpace = SplitType.None;
+					pendingSeparator = None;
 				}
 
 				return;
