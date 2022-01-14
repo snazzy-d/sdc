@@ -150,29 +150,29 @@ struct LineWriter {
 		cost += state.cost;
 		overflow += state.overflow;
 
-		bool newline = state.mustSplit(line, 0);
 		foreach (i, c; line) {
 			assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
 
 			uint lineCount = state.newLineCount(line, i);
-			if (lineCount == 0) {
-				lineCount = newline;
+			if (i == 0 && !state.mustSplit(line, 0)) {
+				lineCount = 0;
 			}
 
-			if (newline || (i > 0 && lineCount > 0)) {
+			if (lineCount > 0) {
 				foreach (_; 0 .. lineCount) {
 					output('\n');
 				}
 
-				indent(state.getIndent(line, i));
-				outputAlign(state.getAlign(line, i));
+				if (!c.glued) {
+					indent(state.getIndent(line, i));
+					outputAlign(state.getAlign(line, i));
+				}
 			} else if (c.separator == Separator.Space) {
 				output(' ');
 			}
 
 			final switch (c.kind) with (ChunkKind) {
 				case Text:
-					newline = false;
 					output(c.text);
 					break;
 
@@ -182,8 +182,6 @@ struct LineWriter {
 
 					cost += f.cost;
 					overflow += f.overflow;
-
-					newline = true;
 
 					output(f.text);
 					break;
@@ -433,15 +431,9 @@ struct SolveState {
 			return;
 		}
 
-		bool wasBlock = false;
 		foreach (i, ref c; line) {
-			bool isBlock = c.kind == ChunkKind.Block;
-			scope(success) {
-				wasBlock = isBlock;
-			}
-
-			// Blocks are magic and do not break spans.
-			if (isBlock || wasBlock) {
+			// Continuation are not considered line splits.
+			if (c.continuation) {
 				continue;
 			}
 
@@ -477,7 +469,6 @@ struct SolveState {
 		const indentationSize = writer.config.indentationSize;
 		const pageWidth = writer.config.pageWidth;
 
-		wasBlock = false;
 		foreach (i, ref c; line) {
 			uint lineLength = 0;
 			uint column = 0;
@@ -486,13 +477,7 @@ struct SolveState {
 				regionStart = i;
 			}
 
-			bool foundSplit = isSplit(i);
-			bool isBlock = c.kind == ChunkKind.Block;
-			scope(success) {
-				wasBlock = isBlock;
-			}
-
-			if (isBlock) {
+			if (c.kind == ChunkKind.Block) {
 				auto f = writer.formatBlock(
 					c.chunks, getIndent(line, i), getAlign(line, i));
 
@@ -518,7 +503,7 @@ struct SolveState {
 				overflow += f.overflow;
 				updateSunk(line, i);
 			} else {
-				if (!wasBlock && !foundSplit) {
+				if (newLineCount(line, i) == 0) {
 					length += (c.separator == Separator.Space) + c.length;
 					continue;
 				}
@@ -547,7 +532,7 @@ struct SolveState {
 				ruleValues.frozen = regionStart;
 			}
 
-			if (!foundSplit) {
+			if (c.continuation) {
 				continue;
 			}
 
@@ -645,7 +630,7 @@ struct SolveState {
 		}
 
 		auto c = line[i];
-		if (c.glued) {
+		if (!c.canSplit()) {
 			return false;
 		}
 

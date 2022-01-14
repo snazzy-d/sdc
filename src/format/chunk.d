@@ -20,6 +20,7 @@ private:
 		ChunkKind, "_kind", EnumSize!ChunkKind,
 		Separator, "_separator", EnumSize!Separator,
 		bool, "_glued", 1,
+		bool, "_continuation", 1,
 		bool, "_startsUnwrappedLine", 1,
 		bool, "_startsRegion", 1,
 		uint, "_indentation", 10,
@@ -60,6 +61,15 @@ public:
 	@property
 	bool glued() const {
 		return _glued;
+	}
+
+	@property
+	bool continuation() const {
+		return _continuation;
+	}
+
+	bool canSplit() const {
+		return !glued && !continuation;
 	}
 
 	@property
@@ -160,10 +170,18 @@ public:
 
 		foreach (i, ref c; source) {
 			bool isBlock = c.kind == ChunkKind.Block;
-			auto top = c.span.getTop();
+
+			// We delegate indentation to the block itself.
+			if (isBlock) {
+				c._glued = true;
+			}
 
 			// Do not use the regular line splitter for blocks.
-			c._glued = c.glued || isBlock || wasBlock;
+			if (isBlock || wasBlock) {
+				c._continuation = true;
+			}
+
+			auto top = c.span.getTop();
 
 			// If we have a new set of spans, then we have a new region.
 			c._startsRegion = top is null || top !is previousTop;
@@ -193,7 +211,6 @@ public:
 
 			// This is a line break with no span in common.
 			c._startsUnwrappedLine = true;
-			c._glued = true;
 			start = i;
 		}
 
