@@ -51,9 +51,10 @@ public:
 		return _separator;
 	}
 
-	bool mustSplit() const {
-		return separator == Separator.TwoNewLines
-			|| separator == Separator.NewLine;
+	@property
+	uint newLineCount() const {
+		return (separator >= Separator.NewLine)
+			+ (separator == Separator.TwoNewLines);
 	}
 
 	@property
@@ -186,7 +187,7 @@ public:
 			}
 
 			// If this is not a line break, this is not an unwrapped line break.
-			if (i > 0 && !c.mustSplit()) {
+			if (i > 0 && c.newLineCount() == 0) {
 				continue;
 			}
 

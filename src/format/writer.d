@@ -154,10 +154,13 @@ struct LineWriter {
 		foreach (i, c; line) {
 			assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
 
-			if (newline || (i > 0 && state.isSplit(i))) {
-				output('\n');
+			uint lineCount = state.newLineCount(line, i);
+			if (lineCount == 0) {
+				lineCount = newline;
+			}
 
-				if (c.separator == Separator.TwoNewLines) {
+			if (newline || (i > 0 && lineCount > 0)) {
+				foreach (_; 0 .. lineCount) {
 					output('\n');
 				}
 
@@ -651,11 +654,19 @@ struct SolveState {
 
 	bool mustSplit(const Chunk[] line, size_t i) const {
 		auto c = line[i];
-		return c.mustSplit() || c.span.mustSplit(this, i);
+		return c.newLineCount() > 0 || c.span.mustSplit(this, i);
 	}
 
 	bool isSplit(size_t i) const {
 		return ruleValues[i];
+	}
+
+	uint newLineCount(const Chunk[] line, size_t i) const {
+		if (auto c = line[i].newLineCount()) {
+			return c;
+		}
+
+		return isSplit(i);
 	}
 
 	bool isUsed(const Span span) const {
