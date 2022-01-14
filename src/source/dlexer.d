@@ -199,16 +199,9 @@ struct DLexer {
 	void popSheBang() {
 		auto c = frontChar;
 		if (c == '#') {
-			do {
+			while (c != '\n') {
 				popChar();
 				c = frontChar;
-			} while (c != '\n' && c != '\r');
-			
-			popChar();
-			if (c == '\r') {
-				if (frontChar == '\n') {
-					popChar();
-				}
 			}
 		}
 	}
