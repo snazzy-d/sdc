@@ -155,23 +155,22 @@ struct LineWriter {
 
 	void writeLine(SolveState state) {
 		foreach (i, c; line) {
-			assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
-
-			uint lineCount = state.newLineCount(line, i);
-			if (i == 0 && !state.mustSplit(line, 0)) {
-				lineCount = 0;
+			uint lineCount = 0;
+			if (i > 0 || line.ptr !is chunks.ptr) {
+				assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
+				lineCount = state.newLineCount(line, i);
 			}
 
-			if (lineCount > 0) {
-				foreach (_; 0 .. lineCount) {
-					output('\n');
-				}
+			foreach (_; 0 .. lineCount) {
+				output('\n');
+			}
 
-				if (!c.glued) {
-					indent(state.getIndent(line, i));
-					outputAlign(state.getAlign(line, i));
-				}
-			} else if (c.separator == Separator.Space) {
+			if ((i == 0 || lineCount > 0) && !c.glued) {
+				indent(state.getIndent(line, i));
+				outputAlign(state.getAlign(line, i));
+			}
+
+			if (lineCount == 0 && c.separator == Separator.Space) {
 				output(' ');
 			}
 
@@ -487,9 +486,8 @@ struct SolveState {
 
 				// Compute the column at which the block starts.
 				auto text = f.text;
-				assert(text[0] == '\n');
 
-				foreach (n; 1 .. f.text.length) {
+				foreach (n; 0 .. f.text.length) {
 					if (text[n] == ' ') {
 						column++;
 						continue;

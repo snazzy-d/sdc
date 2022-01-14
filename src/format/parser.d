@@ -619,6 +619,7 @@ private:
 				needDoubleIndent = true;
 
 				auto guard = unindent();
+				split();
 
 				nextToken();
 				space();
@@ -1252,6 +1253,7 @@ private:
 		{
 			// We have an actual block.
 			clearSeparator();
+			newline(1);
 
 			auto blockGuard = block();
 			fun(args);
@@ -1279,7 +1281,6 @@ private:
 		doubleIndentBlock = needDoubleIndent;
 		needDoubleIndent = false;
 
-		newline(1);
 		split();
 
 		while (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
@@ -1933,7 +1934,6 @@ private:
 	void parseStructLiteralContent() {
 		auto indentGuard = indent();
 
-		newline(1);
 		split();
 
 		while (!match(TokenType.CloseBrace) && !match(TokenType.End)) {

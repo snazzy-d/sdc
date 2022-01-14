@@ -122,9 +122,9 @@ public:
 
 	string toString() const {
 		import std.conv;
-		return "Chunk(" ~ separator.to!string ~ ", " ~ Span.print(span) ~ ", "
-			~ startsUnwrappedLine.to!string ~ ", " ~ startsRegion.to!string
-			~ ", " ~ indentation.to!string ~ ", " ~ length.to!string
+		return "Chunk(" ~ separator.to!string ~ ", " ~ Span.print(span)
+			~ ", " ~ glued.to!string ~ ", " ~ continuation.to!string ~ ", "
+			~ indentation.to!string ~ ", " ~ length.to!string
 			~ ", " ~ (kind ? chunks.to!string : [text].to!string) ~ ")";
 	}
 }
@@ -201,6 +201,11 @@ public:
 
 			// If this is not a new region, this is not an unwrapped line break.
 			if (!c.startsRegion) {
+				continue;
+			}
+
+			// If this is glued, this is not an unwrapped line break.
+			if (c.glued) {
 				continue;
 			}
 

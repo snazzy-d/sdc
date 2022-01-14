@@ -13,7 +13,6 @@ Reachable:
 
 Over:
 	while (false) {
-
 	InLoop:
 		int i;
 		goto PostLoop;
