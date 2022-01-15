@@ -150,6 +150,10 @@ struct LineWriter {
 		cost += state.cost;
 		overflow += state.overflow;
 
+		writeLine(state);
+	}
+
+	void writeLine(SolveState state) {
 		foreach (i, c; line) {
 			assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
 
