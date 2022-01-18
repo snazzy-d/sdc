@@ -382,3 +382,83 @@ auto getKeywordsMap() {
 		"__parameters"    : __Parameters,
 	];
 }
+
+unittest {
+	auto context = new Context();
+	
+	auto testlexer(string s) {
+		import source.name;
+		auto base = context.registerMixin(Location.init, s ~ '\0');
+		return lex(base, context);
+	}
+	
+	import source.parserutil;
+	
+	{
+		auto lex = testlexer("");
+		lex.match(TokenType.Begin);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("0");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1.");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1..");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		lex.match(TokenType.DotDot);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1 .");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		lex.match(TokenType.Dot);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1.f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		lex.match(TokenType.Dot);
+		lex.match(TokenType.Identifier);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1. f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		lex.match(TokenType.Dot);
+		lex.match(TokenType.Identifier);
+		assert(lex.front.type == TokenType.End);
+	}
+}

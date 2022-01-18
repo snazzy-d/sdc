@@ -141,7 +141,7 @@ private:
 		index--;
 	}
 	
-	void popSkippable() {
+	void popSkippableChars() {
 		static getLexerMap() {
 			string[string] ret;
 			
@@ -536,26 +536,59 @@ private:
 	Token lexFloatLiteral(alias isFun, alias popFun, char E)(uint begin) {
 		popFun();
 		
-		auto c = frontChar;
-		if ((c | 0x20) == E) {
+		bool isFloat = false;
+		if (frontChar == '.') {
+			auto savePoint = index;
+			
+			popChar();
+			if (frontChar == '.') {
+				index = savePoint;
+				goto LexIntegral;
+			}
+			
+			auto floatSavePoint = index;
+
+			popSkippableChars();
+			auto nc = frontChar;
+			
+			if (isIdChar(nc) || (nc & 0x80)) {
+				index = savePoint;
+				goto LexIntegral;
+			}
+			
+			index = floatSavePoint;
+			isFloat = true;
+			
+			if (isFun(frontChar)) {
+				popChar();
+				popFun();
+			}
+		}
+		
+		if ((frontChar | 0x20) == E) {
+			isFloat = true;
 			popChar();
 			
-			c = frontChar;
+			auto c = frontChar;
 			if (c == '+' || c == '-') {
 				popChar();
-				c = frontChar;
 			}
 			
 			popFun();
-			
-			Token t;
-			t.type = TokenType.FloatLiteral;
-			t.location = base.getWithOffsets(begin, index);
-			return t;
 		}
 		
-		assert(c != '.', "No floating point ATM");
+		if (isFloat) {
+			goto LexFloat;
+		}
+		
+	LexIntegral:
 		return lexIntegralSuffix(begin);
+
+	LexFloat:
+		Token t;
+		t.type = TokenType.FloatLiteral;
+		t.location = base.getWithOffsets(begin, index);
+		return t;
 	}
 	
 	/**
@@ -578,14 +611,16 @@ private:
 	}
 	
 	Token lexNumeric(string s : "0b")() {
+		uint begin = index - 2;
+
 		if (!isBinary(frontChar)) {
-			// FIXME: Proper error reporting.
-			assert(0, "invalid integer literal");
+			Token t;
+			t.location = base.getWithOffsets(begin, index);
+			setError(t, "Invalid binary sequence");
+			return t;
 		}
 		
-		uint begin = index - 2;
 		popBinary();
-		
 		return lexIntegralSuffix(begin);
 	}
 	
@@ -610,12 +645,16 @@ private:
 	}
 	
 	Token lexNumeric(string s : "0x")() {
+		uint begin = index - 2;
+		
 		if (!isHexadecimal(frontChar)) {
-			// FIXME: Proper error reporting.
-			assert(0, "invalid integer literal");
+			Token t;
+			t.location = base.getWithOffsets(begin, index);
+			setError(t, "Invalid hexadecimal sequence");
+			return t;
 		}
 		
-		return lexFloatLiteral!(isHexadecimal, popHexadecimal, 'p')(index - 2);
+		return lexFloatLiteral!(isHexadecimal, popHexadecimal, 'p')(begin);
 	}
 	
 	/**
@@ -633,7 +672,7 @@ private:
 		}
 	}
 	
-	auto lexNumeric(string s)() if (s.length == 1 && isDigit(s[0])) {
+	auto lexNumeric(string s)() if (s.length == 1 && isDecimal(s[0])) {
 		return lexNumeric(s[0]);
 	}
 	
@@ -709,11 +748,6 @@ void popFront(ref string s) {
 auto isIdChar(char c) {
 	import std.ascii;
 	return c == '_' || isAlphaNum(c);
-}
-
-auto isDigit(char c) {
-	import std.ascii;
-	return std.ascii.isDigit(c);
 }
 
 string lexerMixin(string[string] ids, string def = "lexIdentifier") {
