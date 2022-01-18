@@ -459,43 +459,6 @@ private:
 	/**
 	 * General integer lexing utilities.
 	 */
-	static bool isDecimal(char c) {
-		return c >= '0' && c <= '9';
-	}
-	
-	void popDecimal() {
-		auto c = frontChar;
-		while (isDecimal(c) || c == '_') {
-			popChar();
-			c = frontChar;
-		}
-	}
-	
-	static bool isHexadecimal(char c) {
-		auto hc = c | 0x20;
-		return (c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f');
-	}
-	
-	void popHexadecimal() {
-		auto c = frontChar;
-		while (isHexadecimal(c) || c == '_') {
-			popChar();
-			c = frontChar;
-		}
-	}
-	
-	static bool isBinary(char c) {
-		return c == '0' || c == '1';
-	}
-	
-	void popBinary() {
-		auto c = frontChar;
-		while (isBinary(c) || c == '_') {
-			popChar();
-			c = frontChar;
-		}
-	}
-	
 	Token lexIntegralSuffix(uint begin) {
 		Token t;
 		t.type = TokenType.IntegerLiteral;
@@ -536,9 +499,46 @@ private:
 		return t;
 	}
 	
+	Token lexFloatLiteral(alias isFun, alias popFun, char E)(uint begin) {
+		popFun();
+		
+		auto c = frontChar;
+		if ((c | 0x20) == E) {
+			popChar();
+			
+			c = frontChar;
+			if (c == '+' || c == '-') {
+				popChar();
+				c = frontChar;
+			}
+			
+			popFun();
+			
+			Token t;
+			t.type = TokenType.FloatLiteral;
+			t.location = base.getWithOffsets(begin, index);
+			return t;
+		}
+		
+		assert(c != '.', "No floating point ATM");
+		return lexIntegralSuffix(begin);
+	}
+	
 	/**
 	 * Binary literals.
 	 */
+	static bool isBinary(char c) {
+		return c == '0' || c == '1';
+	}
+	
+	void popBinary() {
+		auto c = frontChar;
+		while (isBinary(c) || c == '_') {
+			popChar();
+			c = frontChar;
+		}
+	}
+	
 	Token lexNumeric(string s : "0B")() {
 		return lexNumeric!"0b"();
 	}
@@ -558,6 +558,19 @@ private:
 	/**
 	 * Hexadecimal literals.
 	 */
+	static bool isHexadecimal(char c) {
+		auto hc = c | 0x20;
+		return (c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f');
+	}
+	
+	void popHexadecimal() {
+		auto c = frontChar;
+		while (isHexadecimal(c) || c == '_') {
+			popChar();
+			c = frontChar;
+		}
+	}
+	
 	Token lexNumeric(string s : "0X")() {
 		return lexNumeric!"0x"();
 	}
@@ -568,69 +581,37 @@ private:
 			assert(0, "invalid integer literal");
 		}
 		
-		uint begin = index - 2;
-		popHexadecimal();
-		
-		auto c = frontChar;
-		if ((c | 0x20) == 'p') {
-			popChar();
-			
-			c = frontChar;
-			if (c == '+' || c == '-') {
-				popChar();
-				c = frontChar;
-			}
-			
-			popHexadecimal();
-			
-			Token t;
-			t.type = TokenType.FloatLiteral;
-			t.location = base.getWithOffsets(begin, index);
-			return t;
-		}
-		
-		assert(c != '.', "No floating point ATM");
-		return lexIntegralSuffix(begin);
+		return lexFloatLiteral!(isHexadecimal, popHexadecimal, 'p')(index - 2);
 	}
 	
 	/**
 	 * Decimal literals.
 	 */
+	static bool isDecimal(char c) {
+		return c >= '0' && c <= '9';
+	}
+	
+	void popDecimal() {
+		auto c = frontChar;
+		while (isDecimal(c) || c == '_') {
+			popChar();
+			c = frontChar;
+		}
+	}
+	
 	auto lexNumeric(string s)() if (s.length == 1 && isDigit(s[0])) {
 		return lexNumeric(s[0]);
 	}
 	
-	auto lexNumeric(char c) {
-		if (!isDecimal(c)) {
-			// FIXME: Proper error reporting.
-			assert(0, "invalid integer literal");
-		}
-		
-		uint begin = index - 1;
-		popDecimal();
-		
-		c = frontChar;
-		if ((c | 0x20) == 'e') {
-			popChar();
-			
-			c = frontChar;
-			if (c == '+' || c == '-') {
-				popChar();
-				c = frontChar;
-			}
-			
-			popDecimal();
-			
-			Token t;
-			t.type = TokenType.FloatLiteral;
-			t.location = base.getWithOffsets(begin, index);
-			return t;
-		}
-		
-		assert(c != '.', "No floating point ATM");
-		return lexIntegralSuffix(begin);
+	auto lexNumeric(char c) in {
+		assert(isDecimal(c));
+	} do {
+		return lexFloatLiteral!(isDecimal, popDecimal, 'e')(index - 1);
 	}
 	
+	/**
+	 * Keywords and identifiers.
+	 */
 	auto lexKeyword(string s)() {
 		auto c = frontChar;
 		if (isIdChar(c)) {
