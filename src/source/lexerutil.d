@@ -141,6 +141,25 @@ private:
 		index--;
 	}
 	
+	void popSkippable() {
+		static getLexerMap() {
+			string[string] ret;
+			
+			foreach (op; Skippable) {
+				ret[op] = "-skip";
+			}
+			
+			return ret;
+		}
+		
+		while (true) {
+			import source.lexerutil;
+			// pragma(msg, typeof(this));
+			// pragma(msg, lexerMixin(getLexerMap(), "__noop"));
+			mixin(lexerMixin(getLexerMap(), "skip"));
+		}
+	}
+	
 	@property
 	char frontChar() const {
 		return content[index];
@@ -697,8 +716,8 @@ auto isDigit(char c) {
 	return std.ascii.isDigit(c);
 }
 
-string lexerMixin(string[string] ids) {
-	return lexerMixin("", "lexIdentifier", ids);
+string lexerMixin(string[string] ids, string def = "lexIdentifier") {
+	return lexerMixin(ids, def, "");
 }
 
 private:
@@ -746,7 +765,7 @@ auto getLexingCode(string fun, string base) {
 	}
 }
 
-string lexerMixin(string base, string def, string[string] ids) {
+string lexerMixin(string[string] ids, string def, string base) {
 	auto defaultFun = def;
 	string[string][char] nextLevel;
 	foreach (id, fun; ids) {
@@ -822,7 +841,7 @@ string lexerMixin(string base, string def, string[string] ids) {
 			}
 		}
 		
-		ret ~= lexerMixin(newBase, def, nextLevel[c]);
+		ret ~= lexerMixin(nextLevel[c], def, newBase);
 	}
 	
 	if (base == "" || base[$ - 1] < 0x80) {
