@@ -92,9 +92,15 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 	}
 	
 private:
+	enum Skippable = [" ", "\t", "\v", "\f", "\n", "\r"];
+
 	auto getNextToken() {
 		static getLexerMap() {
 			auto ret = BaseMap;
+			
+			foreach (op; Skippable) {
+				ret[op] = "-skip";
+			}
 			
 			foreach (kw, _; KeywordMap) {
 				ret[kw] = "lexKeyword";
@@ -757,6 +763,18 @@ string lexerMixin(string base, string def, string[string] ids) {
 				charLit = "\\'";
 				break;
 			
+			case '\t':
+				charLit = "\\t";
+				break;
+			
+			case '\v':
+				charLit = "\\v";
+				break;
+			
+			case '\f':
+				charLit = "\\f";
+				break;
+			
 			case '\n':
 				charLit = "\\n";
 				break;
@@ -767,6 +785,7 @@ string lexerMixin(string base, string def, string[string] ids) {
 			
 			default:
 				charLit = [c];
+				break;
 		}
 		
 		ret ~= "
