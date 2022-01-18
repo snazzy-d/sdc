@@ -702,14 +702,14 @@ auto getLexingCode(string fun, string base) {
 				" ~ fun[1 .. $] ~ args ~ ";
 				continue;";
 			
-		case '!':
+		case '?':
 			size_t i = 1;
-			while (fun[i] != '?') {
+			while (fun[i] != ':') {
 				i++;
 			}
 			
 			size_t endcond = i;
-			while (fun[i] != ':') {
+			while (fun[i] != '|') {
 				i++;
 			}
 			

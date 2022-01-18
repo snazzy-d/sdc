@@ -78,9 +78,9 @@ struct JsonLexer {
 			"\r" : "-skip",
 			
 			// Comments
-			"//" : "!tokenizeComments?lexComment:popComment",
-			"/*" : "!tokenizeComments?lexComment:popComment",
-			"/+" : "!tokenizeComments?lexComment:popComment",
+			"//" : "?tokenizeComments:lexComment|popComment",
+			"/*" : "?tokenizeComments:lexComment|popComment",
+			"/+" : "?tokenizeComments:lexComment|popComment",
 			
 			// Integer literals.
 			"0b" : "lexNumeric",
