@@ -92,7 +92,7 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 	}
 	
 private:
-	enum Skippable = [" ", "\t", "\v", "\f", "\n", "\r"];
+	enum Skippable = [" ", "\t", "\v", "\f", "\n", "\r", "\u2028", "\u2029"];
 
 	auto getNextToken() {
 		static getLexerMap() {
@@ -119,6 +119,9 @@ private:
 			// pragma(msg, lexerMixin(getLexerMap()));
 			mixin(lexerMixin(getLexerMap()));
 		}
+		
+		// Necessary because of https://issues.dlang.org/show_bug.cgi?id=22688
+		assert(0);
 	}
 	
 	void setError(ref Token t, string message) {
@@ -130,6 +133,12 @@ private:
 		assert(index < content.length);
 	} do {
 		index++;
+	}
+	
+	void unpopChar() in {
+		assert(index > 1);
+	} do {
+		index--;
 	}
 	
 	@property
@@ -784,12 +793,25 @@ string lexerMixin(string base, string def, string[string] ids) {
 				break;
 			
 			default:
-				charLit = [c];
+				if (c < 0x80) {
+					charLit = [c];
+					break;
+				}
+				
+				static char toHexChar(ubyte n) {
+					return ((n < 10) ? (n + '0') : (n - 10 + 'a')) & 0xff;
+				}
+				
+				static string toHexString(ubyte c) {
+					return [toHexChar(c >> 4), toHexChar(c & 0x0f)];
+				}
+				
+				charLit = "\\x" ~ toHexString(c);
 				break;
 		}
 		
 		ret ~= "
-			case '" ~ charLit ~ "' :
+			case '" ~ charLit ~ "':
 				popChar();";
 		
 		auto newBase = base ~ c;
@@ -803,10 +825,23 @@ string lexerMixin(string base, string def, string[string] ids) {
 		ret ~= lexerMixin(newBase, def, nextLevel[c]);
 	}
 	
-	ret ~= "
-			default :" ~ getLexingCode(defaultFun, base) ~ "
-		}
-		";
+	if (base == "" || base[$ - 1] < 0x80) {
+		ret ~= "
+				default:" ~ getLexingCode(defaultFun, base) ~ "
+			}
+			";
+	} else {
+		ret ~= "
+				default:
+					// Do not exit in the middle of an unicode sequence.
+					unpopChar();
+					break;
+			}
+			
+			// Fall back to the default instead.
+			goto default;
+			";
+	}
 	
 	return ret;
 }
