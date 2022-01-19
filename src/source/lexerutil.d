@@ -15,7 +15,7 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 	import std.bitmanip;
 	mixin(bitfields!(
 		bool, "tokenizeComments", 1,
-		bool, "skipStrings", 1,
+		bool, "_skipStrings", 1,
 		uint, "__derived", 30,
 	));
 	
@@ -33,9 +33,14 @@ mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias Oper
 		return r;
 	}
 	
+	@property
+	bool decodeStrings() const {
+		return !_skipStrings;
+	}
+	
 	auto withStringDecoding(bool sd = true) {
 		auto r = this.save;
-		r.skipStrings = !sd;
+		r._skipStrings = !sd;
 		return r;
 	}
 	
@@ -434,7 +439,7 @@ private:
 			if (DoesEscape && c == '\\') {
 				immutable beginEscape = index;
 				
-				if (!skipStrings) {
+				if (decodeStrings) {
 					scope(success) {
 						start = index;
 					}
@@ -469,22 +474,24 @@ private:
 			c = frontChar;
 		}
 		
-		if (c == Delimiter) {
-			if (!skipStrings) {
-				// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
-				if (DoesEscape && decoded != "") {
-					decoded ~= content[start .. index];
-				} else {
-					decoded = content[start .. index];
-				}
-				
-				t.name = context.getName(decoded);
+		if (c != Delimiter) {
+			setError(t, "Unexpected string literal termination");
+			t.location = base.getWithOffsets(begin, index);
+			return t;
+		}
+		
+		if (decodeStrings) {
+			// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
+			if (DoesEscape && decoded != "") {
+				decoded ~= content[start .. index];
+			} else {
+				decoded = content[start .. index];
 			}
 			
-			popChar();
-		} else {
-			setError(t, "Unexpected string literal termination");
+			t.name = context.getName(decoded);
 		}
+		
+		popChar();
 		
 		t.location = base.getWithOffsets(begin, index);
 		return t;
