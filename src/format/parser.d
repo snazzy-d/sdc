@@ -265,9 +265,7 @@ private:
 
 		if (skipped.length == 0) {
 			emitSourceBasedWhiteSpace();
-			// FIXME: We should ensure that there is at least
-			// a space here to not glue tokens we can't parse.
-			// space();
+			space();
 			split();
 
 			skipped = Location(trange.previous, token.location.stop);
