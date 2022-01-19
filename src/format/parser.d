@@ -445,6 +445,13 @@ private:
 				break;
 
 			/**
+			 * Misc
+			 */
+			case DotDotDot:
+				nextToken();
+				return;
+
+			/**
 			 * Statements
 			 */
 			case OpenBrace:
@@ -458,7 +465,8 @@ private:
 				lookahead.popFront();
 				auto t = lookahead.front.type;
 
-				if (mode == Mode.Parameter && (t == Colon || t == Equal)) {
+				if (mode == Mode.Parameter
+					    && (t == Colon || t == Equal || t == DotDotDot)) {
 					parseTemplateParameter();
 					break;
 				}
@@ -2107,6 +2115,10 @@ private:
 	} do {
 		nextToken();
 
+		if (match(TokenType.DotDotDot)) {
+			nextToken();
+		}
+
 		while (match(TokenType.Colon) || match(TokenType.Equal)) {
 			space();
 			nextToken();
@@ -2361,7 +2373,7 @@ private:
 
 		runOnType!(TokenType.Identifier, nextToken)();
 
-		parseArgumentList();
+		parseParameterList();
 
 		while (true) {
 			space();
@@ -2460,23 +2472,14 @@ private:
 
 			fun();
 
-			switch (token.type) with (TokenType) {
-				case DotDot:
-					auto rangeGuard = spliceSpan();
-					space();
-					split();
+			if (match(TokenType.DotDot)) {
+				auto rangeGuard = spliceSpan();
+				space();
+				split();
 
-					nextToken();
-					space();
-					fun();
-					break;
-
-				case DotDotDot:
-					nextToken();
-					break;
-
-				default:
-					break;
+				nextToken();
+				space();
+				fun();
 			}
 
 			if (!match(TokenType.Comma)) {
