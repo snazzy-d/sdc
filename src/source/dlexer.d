@@ -198,6 +198,55 @@ struct DLexer {
 		}
 	}
 	
+	Token lexDString(string s : "q{")() {
+		uint begin = index - 2;
+		uint start = index;
+		
+		Token t;
+		t.type = TokenType.StringLiteral;
+		
+		auto lookahead = getLookahead();
+		
+		uint level = 1;
+		while (level > 0) {
+			lookahead.popFront();
+			auto lt = lookahead.front;
+			
+			switch (lt.type) with (TokenType) {
+				case Invalid:
+					// Bubble up errors.
+					index = lookahead.index;
+					return lt;
+				
+				case End:
+					setError(t, "Unexpected end of file.");
+					index = lookahead.index - 1;
+					t.location = base.getWithOffsets(begin, index);
+					return t;
+				
+				case OpenBrace:
+					level++;
+					break;
+				
+				case CloseBrace:
+					level--;
+					break;
+				
+				default:
+					break;
+			}
+		}
+		
+		if (decodeStrings) {
+			uint end = lookahead.index - 1;
+			t.name = context.getName(content[start .. end]);
+		}
+		
+		index = lookahead.index;
+		t.location = base.getWithOffsets(begin, index);
+		return t;
+	}
+	
 	Token lexDString(string s)() in {
 		assert(index >= s.length);
 	} do {
@@ -459,6 +508,19 @@ unittest {
 		lex.match(TokenType.IntegerLiteral);
 		lex.match(TokenType.Dot);
 		lex.match(TokenType.Identifier);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("q{{foo}}");
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == "{foo}");
+		lex.popFront();
+		
 		assert(lex.front.type == TokenType.End);
 	}
 }

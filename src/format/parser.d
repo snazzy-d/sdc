@@ -265,16 +265,24 @@ private:
 
 		if (skipped.length == 0) {
 			emitSourceBasedWhiteSpace();
+			// FIXME: We should ensure that there is at least
+			// a space here to not glue tokens we can't parse.
+			// space();
 			split();
 
-			skipped = token.location;
+			skipped = Location(trange.previous, token.location.stop);
 		} else {
 			skipped.spanTo(token.location);
 		}
 
+		if (match(TokenType.End)) {
+			// We skipped until the end.
+			return;
+		}
+
 		trange.popFront();
 
-		// Skip over comment that look related too.
+		// Skip over comments that look related too.
 		while (match(TokenType.Comment) && newLineCount() == 0) {
 			skipped.spanTo(token.location);
 			trange.popFront();
@@ -288,7 +296,8 @@ private:
 			return;
 		}
 
-		write(skipped.getFullLocation(context).getSlice());
+		import std.string;
+		write(skipped.getFullLocation(context).getSlice().strip());
 		skipped = Location.init;
 
 		emitSourceBasedWhiteSpace();
