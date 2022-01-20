@@ -956,8 +956,8 @@ private:
 
 				bool isLambda;
 				switch (lookahead.front.type) {
-					case OpenBrace, EqualMore, At:
-					case Nothrow, Pure, Ref, Synchronized:
+					case OpenBrace,
+					     EqualMore, At, Nothrow, Pure, Ref, Synchronized:
 						isLambda = true;
 						break;
 
@@ -990,7 +990,6 @@ private:
 						break;
 
 					default:
-						parseArgumentList();
 						break;
 				}
 
@@ -1077,9 +1076,8 @@ private:
 				break;
 
 			case OpenBracket:
-				// TODO: maps
 				kind = IdentifierKind.Expression;
-				parseArgumentList();
+				parseArrayLiteral();
 				break;
 
 			case Typeid:
@@ -1228,8 +1226,14 @@ private:
 					nextToken();
 					break;
 
-				case OpenParen, OpenBracket:
+				case OpenParen:
 					parseArgumentList();
+					break;
+
+				case OpenBracket:
+					// Technically, this is not an array literal,
+					// but this should do for now.
+					parseArrayLiteral();
 					break;
 
 				default:
@@ -1866,24 +1870,33 @@ private:
 		}
 	}
 
-	bool parseArgumentList() {
-		TokenType closingTokenType;
-		switch (token.type) with (TokenType) {
-			case OpenParen:
-				closingTokenType = CloseParen;
-				break;
-
-			case OpenBracket:
-				closingTokenType = CloseBracket;
-				break;
-
-			default:
-				return false;
+	void parseArgumentList() {
+		if (!match(TokenType.OpenParen)) {
+			return;
 		}
 
 		nextToken();
-		parseList!parseExpression(closingTokenType);
-		return true;
+		parseList!parseExpression(TokenType.CloseParen);
+	}
+
+	void parseArrayLiteral() {
+		if (!match(TokenType.OpenBracket)) {
+			return;
+		}
+
+		nextToken();
+		parseList!parseArrayElement(TokenType.CloseBracket);
+	}
+
+	void parseArrayElement() {
+		parseExpression();
+
+		if (match(TokenType.Colon)) {
+			space();
+			nextToken();
+			space();
+			parseExpression();
+		}
 	}
 
 	void parseIsExpression() in {
