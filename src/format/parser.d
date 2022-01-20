@@ -518,7 +518,18 @@ private:
 				parseForeach();
 				break;
 
-			case Return, Throw:
+			case Return:
+				// If this is a parameter, then return is a storage class.
+				if (mode == Mode.Parameter) {
+					goto default;
+				}
+
+				goto ReturnLike;
+
+			case Throw:
+				goto ReturnLike;
+
+			ReturnLike:
 				parseReturn();
 				break;
 
