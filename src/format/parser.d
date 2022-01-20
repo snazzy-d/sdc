@@ -723,13 +723,37 @@ private:
 				goto Entry;
 
 			case At:
-				while (match(At)) {
-					parseAttribute();
-					space();
+				auto lookahead = trange.getLookahead();
+
+				// Pop all attributes.
+				while (lookahead.front.type == At) {
+					lookahead.popFront();
+
+					if (lookahead.front.type == Identifier) {
+						lookahead.popFront();
+					}
+
+					if (lookahead.front.type == OpenParen) {
+						import source.parserutil;
+						lookahead.popMatchingDelimiter!OpenParen();
+					}
 				}
 
-				newline(1);
-				goto Entry;
+				bool isColonBlock = lookahead.front.type == Colon;
+				auto guard = unindent(isColonBlock);
+				newline();
+
+				parseAttributes();
+
+				if (!match(Colon)) {
+					newline(1);
+					goto Entry;
+				}
+
+				clearSeparator();
+				nextToken();
+				newline();
+				break;
 
 			case Public, Private, Protected, Package, Export:
 				auto lookahead = trange.getLookahead();
@@ -2212,12 +2236,14 @@ private:
 		}
 	}
 
-	void parseAttribute() in {
-		assert(match(TokenType.At));
-	} do {
+	void parseAttributes() {
 		auto guard = changeMode(Mode.Attribute);
-		nextToken();
-		parseIdentifier();
+
+		while (match(TokenType.At)) {
+			nextToken();
+			parseIdentifier();
+			space();
+		}
 	}
 
 	bool parseStorageClasses(bool isPostfix = false) {
@@ -2259,7 +2285,7 @@ private:
 					break;
 
 				case At:
-					parseAttribute();
+					parseAttributes();
 					break;
 
 				default:
