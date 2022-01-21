@@ -178,29 +178,15 @@ public:
 			assert(fi == fixups.length);
 		}
 
-		bool wasBlock = false;
 		Span previousTop = null;
 
 		foreach (i, ref c; source) {
-			bool isBlock = c.kind == ChunkKind.Block;
-
-			// We delegate indentation to the block itself.
-			if (isBlock) {
-				c._glued = true;
-			}
-
-			// Do not use the regular line splitter for blocks.
-			if (isBlock || wasBlock) {
-				c._continuation = true;
-			}
-
 			auto top = c.span.getTop();
 
 			// If we have a new set of spans, then we have a new region.
 			c._startsRegion = top is null || top !is previousTop;
 
 			// Bucket brigade.
-			wasBlock = isBlock;
 			previousTop = top;
 
 			size_t indexinLine = i - start;
@@ -264,30 +250,20 @@ public:
 		pendingSeparator = Separator.None;
 	}
 
-	void prepareChunk(bool glued = false) in {
-		assert(chunk.empty);
-	} do {
-		chunk._span = spanStack;
-		chunk._glued = glued;
-
-		if (glued) {
-			chunk._separator = Separator.None;
-			chunk._indentation = 0;
-		} else {
-			chunk._indentation = indentation;
-		}
-	}
-
-	void split(bool glued = false) {
+	void split(bool glued = false, bool continuation = false) {
 		import std.stdio;
 
-		// writeln("split!", glued ? " glued" : "");
+		// writeln("split!", glued ? " glued" : "", continuation ? " continuation" : "");
 
 		scope(success) {
-			prepareChunk(glued);
+			chunk._span = spanStack;
+			chunk._glued = glued;
+			chunk._continuation = continuation;
+			chunk._indentation = indentation;
 		}
 
-		if (!glued) {
+		bool isText = chunk.kind == ChunkKind.Text;
+		if (isText && !glued) {
 			uint nlCount = 0;
 
 			size_t last = chunk.text.length;
@@ -321,8 +297,10 @@ public:
 			return;
 		}
 
-		import std.uni, std.range;
-		chunk._length = cast(uint) chunk.text.byGrapheme.walkLength();
+		if (isText) {
+			import std.uni, std.range;
+			chunk._length = cast(uint) chunk.text.byGrapheme.walkLength();
+		}
 
 		source ~= chunk;
 		chunk = Chunk();
@@ -460,21 +438,25 @@ public:
 	 * Block management.
 	 */
 	auto block() {
-		split();
+		// We delegate indentation to the block itself.
 		emitPendingSeparator();
+
+		// We delegate indentation to the block itself.
+		split(true, true);
 
 		static struct Guard {
 			~this() {
 				auto chunk = outerBuilder.chunk;
 				chunk._kind = ChunkKind.Block;
 				chunk.chunks = builder.build();
-				outerBuilder.source ~= chunk;
 
 				// Restore the outer builder.
 				*builder = outerBuilder;
+				builder.chunk = chunk;
 
-				builder.chunk = Chunk();
-				builder.prepareChunk();
+				// Do not use the regular line splitter for blocks.
+				builder.newline(1);
+				builder.split(false, true);
 			}
 
 		private:

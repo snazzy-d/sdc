@@ -1314,8 +1314,6 @@ private:
 		}
 
 		if (match(TokenType.CloseBrace)) {
-			clearSeparator();
-			newline(1);
 			nextToken();
 			newline(2);
 		}
