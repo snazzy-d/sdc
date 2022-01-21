@@ -1978,6 +1978,8 @@ private:
 			} else {
 				parseType();
 			}
+
+			clearSeparator();
 		}
 
 		if (match(TokenType.Comma)) {
