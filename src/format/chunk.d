@@ -236,13 +236,13 @@ public:
 	void space() {
 		import std.stdio;
 		// writeln("space!");
-		setWhiteSpace(Separator.Space);
+		setSeparator(Separator.Space);
 	}
 
 	void newline(int nLines = 1) {
 		import std.stdio;
 		// writeln("newline ", nLines);
-		setWhiteSpace(nLines > 1 ? Separator.TwoNewLines : Separator.NewLine);
+		setSeparator(nLines > 1 ? Separator.TwoNewLines : Separator.NewLine);
 	}
 
 	void clearSeparator() {
@@ -478,7 +478,7 @@ public:
 	}
 
 private:
-	void setWhiteSpace(Separator s) {
+	void setSeparator(Separator s) {
 		import std.algorithm;
 		pendingSeparator = max(pendingSeparator, s);
 	}
@@ -487,25 +487,28 @@ private:
 		scope(success) {
 			import std.algorithm;
 			chunk._separator = max(chunk.separator, pendingSeparator);
-
 			pendingSeparator = Separator.None;
+		}
+
+		if (chunk.empty) {
+			// Indentation is part of the separator.
+			chunk._indentation = indentation;
+			return;
 		}
 
 		final switch (pendingSeparator) with (Separator) {
 			case None:
 				// nothing to do.
-				return;
+				break;
 
 			case Space:
-				if (!chunk.empty) {
-					chunk.text ~= ' ';
-					pendingSeparator = None;
-				}
-
-				return;
+				chunk.text ~= ' ';
+				pendingSeparator = None;
+				break;
 
 			case NewLine, TwoNewLines:
 				split();
+				break;
 		}
 	}
 }
