@@ -99,12 +99,26 @@ private:
 	/**
 	 * Chunk builder facilities
 	 */
-	void write(string s) {
+	void write(Location loc, string s) {
 		if (skipFormatting()) {
 			return;
 		}
 
-		builder.write(s);
+		if (newLineCount(loc) == 0) {
+			builder.write(s);
+			return;
+		}
+
+		// We have a multi line chunk.
+		import std.array;
+		foreach (i, l; s.split('\n')) {
+			if (i > 0) {
+				builder.split(true, true);
+				builder.newline(1);
+			}
+
+			builder.write(l);
+		}
 	}
 
 	void space() {
@@ -188,6 +202,10 @@ private:
 		return getLineNumber(stop) - getLineNumber(start);
 	}
 
+	int newLineCount(Location location) {
+		return newLineCount(location.start, location.stop);
+	}
+
 	int newLineCount(ref TokenRange r) {
 		return newLineCount(r.previous, r.front.location.start);
 	}
@@ -251,7 +269,7 @@ private:
 		}
 
 		// Process current token.
-		write(token.toString(context));
+		write(token.location, token.toString(context));
 
 		trange.popFront();
 		parseComments();
@@ -295,7 +313,8 @@ private:
 		}
 
 		import std.string;
-		write(skipped.getFullLocation(context).getSlice().strip());
+		auto str = skipped.getFullLocation(context).getSlice().strip();
+		write(skipped, str);
 		skipped = Location.init;
 
 		emitSourceBasedWhiteSpace();
@@ -336,7 +355,7 @@ private:
 			sdfmtOffStart = Position();
 		}
 
-		write(comment);
+		write(loc, comment);
 
 		if (comment == "// sdfmt off") {
 			sdfmtOffStart = loc.stop;
