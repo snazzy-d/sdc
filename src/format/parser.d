@@ -2336,13 +2336,19 @@ private:
 
 				auto t = lookahead.front.type;
 				if (t == Equal || t == OpenParen) {
+					split();
 					parseTypedDeclaration();
 					break;
 				}
 
 				goto default;
 
+			case Assert, Foreach, ForeachReverse, If:
+				parseStructuralElement();
+				break;
+
 			default:
+				split();
 				parseStructuralElement();
 				break;
 		}
