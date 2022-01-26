@@ -19,11 +19,24 @@ private:
 		// sdfmt off
 		ChunkKind, "_kind", EnumSize!ChunkKind,
 		Separator, "_separator", EnumSize!Separator,
+		// Emit chunks one after the other,
+		// without adding extra padding or indentation.
 		bool, "_glued", 1,
+		// Consider this chunk as a continuation of the previous one.
+		// New lines won't be considered as split.
 		bool, "_continuation", 1,
-		bool, "_startsUnwrappedLine", 1,
-		bool, "_startsRegion", 1,
+		// What is the base indentation level for this chunk.
+		// This becomes irrelevent when the chunk is glued.
 		uint, "_indentation", 10,
+		// This marks the boundary between unwrapped lines.
+		// Each unwrapped line can be formatted completely
+		// independently of other unwrapped lines.
+		bool, "_startsUnwrappedLine", 1,
+		// This marks the boundary between regions.
+		// The effect of formatting rtules are bounded by region
+		// so the writer can use this to detect redundant paths.
+		bool, "_startsRegion", 1,
+		// The length of the line in graphemes.
 		uint, "_length", 16,
 		// sdfmt on
 	);
