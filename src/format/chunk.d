@@ -310,6 +310,8 @@ public:
 	 * Indentation and alignement.
 	 */
 	auto indent(uint level = 1) {
+		emitPendingSeparator();
+
 		static struct Guard {
 			~this() {
 				builder.indentation = oldLevel;
