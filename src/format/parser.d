@@ -2293,12 +2293,12 @@ private:
 					nextToken();
 					break;
 
-				case Abstract, Alias, Auto, Deprecated, Enum, Final, Lazy,
+				case Abstract, Alias, Auto, Enum, Final, Lazy,
 				     Nothrow, Override, Pure, Ref, Return, Static, __Gshared:
 					nextToken();
 					break;
 
-				case Align, Extern, Pragma, Synchronized:
+				case Align, Deprecated, Extern, Pragma, Synchronized:
 					nextToken();
 					parseArgumentList();
 					break;
