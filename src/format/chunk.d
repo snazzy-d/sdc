@@ -294,7 +294,20 @@ public:
 
 		// There is nothing to flush.
 		if (chunk.empty) {
-			return;
+			if (chunk.newLineCount == 0) {
+				// Fuse the chunk if it doesn't start a new line.
+				return;
+			}
+
+			if (!continuation || !chunk.continuation) {
+				// Only fuse if one of the chunks is not a continuation.
+				// FIXME: This overfuse in the following case:
+				//   newline, continuation = false, test = ""
+				//   split(continuation : true)
+				// Unfortunately, this erroneous behavior is relied upon,
+				// so it'll have to stay for now.
+				return;
+			}
 		}
 
 		if (isText) {
