@@ -1312,15 +1312,15 @@ private:
 		return true;
 	}
 
-	void parseBlock(alias fun = parseBlockContent, T...)(T args) {
+	bool parseBlock(alias fun = parseBlockContent, T...)(T args) {
 		if (!match(TokenType.OpenBrace)) {
-			return;
+			return false;
 		}
 
 		nextToken();
 		if (parseEmptyBlock()) {
 			newline(mode == Mode.Declaration ? 2 : 1);
-			return;
+			return true;
 		}
 
 		{
@@ -1336,6 +1336,8 @@ private:
 			nextToken();
 			newline(2);
 		}
+
+		return true;
 	}
 
 	void parseBlockContent(Mode m) {
@@ -1408,23 +1410,21 @@ private:
 	}
 
 	bool parseControlFlowBlock(bool forceNewLine = true) {
-		bool isBlock = match(TokenType.OpenBrace);
-		if (isBlock) {
-			parseBlock(mode);
-		} else {
-			auto guard = span();
-
-			if (forceNewLine) {
-				newline(1);
-			} else {
-				space();
-				split();
-			}
-
-			parseStructuralElement();
+		if (parseBlock(mode)) {
+			return true;
 		}
 
-		return isBlock;
+		auto guard = span();
+
+		if (forceNewLine) {
+			newline(1);
+		} else {
+			space();
+		}
+
+		split();
+		parseStructuralElement();
+		return false;
 	}
 
 	void parseElsableBlock() {

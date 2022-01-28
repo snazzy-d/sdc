@@ -1,3 +1,6 @@
+if (condition) // comment!
+	foo();
+
 switch (x) do {
 	case 1:
 		break;
