@@ -259,7 +259,8 @@ public:
 			chunk._span = spanStack;
 			chunk._glued = glued;
 			chunk._continuation = continuation;
-			chunk._indentation = indentation;
+
+			emitPendingSeparator();
 		}
 
 		bool isText = chunk.kind == ChunkKind.Text;
