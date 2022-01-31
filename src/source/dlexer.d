@@ -250,7 +250,7 @@ struct DLexer {
 	Token lexDString(string s)() in {
 		assert(index >= s.length);
 	} do {
-		assert(0, "Not implemented");
+		assert(0, s ~ " style string are not implemented");
 	}
 }
 
