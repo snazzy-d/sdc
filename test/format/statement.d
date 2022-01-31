@@ -1,6 +1,13 @@
 if (condition) // comment!
 	foo();
 
+if (condition) {
+	foo();
+} // comment!
+else {
+	bar();
+}
+
 switch (x) do {
 	case 1:
 		break;

@@ -361,6 +361,12 @@ private:
 			sdfmtOffStart = loc.stop;
 			assert(skipFormatting(), "We should start skipping.");
 		}
+
+		// Make sure we have a line split after // style comments.
+		if (!skipFormatting() && comment.startsWith("//")) {
+			newline(1);
+			split();
+		}
 	}
 
 	void emitComments(ref Location[] commentBlock, Location nextTokenLoc) {
