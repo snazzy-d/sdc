@@ -115,6 +115,10 @@ public:
 	}
 	
 	void visit(Statement s) {
+		if (s is null) {
+			return;
+		}
+		
 		if (!terminate) {
 			goto Dispatch;
 		}
@@ -946,6 +950,8 @@ public:
 			auto c = cast(uint) evalIntegral(buildExpression(e));
 			cases ~= CaseEntry(caseBlock, c);
 		}
+		
+		visit(s.statement);
 	}
 	
 	void visit(LabeledStatement s) {

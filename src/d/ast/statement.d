@@ -248,11 +248,13 @@ class SwitchStatement : Statement {
  */
 class CaseStatement : Statement {
 	AstExpression[] cases;
+	Statement statement;
 	
-	this(Location location, AstExpression[] cases) {
+	this(Location location, AstExpression[] cases, Statement statement) {
 		super(location);
 		
 		this.cases = cases;
+		this.statement = statement;
 	}
 }
 

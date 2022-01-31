@@ -245,9 +245,16 @@ Statement parseStatement(ref TokenRange trange) {
 			AstExpression[] cases = trange.parseArguments();
 			
 			trange.match(Colon);
+			location.spanTo(trange.front.location);
+			
+			Statement statement;
+			if (trange.front.type != CloseBrace) {
+				statement = trange.parseStatement();
+				location.spanTo(statement.location);
+			}
 			
 			location.spanTo(trange.previous);
-			return new CaseStatement(location, cases);
+			return new CaseStatement(location, cases, statement);
 		
 		case Default:
 		ParseLabel:
@@ -255,14 +262,12 @@ Statement parseStatement(ref TokenRange trange) {
 			auto label = trange.front.name;
 			trange.popFront();
 			trange.match(Colon);
+			location.spanTo(trange.front.location);
 			
 			Statement statement;
 			if (trange.front.type != CloseBrace) {
 				statement = trange.parseStatement();
 				location.spanTo(statement.location);
-			} else {
-				location.spanTo(trange.front.location);
-				statement = new BlockStatement(location, []);
 			}
 			
 			return new LabeledStatement(location, label, statement);
