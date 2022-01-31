@@ -793,8 +793,14 @@ private:
 				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 
+				if (lookahead.front.type == OpenParen) {
+					import source.parserutil;
+					lookahead.popMatchingDelimiter!OpenParen();
+				}
+
 				if (lookahead.front.type != Colon) {
 					nextToken();
+					parseArgumentList();
 					space();
 					goto Entry;
 				}
