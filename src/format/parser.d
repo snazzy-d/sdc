@@ -661,8 +661,8 @@ private:
 				lookahead.popFront();
 				auto t = lookahead.front.type;
 
-				// This ia declaration.
 				if (t != If && t != Foreach && t != ForeachReverse) {
+					// This is a storage class.
 					goto default;
 				}
 
@@ -745,83 +745,6 @@ private:
 
 			case Mixin:
 				goto default;
-
-			case Pragma:
-				nextToken();
-				parseArgumentList();
-				if (match(Semicolon)) {
-					break;
-				}
-
-				newline(1);
-				goto Entry;
-
-			case At:
-				auto lookahead = trange.getLookahead();
-
-				// Pop all attributes.
-				while (lookahead.front.type == At) {
-					lookahead.popFront();
-
-					if (lookahead.front.type == Identifier) {
-						lookahead.popFront();
-					}
-
-					if (lookahead.front.type == OpenParen) {
-						import source.parserutil;
-						lookahead.popMatchingDelimiter!OpenParen();
-					}
-				}
-
-				bool isColonBlock = lookahead.front.type == Colon;
-				auto guard = unindent(isColonBlock);
-				newline();
-
-				parseAttributes();
-
-				if (!match(Colon)) {
-					newline(1);
-					goto Entry;
-				}
-
-				clearSeparator();
-				nextToken();
-				newline();
-				break;
-
-			case Public, Private, Protected, Package, Export:
-				auto lookahead = trange.getLookahead();
-				lookahead.popFront();
-
-				if (lookahead.front.type == OpenParen) {
-					import source.parserutil;
-					lookahead.popMatchingDelimiter!OpenParen();
-				}
-
-				if (lookahead.front.type != Colon) {
-					nextToken();
-					parseArgumentList();
-					space();
-					goto Entry;
-				}
-
-				{
-					auto guard = unindent();
-					newline();
-					nextToken();
-					nextToken();
-					newline();
-				}
-
-				break;
-
-			case Enum:
-				parseEnum();
-				break;
-
-			case Alias:
-				parseAlias();
-				break;
 
 			case Struct, Union, Class, Interface:
 				parseAggregate();
@@ -1419,7 +1342,7 @@ private:
 		}
 
 		if (!match(TokenType.OpenBrace)) {
-			newline(1);
+			newline();
 			parseStructuralElement();
 			return;
 		}
@@ -2297,6 +2220,87 @@ private:
 		return ret;
 	}
 
+	static popDeclarator(ref TokenRange lookahead) {
+		lookahead.popFront();
+
+		if (lookahead.front.type == TokenType.Identifier) {
+			lookahead.popFront();
+		}
+
+		if (lookahead.front.type == TokenType.OpenParen) {
+			import source.parserutil;
+			lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
+		}
+
+		return lookahead.front.type;
+	}
+
+	TokenType getStorageClassTokenType() {
+		auto lookahead = trange.getLookahead();
+
+		while (true) {
+			auto t = lookahead.front.type;
+			switch (t) with (TokenType) {
+				case Const, Immutable, Inout, Shared, Scope:
+					lookahead.popFront();
+					if (lookahead.front.type == OpenParen) {
+						// This is a type.
+						return t;
+					}
+
+					break;
+
+				case Abstract, Auto, Export, Final, In, Lazy, Nothrow, Out,
+				     Override, Private,
+				     Protected, Public, Pure, Ref, Return, Static, __Gshared:
+					lookahead.popFront();
+					break;
+
+				case Align, Deprecated, Extern, Package, Pragma, Synchronized:
+					lookahead.popFront();
+					if (lookahead.front.type == OpenParen) {
+						import source.parserutil;
+						lookahead.popMatchingDelimiter!OpenParen();
+					}
+
+					break;
+
+				case At:
+					popDeclarator(lookahead);
+					break;
+
+				case Enum:
+					auto l2 = lookahead.getLookahead();
+					popDeclarator(l2);
+
+					auto t2 = l2.front.type;
+					if (t2 == Colon || t2 == OpenBrace) {
+						// This is an enum declaration.
+						return t;
+					}
+
+					lookahead.popFront();
+					break;
+
+				case Alias:
+					auto l2 = lookahead.getLookahead();
+					popDeclarator(l2);
+
+					auto t2 = l2.front.type;
+					if (t2 == This || t2 == Identifier) {
+						// This is an alias declaration.
+						return t;
+					}
+
+					lookahead.popFront();
+					break;
+
+				default:
+					return t;
+			}
+		}
+	}
+
 	bool parseStorageClasses(bool isPostfix = false) {
 		bool ret = false;
 		while (true) {
@@ -2310,6 +2314,7 @@ private:
 					auto lookahead = trange.getLookahead();
 					lookahead.popFront();
 					if (lookahead.front.type == OpenParen) {
+						// This is a type.
 						return ret;
 					}
 
@@ -2325,18 +2330,49 @@ private:
 					nextToken();
 					break;
 
-				case Abstract, Alias, Auto, Enum, Final, Lazy,
-				     Nothrow, Override, Pure, Ref, Return, Static, __Gshared:
+				case Abstract, Auto, Export, Final, Lazy, Nothrow, Override,
+				     Private,
+				     Protected, Public, Pure, Ref, Return, Static, __Gshared:
 					nextToken();
 					break;
 
-				case Align, Deprecated, Extern, Pragma, Synchronized:
+				case Align, Deprecated, Extern, Package, Pragma, Synchronized:
 					nextToken();
 					parseArgumentList();
 					break;
 
 				case At:
 					parseAttributes();
+					if (!isPostfix && !ret && !match(Colon)) {
+						newline(1);
+					}
+
+					break;
+
+				case Enum:
+					auto lookahead = trange.getLookahead();
+					popDeclarator(lookahead);
+
+					auto t = lookahead.front.type;
+					if (t == Colon || t == OpenBrace) {
+						// This is an enum declaration.
+						return ret;
+					}
+
+					nextToken();
+					break;
+
+				case Alias:
+					auto lookahead = trange.getLookahead();
+					popDeclarator(lookahead);
+
+					auto t = lookahead.front.type;
+					if (t == This || t == Identifier) {
+						// This is an alias declaration.
+						return ret;
+					}
+
+					nextToken();
 					break;
 
 				default:
@@ -2348,7 +2384,27 @@ private:
 	}
 
 	bool parseStorageClassDeclaration() {
-		if (!parseStorageClasses()) {
+		bool isColonBlock = getStorageClassTokenType() == TokenType.Colon;
+		bool foundStorageClass = false;
+
+		{
+			auto guard = unindent(isColonBlock);
+			foundStorageClass = parseStorageClasses();
+		}
+
+		// Before bailing, try storage class looking declarations.
+		switch (token.type) with (TokenType) {
+			case Enum:
+				return parseEnum();
+
+			case Alias:
+				return parseAlias();
+
+			default:
+				break;
+		}
+
+		if (!foundStorageClass) {
 			return false;
 		}
 
@@ -2388,29 +2444,9 @@ private:
 		return true;
 	}
 
-	TokenType getStorageClassTokenType() {
-		auto lookahead = trange.getLookahead();
-		lookahead.popFront();
-
-		if (lookahead.front.type == TokenType.Identifier) {
-			lookahead.popFront();
-		}
-
-		if (lookahead.front.type == TokenType.OpenParen) {
-			import source.parserutil;
-			lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
-		}
-
-		return lookahead.front.type;
-	}
-
-	void parseEnum() in {
-		assert(match(TokenType.Enum));
-	} do {
-		auto t = getStorageClassTokenType();
-		if (t != TokenType.Colon && t != TokenType.OpenBrace) {
-			parseStorageClassDeclaration();
-			return;
+	bool parseEnum() {
+		if (!match(TokenType.Enum)) {
+			return false;
 		}
 
 		nextToken();
@@ -2431,6 +2467,8 @@ private:
 			nextToken();
 			parseList!parseEnumEntry(TokenType.CloseBrace, true);
 		}
+
+		return true;
 	}
 
 	void parseEnumEntry() {
@@ -2441,13 +2479,9 @@ private:
 		parseExpression();
 	}
 
-	void parseAlias() in {
-		assert(match(TokenType.Alias));
-	} do {
-		auto t = getStorageClassTokenType();
-		if (t != TokenType.This && t != TokenType.Identifier) {
-			parseStorageClassDeclaration();
-			return;
+	bool parseAlias() {
+		if (!match(TokenType.Alias)) {
+			return false;
 		}
 
 		nextToken();
@@ -2459,6 +2493,8 @@ private:
 			space();
 			nextToken();
 		}
+
+		return true;
 	}
 
 	void parseAggregate() in {
