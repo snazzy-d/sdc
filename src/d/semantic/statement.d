@@ -37,7 +37,6 @@ private:
 	}
 	
 	bool allowUnreachable;
-	bool allowFallthrough;
 	BreakKind breakKind;
 	
 	UnwindInfo[] unwindActions;
@@ -786,7 +785,6 @@ public:
 		auto oldBreakKind = breakKind;
 		auto oldBreakLabel = breakLabel;
 		auto oldCases = cases;
-		auto oldAllowFallthrough = allowFallthrough;
 		auto oldSwitchStack = switchStack;
 		
 		Label oldDefault;
@@ -801,7 +799,6 @@ public:
 			breakKind = oldBreakKind;
 			breakLabel = oldBreakLabel;
 			cases = oldCases;
-			allowFallthrough = oldAllowFallthrough;
 			switchStack = oldSwitchStack;
 			
 			if (oldDefault.block) {
@@ -822,7 +819,6 @@ public:
 		);
 		
 		currentBlockRef = null;
-		allowFallthrough = true;
 		visit(s.statement);
 		
 		if (!terminate) {
@@ -898,21 +894,9 @@ public:
 		Location location,
 		string switchError,
 		string fallthroughError,
-	) out {
-		assert(varStack == switchStack);
-	} do {
-		scope(success) varStack = switchStack;
-		if (allowFallthrough) {
-			allowFallthrough = false;
-			if (varStack == switchStack) {
-				return;
-			}
-			
-			import source.exception;
-			throw new CompileException(
-				location,
-				"Cannot jump over variable initialization.",
-			);
+	) {
+		scope(success) {
+			varStack = switchStack;
 		}
 		
 		if (cases.length == 0) {
