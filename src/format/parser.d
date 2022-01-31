@@ -500,17 +500,20 @@ private:
 				}
 
 				lookahead.popFront();
-				if (newLineCount(lookahead)) {
-					auto guard = unindent();
-					newline(2);
-					nextToken();
-					parseColonBlock();
-				} else {
+				if (newLineCount(lookahead) == 0) {
 					nextToken();
 					nextToken();
 					space();
+					goto Entry;
 				}
 
+				{
+					auto guard = unindent();
+					newline(2);
+					nextToken();
+				}
+
+				parseColonBlock();
 				break;
 
 			case If:
@@ -598,13 +601,15 @@ private:
 				parseColonBlock();
 				break;
 
-			case Default: {
-				auto guard = unindent();
-				newline();
-				nextToken();
+			case Default:
+				{
+					auto guard = unindent();
+					newline();
+					nextToken();
+				}
+
 				parseColonBlock();
 				break;
-			}
 
 			case Goto:
 				nextToken();
@@ -1397,8 +1402,15 @@ private:
 
 	void parseColonBlock() {
 		runOnType!(TokenType.Colon, nextToken)();
+
+		if (match(TokenType.CloseBrace)) {
+			// Empty colon block.
+			return;
+		}
+
 		if (!match(TokenType.OpenBrace)) {
 			newline(1);
+			parseStructuralElement();
 			return;
 		}
 
