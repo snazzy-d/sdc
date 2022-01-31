@@ -697,15 +697,19 @@ private:
 				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 
-				if (lookahead.front.type == TokenType.Identifier) {
+				auto t = lookahead.front.type;
+				if (t == TokenType.Identifier) {
 					nextToken();
 					space();
 					parseTypedDeclaration();
 					break;
 				}
 
-				// FIXME: customized parsing depending if declaration or statement are prefered.
-				// For now, assume ctor.
+				if (t != TokenType.OpenParen || mode != Mode.Declaration) {
+					// This is an expression.
+					goto default;
+				}
+
 				parseConstructor();
 				break;
 
