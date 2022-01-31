@@ -2283,14 +2283,18 @@ private:
 		}
 	}
 
-	void parseAttributes() {
+	bool parseAttributes() {
 		auto guard = changeMode(Mode.Attribute);
 
+		bool ret = false;
 		while (match(TokenType.At)) {
 			nextToken();
 			parseIdentifier();
 			space();
+			ret = true;
 		}
+
+		return ret;
 	}
 
 	bool parseStorageClasses(bool isPostfix = false) {
@@ -2430,15 +2434,7 @@ private:
 	}
 
 	void parseEnumEntry() {
-		bool hasUDA = false;
-		while (match(TokenType.At)) {
-			hasUDA = true;
-			nextToken();
-			parseIdentifier();
-			space();
-		}
-
-		if (hasUDA) {
+		if (parseAttributes()) {
 			newline(1);
 		}
 
