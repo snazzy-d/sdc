@@ -2305,9 +2305,18 @@ private:
 					nextToken();
 					break;
 
-				case Align, Deprecated, Extern, Package, Pragma, Synchronized:
+				case Align, Deprecated, Extern, Package, Synchronized:
 					nextToken();
 					parseArgumentList();
+					break;
+
+				case Pragma:
+					nextToken();
+					parseArgumentList();
+					if (!isPostfix && !match(Colon)) {
+						newline(1);
+					}
+
 					break;
 
 				case At:
