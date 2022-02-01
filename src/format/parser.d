@@ -755,36 +755,20 @@ private:
 					break;
 				}
 
-				if (!parseIdentifier()) {
+				if (!parseType()) {
 					// We made no progress, start skipping.
 					skipToken();
 					return;
 				}
 
-				switch (token.type) {
-					case Star:
-						auto lookahead = trange.getLookahead();
-						lookahead.popFront();
-
-						if (lookahead.front.type != Identifier) {
-							break;
-						}
-
-						// This is a pointer type.
-						nextToken();
-						goto case;
-
-					case Identifier:
-						// We have a declaration.
-						parseTypedDeclaration();
-						break;
-
-					default:
-						// We just have some kind of expression.
-						parseAssignExpression();
-						break;
+				if (match(Identifier)) {
+					// We have a declaration.
+					parseTypedDeclaration();
+					break;
 				}
 
+				// We just have some kind of expression.
+				parseAssignExpression();
 				break;
 		}
 
@@ -823,18 +807,28 @@ private:
 		Expression,
 	}
 
-	bool parseIdentifier() {
+	bool parseIdentifier(IdentifierKind expected = IdentifierKind.Symbol) {
 		flushComments();
 		auto guard = span();
 
 		parseIdentifierPrefix();
 
-		auto kind = parseBaseIdentifier(IdentifierKind.Symbol);
+		auto kind = parseBaseIdentifier(expected);
 		if (kind == IdentifierKind.None) {
 			return false;
 		}
 
-		parseIdentifierSuffix(kind);
+		kind = parseIdentifierSuffix(kind);
+
+		if (expected <= IdentifierKind.Symbol) {
+			return true;
+		}
+
+		// We expect something specific.
+		while (kind == IdentifierKind.Symbol) {
+			kind = parseIdentifierSuffix(expected);
+		}
+
 		return true;
 	}
 
@@ -1118,9 +1112,7 @@ private:
 		}
 	}
 
-	void parseIdentifierSuffix(IdentifierKind kind) in {
-		assert(kind != IdentifierKind.None);
-	} do {
+	IdentifierKind parseIdentifierSuffix(IdentifierKind kind) {
 		while (true) {
 			switch (token.type) with (TokenType) {
 				case Dot:
@@ -1128,7 +1120,7 @@ private:
 					nextToken();
 
 					if (!match(Identifier)) {
-						return;
+						return IdentifierKind.None;
 					}
 
 					kind = IdentifierKind.Symbol;
@@ -1144,7 +1136,7 @@ private:
 
 						case Expression:
 							// This is a multiplication.
-							return;
+							return IdentifierKind.Expression;
 
 						case Symbol:
 							// This could be either. Use lookahead.
@@ -1165,7 +1157,7 @@ private:
 
 						default:
 							// No idea what this is, move on.
-							return;
+							return IdentifierKind.Symbol;
 					}
 
 					break;
@@ -1180,7 +1172,7 @@ private:
 				case Bang:
 					if (isBangIsOrIn()) {
 						// This is a binary expression.
-						return;
+						return IdentifierKind.Expression;
 					}
 
 					// Template instance.
@@ -1200,17 +1192,19 @@ private:
 					break;
 
 				case OpenParen:
+					// FIXME: customize based on kind.
 					parseArgumentList();
 					break;
 
 				case OpenBracket:
+					// FIXME: customize based on kind.
 					// Technically, this is not an array literal,
 					// but this should do for now.
 					parseArrayLiteral();
 					break;
 
 				default:
-					return;
+					return kind;
 			}
 		}
 	}
@@ -1657,11 +1651,8 @@ private:
 	/**
 	 * Types
 	 */
-	void parseType() {
-		parseIdentifier();
-
-		// '*' could be a pointer or a multiply, so it is not parsed eagerly.
-		parseIdentifierSuffix(IdentifierKind.Type);
+	bool parseType() {
+		return parseIdentifier(IdentifierKind.Type);
 	}
 
 	/**
@@ -1672,8 +1663,8 @@ private:
 		parseAssignExpression();
 	}
 
-	void parseBaseExpression() {
-		parseIdentifier();
+	bool parseBaseExpression() {
+		return parseIdentifier(IdentifierKind.Expression);
 	}
 
 	void parseAssignExpression() {
