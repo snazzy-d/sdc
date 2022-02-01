@@ -583,8 +583,9 @@ struct SolveState {
 			return 0;
 		}
 
-		// If it is the same span, then it's a feature, not a bug.
-		if (c.span is previousSpan) {
+		// If it is the same span or there are no previous span,
+		// then it's a feature, not a bug.
+		if (c.span is previousSpan || previousSpan is null) {
 			return 0;
 		}
 

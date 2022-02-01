@@ -316,3 +316,21 @@ final class ConditionalSpan : Span {
 		return Split.Can;
 	}
 }
+
+/**
+ * Span that do not cause any indentation and is cheap to break.
+ */
+
+final class StorageClassSpan : Span {
+	this(Span parent) {
+		super(parent);
+	}
+
+	override uint getCost(const ref SolveState s) const {
+		return 5;
+	}
+
+	override uint computeIndent(const ref SolveState s) const {
+		return 0;
+	}
+}

@@ -2362,11 +2362,13 @@ private:
 	}
 
 	bool parseStorageClassDeclaration() {
+		auto guard = span!StorageClassSpan();
+
 		bool isColonBlock = getStorageClassTokenType() == TokenType.Colon;
 		bool foundStorageClass = false;
 
 		{
-			auto guard = unindent(isColonBlock);
+			auto indentGuard = unindent(isColonBlock);
 			foundStorageClass = parseStorageClasses();
 		}
 
