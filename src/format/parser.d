@@ -2271,11 +2271,11 @@ private:
 	}
 
 	bool parseStorageClasses(bool isPostfix = false) {
-		bool ret = false;
+		bool foundStorageClass = false;
 		while (true) {
 			scope(success) {
 				// This will be true after the first loop iterration.
-				ret = true;
+				foundStorageClass = true;
 			}
 
 			switch (token.type) with (TokenType) {
@@ -2284,7 +2284,7 @@ private:
 					lookahead.popFront();
 					if (lookahead.front.type == OpenParen) {
 						// This is a type.
-						return ret;
+						goto default;
 					}
 
 					nextToken();
@@ -2293,7 +2293,7 @@ private:
 				case In, Out:
 					// Make sure we deambiguate with contracts.
 					if (isPostfix) {
-						return ret;
+						goto default;
 					}
 
 					nextToken();
@@ -2321,7 +2321,7 @@ private:
 
 				case At:
 					parseAttributes();
-					if (!isPostfix && !ret && !match(Colon)) {
+					if (!isPostfix && !foundStorageClass && !match(Colon)) {
 						newline(1);
 					}
 
@@ -2334,7 +2334,7 @@ private:
 					auto t = lookahead.front.type;
 					if (t == Colon || t == OpenBrace) {
 						// This is an enum declaration.
-						return ret;
+						goto default;
 					}
 
 					nextToken();
@@ -2347,18 +2347,20 @@ private:
 					auto t = lookahead.front.type;
 					if (t == This || t == Identifier) {
 						// This is an alias declaration.
-						return ret;
+						goto default;
 					}
 
 					nextToken();
 					break;
 
 				default:
-					return ret;
+					return foundStorageClass;
 			}
 
 			space();
 		}
+
+		return foundStorageClass;
 	}
 
 	bool parseStorageClassDeclaration() {
