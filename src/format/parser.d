@@ -942,30 +942,18 @@ private:
 
 			case OpenParen:
 				if (mode == Mode.Attribute) {
-					parseArgumentList();
-					break;
+					goto ParenIdentifier;
 				}
 
 				import source.parserutil;
 				auto lookahead = trange.getLookahead();
 				lookahead.popMatchingDelimiter!OpenParen();
 
-				bool isLambda;
-				switch (lookahead.front.type) {
-					case OpenBrace,
-					     EqualMore, At, Nothrow, Pure, Ref, Synchronized:
-						isLambda = true;
-						break;
-
-					default:
-						isLambda = false;
-						break;
-				}
-
-				if (!isLambda) {
-					// This isn't a lambda.
-					parseArgumentList();
-					break;
+				auto t = lookahead.front.type;
+				if (t != OpenBrace && t != EqualMore && t != At && t != Nothrow
+					    && t != Pure && t != Ref && t != Synchronized) {
+					// Not a lambda.
+					goto ParenIdentifier;
 				}
 
 				// We have a lambda.
@@ -990,6 +978,11 @@ private:
 				}
 
 				break;
+
+			ParenIdentifier:
+				// FIXME: Customize the list parsed based on kind.
+				parseArgumentList();
+				return kind;
 
 			case OpenBrace: {
 				// Try to detect if it is a struct literal or a parameterless lambda.
