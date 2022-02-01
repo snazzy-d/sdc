@@ -1378,13 +1378,23 @@ private:
 		return false;
 	}
 
+	void emitPostControlFlowWhitespace(bool isBlock) {
+		flushComments();
+		clearSeparator();
+		if (isBlock) {
+			space();
+		} else {
+			newline(1);
+		}
+	}
+
 	void parseElsableBlock() {
 		bool isBlock = parseControlFlowBlock();
 		if (!match(TokenType.Else)) {
 			return;
 		}
 
-		emitBlockControlFlowWhitespace(isBlock);
+		emitPostControlFlowWhitespace(isBlock);
 		parseElse();
 	}
 
@@ -1414,15 +1424,6 @@ private:
 
 		space();
 		parseElsableBlock();
-	}
-
-	void emitBlockControlFlowWhitespace(bool isBlock) {
-		clearSeparator();
-		if (isBlock) {
-			space();
-		} else {
-			newline(1);
-		}
 	}
 
 	void parseIf() in {
@@ -1498,7 +1499,7 @@ private:
 			return;
 		}
 
-		emitBlockControlFlowWhitespace(isBlock);
+		emitPostControlFlowWhitespace(isBlock);
 		nextToken();
 
 		if (match(TokenType.OpenParen)) {
@@ -1627,7 +1628,7 @@ private:
 
 		while (true) {
 			while (match(TokenType.Catch)) {
-				emitBlockControlFlowWhitespace(isBlock);
+				emitPostControlFlowWhitespace(isBlock);
 				isBlock = parseCatch();
 			}
 
@@ -1635,7 +1636,7 @@ private:
 				break;
 			}
 
-			emitBlockControlFlowWhitespace(isBlock);
+			emitPostControlFlowWhitespace(isBlock);
 			isBlock = parseFinally();
 		}
 	}
