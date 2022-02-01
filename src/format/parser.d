@@ -1179,7 +1179,7 @@ private:
 					kind = IdentifierKind.Symbol;
 					nextToken();
 					if (match(OpenParen)) {
-						parseArgumentList();
+						parseAliasList();
 					} else {
 						parseBaseIdentifier(IdentifierKind.Symbol);
 					}
@@ -2464,6 +2464,23 @@ private:
 		}
 
 		return true;
+	}
+
+	void parseAliasEntry() {
+		// FIXME: This is wrong because identifier * identifier shouldn't be
+		// parsed as a declaration here, but provide the right entry point for the
+		// rest of the code.
+		parseType();
+		parseAssignExpression();
+	}
+
+	void parseAliasList() {
+		if (!match(TokenType.OpenParen)) {
+			return;
+		}
+
+		nextToken();
+		parseList!parseAliasEntry(TokenType.CloseParen);
 	}
 
 	void parseAggregate() in {
