@@ -9,3 +9,7 @@ alias TplAlias(alias A, T = TT) =
 alias TplAlias(
 		alias A, T = DefaultType) =
 	Tpl!(A, T, false);
+
+enum Foo {
+	Bar, // comment!
+}

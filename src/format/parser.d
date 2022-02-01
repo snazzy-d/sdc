@@ -2581,6 +2581,7 @@ private:
 				newline(1);
 			}
 
+			split();
 			nextToken();
 		}
 
