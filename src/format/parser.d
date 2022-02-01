@@ -829,7 +829,7 @@ private:
 
 		parseIdentifierPrefix();
 
-		auto kind = parseBaseIdentifier();
+		auto kind = parseBaseIdentifier(IdentifierKind.Symbol);
 		if (kind == IdentifierKind.None) {
 			return false;
 		}
@@ -872,31 +872,27 @@ private:
 		}
 	}
 
-	IdentifierKind parseBaseIdentifier() {
-		IdentifierKind kind = IdentifierKind.Symbol;
-
-	BaseIdentifier:
+	IdentifierKind parseBaseIdentifier(IdentifierKind kind) {
 		switch (token.type) with (TokenType) {
 			case Identifier:
 				nextToken();
 
 				if (mode == Mode.Attribute) {
-					break;
+					return kind;
 				}
 
 				parseStorageClasses(true);
 				if (!match(EqualMore)) {
-					break;
+					return kind;
 				}
 
 				// Lambda expression
-				kind = IdentifierKind.Expression;
 				space();
 				nextToken();
 				space();
 				split();
 				parseExpression();
-				break;
+				return IdentifierKind.Expression;
 
 			// Litterals
 			case This:
@@ -911,36 +907,31 @@ private:
 			case __File__:
 			case __Line__:
 			case Dollar:
-				kind = IdentifierKind.Expression;
 				nextToken();
-				break;
+				return IdentifierKind.Expression;
 
 			case __Traits:
-				kind = IdentifierKind.Symbol;
 				nextToken();
 				parseArgumentList();
-				break;
+				return IdentifierKind.Symbol;
 
 			case Assert, Import:
-				kind = IdentifierKind.Expression;
 				nextToken();
 				parseArgumentList();
-				break;
+				return IdentifierKind.Expression;
 
 			case New:
-				kind = IdentifierKind.Expression;
 				nextToken();
 				space();
 				parseType();
 				parseArgumentList();
-				break;
+				return IdentifierKind.Expression;
 
 			case Is:
-				kind = IdentifierKind.Expression;
 				parseIsExpression();
-				break;
+				return IdentifierKind.Expression;
 
-			case OpenParen:
+			case OpenParen: {
 				if (mode == Mode.Attribute) {
 					goto ParenIdentifier;
 				}
@@ -957,7 +948,6 @@ private:
 				}
 
 				// We have a lambda.
-				kind = IdentifierKind.Expression;
 				parseParameterList();
 				space();
 				parseStorageClasses(true);
@@ -977,7 +967,8 @@ private:
 						break;
 				}
 
-				break;
+				return IdentifierKind.Expression;
+			}
 
 			ParenIdentifier:
 				// FIXME: Customize the list parsed based on kind.
@@ -1035,14 +1026,10 @@ private:
 			}
 
 			StructLiteral:
-				kind = IdentifierKind.Expression;
 				parseStructLiteral();
-				break;
+				return IdentifierKind.Expression;
 
 			case Function, Delegate:
-				// Function and delegate literals.
-				kind = IdentifierKind.Expression;
-
 				nextToken();
 				if (!match(OpenParen)) {
 					// We have an explicit type.
@@ -1059,37 +1046,33 @@ private:
 				goto Lambda;
 
 			Lambda:
-				kind = IdentifierKind.Expression;
 				parseBlock(Mode.Statement);
 				clearSeparator();
-				break;
+				return IdentifierKind.Expression;
 
 			case OpenBracket:
-				kind = IdentifierKind.Expression;
 				parseArrayLiteral();
-				break;
+				return IdentifierKind.Expression;
 
 			case Typeid:
-				kind = IdentifierKind.Expression;
 				nextToken();
 				parseArgumentList();
-				break;
+				return IdentifierKind.Expression;
 
 			case Mixin:
-				// Assume it is an expression. Technically, it could be a declaration, but it
-				// change nothing from a formatting perspective, so we are good.
 				kind = IdentifierKind.Expression;
 				nextToken();
 				parseArgumentList();
-				break;
+
+				// Assume it is an expression. Technically, it could be a declaration,
+				// but it does change anything from a formatting perspective.
+				return IdentifierKind.Expression;
 
 			// Types
 			case Typeof:
-				kind = IdentifierKind.Type;
 				nextToken();
-
 				if (!match(OpenParen)) {
-					break;
+					return IdentifierKind.Type;
 				}
 
 				auto lookahead = trange.getLookahead();
@@ -1103,7 +1086,7 @@ private:
 					parseArgumentList();
 				}
 
-				break;
+				return IdentifierKind.Type;
 
 			case Bool:
 			case Byte, Ubyte:
@@ -1114,29 +1097,25 @@ private:
 			case Char, Wchar, Dchar:
 			case Float, Double, Real:
 			case Void:
-				kind = IdentifierKind.Type;
 				nextToken();
-				break;
+				return IdentifierKind.Type;
 
 			// Type qualifiers
 			case Const, Immutable, Inout, Shared:
-				kind = IdentifierKind.Type;
 				nextToken();
 				if (!match(OpenParen)) {
 					space();
-					goto BaseIdentifier;
+					return parseBaseIdentifier(kind);
 				}
 
 				nextToken();
 				parseType();
 				runOnType!(CloseParen, nextToken)();
-				break;
+				return IdentifierKind.Type;
 
 			default:
 				return IdentifierKind.None;
 		}
-
-		return kind;
 	}
 
 	void parseIdentifierSuffix(IdentifierKind kind) in {
@@ -1147,8 +1126,13 @@ private:
 				case Dot:
 					split();
 					nextToken();
-					// Put another coin in the Pachinko!
-					kind = parseBaseIdentifier();
+
+					if (!match(Identifier)) {
+						return;
+					}
+
+					kind = IdentifierKind.Symbol;
+					nextToken();
 					break;
 
 				case Star:
@@ -1205,7 +1189,7 @@ private:
 					if (match(OpenParen)) {
 						parseArgumentList();
 					} else {
-						parseBaseIdentifier();
+						parseBaseIdentifier(IdentifierKind.Symbol);
 					}
 
 					break;
