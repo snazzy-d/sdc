@@ -556,9 +556,13 @@ private:
 			auto floatSavePoint = index;
 
 			popSkippableChars();
-			auto nc = frontChar;
 			
-			if (isIdChar(nc) || (nc & 0x80)) {
+			static wantIdentifier(char c) {
+				auto hc = c | 0x20;
+				return c == '_' || (c & 0x80) || (hc >= 'a' && hc <= 'z');
+			}
+			
+			if (wantIdentifier(frontChar)) {
 				index = savePoint;
 				goto LexIntegral;
 			}

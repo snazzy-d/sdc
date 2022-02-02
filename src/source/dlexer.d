@@ -471,6 +471,21 @@ unittest {
 	}
 	
 	{
+		auto lex = testlexer("1.0");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1. 0");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
 		auto lex = testlexer("1..");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
