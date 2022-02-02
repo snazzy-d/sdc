@@ -1901,12 +1901,27 @@ private:
 
 		nextToken();
 		if (match(TokenType.CloseParen)) {
+			nextToken();
 			return;
 		}
 
+		parseInnerIsExpression();
+
+		if (match(TokenType.CloseParen)) {
+			auto trailingGuard = span!TrainlingListSpan();
+			split();
+			nextToken();
+		}
+	}
+
+	void parseInnerIsExpression() {
 		auto modeGuard = changeMode(Mode.Parameter);
-		auto spanGuard = span();
+		auto guard = span!ListSpan();
+
 		split();
+		guard.registerFix(function(ListSpan s, size_t i) {
+			s.registerElement(i);
+		});
 
 		parseType();
 		if (match(TokenType.Identifier)) {
@@ -1947,7 +1962,20 @@ private:
 			split();
 		}
 
-		parseList!parseStructuralElement(TokenType.CloseParen);
+		while (!match(TokenType.CloseParen)) {
+			split();
+			guard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
+
+			parseStructuralElement();
+			if (!match(TokenType.Comma)) {
+				break;
+			}
+
+			nextToken();
+			space();
+		}
 	}
 
 	void parseStructLiteral() {
