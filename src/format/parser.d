@@ -768,7 +768,7 @@ private:
 				}
 
 				// We just have some kind of expression.
-				parseAssignExpression();
+				parseAssignExpressionSuffix();
 				break;
 		}
 
@@ -1504,7 +1504,7 @@ private:
 				nextToken();
 			} else {
 				space();
-				parseExpression();
+				parseCommaExpression();
 				runOnType!(TokenType.Semicolon, nextToken)();
 			}
 
@@ -1512,7 +1512,7 @@ private:
 				nextToken();
 			} else {
 				space();
-				parseExpression();
+				parseCommaExpression();
 			}
 
 			runOnType!(TokenType.CloseParen, nextToken)();
@@ -1660,15 +1660,37 @@ private:
 	 */
 	void parseExpression() {
 		parseBaseExpression();
-		parseAssignExpression();
+		parseAssignExpressionSuffix();
 	}
 
 	bool parseBaseExpression() {
 		return parseIdentifier(IdentifierKind.Expression);
 	}
 
-	void parseAssignExpression() {
-		parseConditionalExpression();
+	void parseCommaExpression() {
+		parseBaseExpression();
+		parseCommaExpressionSuffix();
+	}
+
+	void parseCommaExpressionSuffix() {
+		parseAssignExpressionSuffix();
+
+		if (!match(TokenType.Comma)) {
+			return;
+		}
+
+		auto guard = spliceSpan();
+		do {
+			nextToken();
+			split();
+			space();
+
+			parseExpression();
+		} while (match(TokenType.Comma));
+	}
+
+	void parseAssignExpressionSuffix() {
+		parseConditionalExpressionSuffix();
 
 		static bool isAssignExpression(TokenType t) {
 			return t == TokenType.Equal || t == TokenType.PlusEqual
@@ -1693,12 +1715,12 @@ private:
 			space();
 
 			parseBaseExpression();
-			parseConditionalExpression();
+			parseConditionalExpressionSuffix();
 		} while (isAssignExpression(token.type));
 	}
 
-	void parseConditionalExpression() {
-		parseBinaryExpression();
+	void parseConditionalExpressionSuffix() {
+		parseBinaryExpressionSuffix();
 
 		if (!match(TokenType.QuestionMark)) {
 			return;
@@ -1730,7 +1752,7 @@ private:
 		space();
 
 		parseBaseExpression();
-		parseConditionalExpression();
+		parseConditionalExpressionSuffix();
 	}
 
 	bool isBangIsOrIn() in {
@@ -1808,7 +1830,7 @@ private:
 		}
 	}
 
-	void parseBinaryExpression(uint minPrecedence = 0) {
+	void parseBinaryExpressionSuffix(uint minPrecedence = 0) {
 		auto currentPrecedence = getPrecedence();
 
 		while (currentPrecedence > minPrecedence) {
@@ -1819,7 +1841,7 @@ private:
 				scope(success) {
 					currentPrecedence = getPrecedence();
 					if (currentPrecedence > previousPrecedence) {
-						parseBinaryExpression(previousPrecedence);
+						parseBinaryExpressionSuffix(previousPrecedence);
 						currentPrecedence = getPrecedence();
 					}
 
@@ -2492,7 +2514,7 @@ private:
 		// parsed as a declaration here, but provide the right entry point for the
 		// rest of the code.
 		parseType();
-		parseAssignExpression();
+		parseAssignExpressionSuffix();
 	}
 
 	void parseAliasList() {

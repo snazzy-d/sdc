@@ -25,3 +25,5 @@ switch (x) do {
 			foobar();
 	}
 } while (y);
+
+for (; popFront(), i; ++i, foo()) {}
