@@ -1998,7 +1998,15 @@ private:
 				parseExpression();
 			}
 
-			if (isParameter || !match(TokenType.Comma)) {
+			if (isParameter) {
+				if (match(TokenType.DotDotDot)) {
+					nextToken();
+				}
+
+				break;
+			}
+
+			if (!match(TokenType.Comma)) {
 				break;
 			}
 

@@ -13,3 +13,5 @@ alias TplAlias(
 enum Foo {
 	Bar, // comment!
 }
+
+void foo(int[] args...) {}
