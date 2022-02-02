@@ -1535,7 +1535,7 @@ private:
 			parseList!parseStructuralElement(TokenType.Semicolon);
 
 			space();
-			parseList!parseExpression(TokenType.CloseParen);
+			parseList!parseArrayElement(TokenType.CloseParen);
 		}
 
 		space();
@@ -1883,46 +1883,50 @@ private:
 	void parseArrayElement() {
 		parseExpression();
 
-		if (match(TokenType.Colon)) {
-			space();
-			nextToken();
-			space();
-			parseExpression();
+		switch (token.type) with (TokenType) {
+			case Colon: {
+				auto guard = spliceSpan();
+				space();
+				nextToken();
+				space();
+				split();
+				parseExpression();
+				break;
+			}
+
+			case DotDot: {
+				auto guard = spliceSpan();
+				space();
+				split();
+				nextToken();
+				space();
+				parseExpression();
+				break;
+			}
+
+			default:
+				break;
 		}
 	}
 
 	void parseIsExpression() in {
 		assert(match(TokenType.Is));
 	} do {
+		auto modeGuard = changeMode(Mode.Parameter);
 		nextToken();
-		if (!match(TokenType.OpenParen)) {
-			return;
-		}
+		runOnType!(TokenType.OpenParen, nextToken)();
+		parseList!parseIsElement(TokenType.CloseParen);
+	}
 
-		nextToken();
-		if (match(TokenType.CloseParen)) {
-			nextToken();
-			return;
-		}
-
-		parseInnerIsExpression();
-
-		if (match(TokenType.CloseParen)) {
-			auto trailingGuard = span!TrainlingListSpan();
-			split();
-			nextToken();
+	void parseIsElement(size_t i) {
+		if (i == 0) {
+			parseIsSpecialization();
+		} else {
+			parseStructuralElement();
 		}
 	}
 
-	void parseInnerIsExpression() {
-		auto modeGuard = changeMode(Mode.Parameter);
-		auto guard = span!ListSpan();
-
-		split();
-		guard.registerFix(function(ListSpan s, size_t i) {
-			s.registerElement(i);
-		});
-
+	void parseIsSpecialization() {
 		parseType();
 		if (match(TokenType.Identifier)) {
 			space();
@@ -1954,27 +1958,6 @@ private:
 			}
 
 			clearSeparator();
-		}
-
-		if (match(TokenType.Comma)) {
-			nextToken();
-			space();
-			split();
-		}
-
-		while (!match(TokenType.CloseParen)) {
-			split();
-			guard.registerFix(function(ListSpan s, size_t i) {
-				s.registerElement(i);
-			});
-
-			parseStructuralElement();
-			if (!match(TokenType.Comma)) {
-				break;
-			}
-
-			nextToken();
-			space();
 		}
 	}
 
@@ -2623,6 +2606,10 @@ private:
 		return parseList!fun(options);
 	}
 
+	void parseListAdapter(alias fun)(size_t i) {
+		fun();
+	}
+
 	void parseList(alias fun)(ListOptions options) {
 		auto guard = builder.virtualSpan();
 
@@ -2631,7 +2618,13 @@ private:
 			return;
 		}
 
-		parseInnerList!fun(options);
+		static if (is(typeof(fun(0)))) {
+			alias afun = fun;
+		} else {
+			alias afun = parseListAdapter!fun;
+		}
+
+		parseInnerList!afun(options);
 
 		if (match(options.closingTokenType)) {
 			auto trailingGuard = span!TrainlingListSpan();
@@ -2651,6 +2644,7 @@ private:
 	void parseInnerList(alias fun)(ListOptions options) {
 		auto guard = options.splice ? spliceSpan!ListSpan() : span!ListSpan();
 
+		size_t i = 0;
 		while (!match(options.closingTokenType)) {
 			if (options.addNewLines) {
 				newline(1);
@@ -2661,17 +2655,7 @@ private:
 				s.registerElement(i);
 			});
 
-			fun();
-
-			if (match(TokenType.DotDot)) {
-				auto rangeGuard = spliceSpan();
-				space();
-				split();
-
-				nextToken();
-				space();
-				fun();
-			}
+			fun(i++);
 
 			if (!match(TokenType.Comma)) {
 				break;
