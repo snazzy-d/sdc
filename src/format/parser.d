@@ -541,7 +541,7 @@ private:
 				break;
 
 			case Foreach, ForeachReverse:
-				parseForeach();
+				withCaseLevelIndent!parseForeach();
 				break;
 
 			case Return:
@@ -651,36 +651,9 @@ private:
 			/**
 			 * Compile time constructs.
 			 */
-			case Static: {
-				// There is nothing special to do in this case, just move on.
-				if (!doubleIndentBlock) {
-					goto default;
-				}
-
-				auto lookahead = trange.getLookahead();
-				lookahead.popFront();
-				auto t = lookahead.front.type;
-
-				if (t != Assert
-					    && t != If && t != Foreach && t != ForeachReverse) {
-					// This is a storage class.
-					goto default;
-				}
-
-				// Request the next nested block to be double indented.
-				auto oldNeedDoubleIndent = needDoubleIndent;
-				scope(exit) {
-					needDoubleIndent = oldNeedDoubleIndent;
-				}
-
-				needDoubleIndent = true;
-
-				auto guard = unindent();
-				split();
-
-				parseStatic();
+			case Static:
+				withCaseLevelIndent!parseStatic();
 				break;
-			}
 
 			/**
 			 * Declaration
@@ -1593,6 +1566,137 @@ private:
 		parseStructuralElement();
 	}
 
+	auto withCaseLevelIndent(alias fun)() {
+		// There is nothing special to do in this case, just move on.
+		if (!isCaseLevelStatement()) {
+			return fun();
+		}
+
+		// Request the next nested block to be double indented.
+		auto oldNeedDoubleIndent = needDoubleIndent;
+		scope(exit) {
+			needDoubleIndent = oldNeedDoubleIndent;
+		}
+
+		needDoubleIndent = true;
+
+		auto guard = unindent();
+		split();
+
+		return fun();
+	}
+
+	bool isCaseLevelStatement() {
+		if (!doubleIndentBlock) {
+			// No case level statement if we are not in
+			// switch style block.
+			return false;
+		}
+
+		static void skip(ref TokenRange r) {
+			while (true) {
+				switch (r.front.type) with (TokenType) {
+					case CloseBrace, End:
+						return;
+
+					case Semicolon:
+						r.popFront();
+						return;
+
+					case OpenBrace:
+						import source.parserutil;
+						r.popMatchingDelimiter!OpenBrace();
+						return;
+
+					case OpenParen:
+						// Make sure we don't stop on `for (;;)`
+						// so skip over parentheses.
+						import source.parserutil;
+						r.popMatchingDelimiter!OpenParen();
+						continue;
+
+					default:
+						r.popFront();
+						continue;
+				}
+			}
+		}
+
+		static bool isCaseBlock()(ref TokenRange r) {
+			if (r.front.type != TokenType.OpenBrace) {
+				return containsCase(r);
+			}
+
+			r.popFront();
+			while (r.front.type != TokenType.End) {
+				if (containsCase(r)) {
+					return true;
+				}
+
+				if (r.front.type == TokenType.CloseBrace) {
+					r.popFront();
+					break;
+				}
+			}
+
+			return false;
+		}
+
+		static bool containsCase(ref TokenRange r, bool doSkip = true) {
+			// Pop labels.
+			while (r.front.type == TokenType.Identifier) {
+				r.popFront();
+				if (r.front.type != TokenType.Colon) {
+					goto Skip;
+				}
+
+				r.popFront();
+			}
+
+			switch (r.front.type) with (TokenType) {
+				case Case, Default:
+					return true;
+
+				case Static:
+					r.popFront();
+
+					auto t = r.front.type;
+					if (t == If || t == Foreach || t == ForeachReverse) {
+						goto CheckBlock;
+					}
+
+					break;
+
+				case Foreach, ForeachReverse:
+					goto CheckBlock;
+
+				CheckBlock:
+					// As far as we are concenred here, foreach and
+					// static if have the same syntax.
+					r.popFront();
+					if (r.front.type == OpenParen) {
+						import source.parserutil;
+						r.popMatchingDelimiter!OpenParen();
+					}
+
+					return isCaseBlock(r);
+
+				default:
+					break;
+			}
+
+		Skip:
+			if (doSkip) {
+				skip(r);
+			}
+
+			return false;
+		}
+
+		auto lookahead = trange.getLookahead();
+		return containsCase(lookahead, false);
+	}
+
 	void parseTry() in {
 		assert(match(TokenType.Try));
 	} do {
@@ -2453,9 +2557,6 @@ private:
 
 		// Before bailing, try storage class looking declarations.
 		switch (token.type) with (TokenType) {
-			case Static:
-				return parseStatic();
-
 			case Enum:
 				return parseEnum();
 
@@ -2507,24 +2608,31 @@ private:
 			return false;
 		}
 
-		nextToken();
-		space();
+		auto lookahead = trange.getLookahead();
+		lookahead.popFront();
 
-		switch (token.type) with (TokenType) {
+		auto t = lookahead.front.type;
+		switch (t) with (TokenType) {
 			case If:
+				nextToken();
+				space();
 				parseIf();
 				break;
 
 			case Foreach, ForeachReverse:
+				nextToken();
+				space();
 				parseForeach();
 				break;
 
 			case Assert:
+				nextToken();
+				space();
 				parseExpression();
 				break;
 
 			default:
-				parseStructuralElement();
+				parseStorageClassDeclaration();
 				break;
 		}
 

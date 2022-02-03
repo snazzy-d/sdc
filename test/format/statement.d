@@ -17,6 +17,10 @@ switch (
 	case 1:
 		break;
 
+	foreach (k; Cases)
+	case k:
+		return funk();
+
 	static if (c) {
 			enum A = 3;
 
