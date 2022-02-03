@@ -8,7 +8,12 @@ else {
 	bar();
 }
 
-switch (x) do {
+// FIXME: This split it absolutely not good,
+// but the resulting identation is correct.
+switch (
+	n) if (() {
+	       return true;
+       }()) {
 	case 1:
 		break;
 
@@ -24,7 +29,7 @@ switch (x) do {
 		case 3:
 			foobar();
 	}
-} while (y);
+}
 
 for (; popFront(), i; ++i, foo()) {}
 

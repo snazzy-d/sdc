@@ -1032,10 +1032,18 @@ private:
 				parseStorageClasses(true);
 				goto Lambda;
 
-			Lambda:
-				parseBlock(Mode.Statement);
-				clearSeparator();
-				return IdentifierKind.Expression;
+				Lambda: {
+					auto oldNeedDoubleIndent = needDoubleIndent;
+					scope(exit) {
+						needDoubleIndent = oldNeedDoubleIndent;
+					}
+
+					needDoubleIndent = false;
+
+					parseBlock(Mode.Statement);
+					clearSeparator();
+					return IdentifierKind.Expression;
+				}
 
 			case OpenBracket:
 				parseArrayLiteral();
@@ -1573,6 +1581,7 @@ private:
 
 		parseCondition();
 		space();
+		split();
 
 		// Request the next nested block to be double indented.
 		auto oldNeedDoubleIndent = needDoubleIndent;
