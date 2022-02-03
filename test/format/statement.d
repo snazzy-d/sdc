@@ -27,3 +27,13 @@ switch (x) do {
 } while (y);
 
 for (; popFront(), i; ++i, foo()) {}
+
+if (a)
+	if (b)
+		if (c)
+			while (d)
+				e();
+		else
+			f();
+	else
+		g();

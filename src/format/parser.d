@@ -1380,7 +1380,9 @@ private:
 		}
 	}
 
-	void parseControlFlowBase() {
+	void parseIf() in {
+		assert(match(TokenType.If));
+	} do {
 		nextToken();
 		space();
 
@@ -1388,12 +1390,6 @@ private:
 
 		space();
 		parseElsableBlock();
-	}
-
-	void parseIf() in {
-		assert(match(TokenType.If));
-	} do {
-		parseControlFlowBase();
 	}
 
 	void parseVersion() in {
@@ -1448,8 +1444,13 @@ private:
 	void parseWhile() in {
 		assert(match(TokenType.While));
 	} do {
-		// Technically, this means while can have an else clause, and I think it is beautiful.
-		parseControlFlowBase();
+		nextToken();
+		space();
+
+		parseCondition();
+
+		space();
+		parseControlFlowBlock();
 	}
 
 	void parseDoWhile() in {
