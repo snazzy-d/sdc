@@ -661,7 +661,8 @@ private:
 				lookahead.popFront();
 				auto t = lookahead.front.type;
 
-				if (t != If && t != Foreach && t != ForeachReverse) {
+				if (t != Assert
+					    && t != If && t != Foreach && t != ForeachReverse) {
 					// This is a storage class.
 					goto default;
 				}
@@ -677,15 +678,7 @@ private:
 				auto guard = unindent();
 				split();
 
-				nextToken();
-				space();
-
-				if (match(If)) {
-					parseIf();
-				} else {
-					parseForeach();
-				}
-
+				parseStatic();
 				break;
 			}
 
@@ -2261,8 +2254,8 @@ private:
 					break;
 
 				case Abstract, Auto, Export, Final, In, Lazy, Nothrow, Out,
-				     Override, Private,
-				     Protected, Public, Pure, Ref, Return, Static, __Gshared:
+				     Override,
+				     Private, Protected, Public, Pure, Ref, Return, __Gshared:
 					lookahead.popFront();
 					break;
 
@@ -2277,6 +2270,20 @@ private:
 
 				case At:
 					popDeclarator(lookahead);
+					break;
+
+				case Static:
+					auto l2 = lookahead.getLookahead();
+					l2.popFront();
+
+					auto t2 = l2.front.type;
+					if (t2 == Assert || t2 == If
+						    || t2 == Foreach || t2 == ForeachReverse) {
+						// This is a static something.
+						return t;
+					}
+
+					lookahead.popFront();
 					break;
 
 				case Enum:
@@ -2341,8 +2348,7 @@ private:
 					break;
 
 				case Abstract, Auto, Export, Final, Lazy, Nothrow, Override,
-				     Private,
-				     Protected, Public, Pure, Ref, Return, Static, __Gshared:
+				     Private, Protected, Public, Pure, Ref, Return, __Gshared:
 					nextToken();
 					break;
 
@@ -2366,6 +2372,20 @@ private:
 						newline(1);
 					}
 
+					break;
+
+				case Static:
+					auto lookahead = trange.getLookahead();
+					lookahead.popFront();
+
+					auto t = lookahead.front.type;
+					if (t == Assert
+						    || t == If || t == Foreach || t == ForeachReverse) {
+						// This is a static something.
+						goto default;
+					}
+
+					nextToken();
 					break;
 
 				case Enum:
@@ -2398,7 +2418,13 @@ private:
 					return foundStorageClass;
 			}
 
-			space();
+			if (!match(TokenType.Colon)) {
+				if (!isPostfix && !match(TokenType.Identifier)) {
+					split();
+				}
+
+				space();
+			}
 		}
 
 		return foundStorageClass;
@@ -2417,6 +2443,9 @@ private:
 
 		// Before bailing, try storage class looking declarations.
 		switch (token.type) with (TokenType) {
+			case Static:
+				return parseStatic();
+
 			case Enum:
 				return parseEnum();
 
@@ -2454,12 +2483,37 @@ private:
 
 				goto default;
 
-			case Assert, Foreach, ForeachReverse, If:
+			default:
+				split();
 				parseStructuralElement();
+				break;
+		}
+
+		return true;
+	}
+
+	bool parseStatic() {
+		if (!match(TokenType.Static)) {
+			return false;
+		}
+
+		nextToken();
+		space();
+
+		switch (token.type) with (TokenType) {
+			case If:
+				parseIf();
+				break;
+
+			case Foreach, ForeachReverse:
+				parseForeach();
+				break;
+
+			case Assert:
+				parseExpression();
 				break;
 
 			default:
-				split();
 				parseStructuralElement();
 				break;
 		}
