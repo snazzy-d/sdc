@@ -59,7 +59,7 @@ struct CheckFormat {
 
 		import std.algorithm, std.array, std.file;
 		return ["test/valid", "test/invalid", "test/format", "test/runner",
-			        "sdlib/d/gc", "src/driver", "src/format", "src/util"]
+			        "sdlib/d", "src/driver", "src/format", "src/util"]
 			.map!(d => dirEntries(d, "*.d", SpanMode.breadth))
 			.join().filter!(f => f.isFile()).map!(t => Task(t, formatter));
 	}
