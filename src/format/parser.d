@@ -1312,6 +1312,19 @@ private:
 
 		auto guard = span();
 
+		// Carry indentation just like blocks.
+		auto indentGuard = indent(needDoubleIndent);
+
+		auto oldNeedDoubleIndent = needDoubleIndent;
+		auto oldDoubleIndentBlock = doubleIndentBlock;
+		scope(exit) {
+			needDoubleIndent = oldNeedDoubleIndent;
+			doubleIndentBlock = oldDoubleIndentBlock;
+		}
+
+		doubleIndentBlock = needDoubleIndent;
+		needDoubleIndent = false;
+
 		if (forceNewLine) {
 			newline(1);
 		} else {

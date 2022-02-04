@@ -18,8 +18,8 @@ switch (
 		break;
 
 	foreach (k; Cases)
-	case k:
-		return funk();
+		case k:
+			return funk();
 
 	static if (c) {
 			enum A = 3;
@@ -33,6 +33,13 @@ switch (
 		case 3:
 			foobar();
 	}
+
+	static if (c2)
+		case 4:
+			buzz("c2 is true");
+	else
+		case 4:
+			buzz("c2 is false");
 }
 
 for (; popFront(), i; ++i, foo()) {}
