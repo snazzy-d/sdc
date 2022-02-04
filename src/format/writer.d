@@ -729,14 +729,14 @@ struct SolveState {
 	}
 
 	int opCmpSlow(const ref SolveState rhs) const {
-		// Explore candidate with a lot of follow up first.
+		// Explore candidate with a few follow up first.
 		if (ruleValues.frozen != rhs.ruleValues.frozen) {
-			return cast(int) (ruleValues.frozen - rhs.ruleValues.frozen);
+			return cast(int) (rhs.ruleValues.frozen - ruleValues.frozen);
 		}
 
 		foreach (i; 0 .. ruleValues.frozen) {
 			if (ruleValues[i] != rhs.ruleValues[i]) {
-				return rhs.ruleValues[i] - ruleValues[i];
+				return ruleValues[i] - rhs.ruleValues[i];
 			}
 		}
 

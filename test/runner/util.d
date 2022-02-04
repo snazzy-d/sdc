@@ -19,8 +19,8 @@ int runUtility(U, string File = __FILE__)(auto ref U utility, string[] args) {
 
 	import std.stdio;
 	writefln!"Summary: %s tests, %s pass%s, %s failure%s, %.2f%% pass rate, %s regressions, %s improvements."(
-		result.count, result.passed,
-		result.passed == 1 ? "" : "es", result.count - result.passed,
+		result.count, result.passed, result.passed == 1 ? "" : "es",
+		result.count - result.passed,
 		(result.count - result.passed) == 1 ? "" : "s",
 		100 * (double(result.passed) / result.count),
 		result.regressions, result.improvments);

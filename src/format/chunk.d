@@ -135,8 +135,8 @@ public:
 
 	string toString() const {
 		import std.conv;
-		return "Chunk(" ~ separator.to!string ~ ", " ~ Span.print(span)
-			~ ", " ~ glued.to!string ~ ", " ~ continuation.to!string ~ ", "
+		return "Chunk(" ~ separator.to!string ~ ", " ~ Span.print(span) ~ ", "
+			~ glued.to!string ~ ", " ~ continuation.to!string ~ ", "
 			~ indentation.to!string ~ ", " ~ length.to!string
 			~ ", " ~ (kind ? chunks.to!string : [text].to!string) ~ ")";
 	}
