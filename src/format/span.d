@@ -47,7 +47,7 @@ protected:
 		Must,
 	}
 
-	uint computeIndent(const ref SolveState s) const {
+	uint computeIndent(const ref SolveState s, size_t i) const {
 		return s.isUsed(this) ? 1 : 0;
 	}
 
@@ -83,12 +83,12 @@ bool contains(const Span span, const Span s) {
 	return span.parent.contains(s);
 }
 
-uint getIndent(const Span span, const ref SolveState s) {
+uint getIndent(const Span span, const ref SolveState s, size_t i) {
 	if (span is null) {
 		return 0;
 	}
 
-	return span.computeIndent(s) + span.parent.getIndent(s);
+	return span.computeIndent(s, i) + span.parent.getIndent(s, i);
 }
 
 size_t getAlignIndex(const Span span, const ref SolveState s, size_t i) {
@@ -149,8 +149,8 @@ final class IndentSpan : Span {
 		this.indent = indent;
 	}
 
-	override uint computeIndent(const ref SolveState s) const {
-		return super.computeIndent(s) ? indent : 0;
+	override uint computeIndent(const ref SolveState s, size_t i) const {
+		return super.computeIndent(s, i) ? indent : 0;
 	}
 }
 
@@ -197,7 +197,7 @@ final class ListSpan : Span {
 	}
 
 	override uint getCost(const ref SolveState s) const {
-		return elements.length <= 1 ? 15 : 13;
+		return elements.length <= 2 ? 15 : 13;
 	}
 
 	void registerElement(size_t i) in {
@@ -206,7 +206,11 @@ final class ListSpan : Span {
 		elements ~= i;
 	}
 
-	override uint computeIndent(const ref SolveState s) const {
+	override uint computeIndent(const ref SolveState s, size_t i) const {
+		if (i >= elements[$ - 1]) {
+			return 0;
+		}
+
 		return (s.isSplit(elements[0]) && s.isUsed(this)) ? 1 : 0;
 	}
 
@@ -215,12 +219,20 @@ final class ListSpan : Span {
 	}
 
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
-		return (i < elements[0] || isActive(s)) ? 0 : elements[0];
+		if (i < elements[0] || i >= elements[$ - 1]) {
+			return 0;
+		}
+
+		return isActive(s) ? 0 : elements[0];
 	}
 
 	override Split computeSplit(const ref SolveState s, size_t i) const {
+		if (i == elements[$ - 1]) {
+			return Split.No;
+		}
+
 		size_t previous = elements[0];
-		foreach (p; elements) {
+		foreach (p; elements[0 .. $ - 1]) {
 			if (p > i) {
 				// We went past the index we are interested in.
 				break;
@@ -245,20 +257,6 @@ final class ListSpan : Span {
 		}
 
 		return Split.Can;
-	}
-}
-
-final class TrainlingListSpan : Span {
-	this(Span parent) {
-		super(parent);
-	}
-
-	override uint computeIndent(const ref SolveState s) const {
-		return 0;
-	}
-
-	override Split computeSplit(const ref SolveState s, size_t i) const {
-		return Split.No;
 	}
 }
 
@@ -330,7 +328,7 @@ final class StorageClassSpan : Span {
 		return 5;
 	}
 
-	override uint computeIndent(const ref SolveState s) const {
+	override uint computeIndent(const ref SolveState s, size_t i) const {
 		return 0;
 	}
 }

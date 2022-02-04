@@ -662,7 +662,8 @@ struct SolveState {
 	}
 
 	uint getIndent(Chunk[] line, size_t i) {
-		return baseIndent + line[i].indentation + line[i].span.getIndent(this);
+		return
+			baseIndent + line[i].indentation + line[i].span.getIndent(this, i);
 	}
 
 	uint getAlign(const Chunk[] line, size_t i) {

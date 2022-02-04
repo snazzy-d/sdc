@@ -2819,9 +2819,8 @@ private:
 	}
 
 	void parseList(alias fun)(ListOptions options) {
-		auto guard = builder.virtualSpan();
-
 		if (match(options.closingTokenType)) {
+			auto guard = builder.virtualSpan();
 			nextToken();
 			return;
 		}
@@ -2832,24 +2831,6 @@ private:
 			alias afun = parseListAdapter!fun;
 		}
 
-		parseInnerList!afun(options);
-
-		if (match(options.closingTokenType)) {
-			auto trailingGuard = span!TrainlingListSpan();
-			if (options.addNewLines) {
-				newline(1);
-			}
-
-			split();
-			nextToken();
-		}
-
-		if (options.addNewLines) {
-			newline(2);
-		}
-	}
-
-	void parseInnerList(alias fun)(ListOptions options) {
 		auto guard = options.splice ? spliceSpan!ListSpan() : span!ListSpan();
 
 		size_t i = 0;
@@ -2863,7 +2844,7 @@ private:
 				s.registerElement(i);
 			});
 
-			fun(i++);
+			afun(i++);
 
 			if (!match(TokenType.Comma)) {
 				break;
@@ -2871,6 +2852,23 @@ private:
 
 			nextToken();
 			space();
+		}
+
+		if (match(options.closingTokenType)) {
+			if (options.addNewLines) {
+				newline(1);
+			}
+
+			split();
+			guard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
+
+			nextToken();
+		}
+
+		if (options.addNewLines) {
+			newline(2);
 		}
 	}
 }
