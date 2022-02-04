@@ -198,6 +198,11 @@ struct DLexer {
 		}
 	}
 	
+	Token lexDString(string s : `r"`)() {
+		immutable begin = cast(uint) (index - s.length);
+		return lexRawString!'"'(begin);
+	}
+	
 	Token lexDString(string s : "q{")() {
 		uint begin = index - 2;
 		uint start = index;
@@ -534,6 +539,19 @@ unittest {
 		
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "{foo}");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer(`r"\r"`);
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == "\\r");
 		lex.popFront();
 		
 		assert(lex.front.type == TokenType.End);
