@@ -2329,37 +2329,23 @@ private:
 			nextToken();
 		}
 
-		if (!match(TokenType.Colon)) {
+		parseColonList!parseImportBind();
+	}
+
+	void parseImportBind() {
+		parseIdentifier();
+
+		if (!match(TokenType.Equal)) {
 			return;
 		}
 
+		auto guard = spliceSpan();
 		space();
 		nextToken();
+		space();
+		split();
 
-		auto bindsGuard = spliceSpan();
-		while (true) {
-			space();
-			split();
-
-			auto bindGuard = span();
-
-			parseIdentifier();
-
-			if (match(TokenType.Equal)) {
-				space();
-				nextToken();
-				space();
-				split();
-
-				parseIdentifier();
-			}
-
-			if (!match(TokenType.Comma)) {
-				break;
-			}
-
-			nextToken();
-		}
+		parseIdentifier();
 	}
 
 	bool parseAttributes() {
@@ -2763,25 +2749,9 @@ private:
 			space();
 
 			switch (token.type) with (TokenType) {
-				case Colon: {
-					auto guard = span();
-					split();
-					nextToken();
-
-					while (true) {
-						space();
-						parseIdentifier();
-
-						if (!match(TokenType.Comma)) {
-							break;
-						}
-
-						nextToken();
-						split();
-					}
-
+				case Colon:
+					parseColonList!parseIdentifier();
 					break;
-				}
 
 				case If: {
 					auto guard = span!IndentSpan(2);
@@ -2870,5 +2840,38 @@ private:
 		if (options.addNewLines) {
 			newline(2);
 		}
+	}
+
+	bool parseColonList(alias fun)() {
+		if (!match(TokenType.Colon)) {
+			return false;
+		}
+
+		auto colonGuard = spliceSpan();
+		space();
+		split();
+		nextToken();
+
+		auto listGuard = span!ListSpan();
+		bool first = true;
+		while (true) {
+			space();
+			split(first);
+			first = false;
+
+			listGuard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
+
+			fun();
+
+			if (!match(TokenType.Comma)) {
+				break;
+			}
+
+			nextToken();
+		}
+
+		return true;
 	}
 }
