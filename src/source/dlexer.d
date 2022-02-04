@@ -174,7 +174,7 @@ struct DLexer {
 			`r"` : "lexDString",
 			
 			// Character literals.
-			"'" : "lexString",
+			"'" : "lexCharacter",
 		];
 		
 		foreach (i; 0 .. 10) {

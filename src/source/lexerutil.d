@@ -418,25 +418,55 @@ private:
 		return true;
 	}
 	
-	Token lexString(string s)() in {
-		assert(index >= s.length);
-	} do {
-		immutable begin = cast(uint) (index - s.length);
-		
+	Token lexRawString(char Delimiter = '`')(uint begin) {
 		Token t;
-		t.type = (s == "\'")
-			? TokenType.CharacterLiteral
-			: TokenType.StringLiteral;
+		t.type = TokenType.StringLiteral;
 		
-		enum Delimiter = s[0];
-		enum DoesEscape = Delimiter != '`';
+		size_t start = index;
+		
+		auto c = frontChar;
+		while (c != Delimiter && c != '\0') {
+			popChar();
+			c = frontChar;
+		}
+
+		if (c == '\0') {
+			setError(t, "Unexpected end of file");
+			t.location = base.getWithOffsets(begin, index);
+			return t;
+		}
+		
+		if (decodeStrings) {
+			string decoded = content[start .. index];
+			t.name = context.getName(decoded);
+		}
+		
+		popChar();
+		
+		t.location = base.getWithOffsets(begin, index);
+		return t;
+	}
+	
+	Token lexString(string s : "`")() {
+		immutable begin = cast(uint) (index - s.length);
+		return lexRawString!'`'(begin);
+	}
+
+	Token lexString(string s : "'")() {
+		immutable begin = cast(uint) (index - s.length);
+		return lexRawString!'\''(begin);
+	}
+
+	Token lexDecodedString(char Delimiter = '"', TokenType TT = TokenType.StringLiteral)(uint begin) {
+		Token t;
+		t.type = TT;
 		
 		size_t start = index;
 		string decoded;
 		
 		auto c = frontChar;
-		while (c != Delimiter) {
-			if (DoesEscape && c == '\\') {
+		while (c != Delimiter && c != '\0') {
+			if (c == '\\') {
 				immutable beginEscape = index;
 				
 				if (decodeStrings) {
@@ -466,26 +496,22 @@ private:
 				c = frontChar;
 			}
 			
-			if (c == '\0') {
-				break;
-			}
-			
 			popChar();
 			c = frontChar;
 		}
 		
-		if (c != Delimiter) {
-			setError(t, "Unexpected string literal termination");
+		if (c == '\0') {
+			setError(t, "Unexpected end of file");
 			t.location = base.getWithOffsets(begin, index);
 			return t;
 		}
 		
 		if (decodeStrings) {
 			// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
-			if (DoesEscape && decoded != "") {
-				decoded ~= content[start .. index];
-			} else {
+			if (decoded == "") {
 				decoded = content[start .. index];
+			} else {
+				decoded ~= content[start .. index];
 			}
 			
 			t.name = context.getName(decoded);
@@ -497,6 +523,16 @@ private:
 		return t;
 	}
 	
+	Token lexString(string s : `"`)() {
+		immutable begin = cast(uint) (index - s.length);
+		return lexDecodedString!'"'(begin);
+	}
+
+	Token lexCharacter(string s : `'`)() {
+		immutable begin = cast(uint) (index - s.length);
+		return lexDecodedString!('\'', TokenType.CharacterLiteral)(begin);
+	}
+
 	/**
 	 * General integer lexing utilities.
 	 */
