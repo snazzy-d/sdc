@@ -149,9 +149,9 @@ private:
 		builder.clearSeparator();
 	}
 
-	void split() {
+	void split(bool glued = false) {
 		emitRawContent();
-		builder.split(skipFormatting());
+		builder.split(glued || skipFormatting());
 	}
 
 	auto indent(uint level = 1) {
@@ -1356,22 +1356,24 @@ private:
 		parseElse();
 	}
 
-	void parseCondition() {
-		if (match(TokenType.OpenParen)) {
-			nextToken();
-
-			auto guard = span!AlignedSpan();
-			split();
-
-			guard.registerFix(function(AlignedSpan s, size_t i) {
-				s.alignOn(i);
-			});
-
-			auto modeGuard = changeMode(Mode.Parameter);
-
-			parseStructuralElement();
-			runOnType!(TokenType.CloseParen, nextToken)();
+	void parseCondition(bool glued = false) {
+		if (!match(TokenType.OpenParen)) {
+			return;
 		}
+
+		nextToken();
+
+		auto guard = span!AlignedSpan();
+		split(glued);
+
+		guard.registerFix(function(AlignedSpan s, size_t i) {
+			s.alignOn(i);
+		});
+
+		auto modeGuard = changeMode(Mode.Parameter);
+
+		parseStructuralElement();
+		runOnType!(TokenType.CloseParen, nextToken)();
 	}
 
 	void parseIf() in {
@@ -1482,13 +1484,8 @@ private:
 		emitPostControlFlowWhitespace(isBlock);
 		nextToken();
 
-		if (match(TokenType.OpenParen)) {
-			space();
-			nextToken();
-			auto guard = changeMode(Mode.Parameter);
-			parseStructuralElement();
-			runOnType!(TokenType.CloseParen, nextToken)();
-		}
+		space();
+		parseCondition();
 
 		runOnType!(TokenType.Semicolon, nextToken)();
 		newline(2);
@@ -2242,10 +2239,7 @@ private:
 					break;
 
 				case If:
-					split();
-					nextToken();
-					space();
-					parseCondition();
+					parseConstraint();
 					break;
 
 				default:
@@ -2259,6 +2253,17 @@ private:
 		}
 	}
 
+	void parseConstraint() {
+		if (!match(TokenType.If)) {
+			return;
+		}
+
+		split();
+		nextToken();
+		space();
+		parseCondition(true);
+	}
+
 	void parseTemplate() in {
 		assert(match(TokenType.Template));
 	} do {
@@ -2270,10 +2275,7 @@ private:
 
 		if (match(TokenType.If)) {
 			auto guard = span!IndentSpan(2);
-			split();
-			nextToken();
-			space();
-			parseCondition();
+			parseConstraint();
 			space();
 		}
 
@@ -2783,10 +2785,7 @@ private:
 
 				case If: {
 					auto guard = span!IndentSpan(2);
-					split();
-					nextToken();
-					space();
-					parseCondition();
+					parseConstraint();
 					break;
 				}
 
