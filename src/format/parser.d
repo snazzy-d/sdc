@@ -1413,25 +1413,46 @@ private:
 		nextToken();
 		space();
 
-		static bool isControlFlow(TokenType t) {
-			return t == TokenType.If || t == TokenType.Do
-				|| t == TokenType.While || t == TokenType.For
-				|| t == TokenType.Foreach || t == TokenType.ForeachReverse
-				|| t == TokenType.Version || t == TokenType.Debug;
-		}
+		switch (token.type) with (TokenType) {
+			case If:
+				parseIf();
+				break;
 
-		bool useControlFlowBlock = !isControlFlow(token.type);
-		if (useControlFlowBlock && match(TokenType.Static)) {
-			auto lookahead = trange.getLookahead();
-			lookahead.popFront();
+			case Version, Debug:
+				parseVersion();
+				break;
 
-			useControlFlowBlock = !isControlFlow(lookahead.front.type);
-		}
+			case While:
+				parseWhile();
+				break;
 
-		if (useControlFlowBlock) {
-			parseControlFlowBlock();
-		} else {
-			parseStructuralElement();
+			case Do:
+				parseDoWhile();
+				break;
+
+			case For:
+				parseFor();
+				break;
+
+			case Foreach, ForeachReverse:
+				parseForeach();
+				break;
+
+			case Static:
+				auto lookahead = trange.getLookahead();
+				lookahead.popFront();
+
+				auto t = lookahead.front.type;
+				if (t == If || t == Foreach || t == ForeachReverse) {
+					parseStatic();
+					break;
+				}
+
+				goto default;
+
+			default:
+				parseControlFlowBlock();
+				break;
 		}
 	}
 

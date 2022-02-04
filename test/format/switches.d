@@ -47,26 +47,27 @@ switch (
 	n) if (() {
 	       return true;
        }()) {
-	case 1:
+	case 10:
 		break;
 
 	static if (c) {
 			enum A = 3;
 
-		case 2: {
+		case 20:
+		case 21: {
 			doSomething();
 		}
 
 			break;
 
-		case 3:
+		case 22:
 			foobar();
-	}
-
-	static if (c2)
-		case 4:
+	} else static if (c2)
+		case 30:
+		case 31:
 			buzz("c2 is true");
 	else
-		case 4:
+		case 32:
+		case 33:
 			buzz("c2 is false");
 }
