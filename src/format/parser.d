@@ -2218,10 +2218,12 @@ private:
 					return true;
 
 				case Body, Do:
+					split();
 					nextToken();
 					return true;
 
 				case In:
+					split();
 					nextToken();
 					if (!parseParameterList()) {
 						space();
@@ -2232,6 +2234,7 @@ private:
 
 				case Out:
 					// FIXME: This doesn't looks like it is doing the right thing.
+					split();
 					nextToken();
 					parseParameterList();
 					space();
