@@ -197,8 +197,25 @@ final class ListSpan : Span {
 		super(parent);
 	}
 
+	bool isActive(const ref SolveState s) const {
+		return s.isSplit(elements[0]) || !s.isUsed(this);
+	}
+
 	override uint getCost(const ref SolveState s) const {
-		return elements.length <= 1 ? 15 : 13;
+		// If there is just one element, make it slitghtly more exepensive to split.
+		if (elements.length <= 1) {
+			return 15;
+		}
+
+		if (isActive(s)) {
+			foreach (p; elements[1 .. $]) {
+				if (s.isSplit(p)) {
+					return 14;
+				}
+			}
+		}
+
+		return 13;
 	}
 
 	void registerElement(size_t i) in {
@@ -220,10 +237,6 @@ final class ListSpan : Span {
 		}
 
 		return (s.isSplit(elements[0]) && s.isUsed(this)) ? 1 : 0;
-	}
-
-	bool isActive(const ref SolveState s) const {
-		return s.isSplit(elements[0]) || !s.isUsed(this);
 	}
 
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {

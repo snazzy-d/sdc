@@ -4,11 +4,11 @@ Tpl!(Type1, Type2, Type3, Type4, Type5)
 	    Tpl!(Type1, Type2, Type3,
 	         Type4, Type5) buzz) {}
 
-foreach (v; AliasSeq!(
-	double(PI), float(PI),
-	double(PI * 1e-20),
-	float(PI * 1e-20),
-	double(PI * 1e20),
-	float(PI * 1e20))) {
+foreach (v;
+	AliasSeq!(double(PI), float(PI),
+	          double(PI * 1e-20),
+	          float(PI * 1e-20),
+	          double(PI * 1e20),
+	          float(PI * 1e20))) {
 	// Do stuff.
 }
