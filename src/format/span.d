@@ -191,23 +191,31 @@ final class AlignedSpan : Span {
  */
 final class ListSpan : Span {
 	size_t[] elements;
+	size_t trailingSplit = size_t.max;
 
 	this(Span parent) {
 		super(parent);
 	}
 
 	override uint getCost(const ref SolveState s) const {
-		return elements.length <= 2 ? 15 : 13;
+		return elements.length <= 1 ? 15 : 13;
 	}
 
 	void registerElement(size_t i) in {
 		assert(elements.length == 0 || elements[$ - 1] < i);
+		assert(i < trailingSplit);
 	} do {
 		elements ~= i;
 	}
 
+	void registerTrailingSplit(size_t i) in {
+		assert(elements.length == 0 || elements[$ - 1] < i);
+	} do {
+		trailingSplit = i;
+	}
+
 	override uint computeIndent(const ref SolveState s, size_t i) const {
-		if (i >= elements[$ - 1]) {
+		if (i >= trailingSplit) {
 			return 0;
 		}
 
@@ -219,7 +227,7 @@ final class ListSpan : Span {
 	}
 
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
-		if (i < elements[0] || i >= elements[$ - 1]) {
+		if (i < elements[0] || i >= trailingSplit) {
 			return 0;
 		}
 
@@ -227,12 +235,12 @@ final class ListSpan : Span {
 	}
 
 	override Split computeSplit(const ref SolveState s, size_t i) const {
-		if (i == elements[$ - 1]) {
+		if (i == trailingSplit) {
 			return Split.No;
 		}
 
 		size_t previous = elements[0];
-		foreach (p; elements[0 .. $ - 1]) {
+		foreach (p; elements) {
 			if (p > i) {
 				// We went past the index we are interested in.
 				break;

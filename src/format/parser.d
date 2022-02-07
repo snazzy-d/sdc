@@ -2861,7 +2861,7 @@ private:
 
 			split();
 			guard.registerFix(function(ListSpan s, size_t i) {
-				s.registerElement(i);
+				s.registerTrailingSplit(i);
 			});
 
 			nextToken();
