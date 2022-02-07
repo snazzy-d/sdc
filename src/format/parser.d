@@ -1499,33 +1499,53 @@ private:
 
 		if (match(TokenType.OpenParen)) {
 			nextToken();
-			if (match(TokenType.Semicolon)) {
-				nextToken();
-			} else {
-				parseStructuralElement();
-				clearSeparator();
-			}
-
-			if (match(TokenType.Semicolon)) {
-				nextToken();
-			} else {
-				space();
-				parseCommaExpression();
-				runOnType!(TokenType.Semicolon, nextToken)();
-			}
-
-			if (match(TokenType.CloseParen)) {
-				nextToken();
-			} else {
-				space();
-				parseCommaExpression();
-			}
-
+			parseForArguments();
 			runOnType!(TokenType.CloseParen, nextToken)();
 		}
 
 		space();
 		parseControlFlowBlock();
+	}
+
+	void parseForArguments() {
+		auto guard = span!ListSpan();
+
+		if (match(TokenType.Semicolon)) {
+			nextToken();
+		} else {
+			split();
+			guard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
+
+			parseStructuralElement();
+			clearSeparator();
+		}
+
+		if (match(TokenType.Semicolon)) {
+			nextToken();
+		} else {
+			space();
+			split();
+			guard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
+
+			parseCommaExpression();
+			runOnType!(TokenType.Semicolon, nextToken)();
+		}
+
+		if (match(TokenType.CloseParen)) {
+			nextToken();
+		} else {
+			space();
+			split();
+			guard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
+
+			parseCommaExpression();
+		}
 	}
 
 	void parseForeach() in {
