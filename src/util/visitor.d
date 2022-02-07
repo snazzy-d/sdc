@@ -47,9 +47,9 @@ private auto dispatchImpl(alias unhandled, V, T, Args...)(auto ref V visitor,
 			alias parameter = parameters[args.length];
 
 			// FIXME: ensure call is correctly done when args exists.
-			static if (
-				is(parameter == class) && !__traits(isAbstractClass, parameter)
-					&& is(parameter : T)) {
+			static if (is(parameter == class)
+				           && !__traits(isAbstractClass, parameter)
+				           && is(parameter : T)) {
 				if (tid is typeid(parameter)) {
 					return visitor.visit(args, () @trusted {
 						// Fast cast can be trusted in this case, we already did the check.

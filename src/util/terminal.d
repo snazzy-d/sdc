@@ -75,8 +75,8 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 
 	assert(index == loc.getStartColumn());
 
-	stderr.write(loc.isMixin() ? "mixin" : source.getFileName().toString(),
-	             ":", loc.getStartLineNumber(), ":", index, ":", );
+	stderr.write(loc.isMixin() ? "mixin" : source.getFileName().toString(), ":",
+	             loc.getStartLineNumber(), ":", index, ":", );
 
 	stderr.writeColouredText(ConsoleColour.Red, " error: ");
 	stderr.writeColouredText(ConsoleColour.White, fixHint, "\n");

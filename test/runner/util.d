@@ -22,8 +22,8 @@ int runUtility(U, string File = __FILE__)(auto ref U utility, string[] args) {
 		result.count, result.passed, result.passed == 1 ? "" : "es",
 		result.count - result.passed,
 		(result.count - result.passed) == 1 ? "" : "s",
-		100 * (double(result.passed) / result.count),
-		result.regressions, result.improvments);
+		100 * (double(result.passed) / result.count), result.regressions,
+		result.improvments);
 
 	if (options.waitOnExit) {
 		write("Press any key to exit...");
@@ -91,8 +91,8 @@ Options parseArguements(string File, U)(ref U utility, ref string[] args) {
 		if (help_info.helpWanted) {
 			import std.stdio;
 			writeln("The Snazzy D Compiler - ", U.Name);
-			writeln("Usage: ", File,
-			        " [options]", U.XtraDoc ? " [" ~ U.XtraDoc ~ "]" : "");
+			writeln("Usage: ", File, " [options]",
+			        U.XtraDoc ? " [" ~ U.XtraDoc ~ "]" : "");
 			writeln("Options:");
 
 			foreach (option; help_info.options) {

@@ -111,15 +111,15 @@ struct Task {
 		foreach (e; errors) {
 			import std.algorithm : findSkip;
 			if (!output.findSkip(e)) {
-				stderr.writefln(
-					"%s: test expected error %s %s", name, [e], [output]);
+				stderr.writefln("%s: test expected error %s %s", name, [e],
+				                [output]);
 				return TestResult(name, false, hasPassed);
 			}
 		}
 
 		if (expectedToCompile && result.status != 0) {
-			stderr.writefln("%s: test expected to compile, did not (%d).",
-			                name, result.status);
+			stderr.writefln("%s: test expected to compile, did not (%d).", name,
+			                result.status);
 			return TestResult(name, false, hasPassed);
 		}
 
@@ -139,12 +139,12 @@ struct Task {
 			return TestResult(name, false, hasPassed);
 		}
 
-		auto retval =
-			execute(["./" ~ exeName], /* env = */ null,
-			        Config.none, /* maxOutput = */ size_t.max, dir).status;
+		auto retval = execute(["./" ~ exeName], /* env = */ null,
+		                      Config.none, /* maxOutput = */ size_t.max,
+		                      dir).status;
 		if (retval != expectedRetval) {
-			stderr.writefln(
-				"%s: expected reval %s, got %s", name, expectedRetval, retval);
+			stderr.writefln("%s: expected reval %s, got %s", name,
+			                expectedRetval, retval);
 			return TestResult(name, false, hasPassed);
 		}
 

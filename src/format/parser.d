@@ -2077,8 +2077,8 @@ private:
 				|| t == TokenType.Enum || t == TokenType.__Vector
 				|| t == TokenType.Function || t == TokenType.Delegate
 				|| t == TokenType.Super || t == TokenType.Return
-				|| t == TokenType.__Parameters
-				|| t == TokenType.Module || t == TokenType.Package;
+				|| t == TokenType.__Parameters || t == TokenType.Module
+				|| t == TokenType.Package;
 		}
 
 		while (match(TokenType.EqualEqual) || match(TokenType.Colon)) {
@@ -2393,8 +2393,8 @@ private:
 					break;
 
 				case Abstract, Auto, Export, Final, In, Lazy, Nothrow, Out,
-				     Override,
-				     Private, Protected, Public, Pure, Ref, Return, __Gshared:
+				     Override, Private, Protected, Public, Pure, Ref, Return,
+				     __Gshared:
 					lookahead.popFront();
 					break;
 
@@ -2416,8 +2416,8 @@ private:
 					l2.popFront();
 
 					auto t2 = l2.front.type;
-					if (t2 == Assert || t2 == If
-						    || t2 == Foreach || t2 == ForeachReverse) {
+					if (t2 == Assert || t2 == If || t2 == Foreach
+						    || t2 == ForeachReverse) {
 						// This is a static something.
 						return t;
 					}
@@ -2518,8 +2518,8 @@ private:
 					lookahead.popFront();
 
 					auto t = lookahead.front.type;
-					if (t == Assert
-						    || t == If || t == Foreach || t == ForeachReverse) {
+					if (t == Assert || t == If || t == Foreach
+						    || t == ForeachReverse) {
 						// This is a static something.
 						goto default;
 					}

@@ -22,8 +22,8 @@ struct Task {
 
 		import std.stdio;
 		if (result.status != 0) {
-			stderr.writefln("%s: sdfmt expected to format, did not (%d).",
-			                name, result.status);
+			stderr.writefln("%s: sdfmt expected to format, did not (%d).", name,
+			                result.status);
 			return TestResult(name, false, true);
 		}
 
@@ -60,8 +60,8 @@ struct CheckFormat {
 		import std.algorithm, std.array, std.file;
 		return ["test/valid", "test/invalid", "test/format", "test/runner",
 			        "sdlib/d", "src/driver", "src/format", "src/util"]
-			.map!(d => dirEntries(d, "*.d", SpanMode.breadth))
-			.join().filter!(f => f.isFile()).map!(t => Task(t, formatter));
+			.map!(d => dirEntries(d, "*.d", SpanMode.breadth)).join()
+			.filter!(f => f.isFile()).map!(t => Task(t, formatter));
 	}
 }
 

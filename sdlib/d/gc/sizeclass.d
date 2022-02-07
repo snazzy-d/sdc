@@ -108,8 +108,8 @@ struct BinInfoComputerDg {
 	void* fun;
 }
 
-void binInfoComputer(void* binsPtr,
-                     uint id, uint grp, uint delta, uint ndelta) {
+void binInfoComputer(void* binsPtr, uint id, uint grp, uint delta,
+                     uint ndelta) {
 	import d.gc.bin;
 	auto bins = cast(BinInfo*) binsPtr;
 
@@ -242,22 +242,22 @@ void printfAlloc(size_t s) {
 void main() {
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
 		import core.stdc.stdio;
-		printf("%d\t%d\t%d\t%d\t0x%lx\n".ptr,
-		       id, grp, delta, ndelta, (1UL << grp) + ndelta * (1UL << delta));
+		printf("%d\t%d\t%d\t%d\t0x%lx\n".ptr, id, grp, delta, ndelta,
+		       (1UL << grp) + ndelta * (1UL << delta));
 	});
 
 	import core.stdc.stdio;
 	printf("total: %d\tsmall: %d\tlarge: %d\tlookup: %d\n".ptr,
-	       ClassCount.Total,
-	       ClassCount.Small, ClassCount.Large, ClassCount.Lookup);
+	       ClassCount.Total, ClassCount.Small, ClassCount.Large,
+	       ClassCount.Lookup);
 
 	auto bins = getBinInfos();
 
 	printf("bins:\n".ptr);
 	foreach (i; 0 .. ClassCount.Small) {
 		auto b = bins[i];
-		printf("id: %d\tsize: %hd\tneedPages: %hhd\tslots: %hd\n".ptr,
-		       i, b.itemSize, b.needPages, b.slots);
+		printf("id: %d\tsize: %hd\tneedPages: %hhd\tslots: %hd\n".ptr, i,
+		       b.itemSize, b.needPages, b.slots);
 	}
 
 	printf("allocs:\n".ptr);

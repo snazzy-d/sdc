@@ -152,8 +152,8 @@ _Unwind_Reason_Code __sd_eh_personality(int ver, _Unwind_Action actions,
 		// XXX: We don't need to recompute all downcast every time.
 		if (candidate is null
 			    || __sd_class_downcast(inFlight, candidate) !is null) {
-			return setupCatch(
-				ctx, actions, switchval, landingPad, exceptionObject);
+			return setupCatch(ctx, actions, switchval, landingPad,
+			                  exceptionObject);
 		}
 
 		actionPtr = prev + nextOffset;
@@ -172,8 +172,8 @@ _Unwind_Reason_Code setupCatch(_Unwind_Context* ctx, _Unwind_Action actions,
 	}
 
 	if (actions & _Unwind_Action.CLEANUP_PHASE) {
-		_Unwind_SetGR(
-			ctx, ExceptionRegno, *(cast(_Unwind_Word*) &exceptionObject));
+		_Unwind_SetGR(ctx, ExceptionRegno,
+		              *(cast(_Unwind_Word*) &exceptionObject));
 		_Unwind_SetGR(ctx, SelectorRegno, switchval);
 		_Unwind_SetIP(ctx, landingPad);
 

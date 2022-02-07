@@ -21,8 +21,8 @@ struct BlockSpecifier {
 	uint baseAlign;
 
 	bool opEquals(const ref BlockSpecifier rhs) const {
-		return chunks is rhs.chunks
-			&& baseIndent == rhs.baseIndent && baseAlign == rhs.baseAlign;
+		return chunks is rhs.chunks && baseIndent == rhs.baseIndent
+			&& baseAlign == rhs.baseAlign;
 	}
 
 	size_t toHash() const @safe nothrow {
@@ -481,8 +481,8 @@ struct SolveState {
 			}
 
 			if (c.kind == ChunkKind.Block) {
-				auto f = writer.formatBlock(
-					c.chunks, getIndent(line, i), getAlign(line, i));
+				auto f = writer.formatBlock(c.chunks, getIndent(line, i),
+				                            getAlign(line, i));
 
 				// Compute the column at which the block starts.
 				auto text = f.text;
@@ -615,8 +615,8 @@ struct SolveState {
 		sunk = overflow;
 	}
 
-	void endLine(const Chunk[] line,
-	             size_t i, uint length, uint pageWidth, uint penality = 0) {
+	void endLine(const Chunk[] line, size_t i, uint length, uint pageWidth,
+	             uint penality = 0) {
 		if (length > pageWidth) {
 			penality += length - pageWidth;
 		}
@@ -701,15 +701,15 @@ struct SolveState {
 
 	// Return if this solve state must be chosen over rhs as a solution.
 	bool isBetterThan(const ref SolveState rhs) const {
-		if (overflow < rhs.overflow) {
-			return true;
+		if (overflow != rhs.overflow) {
+			return overflow < rhs.overflow;
 		}
 
-		if (overflow == rhs.overflow && cost < rhs.cost) {
-			return true;
+		if (cost != rhs.cost) {
+			return cost < rhs.cost;
 		}
 
-		return false;
+		return opCmpSlow(rhs) < 0;
 	}
 
 	// lhs < rhs => rhs.opCmp(rhs) < 0

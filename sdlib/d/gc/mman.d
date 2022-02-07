@@ -38,8 +38,8 @@ void* pages_map(void* addr, size_t size) {
 	}
 
 	// XXX: out contract
-	assert(ret is null
-		|| (addr is null && ret !is addr) || (addr !is null && ret is addr));
+	assert(ret is null || (addr is null && ret !is addr)
+		|| (addr !is null && ret is addr));
 	return ret;
 }
 
@@ -129,6 +129,6 @@ version (linux) {
 }
 
 extern(C):
-void* mmap(
-	void* addr, size_t length, int prot, int flags, int fd, off_t offset);
+void* mmap(void* addr, size_t length, int prot, int flags, int fd,
+           off_t offset);
 int munmap(void* addr, size_t length);

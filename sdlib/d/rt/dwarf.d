@@ -113,8 +113,8 @@ ubyte read_ubyte(ref const(ubyte)* p) {
 	return *p++;
 }
 
-uintptr_t read_encoded(ref const(ubyte)* p,
-                       _Unwind_Context* ctx, Encoding encoding) {
+uintptr_t read_encoded(ref const(ubyte)* p, _Unwind_Context* ctx,
+                       Encoding encoding) {
 	if (encoding.isOmit()) {
 		import core.stdc.stdlib, core.stdc.stdio;
 		printf("Encoding specifies omit flag, should not read.\n".ptr);

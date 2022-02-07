@@ -55,8 +55,8 @@ struct PageDescriptor {
 	 */
 	private uint bits;
 
-	this(bool allocated,
-	     bool large, bool zeroed, bool dirty, ubyte binID, uint pages) {
+	this(bool allocated, bool large, bool zeroed, bool dirty, ubyte binID,
+	     uint pages) {
 		// XXX: in contract.
 		assert(allocated || !large);
 
@@ -363,8 +363,8 @@ struct Chunk {
 		auto workLength = header.worklist.length + 1;
 
 		// We realloc everytime. It doesn't really matter at this point.
-		auto workPtr = cast(const(void)**) header
-			.arena.realloc(header.worklist.ptr, workLength * void*.sizeof);
+		auto workPtr = cast(const(void)**) header.arena
+			.realloc(header.worklist.ptr, workLength * void*.sizeof);
 
 		workPtr[workLength - 1] = ptr;
 		header.worklist = workPtr[0 .. workLength];
@@ -580,8 +580,8 @@ struct Chunk {
 			}
 		}
 
-		setBitmap(runID,
-		          needPages, PageDescriptor(true, true, zero, dirty, binID, 0));
+		setBitmap(runID, needPages,
+		          PageDescriptor(true, true, zero, dirty, binID, 0));
 
 		return rem;
 	}
@@ -595,8 +595,8 @@ private:
 			auto p = runID + i;
 			auto d = pages[p];
 
-			pages[p] = PageDescriptor(base.allocated, base.large,
-			                          base.zeroed, base.dirty, base.binID, i);
+			pages[p] = PageDescriptor(base.allocated, base.large, base.zeroed,
+			                          base.dirty, base.binID, i);
 
 			if (d.zeroed && !base.dirty) {
 				for (uint j; j < datas[p].length; j++) {

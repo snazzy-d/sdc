@@ -109,8 +109,8 @@ pthread_t pthread_self();
 
 version (linux) {
 	int pthread_getattr_np(pthread_t __th, pthread_attr_t* __attr);
-	int pthread_attr_getstack(
-		const pthread_attr_t* __attr, void** __stackaddr, size_t* __stacksize);
+	int pthread_attr_getstack(const pthread_attr_t* __attr, void** __stackaddr,
+	                          size_t* __stacksize);
 	int pthread_attr_destroy(pthread_attr_t* __attr);
 }
 
