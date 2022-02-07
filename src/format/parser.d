@@ -2240,9 +2240,15 @@ private:
 					return true;
 
 				case In:
-					split();
-					nextToken();
-					if (!parseParameterList()) {
+					auto lookahead = trange.getLookahead();
+					lookahead.popFront();
+
+					if (lookahead.front.type == OpenParen) {
+						split();
+						nextToken();
+						parseParameterList();
+					} else {
+						nextToken();
 						space();
 						parseBlock(Mode.Statement);
 					}
