@@ -19,6 +19,7 @@ class Declaration : Node {
 struct StorageClass {
 	import std.bitmanip;
 	mixin(bitfields!(
+		// sdfmt off
 		TypeQualifier, "qualifier", 3,
 		Linkage, "linkage", 3,
 		bool, "hasLinkage", 1,
@@ -39,6 +40,7 @@ struct StorageClass {
 		bool, "isProperty", 1,
 		bool, "isNoGC", 1,
 		uint, "", 7,
+		// sdfmt on
 	));
 }
 
@@ -46,26 +48,26 @@ struct StorageClass {
 StorageClass defaultStorageClass() {
 	StorageClass stcs;
 	stcs.visibility = Visibility.Public;
-	
+
 	return stcs;
 }
 
 abstract class StorageClassDeclaration : Declaration {
 	StorageClass storageClass = defaultStorageClass;
-	
+
 	this(Location location, StorageClass storageClass) {
 		super(location);
-		
+
 		this.storageClass = storageClass;
 	}
 }
 
 class NamedDeclaration : StorageClassDeclaration {
 	Name name;
-	
+
 	this(Location location, StorageClass storageClass, Name name) {
 		super(location, storageClass);
-		
+
 		this.name = name;
 	}
 }
@@ -75,10 +77,10 @@ class NamedDeclaration : StorageClassDeclaration {
  */
 class AstTemplateParameter : Declaration {
 	Name name;
-	
+
 	this(Location location, Name name) {
 		super(location);
-		
+
 		this.name = name;
 	}
 }
@@ -90,12 +92,13 @@ final:
 class Module : Declaration {
 	Name name;
 	Name[] packages;
-	
+
 	Declaration[] declarations;
-	
-	this(Location location, Name name, Name[] packages, Declaration[] declarations) {
+
+	this(Location location, Name name, Name[] packages,
+	     Declaration[] declarations) {
 		super(location);
-		
+
 		this.name = name;
 		this.packages = packages;
 		this.declarations = declarations;
@@ -107,10 +110,11 @@ class Module : Declaration {
  */
 class IdentifierAliasDeclaration : NamedDeclaration {
 	Identifier identifier;
-	
-	this(Location location, StorageClass storageClass, Name name, Identifier identifier) {
+
+	this(Location location, StorageClass storageClass, Name name,
+	     Identifier identifier) {
 		super(location, storageClass, name);
-		
+
 		this.identifier = identifier;
 	}
 }
@@ -120,10 +124,11 @@ class IdentifierAliasDeclaration : NamedDeclaration {
  */
 class TypeAliasDeclaration : NamedDeclaration {
 	AstType type;
-	
-	this(Location location, StorageClass storageClass, Name name, AstType type) {
+
+	this(Location location, StorageClass storageClass, Name name,
+	     AstType type) {
 		super(location, storageClass, name);
-		
+
 		this.type = type;
 	}
 }
@@ -133,24 +138,24 @@ class TypeAliasDeclaration : NamedDeclaration {
  */
 class ValueAliasDeclaration : NamedDeclaration {
 	AstExpression value;
-	
-	this(Location location, StorageClass storageClass, Name name, AstExpression value) {
+
+	this(Location location, StorageClass storageClass, Name name,
+	     AstExpression value) {
 		super(location, storageClass, name);
-		
+
 		this.value = value;
 	}
 }
-
 
 /**
  * Alias this
  */
 class AliasThisDeclaration : Declaration {
 	Name name;
-	
+
 	this(Location location, Name name) {
 		super(location);
-		
+
 		this.name = name;
 	}
 }
@@ -160,10 +165,10 @@ class AliasThisDeclaration : Declaration {
  */
 class ImportDeclaration : Declaration {
 	Name[][] modules;
-	
+
 	this(Location location, Name[][] modules) {
 		super(location);
-		
+
 		this.modules = modules;
 	}
 }
@@ -173,10 +178,11 @@ class ImportDeclaration : Declaration {
  */
 class GroupDeclaration : StorageClassDeclaration {
 	Declaration[] declarations;
-	
-	this(Location location, StorageClass storageClass, Declaration[] declarations) {
+
+	this(Location location, StorageClass storageClass,
+	     Declaration[] declarations) {
 		super(location, storageClass);
-		
+
 		this.declarations = declarations;
 	}
 }
@@ -187,10 +193,11 @@ class GroupDeclaration : StorageClassDeclaration {
 class VariableDeclaration : NamedDeclaration {
 	AstType type;
 	AstExpression value;
-	
-	this(Location location, StorageClass storageClass, AstType type, Name name, AstExpression value) {
+
+	this(Location location, StorageClass storageClass, AstType type, Name name,
+	     AstExpression value) {
 		super(location, storageClass, name);
-		
+
 		this.type = type;
 		this.value = value;
 	}
@@ -201,7 +208,7 @@ struct ParamDecl {
 	ParamAstType type;
 	Name name;
 	AstExpression value;
-	
+
 	this(Location location, ParamAstType type, Name name, AstExpression value) {
 		this.location = location;
 		this.type = type;
@@ -212,26 +219,19 @@ struct ParamDecl {
 
 class FunctionDeclaration : NamedDeclaration {
 	ParamDecl[] params;
-	
+
 	ParamAstType returnType;
-	
+
 	import d.ast.statement;
 	BlockStatement fbody;
-	
+
 	// XXX: Try to stick that in some pointer.
 	bool isVariadic;
-	
-	this(
-		Location location,
-		StorageClass storageClass,
-		ParamAstType returnType,
-		Name name,
-		ParamDecl[] params,
-		bool isVariadic,
-		BlockStatement fbody,
-	) {
+
+	this(Location location, StorageClass storageClass, ParamAstType returnType,
+	     Name name, ParamDecl[] params, bool isVariadic, BlockStatement fbody) {
 		super(location, storageClass, name);
-		
+
 		this.returnType = returnType;
 		this.params = params;
 		this.isVariadic = isVariadic;
@@ -245,15 +245,11 @@ class FunctionDeclaration : NamedDeclaration {
 class UnittestDeclaration : NamedDeclaration {
 	import d.ast.statement;
 	BlockStatement fbody;
-	
-	this(
-		Location location,
-		StorageClass storageClass,
-		Name name,
-		BlockStatement fbody,
-	) {
+
+	this(Location location, StorageClass storageClass, Name name,
+	     BlockStatement fbody) {
 		super(location, storageClass, name);
-		
+
 		this.fbody = fbody;
 	}
 }
@@ -264,10 +260,11 @@ class UnittestDeclaration : NamedDeclaration {
 class TemplateDeclaration : NamedDeclaration {
 	AstTemplateParameter[] parameters;
 	Declaration[] declarations;
-	
-	this(Location location, StorageClass storageClass, Name name, AstTemplateParameter[] parameters, Declaration[] declarations) {
+
+	this(Location location, StorageClass storageClass, Name name,
+	     AstTemplateParameter[] parameters, Declaration[] declarations) {
 		super(location, storageClass, name);
-		
+
 		this.parameters = parameters;
 		this.declarations = declarations;
 	}
@@ -279,10 +276,11 @@ class TemplateDeclaration : NamedDeclaration {
 class AstTypeTemplateParameter : AstTemplateParameter {
 	AstType specialization;
 	AstType defaultValue;
-	
-	this(Location location, Name name, AstType specialization, AstType defaultValue) {
+
+	this(Location location, Name name, AstType specialization,
+	     AstType defaultValue) {
 		super(location, name);
-		
+
 		this.specialization = specialization;
 		this.defaultValue = defaultValue;
 	}
@@ -294,10 +292,11 @@ class AstTypeTemplateParameter : AstTemplateParameter {
 class AstValueTemplateParameter : AstTemplateParameter {
 	AstType type;
 	AstExpression defaultValue;
-	
-	this(Location location, Name name, AstType type, AstExpression defaultValue) {
+
+	this(Location location, Name name, AstType type,
+	     AstExpression defaultValue) {
 		super(location, name);
-		
+
 		this.type = type;
 		this.defaultValue = defaultValue;
 	}
@@ -317,10 +316,10 @@ class AstAliasTemplateParameter : AstTemplateParameter {
  */
 class AstTypedAliasTemplateParameter : AstTemplateParameter {
 	AstType type;
-	
+
 	this(Location location, Name name, AstType type) {
 		super(location, name);
-		
+
 		this.type = type;
 	}
 }
@@ -348,10 +347,11 @@ class AstTupleTemplateParameter : AstTemplateParameter {
  */
 class StructDeclaration : NamedDeclaration {
 	Declaration[] members;
-	
-	this(Location location, StorageClass storageClass, Name name, Declaration[] members) {
+
+	this(Location location, StorageClass storageClass, Name name,
+	     Declaration[] members) {
 		super(location, storageClass, name);
-		
+
 		this.members = members;
 	}
 }
@@ -361,10 +361,11 @@ class StructDeclaration : NamedDeclaration {
  */
 class UnionDeclaration : NamedDeclaration {
 	Declaration[] members;
-	
-	this(Location location, StorageClass storageClass, Name name, Declaration[] members) {
+
+	this(Location location, StorageClass storageClass, Name name,
+	     Declaration[] members) {
 		super(location, storageClass, name);
-		
+
 		this.members = members;
 	}
 }
@@ -375,10 +376,11 @@ class UnionDeclaration : NamedDeclaration {
 class ClassDeclaration : NamedDeclaration {
 	Identifier[] bases;
 	Declaration[] members;
-	
-	this(Location location, StorageClass storageClass, Name name, Identifier[] bases, Declaration[] members) {
+
+	this(Location location, StorageClass storageClass, Name name,
+	     Identifier[] bases, Declaration[] members) {
 		super(location, storageClass, name);
-		
+
 		this.bases = bases;
 		this.members = members;
 	}
@@ -390,10 +392,11 @@ class ClassDeclaration : NamedDeclaration {
 class InterfaceDeclaration : NamedDeclaration {
 	Identifier[] bases;
 	Declaration[] members;
-	
-	this(Location location, StorageClass storageClass, Name name, Identifier[] bases, Declaration[] members) {
+
+	this(Location location, StorageClass storageClass, Name name,
+	     Identifier[] bases, Declaration[] members) {
 		super(location, storageClass, name);
-		
+
 		this.bases = bases;
 		this.members = members;
 	}
@@ -405,12 +408,12 @@ class InterfaceDeclaration : NamedDeclaration {
 class EnumDeclaration : NamedDeclaration {
 	AstType type;
 	VariableDeclaration[] entries;
-	
-	this(Location location, StorageClass storageClass, Name name, AstType type, VariableDeclaration[] entries) {
+
+	this(Location location, StorageClass storageClass, Name name, AstType type,
+	     VariableDeclaration[] entries) {
 		super(location, storageClass, name);
-		
+
 		this.type = type;
 		this.entries = entries;
 	}
 }
-

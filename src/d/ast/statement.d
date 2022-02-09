@@ -11,7 +11,7 @@ class Statement : Node {
 	this(Location location) {
 		super(location);
 	}
-	
+
 	string toString(const Context) const {
 		assert(0, "toString not implement for " ~ typeid(this).toString());
 	}
@@ -24,10 +24,10 @@ final:
  */
 class BlockStatement : Statement {
 	Statement[] statements;
-	
+
 	this(Location location, Statement[] statements) {
 		super(location);
-		
+
 		this.statements = statements;
 	}
 }
@@ -37,10 +37,10 @@ class BlockStatement : Statement {
  */
 class ExpressionStatement : Statement {
 	AstExpression expression;
-	
+
 	this(AstExpression expression) {
 		super(expression.location);
-		
+
 		this.expression = expression;
 	}
 }
@@ -50,10 +50,10 @@ class ExpressionStatement : Statement {
  */
 class DeclarationStatement : Statement {
 	Declaration declaration;
-	
+
 	this(Declaration declaration) {
 		super(declaration.location);
-		
+
 		this.declaration = declaration;
 	}
 }
@@ -64,19 +64,15 @@ class DeclarationStatement : Statement {
 class IdentifierStarNameStatement : Statement {
 	import source.name;
 	Name name;
-	
+
 	import d.ast.identifier;
 	Identifier identifier;
 	AstExpression value;
-	
-	this(
-		Location location,
-		Identifier identifier,
-		Name name,
-		AstExpression value,
-	) {
+
+	this(Location location, Identifier identifier, Name name,
+	     AstExpression value) {
 		super(location);
-		
+
 		this.identifier = identifier;
 		this.name = name;
 		this.value = value;
@@ -89,18 +85,14 @@ class IdentifierStarNameStatement : Statement {
 class IfStatement : Statement {
 	AstExpression condition;
 	Statement then;
-	
+
 	// Nullable
 	Statement elseStatement;
-	
-	this(
-		Location location,
-		AstExpression condition,
-		Statement then,
-		Statement elseStatement,
-	) {
+
+	this(Location location, AstExpression condition, Statement then,
+	     Statement elseStatement) {
 		super(location);
-		
+
 		this.condition = condition;
 		this.then = then;
 		this.elseStatement = elseStatement;
@@ -113,10 +105,10 @@ class IfStatement : Statement {
 class WhileStatement : Statement {
 	AstExpression condition;
 	Statement statement;
-	
+
 	this(Location location, AstExpression condition, Statement statement) {
 		super(location);
-		
+
 		this.condition = condition;
 		this.statement = statement;
 	}
@@ -128,10 +120,10 @@ class WhileStatement : Statement {
 class DoWhileStatement : Statement {
 	AstExpression condition;
 	Statement statement;
-	
+
 	this(Location location, AstExpression condition, Statement statement) {
 		super(location);
-		
+
 		this.condition = condition;
 		this.statement = statement;
 	}
@@ -145,16 +137,11 @@ class ForStatement : Statement {
 	AstExpression condition;
 	AstExpression increment;
 	Statement statement;
-	
-	this(
-		Location location,
-		Statement initialize,
-		AstExpression condition,
-		AstExpression increment,
-		Statement statement,
-	) {
+
+	this(Location location, Statement initialize, AstExpression condition,
+	     AstExpression increment, Statement statement) {
 		super(location);
-		
+
 		this.initialize = initialize;
 		this.condition = condition;
 		this.increment = increment;
@@ -170,16 +157,11 @@ class ForeachStatement : Statement {
 	AstExpression iterated;
 	Statement statement;
 	bool reverse;
-	
-	this(
-		Location location,
-		ParamDecl[] tupleElements,
-		AstExpression iterated,
-		Statement statement,
-		bool reverse,
-	) {
+
+	this(Location location, ParamDecl[] tupleElements, AstExpression iterated,
+	     Statement statement, bool reverse) {
 		super(location);
-		
+
 		this.tupleElements = tupleElements;
 		this.iterated = iterated;
 		this.statement = statement;
@@ -196,17 +178,11 @@ class ForeachRangeStatement : Statement {
 	AstExpression stop;
 	Statement statement;
 	bool reverse;
-	
-	this(
-		Location location,
-		ParamDecl[] tupleElements,
-		AstExpression start,
-		AstExpression stop,
-		Statement statement,
-		bool reverse,
-	) {
+
+	this(Location location, ParamDecl[] tupleElements, AstExpression start,
+	     AstExpression stop, Statement statement, bool reverse) {
 		super(location);
-		
+
 		this.tupleElements = tupleElements;
 		this.start = start;
 		this.stop = stop;
@@ -220,10 +196,10 @@ class ForeachRangeStatement : Statement {
  */
 class ReturnStatement : Statement {
 	AstExpression value;
-	
+
 	this(Location location, AstExpression value) {
 		super(location);
-		
+
 		this.value = value;
 	}
 }
@@ -234,10 +210,10 @@ class ReturnStatement : Statement {
 class SwitchStatement : Statement {
 	AstExpression expression;
 	Statement statement;
-	
+
 	this(Location location, AstExpression expression, Statement statement) {
 		super(location);
-		
+
 		this.expression = expression;
 		this.statement = statement;
 	}
@@ -249,10 +225,10 @@ class SwitchStatement : Statement {
 class CaseStatement : Statement {
 	AstExpression[] cases;
 	Statement statement;
-	
+
 	this(Location location, AstExpression[] cases, Statement statement) {
 		super(location);
-		
+
 		this.cases = cases;
 		this.statement = statement;
 	}
@@ -282,10 +258,10 @@ class ContinueStatement : Statement {
 class GotoStatement : Statement {
 	import source.name;
 	Name label;
-	
+
 	this(Location location, Name label) {
 		super(location);
-		
+
 		this.label = label;
 	}
 }
@@ -296,12 +272,12 @@ class GotoStatement : Statement {
 class LabeledStatement : Statement {
 	import source.name;
 	Name label;
-	
+
 	Statement statement;
-	
+
 	this(Location location, Name label, Statement statement) {
 		super(location);
-		
+
 		this.label = label;
 		this.statement = statement;
 	}
@@ -312,10 +288,10 @@ class LabeledStatement : Statement {
  */
 class SynchronizedStatement : Statement {
 	Statement statement;
-	
+
 	this(Location location, Statement statement) {
 		super(location);
-		
+
 		this.statement = statement;
 	}
 }
@@ -332,13 +308,15 @@ enum ScopeKind {
 class ScopeStatement : Statement {
 	import std.bitmanip;
 	mixin(taggedClassRef!(
+		// sdfmt off
 		Statement, "statement",
 		ScopeKind, "kind", 2,
+		// sdfmt on
 	));
-	
+
 	this(Location location, ScopeKind kind, Statement statement) {
 		super(location);
-		
+
 		this.kind = kind;
 		this.statement = statement;
 	}
@@ -350,20 +328,18 @@ class ScopeStatement : Statement {
 class AssertStatement : Statement {
 	AstExpression condition;
 	AstExpression message;
-	
+
 	this(Location location, AstExpression condition, AstExpression message) {
 		super(location);
-		
+
 		this.condition = condition;
 		this.message = message;
 	}
-	
+
 	override string toString(const Context c) const {
 		auto cstr = condition.toString(c);
-		auto mstr = message
-			? ", " ~ message.toString(c)
-			: "";
-		
+		auto mstr = message ? ", " ~ message.toString(c) : "";
+
 		return "assert(" ~ cstr ~ mstr ~ ")";
 	}
 }
@@ -373,10 +349,10 @@ class AssertStatement : Statement {
  */
 class ThrowStatement : Statement {
 	AstExpression value;
-	
+
 	this(Location location, AstExpression value) {
 		super(location);
-		
+
 		this.value = value;
 	}
 }
@@ -387,18 +363,14 @@ class ThrowStatement : Statement {
 class TryStatement : Statement {
 	Statement statement;
 	CatchBlock[] catches;
-	
+
 	// nullable
 	Statement finallyBlock;
-	
-	this(
-		Location location,
-		Statement statement,
-		CatchBlock[] catches,
-		Statement finallyBlock,
-	) {
+
+	this(Location location, Statement statement, CatchBlock[] catches,
+	     Statement finallyBlock) {
 		super(location);
-		
+
 		this.statement = statement;
 		this.catches = catches;
 		this.finallyBlock = finallyBlock;
@@ -407,14 +379,14 @@ class TryStatement : Statement {
 
 struct CatchBlock {
 	Location location;
-	
+
 	import source.name;
 	Name name;
-	
+
 	import d.ast.identifier;
 	Identifier type;
 	Statement statement;
-	
+
 	this(Location location, Identifier type, Name name, Statement statement) {
 		this.location = location;
 		this.name = name;

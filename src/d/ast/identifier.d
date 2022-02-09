@@ -13,7 +13,7 @@ abstract class Identifier : Node {
 	this(Location location) {
 		super(location);
 	}
-	
+
 	string toString(const Context c) const {
 		assert(0, "toString not implement for " ~ typeid(this).toString());
 	}
@@ -25,13 +25,13 @@ final:
  */
 class BasicIdentifier : Identifier {
 	Name name;
-	
+
 	this(Location location, Name name) {
 		super(location);
-		
+
 		this.name = name;
 	}
-	
+
 	override string toString(const Context c) const {
 		return name.toString(c);
 	}
@@ -43,14 +43,14 @@ class BasicIdentifier : Identifier {
 class IdentifierDotIdentifier : Identifier {
 	Name name;
 	Identifier identifier;
-	
+
 	this(Location location, Name name, Identifier identifier) {
 		super(location);
-		
+
 		this.name = name;
 		this.identifier = identifier;
 	}
-	
+
 	override string toString(const Context c) const {
 		return identifier.toString(c) ~ "." ~ name.toString(c);
 	}
@@ -62,14 +62,14 @@ class IdentifierDotIdentifier : Identifier {
 class TypeDotIdentifier : Identifier {
 	Name name;
 	AstType type;
-	
+
 	this(Location location, Name name, AstType type) {
 		super(location);
-		
+
 		this.name = name;
 		this.type = type;
 	}
-	
+
 	override string toString(const Context c) const {
 		return type.toString(c) ~ "." ~ name.toString(c);
 	}
@@ -81,14 +81,14 @@ class TypeDotIdentifier : Identifier {
 class ExpressionDotIdentifier : Identifier {
 	Name name;
 	AstExpression expression;
-	
+
 	this(Location location, Name name, AstExpression expression) {
 		super(location);
-		
+
 		this.name = name;
 		this.expression = expression;
 	}
-	
+
 	override string toString(const Context c) const {
 		return expression.toString(c) ~ "." ~ name.toString(c);
 	}
@@ -100,23 +100,19 @@ class ExpressionDotIdentifier : Identifier {
 class TemplateInstantiation : Identifier {
 	Identifier identifier;
 	AstTemplateArgument[] arguments;
-	
-	this(
-		Location location,
-		Identifier identifier,
-		AstTemplateArgument[] arguments,
-	) {
+
+	this(Location location, Identifier identifier,
+	     AstTemplateArgument[] arguments) {
 		super(location);
-		
+
 		this.identifier = identifier;
 		this.arguments = arguments;
 	}
-	
+
 	override string toString(const Context c) const {
 		// Unfortunately, apply isn't const compliant so we cast it away.
 		import std.algorithm, std.range;
-		auto args = arguments
-			.map!(a => (cast() a).apply!(a => a.toString(c)))
+		auto args = arguments.map!(a => (cast() a).apply!(a => a.toString(c)))
 			.join(", ");
 		return identifier.toString(c) ~ "!(" ~ args ~ ")";
 	}
@@ -126,13 +122,13 @@ alias AstTemplateArgument = AstType.UnionType!(AstExpression, Identifier);
 
 auto apply(alias handler)(AstTemplateArgument a) {
 	alias Tag = typeof(a.tag);
-	final switch(a.tag) with(Tag) {
+	final switch (a.tag) with (Tag) {
 		case AstExpression:
 			return handler(a.get!AstExpression);
-		
+
 		case Identifier:
 			return handler(a.get!Identifier);
-		
+
 		case AstType:
 			return handler(a.get!AstType);
 	}
@@ -145,10 +141,10 @@ class DotIdentifier : Identifier {
 	Name name;
 	this(Location location, Name name) {
 		super(location);
-		
+
 		this.name = name;
 	}
-	
+
 	override string toString(const Context c) const {
 		return "." ~ name.toString(c);
 	}
@@ -160,14 +156,14 @@ class DotIdentifier : Identifier {
 class IdentifierBracketIdentifier : Identifier {
 	Identifier indexed;
 	Identifier index;
-	
+
 	this(Location location, Identifier indexed, Identifier index) {
 		super(location);
-		
+
 		this.indexed = indexed;
 		this.index = index;
 	}
-	
+
 	override string toString(const Context c) const {
 		return indexed.toString(c) ~ "[" ~ index.toString(c) ~ "]";
 	}
@@ -179,14 +175,14 @@ class IdentifierBracketIdentifier : Identifier {
 class IdentifierBracketExpression : Identifier {
 	Identifier indexed;
 	AstExpression index;
-	
+
 	this(Location location, Identifier indexed, AstExpression index) {
 		super(location);
-		
+
 		this.indexed = indexed;
 		this.index = index;
 	}
-	
+
 	override string toString(const Context c) const {
 		return indexed.toString(c) ~ "[" ~ index.toString(c) ~ "]";
 	}
