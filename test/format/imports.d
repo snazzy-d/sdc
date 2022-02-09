@@ -26,7 +26,7 @@ import foo.bar
 	: symbol1, symbol2, symbol3,
 	  symbol4, symbol5, symbol6,
 	  symbol7, symbol8, symbol9;
-public
-import foo.bar : symbol1, symbol2;
-static
-import foo.bar : symbol1, symbol2;
+public import foo.bar
+	: symbol1, symbol2;
+static import foo.bar
+	: symbol1, symbol2;

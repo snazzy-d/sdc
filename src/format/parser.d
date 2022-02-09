@@ -2433,8 +2433,7 @@ private:
 					break;
 
 				case Abstract, Auto, Export, Final, In, Lazy, Nothrow, Out,
-				     Override, Private, Protected, Public, Pure, Ref, Return,
-				     __Gshared:
+				     Override, Private, Protected, Pure, Ref, Return, __Gshared:
 					lookahead.popFront();
 					break;
 
@@ -2451,13 +2450,25 @@ private:
 					popDeclarator(lookahead);
 					break;
 
+				case Public:
+					auto l2 = lookahead.getLookahead();
+					l2.popFront();
+
+					if (l2.front.type == Import) {
+						// This is a public import.
+						return t;
+					}
+
+					lookahead.popFront();
+					break;
+
 				case Static:
 					auto l2 = lookahead.getLookahead();
 					l2.popFront();
 
 					auto t2 = l2.front.type;
-					if (t2 == Assert || t2 == If || t2 == Foreach
-						    || t2 == ForeachReverse) {
+					if (t2 == Assert || t2 == Import || t2 == If
+						    || t2 == Foreach || t2 == ForeachReverse) {
 						// This is a static something.
 						return t;
 					}
@@ -2527,7 +2538,7 @@ private:
 					break;
 
 				case Abstract, Auto, Export, Final, Lazy, Nothrow, Override,
-				     Private, Protected, Public, Pure, Ref, Return, __Gshared:
+				     Private, Protected, Pure, Ref, Return, __Gshared:
 					nextToken();
 					break;
 
@@ -2553,12 +2564,24 @@ private:
 
 					break;
 
+				case Public:
+					auto lookahead = trange.getLookahead();
+					lookahead.popFront();
+
+					if (lookahead.front.type == Import) {
+						// This is a public import.
+						goto default;
+					}
+
+					nextToken();
+					break;
+
 				case Static:
 					auto lookahead = trange.getLookahead();
 					lookahead.popFront();
 
 					auto t = lookahead.front.type;
-					if (t == Assert || t == If || t == Foreach
+					if (t == Assert || t == Import || t == If || t == Foreach
 						    || t == ForeachReverse) {
 						// This is a static something.
 						goto default;
@@ -2622,6 +2645,9 @@ private:
 
 		// Before bailing, try storage class looking declarations.
 		switch (token.type) with (TokenType) {
+			case Public:
+				return parsePublic();
+
 			case Enum:
 				return parseEnum();
 
@@ -2668,6 +2694,25 @@ private:
 		return true;
 	}
 
+	bool parsePublic() {
+		if (!match(TokenType.Public)) {
+			return false;
+		}
+
+		auto lookahead = trange.getLookahead();
+		lookahead.popFront();
+
+		if (lookahead.front.type == TokenType.Import) {
+			nextToken();
+			space();
+			parseImport();
+		} else {
+			parseStorageClassDeclaration();
+		}
+
+		return true;
+	}
+
 	bool parseStatic() {
 		if (!match(TokenType.Static)) {
 			return false;
@@ -2694,6 +2739,12 @@ private:
 				nextToken();
 				space();
 				parseExpression();
+				break;
+
+			case Import:
+				nextToken();
+				space();
+				parseImport();
 				break;
 
 			default:
