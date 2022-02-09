@@ -709,6 +709,20 @@ private:
 				// Blocks do not end with a semicolon.
 				return;
 
+			case Invariant:
+				nextToken();
+				parseArgumentList();
+
+				if (!match(OpenBrace)) {
+					break;
+				}
+
+				space();
+				parseBlock(Mode.Statement);
+
+				// Blocks do not end with a semicolon.
+				return;
+
 			case Mixin:
 				goto default;
 
