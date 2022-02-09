@@ -5,76 +5,85 @@ enum BuiltinType : ubyte {
 	None,
 	Void,
 	Bool,
-	Char, Wchar, Dchar,
-	Byte, Ubyte,
-	Short, Ushort,
-	Int, Uint,
-	Long, Ulong,
-	Cent, Ucent,
-	Float, Double, Real,
+	Char,
+	Wchar,
+	Dchar,
+	Byte,
+	Ubyte,
+	Short,
+	Ushort,
+	Int,
+	Uint,
+	Long,
+	Ulong,
+	Cent,
+	Ucent,
+	Float,
+	Double,
+	Real,
 	Null,
 }
 
 string toString(BuiltinType t) {
-	final switch(t) with(BuiltinType) {
-		case None :
+	final switch (t) with (BuiltinType) {
+		case None:
 			return "__none__";
-		
-		case Void :
+
+		case Void:
 			return "void";
-		
-		case Bool :
+
+		case Bool:
 			return "bool";
-		
-		case Char :
+
+		case Char:
 			return "char";
-		
-		case Wchar :
+
+		case Wchar:
 			return "wchar";
-		
-		case Dchar :
+
+		case Dchar:
 			return "dchar";
-		
-		case Byte :
+
+		case Byte:
 			return "byte";
-		
-		case Ubyte :
+
+		case Ubyte:
 			return "ubyte";
-		
-		case Short :
+
+		case Short:
 			return "short";
-		
-		case Ushort :
+
+		case Ushort:
 			return "ushort";
-		
-		case Int :
+
+		case Int:
 			return "int";
-		
-		case Uint :
+
+		case Uint:
 			return "uint";
-		
-		case Long :
+
+		case Long:
 			return "long";
-		
-		case Ulong :
+
+		case Ulong:
 			return "ulong";
-		
-		case Cent :
+
+		case Cent:
 			return "cent";
-		
-		case Ucent :
+
+		case Ucent:
 			return "ucent";
-		
-		case Float :
+
+		case Float:
 			return "float";
-		
-		case Double :
+
+		case Double:
 			return "double";
-		
-		case Real :
+
+		case Real:
 			return "real";
-		
-		case Null :
+
+		case Null:
 			return "typeof(null)";
 	}
 }
@@ -115,7 +124,7 @@ unittest {
 	assert(isSigned(BuiltinType.Int));
 	assert(isSigned(BuiltinType.Long));
 	assert(isSigned(BuiltinType.Cent));
-	
+
 	assert(!isSigned(BuiltinType.Ubyte));
 	assert(!isSigned(BuiltinType.Ushort));
 	assert(!isSigned(BuiltinType.Uint));
@@ -130,19 +139,19 @@ BuiltinType unsigned(BuiltinType t) in {
 }
 
 unittest {
-	assert(unsigned(BuiltinType.Byte)  == BuiltinType.Ubyte);
+	assert(unsigned(BuiltinType.Byte) == BuiltinType.Ubyte);
 	assert(unsigned(BuiltinType.Ubyte) == BuiltinType.Ubyte);
-	
-	assert(unsigned(BuiltinType.Short)  == BuiltinType.Ushort);
+
+	assert(unsigned(BuiltinType.Short) == BuiltinType.Ushort);
 	assert(unsigned(BuiltinType.Ushort) == BuiltinType.Ushort);
-	
-	assert(unsigned(BuiltinType.Int)  == BuiltinType.Uint);
+
+	assert(unsigned(BuiltinType.Int) == BuiltinType.Uint);
 	assert(unsigned(BuiltinType.Uint) == BuiltinType.Uint);
-	
-	assert(unsigned(BuiltinType.Long)  == BuiltinType.Ulong);
+
+	assert(unsigned(BuiltinType.Long) == BuiltinType.Ulong);
 	assert(unsigned(BuiltinType.Ulong) == BuiltinType.Ulong);
-	
-	assert(unsigned(BuiltinType.Cent)  == BuiltinType.Ucent);
+
+	assert(unsigned(BuiltinType.Cent) == BuiltinType.Ucent);
 	assert(unsigned(BuiltinType.Ucent) == BuiltinType.Ucent);
 }
 
@@ -153,19 +162,19 @@ BuiltinType signed(BuiltinType t) in {
 }
 
 unittest {
-	assert(signed(BuiltinType.Byte)  == BuiltinType.Byte);
+	assert(signed(BuiltinType.Byte) == BuiltinType.Byte);
 	assert(signed(BuiltinType.Ubyte) == BuiltinType.Byte);
-	
-	assert(signed(BuiltinType.Short)  == BuiltinType.Short);
+
+	assert(signed(BuiltinType.Short) == BuiltinType.Short);
 	assert(signed(BuiltinType.Ushort) == BuiltinType.Short);
-	
-	assert(signed(BuiltinType.Int)  == BuiltinType.Int);
+
+	assert(signed(BuiltinType.Int) == BuiltinType.Int);
 	assert(signed(BuiltinType.Uint) == BuiltinType.Int);
-	
-	assert(signed(BuiltinType.Long)  == BuiltinType.Long);
+
+	assert(signed(BuiltinType.Long) == BuiltinType.Long);
 	assert(signed(BuiltinType.Ulong) == BuiltinType.Long);
-	
-	assert(signed(BuiltinType.Cent)  == BuiltinType.Cent);
+
+	assert(signed(BuiltinType.Cent) == BuiltinType.Cent);
 	assert(signed(BuiltinType.Ucent) == BuiltinType.Cent);
 }
 
@@ -180,20 +189,20 @@ uint getIntegralSize(BuiltinType t) in {
 }
 
 uint getSize(BuiltinType t) {
-	final switch(t) with(BuiltinType) {
-		case Bool :
+	final switch (t) with (BuiltinType) {
+		case Bool:
 			return 1;
-		
-		case Char, Wchar, Dchar :
+
+		case Char, Wchar, Dchar:
 			return 1 << (t - Char);
-		
-		case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent, Ucent :
+
+		case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent, Ucent:
 			return getIntegralSize(t);
-		
-		case Float, Double :
+
+		case Float, Double:
 			return 1 << (t - Float + 2);
-		
-		case None, Void, Real, Null :
+
+		case None, Void, Real, Null:
 			import std.conv;
 			assert(0, "Use SizeofVisitor for " ~ t.to!string());
 	}
@@ -204,20 +213,20 @@ unittest {
 	assert(getSize(BuiltinType.Byte) == 1);
 	assert(getSize(BuiltinType.Ubyte) == 1);
 	assert(getSize(BuiltinType.Char) == 1);
-	
+
 	assert(getSize(BuiltinType.Short) == 2);
 	assert(getSize(BuiltinType.Ushort) == 2);
 	assert(getSize(BuiltinType.Wchar) == 2);
-	
+
 	assert(getSize(BuiltinType.Int) == 4);
 	assert(getSize(BuiltinType.Uint) == 4);
 	assert(getSize(BuiltinType.Dchar) == 4);
 	assert(getSize(BuiltinType.Float) == 4);
-	
+
 	assert(getSize(BuiltinType.Long) == 8);
 	assert(getSize(BuiltinType.Ulong) == 8);
 	assert(getSize(BuiltinType.Double) == 8);
-	
+
 	assert(getSize(BuiltinType.Cent) == 16);
 	assert(getSize(BuiltinType.Ucent) == 16);
 }
@@ -226,30 +235,30 @@ uint getBits(BuiltinType t) {
 	if (t == BuiltinType.Bool) {
 		return 1;
 	}
-	
+
 	return getSize(t) * 8;
 }
 
 unittest {
 	assert(getBits(BuiltinType.Bool) == 1);
-	
+
 	assert(getBits(BuiltinType.Byte) == 8);
 	assert(getBits(BuiltinType.Ubyte) == 8);
 	assert(getBits(BuiltinType.Char) == 8);
-	
+
 	assert(getBits(BuiltinType.Short) == 16);
 	assert(getBits(BuiltinType.Ushort) == 16);
 	assert(getBits(BuiltinType.Wchar) == 16);
-	
+
 	assert(getBits(BuiltinType.Int) == 32);
 	assert(getBits(BuiltinType.Uint) == 32);
 	assert(getBits(BuiltinType.Dchar) == 32);
 	assert(getBits(BuiltinType.Float) == 32);
-	
+
 	assert(getBits(BuiltinType.Long) == 64);
 	assert(getBits(BuiltinType.Ulong) == 64);
 	assert(getBits(BuiltinType.Double) == 64);
-	
+
 	assert(getBits(BuiltinType.Cent) == 128);
 	assert(getBits(BuiltinType.Ucent) == 128);
 }
@@ -257,23 +266,20 @@ unittest {
 ulong getMax(BuiltinType t) in {
 	assert(isIntegral(t), "getMax only applys to integral types");
 } do {
-	auto base = isSigned(t)
-		? 1UL << 7
-		: 1UL << 8;
-	
+	auto base = 1UL << (8 - isSigned(t));
 	return (base << (getIntegralSize(t) - 1) * 8) - 1;
 }
 
 unittest {
 	assert(getMax(BuiltinType.Byte) == 127);
 	assert(getMax(BuiltinType.Ubyte) == 255);
-	
+
 	assert(getMax(BuiltinType.Short) == 32767);
 	assert(getMax(BuiltinType.Ushort) == 65535);
-	
+
 	assert(getMax(BuiltinType.Int) == 2147483647);
 	assert(getMax(BuiltinType.Uint) == 4294967295);
-	
+
 	assert(getMax(BuiltinType.Long) == 9223372036854775807);
 	assert(getMax(BuiltinType.Ulong) == 18446744073709551615UL);
 }
@@ -281,9 +287,7 @@ unittest {
 ulong getMin(BuiltinType t) in {
 	assert(isIntegral(t), "getMin only applys to integral types");
 } do {
-	return isSigned(t)
-		? -(1UL << getIntegralSize(t) * 8 - 1)
-		: 0;
+	return isSigned(t) ? -(1UL << getIntegralSize(t) * 8 - 1) : 0;
 }
 
 unittest {
@@ -292,7 +296,7 @@ unittest {
 	assert(getMin(BuiltinType.Uint) == 0);
 	assert(getMin(BuiltinType.Ulong) == 0);
 	assert(getMin(BuiltinType.Ucent) == 0);
-	
+
 	assert(getMin(BuiltinType.Byte) == -128);
 	assert(getMin(BuiltinType.Short) == -32768);
 	assert(getMin(BuiltinType.Int) == -2147483648);
@@ -302,14 +306,14 @@ unittest {
 dchar getCharInit(BuiltinType t) in {
 	assert(isChar(t), "getCharInit only applys to character types");
 } do {
-	switch(t) with(BuiltinType) {
-		case Char :
+	switch (t) with (BuiltinType) {
+		case Char:
 			return '\xff';
-		
-		case Wchar, Dchar :
+
+		case Wchar, Dchar:
 			return cast(dchar) 0xffff;
-		
-		default :
+
+		default:
 			assert(0, "getCharInit only applys to character types");
 	}
 }
@@ -323,17 +327,17 @@ unittest {
 dchar getCharMax(BuiltinType t) in {
 	assert(isChar(t), "getCharMax only applys to character types");
 } do {
-	switch(t) with(BuiltinType) {
-		case Char :
+	switch (t) with (BuiltinType) {
+		case Char:
 			return '\xff';
-		
-		case Wchar :
+
+		case Wchar:
 			return cast(dchar) 0xffff;
-		
-		case Dchar :
+
+		case Dchar:
 			return cast(dchar) 0x10ffff;
-		
-		default :
+
+		default:
 			assert(0, "getCharMax only applys to character types");
 	}
 }
