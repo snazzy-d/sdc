@@ -655,6 +655,10 @@ private:
 				withCaseLevelIndent!parseStatic();
 				break;
 
+			case Mixin:
+				parseMixin();
+				break;
+
 			/**
 			 * Declaration
 			 */
@@ -722,9 +726,6 @@ private:
 
 				// Blocks do not end with a semicolon.
 				return;
-
-			case Mixin:
-				goto default;
 
 			case Struct, Union, Class, Interface:
 				parseAggregate();
@@ -951,8 +952,6 @@ private:
 
 			case OpenBrace: {
 				// Try to detect if it is a struct literal or a parameterless lambda.
-				kind = IdentifierKind.Expression;
-
 				import source.parserutil;
 				auto lookahead = trange.getLookahead();
 
@@ -1042,9 +1041,7 @@ private:
 				return IdentifierKind.Expression;
 
 			case Mixin:
-				kind = IdentifierKind.Expression;
-				nextToken();
-				parseArgumentList();
+				parseMixin();
 
 				// Assume it is an expression. Technically, it could be a declaration,
 				// but it does change anything from a formatting perspective.
@@ -1195,6 +1192,38 @@ private:
 					return kind;
 			}
 		}
+	}
+
+	bool parseMixin() {
+		if (!match(TokenType.Mixin)) {
+			return false;
+		}
+
+		nextToken();
+
+		switch (token.type) with (TokenType) {
+			case Template:
+				space();
+				parseTemplate();
+				break;
+
+			case OpenParen:
+				parseArgumentList();
+				break;
+
+			default:
+				space();
+				parseIdentifier();
+
+				if (match(Identifier)) {
+					space();
+					nextToken();
+				}
+
+				break;
+		}
+
+		return true;
 	}
 
 	/**
