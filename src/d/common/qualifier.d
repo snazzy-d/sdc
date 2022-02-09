@@ -59,8 +59,9 @@ enum TypeQualifier {
 
 // XXX: operator overloading ?
 auto add(TypeQualifier actual, TypeQualifier added) {
-	if ((actual == TypeQualifier.Shared && added == TypeQualifier.Const) || (
-		    added == TypeQualifier.Shared && actual == TypeQualifier.Const)) {
+	if ((actual == TypeQualifier.Shared && added == TypeQualifier.Const)
+		    || (added == TypeQualifier.Shared
+			    && actual == TypeQualifier.Const)) {
 		return TypeQualifier.ConstShared;
 	}
 

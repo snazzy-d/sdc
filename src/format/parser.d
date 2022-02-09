@@ -946,8 +946,13 @@ private:
 			}
 
 			ParenIdentifier:
+				auto guard = span();
+				nextToken();
+
 				// FIXME: Customize the list parsed based on kind.
-				parseArgumentList();
+				parseExpression();
+
+				runOnType!(CloseParen, nextToken)();
 				return kind;
 
 			case OpenBrace: {
