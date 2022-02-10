@@ -149,9 +149,9 @@ private:
 		builder.clearSeparator();
 	}
 
-	void split(bool glued = false) {
+	void split(bool glued = false, bool continuation = false) {
 		emitRawContent();
-		builder.split(glued || skipFormatting());
+		builder.split(glued || skipFormatting(), continuation);
 	}
 
 	auto indent(uint level = 1) {

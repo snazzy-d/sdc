@@ -1,7 +1,8 @@
 for (; popFront(), i; ++i, foo()) {}
 
-foreach (a, b; zip(
-	StoppingPolicy.shortest, as, bs))
+foreach (a, b;
+	zip(StoppingPolicy.shortest, as,
+	    bs))
 	return false;
 
 if (condition) // comment!

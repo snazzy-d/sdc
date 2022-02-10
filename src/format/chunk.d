@@ -208,6 +208,10 @@ public:
 				continue;
 			}
 
+			if (top !is null) {
+				continue;
+			}
+
 			// If this is not a line break, this is not an unwrapped line break.
 			if (i > 0 && c.newLineCount() == 0) {
 				continue;
