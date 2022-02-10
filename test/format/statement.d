@@ -1,3 +1,9 @@
+for (; popFront(), i; ++i, foo()) {}
+
+foreach (a, b; zip(
+	StoppingPolicy.shortest, as, bs))
+	return false;
+
 if (condition) // comment!
 	foo();
 
@@ -7,8 +13,6 @@ if (condition) {
 else {
 	bar();
 }
-
-for (; popFront(), i; ++i, foo()) {}
 
 if (a)
 	if (b)
