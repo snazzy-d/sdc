@@ -1600,9 +1600,20 @@ private:
 
 		if (match(TokenType.OpenParen)) {
 			nextToken();
-			auto guard = changeMode(Mode.Parameter);
+			auto modeGuard = changeMode(Mode.Parameter);
+			auto listGuard = span!ListSpan();
+
+			split();
+			listGuard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
 
 			parseList!parseStructuralElement(TokenType.Semicolon);
+
+			split();
+			listGuard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
 
 			space();
 			parseList!parseArrayElement(TokenType.CloseParen);
