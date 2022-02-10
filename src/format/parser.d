@@ -753,13 +753,9 @@ private:
 				break;
 		}
 
-		bool foundSemicolon = match(TokenType.Semicolon);
-		if (foundSemicolon) {
-			nextToken();
-		}
-
 		if (mode != Mode.Parameter) {
-			if (foundSemicolon) {
+			if (match(TokenType.Semicolon)) {
+				nextToken();
 				newline();
 			} else {
 				emitSourceBasedWhiteSpace();
