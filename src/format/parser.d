@@ -2661,7 +2661,7 @@ private:
 					return foundStorageClass;
 			}
 
-			if (!match(TokenType.Colon)) {
+			if (!match(TokenType.Colon) && !match(TokenType.Semicolon)) {
 				if (!isPostfix && !match(TokenType.Identifier)) {
 					split();
 				}
@@ -2707,6 +2707,11 @@ private:
 			case Colon:
 				clearSeparator();
 				parseColonBlock();
+				break;
+
+			case Semicolon:
+				clearSeparator();
+				nextToken();
 				break;
 
 			case OpenBrace:
