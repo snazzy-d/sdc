@@ -17,10 +17,10 @@ else {
 
 if (condition)
 	foo(); // foo!
-	else
+else
 	bar(); // bar!
 
-	if (a)
+if (a)
 	if (b)
 		if (c)
 			while (d)

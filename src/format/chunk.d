@@ -333,6 +333,7 @@ public:
 		static struct Guard {
 			~this() {
 				builder.indentation = oldLevel;
+				builder.emitPendingSeparator();
 			}
 
 		private:
@@ -370,6 +371,11 @@ public:
 				assert(builder.spanStack is span);
 				builder.spanStack = span.parent;
 				builder.spliceIndex = spliceIndex;
+
+				if (builder.chunk.empty) {
+					// Make sure we get the proper span.
+					builder.chunk._span = span.parent;
+				}
 			}
 
 			void registerFix(void function(S s, size_t i) fix) {

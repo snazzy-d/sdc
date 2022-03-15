@@ -2661,7 +2661,9 @@ private:
 					return foundStorageClass;
 			}
 
-			if (!match(TokenType.Colon) && !match(TokenType.Semicolon)) {
+			if (match(TokenType.Colon) || match(TokenType.Semicolon)) {
+				clearSeparator();
+			} else {
 				if (!isPostfix && !match(TokenType.Identifier)) {
 					split();
 				}
