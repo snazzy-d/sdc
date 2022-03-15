@@ -1,7 +1,8 @@
 module format.span;
 
-import format.writer;
 import format.chunk;
+import format.rulevalues;
+import format.writer;
 
 class Span {
 	Span parent = null;
@@ -201,6 +202,47 @@ final class ListSpan : Span {
 		return s.isSplit(elements[0]) || !s.isUsed(this);
 	}
 
+	const(RuleValues) getState(const ref SolveState s) const {
+		// TODO: We need some caching here.
+		return computeState(s);
+	}
+
+	RuleValues computeState(const ref SolveState s) const {
+		auto state = RuleValues(1, elements.length + 2);
+
+		size_t previous = elements[0];
+		size_t i = 1;
+
+		import std.range;
+		foreach (p; elements) {
+			scope(success) {
+				previous = p;
+				i++;
+			}
+
+			if (p <= s.ruleValues.frozen) {
+				state.frozen = i;
+			}
+
+			// Ok let's go over the parameter and see if it must split.
+			foreach (c; previous + 1 .. p) {
+				if (!s.isSplit(c)) {
+					continue;
+				}
+
+				// This parameter must split.
+				state[i] = true;
+				if (c <= s.ruleValues.frozen) {
+					state.frozen = i;
+				}
+
+				break;
+			}
+		}
+
+		return state;
+	}
+
 	override uint getCost(const ref SolveState s) const {
 		// If there is just one element, make it slitghtly more exepensive to split.
 		if (elements.length <= 1) {
@@ -226,7 +268,7 @@ final class ListSpan : Span {
 	}
 
 	void registerTrailingSplit(size_t i) in {
-		assert(elements.length == 0 || elements[$ - 1] < i);
+		assert(elements[$ - 1] < i);
 	} do {
 		trailingSplit = i;
 	}
@@ -252,29 +294,20 @@ final class ListSpan : Span {
 			return Split.No;
 		}
 
-		size_t previous = elements[0];
-		foreach (p; elements) {
+		foreach (k, p; elements) {
+			if (p < i) {
+				// We have not reached our goal, move on to the next param.
+				continue;
+			}
+
 			if (p > i) {
 				// We went past the index we are interested in.
 				break;
 			}
 
-			if (p < i) {
-				// We have not reached our goal, move on to the next param.
-				previous = p;
-				continue;
+			if (getState(s)[k + 1]) {
+				return Split.Must;
 			}
-
-			// We are at a parameter junction. Split here if the preceding
-			// parameter is split.
-			foreach (c; previous + 1 .. p) {
-				if (s.isSplit(c)) {
-					return Split.Must;
-				}
-			}
-
-			// Previous parameters isn't split, so there are no constraints.
-			break;
 		}
 
 		return Split.Can;
