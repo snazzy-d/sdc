@@ -15,7 +15,12 @@ else {
 	bar();
 }
 
-if (a)
+if (condition)
+	foo(); // foo!
+	else
+	bar(); // bar!
+
+	if (a)
 	if (b)
 		if (c)
 			while (d)
