@@ -190,7 +190,14 @@ final class AlignedSpan : Span {
 /**
  * Span ensuring lists of items are formatted as expected.
  */
+enum ListType {
+	Packed,
+	Expanding,
+}
+
 final class ListSpan : Span {
+	ListType type;
+
 	size_t[] elements;
 	size_t trailingSplit = size_t.max;
 
@@ -199,8 +206,10 @@ final class ListSpan : Span {
 		return trailingSplit != size_t.max;
 	}
 
-	this(Span parent) {
+	this(Span parent, ListType type = ListType.Packed) {
 		super(parent);
+
+		this.type = type;
 	}
 
 	bool isActive(const ref SolveState s) const {
@@ -215,7 +224,8 @@ final class ListSpan : Span {
 	RuleValues computeState(const ref SolveState s) const {
 		auto state = RuleValues(1, elements.length + 2);
 
-		if (hasTrailingSplit && elements.length > 1) {
+		if (hasTrailingSplit && type == ListType.Expanding
+			    && elements.length > 1) {
 			foreach (n; elements[$ - 1] .. trailingSplit) {
 				const c = n + 1;
 				if (!s.isSplit(c)) {

@@ -2210,6 +2210,7 @@ private:
 	void parseParameterPacks() {
 		ListOptions options;
 		options.closingTokenType = TokenType.CloseParen;
+		options.listType = ListType.Expanding;
 
 		auto guard = changeMode(Mode.Parameter);
 
@@ -2387,7 +2388,12 @@ private:
 
 		auto guard = changeMode(Mode.Parameter);
 		nextToken();
-		parseList!parseStructuralElement(TokenType.CloseParen);
+
+		ListOptions options;
+		options.closingTokenType = TokenType.CloseParen;
+		options.listType = ListType.Expanding;
+
+		parseList!parseStructuralElement(options);
 		return true;
 	}
 
@@ -2910,6 +2916,7 @@ private:
 	 */
 	struct ListOptions {
 		TokenType closingTokenType;
+		ListType listType = ListType.Packed;
 		bool addNewLines = false;
 		bool splice = false;
 	}
@@ -2940,7 +2947,9 @@ private:
 			alias afun = parseListAdapter!fun;
 		}
 
-		auto guard = options.splice ? spliceSpan!ListSpan() : span!ListSpan();
+		auto guard = options.splice
+			? spliceSpan!ListSpan(options.listType)
+			: span!ListSpan(options.listType);
 
 		size_t i = 0;
 		while (!match(options.closingTokenType)) {

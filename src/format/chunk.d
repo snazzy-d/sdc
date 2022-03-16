@@ -380,14 +380,12 @@ public:
 
 			void registerFix(void function(S s, size_t i) fix) {
 				builder.fixups ~= Fixup(
-					builder.source.length,
-					span,
+					builder.source.length, span,
 					// Fixup is not templated, so we need to give it the type
 					// it expects. The compiler cannot verify this for us, but we
 					// know it is always called with the supplied span as argument,
 					// which we know have the right type.
-					cast(void function(Span span, ulong i)) fix
-				);
+					cast(void function(Span span, ulong i)) fix);
 			}
 
 		private:
