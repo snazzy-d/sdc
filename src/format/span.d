@@ -211,21 +211,18 @@ final class ListSpan : Span {
 		auto state = RuleValues(1, elements.length + 2);
 
 		size_t previous = elements[0];
-		size_t i = 1;
-
-		import std.range;
-		foreach (p; elements) {
+		foreach (k, p; elements) {
 			scope(success) {
-				previous = p;
-				i++;
+				previous = p + 1;
 			}
 
+			const i = k + 1;
 			if (p <= s.ruleValues.frozen) {
 				state.frozen = i;
 			}
 
 			// Ok let's go over the parameter and see if it must split.
-			foreach (c; previous + 1 .. p) {
+			foreach (c; previous .. p) {
 				if (!s.isSplit(c)) {
 					continue;
 				}
