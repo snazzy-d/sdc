@@ -194,6 +194,11 @@ final class ListSpan : Span {
 	size_t[] elements;
 	size_t trailingSplit = size_t.max;
 
+	@property
+	bool hasTrailingSplit() const {
+		return trailingSplit != size_t.max;
+	}
+
 	this(Span parent) {
 		super(parent);
 	}
@@ -210,6 +215,22 @@ final class ListSpan : Span {
 	RuleValues computeState(const ref SolveState s) const {
 		auto state = RuleValues(1, elements.length + 2);
 
+		if (hasTrailingSplit && elements.length > 1) {
+			foreach (n; elements[$ - 1] .. trailingSplit) {
+				const c = n + 1;
+				if (!s.isSplit(c)) {
+					continue;
+				}
+
+				// The trailing parameter must split => split all parameters.
+				foreach (i; 1 .. elements.length + 2) {
+					state[i] = true;
+				}
+
+				return state;
+			}
+		}
+
 		size_t previous = elements[0];
 		foreach (k, p; elements) {
 			scope(success) {
@@ -217,23 +238,14 @@ final class ListSpan : Span {
 			}
 
 			const i = k + 1;
-			if (p <= s.ruleValues.frozen) {
-				state.frozen = i;
-			}
 
 			// Ok let's go over the parameter and see if it must split.
 			foreach (c; previous .. p) {
-				if (!s.isSplit(c)) {
-					continue;
+				if (s.isSplit(c)) {
+					// This parameter must split.
+					state[i] = true;
+					break;
 				}
-
-				// This parameter must split.
-				state[i] = true;
-				if (c <= s.ruleValues.frozen) {
-					state.frozen = i;
-				}
-
-				break;
 			}
 		}
 
@@ -259,13 +271,14 @@ final class ListSpan : Span {
 
 	void registerElement(size_t i) in {
 		assert(elements.length == 0 || elements[$ - 1] < i);
-		assert(i < trailingSplit);
+		assert(!hasTrailingSplit);
 	} do {
 		elements ~= i;
 	}
 
 	void registerTrailingSplit(size_t i) in {
 		assert(elements[$ - 1] < i);
+		assert(!hasTrailingSplit);
 	} do {
 		trailingSplit = i;
 	}
@@ -288,7 +301,7 @@ final class ListSpan : Span {
 
 	override Split computeSplit(const ref SolveState s, size_t i) const {
 		if (i == trailingSplit) {
-			return Split.No;
+			return getState(s)[elements.length + 1] ? Split.Must : Split.No;
 		}
 
 		foreach (k, p; elements) {
