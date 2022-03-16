@@ -444,7 +444,6 @@ struct SolveState {
 
 			usedSpans.insert(c.span);
 		}
-
 	}
 
 	uint computeNewLinePenality(const ref Chunk c, uint column, uint length,

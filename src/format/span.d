@@ -138,6 +138,25 @@ bool mustSplit(const Span span, const ref SolveState s, size_t i) {
 	}
 }
 
+private mixin template CachedState() {
+	RuleValues __cachedSolveRuleValue;
+	RuleValues __cachedState;
+
+	const(RuleValues) getState(const ref SolveState s) const {
+		if (__cachedSolveRuleValue == s.ruleValues) {
+			return __cachedState;
+		}
+
+		auto state = computeState(s);
+
+		auto t = cast() this;
+		t.__cachedSolveRuleValue = s.ruleValues.clone();
+		t.__cachedState = state;
+
+		return state;
+	}
+}
+
 /**
  * This span can indent multiple times.
  */
@@ -216,10 +235,7 @@ final class ListSpan : Span {
 		return s.isSplit(elements[0]) || !s.isUsed(this);
 	}
 
-	const(RuleValues) getState(const ref SolveState s) const {
-		// TODO: We need some caching here.
-		return computeState(s);
-	}
+	mixin CachedState;
 
 	RuleValues computeState(const ref SolveState s) const {
 		auto state = RuleValues(1, elements.length + 2);
