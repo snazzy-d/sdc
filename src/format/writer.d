@@ -232,18 +232,13 @@ struct LineWriter {
 					break;
 				}
 
-				auto newRuleValues = next.ruleValues.withFrozen(rule + 1);
-
 				split = next.isSplit(rule);
-				if (!split) {
-					if (!next.canSplit(line, rule)) {
-						continue;
-					}
-
-					// If this can be split, then split.
-					newRuleValues[rule] = true;
+				if (!split && !next.canSplit(line, rule)) {
+					// If we cannot split here, move on.
+					continue;
 				}
 
+				auto newRuleValues = next.ruleValues.withFrozenSplit(rule);
 				auto candidate = SolveState(this, newRuleValues);
 
 				if (candidate.isBetterThan(best)) {
@@ -308,32 +303,8 @@ struct SolveState {
 			return;
 		}
 
-		foreach (i, ref c; line) {
-			// Continuation are not considered line splits.
-			if (c.continuation) {
-				continue;
-			}
-
-			if (!isSplit(i)) {
-				if (!mustSplit(line, i)) {
-					continue;
-				}
-
-				// Mark this as split.
-				ruleValues[i] = true;
-			}
-
-			// If there are no spans to break, move on.
-			if (c.span is null) {
-				continue;
-			}
-
-			if (usedSpans is null) {
-				usedSpans = redBlackTree!(const(Span))();
-			}
-
-			usedSpans.insert(c.span);
-		}
+		// Preparatory work.
+		computeUsedSpans(line);
 
 		// All the span which do not fit on one line.
 		RedBlackTree!Span brokenSpans;
@@ -437,6 +408,43 @@ struct SolveState {
 				cost += s.getCost(this);
 			}
 		}
+	}
+
+	void computeUsedSpans(Chunk[] line) {
+		auto freezePoint = ruleValues.frozen;
+		ruleValues.frozen = 1;
+
+		scope(success) {
+			ruleValues.frozen = freezePoint;
+		}
+
+		foreach (i, ref c; line) {
+			// Continuation are not considered line splits.
+			if (c.continuation) {
+				continue;
+			}
+
+			if (!isSplit(i)) {
+				if (!mustSplit(line, i)) {
+					continue;
+				}
+
+				// Mark this as split.
+				ruleValues[i] = true;
+			}
+
+			// If there are no spans to break, move on.
+			if (c.span is null) {
+				continue;
+			}
+
+			if (usedSpans is null) {
+				usedSpans = redBlackTree!(const(Span))();
+			}
+
+			usedSpans.insert(c.span);
+		}
+
 	}
 
 	uint computeNewLinePenality(const ref Chunk c, uint column, uint length,

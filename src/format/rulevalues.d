@@ -3,9 +3,11 @@ module format.rulevalues;
 struct RuleValues {
 private:
 	import core.bitop;
-	enum DirectBits = 16 * size_t.sizeof;
+	enum Bits = 8 * size_t.sizeof;
+	enum Mask = Bits - 1;
+	enum DirectBits = 2 * Bits;
 	enum DirectCapacity = DirectBits - bsf(DirectBits);
-	enum DirectShift = DirectCapacity - 8 * size_t.sizeof;
+	enum DirectShift = DirectCapacity - Bits;
 
 	union {
 		struct {
@@ -25,7 +27,9 @@ public:
 		assert(frozen > 0 && capacity >= frozen);
 	} do {
 		if (capacity > DirectCapacity) {
-			indirect = new size_t[capacity + 1];
+			size_t length = 1 + (capacity + Bits - 1) / Bits;
+
+			indirect = new size_t[length];
 			indirect[0] = frozen;
 			indirect[1] = 0x01;
 		} else {
@@ -34,9 +38,7 @@ public:
 		}
 	}
 
-	RuleValues withFrozen(size_t f) const in {
-		assert(f > frozen && f <= length);
-	} do {
+	RuleValues clone() const {
 		RuleValues ret = void;
 		if (isDirect()) {
 			ret.direct = direct;
@@ -44,23 +46,32 @@ public:
 			ret.indirect = indirect.dup;
 		}
 
-		ret.frozen = f;
+		return ret;
+	}
+
+	RuleValues withFrozenSplit(size_t i) const in {
+		assert(i >= frozen && i < capacity);
+	} do {
+		RuleValues ret = clone();
+
+		ret[i] = true;
+		ret.frozen = i + 1;
 		return ret;
 	}
 
 	@property
-	size_t length() const {
-		return isDirect() ? DirectCapacity : indirect.length - 1;
+	size_t capacity() const {
+		return isDirect() ? DirectCapacity : (indirect.length - 1) * Bits;
 	}
 
 	@property
 	size_t frozen() const {
-		return isDirect() ? direct[1] >> DirectShift : indirect[0];
+		return isDirect() ? (direct[1] >> DirectShift) : indirect[0];
 	}
 
 	@property
 	size_t frozen(size_t f) in {
-		assert(f >= frozen && f <= length);
+		assert(f > 0 && f <= capacity);
 	} do {
 		if (isDirect()) {
 			// Replace the previous frozen value.
@@ -78,7 +89,7 @@ public:
 	}
 
 	void opIndexAssign(bool v, size_t i) in {
-		assert(i < length);
+		assert(i >= frozen && i < capacity);
 	} do {
 		auto w = word(i);
 		auto m = size_t(1) << shift(i);
@@ -86,8 +97,17 @@ public:
 		if (v) {
 			values[w] |= m;
 		} else {
-			values[v] &= m;
+			values[w] &= ~m;
 		}
+	}
+
+	bool opEqual(const ref RuleValues rhs) const {
+		const d = isDirect();
+		if (rhs.isDirect() != d) {
+			return false;
+		}
+
+		return d ? direct == rhs.direct : indirect == rhs.indirect;
 	}
 
 private:
@@ -108,14 +128,100 @@ private:
 		return indirect;
 	}
 
-	enum Bits = 8 * size_t.sizeof;
-	enum Mask = Bits - 1;
-
 	static word(size_t i) {
 		return i / Bits;
 	}
 
 	static shift(size_t i) {
 		return i & Mask;
+	}
+}
+
+unittest {
+	foreach (i; 0 .. RuleValues.DirectCapacity) {
+		const c = i + 1;
+		const rv = RuleValues(1, c);
+		assert(rv.isDirect());
+		assert(rv.capacity == RuleValues.DirectCapacity);
+	}
+
+	foreach (i; RuleValues.DirectCapacity .. 16 * size_t.sizeof) {
+		const c = i + 1;
+		const rv = RuleValues(1, c);
+		assert(!rv.isDirect());
+		assert(rv.capacity == 16 * size_t.sizeof);
+	}
+
+	foreach (i; 16 * size_t.sizeof .. 24 * size_t.sizeof) {
+		const c = i + 1;
+		const rv = RuleValues(1, c);
+		assert(!rv.isDirect());
+		assert(rv.capacity == 24 * size_t.sizeof);
+	}
+}
+
+unittest {
+	auto r0 = RuleValues(1, 10);
+	auto r1 = r0.clone();
+	assert(r0 == r1);
+
+	r0[5] = true;
+	assert(r0 != r1);
+
+	r1[5] = true;
+	assert(r0 == r1);
+
+	r1.frozen = 5;
+	assert(r0 != r1);
+
+	r0.frozen = 5;
+	assert(r0 == r1);
+
+	auto r2 = RuleValues(1, 1000);
+	assert(r0 != r2);
+	assert(r1 != r2);
+}
+
+unittest {
+	auto rv = RuleValues(1, 10);
+
+	assert(rv[0]);
+	foreach (i; 1 .. 10) {
+		assert(!rv[i]);
+	}
+
+	rv[9] = true;
+
+	assert(rv[0]);
+	assert(rv[9]);
+	foreach (i; 1 .. 9) {
+		assert(!rv[i]);
+	}
+
+	rv[7] = true;
+
+	assert(rv[0]);
+	assert(rv[7]);
+	assert(!rv[8]);
+	assert(rv[9]);
+	foreach (i; 1 .. 7) {
+		assert(!rv[i]);
+	}
+
+	rv[9] = false;
+
+	assert(rv[0]);
+	assert(rv[7]);
+	assert(!rv[8]);
+	assert(!rv[9]);
+	foreach (i; 1 .. 7) {
+		assert(!rv[i]);
+	}
+
+	rv[7] = false;
+
+	assert(rv[0]);
+	foreach (i; 1 .. 10) {
+		assert(!rv[i]);
 	}
 }
