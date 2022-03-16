@@ -11,6 +11,10 @@ class Span {
 		this.parent = parent;
 	}
 
+	const(SpanState) getState(const ref SolveState s) const {
+		return SpanState(0);
+	}
+
 	uint getCost(const ref SolveState s) const {
 		return 10;
 	}
@@ -138,11 +142,14 @@ bool mustSplit(const Span span, const ref SolveState s, size_t i) {
 	}
 }
 
+/**
+ * Span state management utilities.
+ */
 private mixin template CachedState() {
 	RuleValues __cachedSolveRuleValue;
-	RuleValues __cachedState;
+	SpanState __cachedState;
 
-	const(RuleValues) getState(const ref SolveState s) const {
+	final override const(SpanState) getState(const ref SolveState s) const {
 		if (__cachedSolveRuleValue == s.ruleValues) {
 			return __cachedState;
 		}
@@ -154,6 +161,43 @@ private mixin template CachedState() {
 		t.__cachedState = state;
 
 		return state;
+	}
+}
+
+struct SpanState {
+private:
+	RuleValues values;
+
+public:
+	this(size_t capacity) {
+		this.values = RuleValues(1, capacity);
+	}
+
+	@property
+	size_t capacity() const {
+		return values.capacity - 1;
+	}
+
+	@property
+	size_t frozen() const {
+		return values.frozen - 1;
+	}
+
+	@property
+	size_t frozen(size_t f) {
+		return (values.frozen = f + 1) - 1;
+	}
+
+	bool opIndex(size_t i) const {
+		return values[i + 1];
+	}
+
+	void opIndexAssign(bool v, size_t i) {
+		values[i + 1] = v;
+	}
+
+	bool opEqual(const ref SpanState rhs) const {
+		return values == rhs.values;
 	}
 }
 
@@ -237,8 +281,8 @@ final class ListSpan : Span {
 
 	mixin CachedState;
 
-	RuleValues computeState(const ref SolveState s) const {
-		auto state = RuleValues(1, elements.length + 2);
+	SpanState computeState(const ref SolveState s) const {
+		auto state = SpanState(elements.length + 1);
 
 		if (hasTrailingSplit && type == ListType.Expanding
 			    && elements.length > 1) {
@@ -249,7 +293,7 @@ final class ListSpan : Span {
 				}
 
 				// The trailing parameter must split => split all parameters.
-				foreach (i; 1 .. elements.length + 2) {
+				foreach (i; 0 .. elements.length + 1) {
 					state[i] = true;
 				}
 
@@ -258,12 +302,10 @@ final class ListSpan : Span {
 		}
 
 		size_t previous = elements[0];
-		foreach (k, p; elements) {
+		foreach (i, p; elements) {
 			scope(success) {
 				previous = p + 1;
 			}
-
-			const i = k + 1;
 
 			// Ok let's go over the parameter and see if it must split.
 			foreach (c; previous .. p) {
@@ -327,7 +369,7 @@ final class ListSpan : Span {
 
 	override Split computeSplit(const ref SolveState s, size_t i) const {
 		if (i == trailingSplit) {
-			return getState(s)[elements.length + 1] ? Split.Must : Split.No;
+			return getState(s)[elements.length] ? Split.Must : Split.No;
 		}
 
 		foreach (k, p; elements) {
@@ -341,7 +383,7 @@ final class ListSpan : Span {
 				break;
 			}
 
-			if (getState(s)[k + 1]) {
+			if (getState(s)[k]) {
 				return Split.Must;
 			}
 		}
