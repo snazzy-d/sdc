@@ -1,7 +1,6 @@
 module format.span;
 
 import format.chunk;
-import format.rulevalues;
 import format.writer;
 
 class Span {
@@ -11,8 +10,8 @@ class Span {
 		this.parent = parent;
 	}
 
-	const(SpanState) getState(const ref SolveState s) const {
-		return SpanState(0);
+	ulong getState(const ref SolveState s) const {
+		return 0;
 	}
 
 	uint getCost(const ref SolveState s) const {
@@ -146,10 +145,11 @@ bool mustSplit(const Span span, const ref SolveState s, size_t i) {
  * Span state management utilities.
  */
 private mixin template CachedState() {
+	import format.rulevalues;
 	RuleValues __cachedSolveRuleValue;
-	SpanState __cachedState;
+	ulong __cachedState;
 
-	final override const(SpanState) getState(const ref SolveState s) const {
+	final override ulong getState(const ref SolveState s) const {
 		if (__cachedSolveRuleValue == s.ruleValues) {
 			return __cachedState;
 		}
@@ -161,43 +161,6 @@ private mixin template CachedState() {
 		t.__cachedState = state;
 
 		return state;
-	}
-}
-
-struct SpanState {
-private:
-	RuleValues values;
-
-public:
-	this(size_t capacity) {
-		this.values = RuleValues(1, capacity);
-	}
-
-	@property
-	size_t capacity() const {
-		return values.capacity - 1;
-	}
-
-	@property
-	size_t frozen() const {
-		return values.frozen - 1;
-	}
-
-	@property
-	size_t frozen(size_t f) {
-		return (values.frozen = f + 1) - 1;
-	}
-
-	bool opIndex(size_t i) const {
-		return values[i + 1];
-	}
-
-	void opIndexAssign(bool v, size_t i) {
-		values[i + 1] = v;
-	}
-
-	bool opEqual(const ref SpanState rhs) const {
-		return values == rhs.values;
 	}
 }
 
@@ -254,7 +217,7 @@ final class AlignedSpan : Span {
  * Span ensuring lists of items are formatted as expected.
  */
 enum ListType {
-	Packed,
+	Compact,
 	Expanding,
 }
 
@@ -269,7 +232,7 @@ final class ListSpan : Span {
 		return trailingSplit != size_t.max;
 	}
 
-	this(Span parent, ListType type = ListType.Packed) {
+	this(Span parent, ListType type = ListType.Compact) {
 		super(parent);
 
 		this.type = type;
@@ -280,44 +243,48 @@ final class ListSpan : Span {
 	}
 
 	mixin CachedState;
-
-	SpanState computeState(const ref SolveState s) const {
-		auto state = SpanState(elements.length + 1);
-
-		if (hasTrailingSplit && type == ListType.Expanding
-			    && elements.length > 1) {
-			foreach (n; elements[$ - 1] .. trailingSplit) {
-				const c = n + 1;
-				if (!s.isSplit(c)) {
-					continue;
-				}
-
-				// The trailing parameter must split => split all parameters.
-				foreach (i; 0 .. elements.length + 1) {
-					state[i] = true;
-				}
-
-				return state;
-			}
+	ulong computeState(const ref SolveState s) const {
+		if (computeMustExplode(s)) {
+			return -1;
 		}
 
-		size_t previous = elements[0];
-		foreach (i, p; elements) {
-			scope(success) {
-				previous = p + 1;
+		return 0;
+	}
+
+	bool computeMustSplit(const ref SolveState s, size_t start,
+	                      size_t stop) const {
+		foreach (c; start .. stop) {
+			if (!s.isSplit(c)) {
+				continue;
 			}
 
-			// Ok let's go over the parameter and see if it must split.
-			foreach (c; previous .. p) {
-				if (s.isSplit(c)) {
-					// This parameter must split.
-					state[i] = true;
-					break;
-				}
-			}
+			return true;
 		}
 
-		return state;
+		return false;
+	}
+
+	bool mustSplit(const ref SolveState s, size_t start, size_t stop) const {
+		return computeMustSplit(s, start, stop) || mustExplode(s);
+	}
+
+	bool computeMustExplode(const ref SolveState s) const {
+		if (!hasTrailingSplit || type != ListType.Expanding) {
+			// Not the exploding kind.
+			return false;
+		}
+
+		if (elements.length < 2) {
+			// Not worth exploding.
+			return false;
+		}
+
+		// If the last element is broken, expand the whole thing.
+		return computeMustSplit(s, elements[$ - 1] + 1, trailingSplit + 1);
+	}
+
+	bool mustExplode(const ref SolveState s) const {
+		return getState(s) == -1;
 	}
 
 	override uint getCost(const ref SolveState s) const {
@@ -369,23 +336,23 @@ final class ListSpan : Span {
 
 	override Split computeSplit(const ref SolveState s, size_t i) const {
 		if (i == trailingSplit) {
-			return getState(s)[elements.length] ? Split.Must : Split.No;
+			return mustExplode(s) ? Split.Must : Split.No;
 		}
 
+		size_t previous = elements[0];
 		foreach (k, p; elements) {
-			if (p < i) {
-				// We have not reached our goal, move on to the next param.
-				continue;
-			}
-
 			if (p > i) {
 				// We went past the index we are interested in.
 				break;
 			}
 
-			if (getState(s)[k]) {
-				return Split.Must;
+			if (p < i) {
+				// We have not reached our goal, move on to the next param.
+				previous = p;
+				continue;
 			}
+
+			return mustSplit(s, previous + 1, p) ? Split.Must : Split.Can;
 		}
 
 		return Split.Can;

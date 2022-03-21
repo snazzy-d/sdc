@@ -2916,7 +2916,7 @@ private:
 	 */
 	struct ListOptions {
 		TokenType closingTokenType;
-		ListType listType = ListType.Packed;
+		ListType listType = ListType.Compact;
 		bool addNewLines = false;
 		bool splice = false;
 	}
