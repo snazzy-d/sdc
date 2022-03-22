@@ -209,8 +209,8 @@ auto getLookupClassCount() {
 }
 
 void computeSizeClass(
-	void delegate(uint id, uint grp, uint delta, uint ndelta)
-		fun) {
+	void delegate(uint id, uint grp, uint delta, uint ndelta) fun
+) {
 	uint id = 0;
 
 	// Tiny sizes.

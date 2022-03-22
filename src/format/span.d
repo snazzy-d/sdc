@@ -248,7 +248,41 @@ final class ListSpan : Span {
 			return -1;
 		}
 
+		if (type == ListType.Expanding) {
+			return computeExpandingState(s);
+		}
+
 		return 0;
+	}
+
+	ulong computeExpandingState(const ref SolveState s) const {
+		ulong state = s.isSplit(elements[0]);
+
+		size_t previous = elements[0];
+		foreach (k, p; elements[1 .. $]) {
+			scope(success) {
+				previous = p;
+			}
+
+			if (!computeMustSplit(s, previous + 1, p + 1)) {
+				continue;
+			}
+
+			if (state > 1) {
+				return -1;
+			}
+
+			state |= (k + 1) << 1;
+		}
+
+		// For length 1 and 2, we won't trip the explode state earlier,
+		// so we push the trigger now if apropriate.
+		auto splitCount = (state & 0x01) + (state > 1);
+		if (elements.length <= splitCount) {
+			return -1;
+		}
+
+		return state;
 	}
 
 	bool computeMustSplit(const ref SolveState s, size_t start,
@@ -274,11 +308,6 @@ final class ListSpan : Span {
 			return false;
 		}
 
-		if (elements.length < 2) {
-			// Not worth exploding.
-			return false;
-		}
-
 		// If the last element is broken, expand the whole thing.
 		return computeMustSplit(s, elements[$ - 1] + 1, trailingSplit + 1);
 	}
@@ -293,7 +322,11 @@ final class ListSpan : Span {
 			return 15;
 		}
 
-		if (isActive(s)) {
+		if (type == ListType.Expanding && s.isSplit(elements[0])) {
+			return 14;
+		}
+
+		if (type == ListType.Compact && isActive(s)) {
 			foreach (p; elements[1 .. $]) {
 				if (s.isSplit(p)) {
 					return 14;
@@ -417,7 +450,6 @@ final class ConditionalSpan : Span {
 /**
  * Span that do not cause any indentation and is cheap to break.
  */
-
 final class StorageClassSpan : Span {
 	this(Span parent) {
 		super(parent);

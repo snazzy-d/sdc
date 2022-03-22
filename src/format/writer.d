@@ -446,9 +446,13 @@ struct SolveState {
 		}
 	}
 
-	uint computeNewLinePenality(const ref Chunk c, uint column, uint length,
-	                            uint previousColumn,
-	                            const(Span) previousSpan) const {
+	uint computeNewLinePenality(
+		const ref Chunk c,
+		uint column,
+		uint length,
+		uint previousColumn,
+		const(Span) previousSpan
+	) const {
 		// No penality for top level.
 		if (column == 0) {
 			return 0;

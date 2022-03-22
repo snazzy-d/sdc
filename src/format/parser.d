@@ -2217,7 +2217,6 @@ private:
 		while (match(TokenType.OpenParen)) {
 			nextToken();
 			parseList!parseStructuralElement(options);
-			options.splice = true;
 		}
 	}
 
@@ -2918,7 +2917,6 @@ private:
 		TokenType closingTokenType;
 		ListType listType = ListType.Compact;
 		bool addNewLines = false;
-		bool splice = false;
 	}
 
 	void parseList(alias fun)(TokenType closingTokenType,
@@ -2947,9 +2945,7 @@ private:
 			alias afun = parseListAdapter!fun;
 		}
 
-		auto guard = options.splice
-			? spliceSpan!ListSpan(options.listType)
-			: span!ListSpan(options.listType);
+		auto guard = span!ListSpan(options.listType);
 
 		size_t i = 0;
 		while (!match(options.closingTokenType)) {
