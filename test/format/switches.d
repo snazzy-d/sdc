@@ -43,10 +43,9 @@ switch (n) {
 
 // FIXME: This split it absolutely not good,
 // but the resulting identation is correct.
-switch (
-	n) if (() {
-	       return true;
-       }()) {
+switch (n) if (() {
+	               return true;
+               }()) {
 	case 10:
 		break;
 
