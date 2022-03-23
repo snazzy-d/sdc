@@ -599,16 +599,16 @@ struct SolveState {
 
 	// lhs < rhs => rhs.opCmp(rhs) < 0
 	int opCmp(const ref SolveState rhs) const {
+		if (sunk != rhs.sunk) {
+			return sunk - rhs.sunk;
+		}
+
 		if (cost != rhs.cost) {
 			return cost - rhs.cost;
 		}
 
 		if (overflow != rhs.overflow) {
 			return overflow - rhs.overflow;
-		}
-
-		if (sunk != rhs.sunk) {
-			return sunk - rhs.sunk;
 		}
 
 		return ruleValues.opCmp(rhs.ruleValues);
