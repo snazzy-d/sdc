@@ -594,7 +594,7 @@ struct SolveState {
 			return cost < rhs.cost;
 		}
 
-		return opCmpSlow(rhs) < 0;
+		return ruleValues < rhs.ruleValues;
 	}
 
 	// lhs < rhs => rhs.opCmp(rhs) < 0
@@ -611,21 +611,6 @@ struct SolveState {
 			return sunk - rhs.sunk;
 		}
 
-		return opCmpSlow(rhs);
-	}
-
-	int opCmpSlow(const ref SolveState rhs) const {
-		// Explore candidate with a few follow up first.
-		if (ruleValues.frozen != rhs.ruleValues.frozen) {
-			return cast(int) (rhs.ruleValues.frozen - ruleValues.frozen);
-		}
-
-		foreach (i; 0 .. ruleValues.frozen) {
-			if (ruleValues[i] != rhs.ruleValues[i]) {
-				return ruleValues[i] - rhs.ruleValues[i];
-			}
-		}
-
-		return 0;
+		return ruleValues.opCmp(rhs.ruleValues);
 	}
 }

@@ -110,6 +110,26 @@ public:
 		return d ? direct == rhs.direct : indirect == rhs.indirect;
 	}
 
+	int opCmp(const ref RuleValues rhs) const {
+		// We don't really use this, but let's be throurough.
+		if (capacity != rhs.capacity) {
+			return cast(int) (capacity - rhs.capacity);
+		}
+
+		// Explore candidate with a few follow up first.
+		if (frozen != rhs.frozen) {
+			return cast(int) (rhs.frozen - frozen);
+		}
+
+		foreach_reverse (i; 0 .. capacity) {
+			if (this[i] != rhs[i]) {
+				return rhs[i] - this[i];
+			}
+		}
+
+		return 0;
+	}
+
 private:
 	@property
 	inout(size_t)[] values() inout {
@@ -164,22 +184,34 @@ unittest {
 	auto r0 = RuleValues(1, 10);
 	auto r1 = r0.clone();
 	assert(r0 == r1);
+	assert(!(r0 < r1));
+	assert(!(r1 > r0));
 
 	r0[5] = true;
 	assert(r0 != r1);
+	assert(r0 < r1);
+	assert(r1 > r0);
 
 	r1[5] = true;
 	assert(r0 == r1);
+	assert(!(r0 < r1));
+	assert(!(r1 > r0));
 
 	r1.frozen = 5;
 	assert(r0 != r1);
+	assert(r0 > r1);
+	assert(r1 < r0);
 
 	r0.frozen = 5;
 	assert(r0 == r1);
+	assert(!(r0 < r1));
+	assert(!(r1 > r0));
 
 	auto r2 = RuleValues(1, 1000);
 	assert(r0 != r2);
+	assert(r0 < r2);
 	assert(r1 != r2);
+	assert(r1 < r2);
 }
 
 unittest {
