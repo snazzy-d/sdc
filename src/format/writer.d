@@ -200,6 +200,7 @@ struct LineWriter {
 		}
 
 		uint attempts = 0;
+		auto checkpoints = CheckPoints(&this);
 		scope queue = redBlackTree(best);
 
 		// Once we have a solution that fits, or no more things
@@ -215,7 +216,7 @@ struct LineWriter {
 
 			// There is no point trying to expand this if it cannot
 			// lead to a a solution better than the current best.
-			if (next.isDeadSubTree(best)) {
+			if (next.isDeadSubTree(best) || checkpoints.isRedundant(next)) {
 				continue;
 			}
 
@@ -245,8 +246,10 @@ struct LineWriter {
 					best = candidate;
 				}
 
-				// This candidate cannot be expanded further.
-				if (!candidate.canExpand) {
+				// We check for redundant path first so that, even in the
+				// case where this candidate is rulled out, it can serve
+				// as a checkpoint.
+				if (checkpoints.isRedundant(candidate)) {
 					continue;
 				}
 
@@ -260,6 +263,106 @@ struct LineWriter {
 		}
 
 		return best;
+	}
+}
+
+struct CheckPoints {
+	LineWriter* lineWriter;
+	SolveState[ulong][] paths;
+
+	this(LineWriter* lineWriter) {
+		this.lineWriter = lineWriter;
+		this.paths.length = lineWriter.line.length;
+	}
+
+	import format.span;
+	static getSpanStateHash(const ref SolveState s, const Span span, ulong h) {
+		if (span is null) {
+			return h;
+		}
+
+		h ^= (h >>> 33);
+		h *= 0x7fb5d329728ea185;
+		h ^= (h >>> 33);
+		h *= 0x81dadef4bc2dd44d;
+
+		h += span.getState(s);
+
+		h ^= (h >>> 33);
+		h *= 0x99bcf6822b23ca35;
+		h ^= (h >>> 33);
+		h *= 0x14020a57acced8b7;
+
+		h += s.isUsed(span);
+
+		return getSpanStateHash(s, span.parent, h);
+	}
+
+	ulong getStateHash(const ref SolveState s, size_t i) {
+		ulong h = 0xbf4600628f7c64f5 + s.getIndent(lineWriter.line, i);
+
+		h ^= (h >>> 33);
+		h *= 0x4cd6944c5cc20b6d;
+		h ^= (h >>> 33);
+		h *= 0xfc12c5b19d3259e9;
+
+		return getSpanStateHash(s, lineWriter.line[i].span,
+		                        h + s.getAlign(lineWriter.line, i));
+	}
+
+	static isSameSpanState(const ref SolveState a, const ref SolveState b,
+	                       const Span span) {
+		if (span is null) {
+			return true;
+		}
+
+		if (a.isUsed(span) != b.isUsed(span)) {
+			return false;
+		}
+
+		if (span.getState(a) != span.getState(b)) {
+			return false;
+		}
+
+		return isSameSpanState(a, b, span.parent);
+	}
+
+	bool isSameState(const ref SolveState a, const ref SolveState b, size_t i) {
+		if (a == b) {
+			return false;
+		}
+
+		if (a.getIndent(lineWriter.line, i)
+			    != b.getIndent(lineWriter.line, i)) {
+			return false;
+		}
+
+		if (a.getAlign(lineWriter.line, i) != b.getAlign(lineWriter.line, i)) {
+			return false;
+		}
+
+		return isSameSpanState(a, b, lineWriter.line[i].span);
+	}
+
+	bool isRedundant(const ref SolveState s) {
+		if (!s.canExpand || s.ruleValues.frozen >= lineWriter.line.length) {
+			// There is nothing more to explore down this path.
+			return true;
+		}
+
+		const i = s.ruleValues.frozen - 1;
+		const h = getStateHash(s, i);
+
+		const c = h in paths[i];
+		if (c is null || s < *c) {
+			// We have a new best on that specific path.
+			paths[i][h] = cast() s;
+			return false;
+		}
+
+		// We are on a path that is worse than the checkpoint.
+		// If this isn't a collision, this path is redundant.
+		return isSameState(s, *c, i);
 	}
 }
 
@@ -277,7 +380,7 @@ struct SolveState {
 	mixin(taggedClassRef!(
 		// sdfmt off
 		// Spans that require indentation.
-		RedBlackTree!(const(Span)), "usedSpans",
+		RedBlackTree!(const Span), "usedSpans",
 		bool, "canExpand", 1,
 		// sdfmt on
 	));
@@ -546,12 +649,12 @@ struct SolveState {
 		return usedSpans !is null && span in usedSpans;
 	}
 
-	uint getIndent(Chunk[] line, size_t i) {
+	uint getIndent(Chunk[] line, size_t i) const {
 		return
 			baseIndent + line[i].indentation + line[i].span.getIndent(this, i);
 	}
 
-	uint getAlign(const Chunk[] line, size_t i) {
+	uint getAlign(const Chunk[] line, size_t i) const {
 		uint ret = baseAlign;
 
 		// Find the preceding line break.
