@@ -252,6 +252,10 @@ final class ListSpan : Span {
 			return computeExpandingState(s);
 		}
 
+		if (type == ListType.Compact) {
+			return computeCompactState(s);
+		}
+
 		return 0;
 	}
 
@@ -285,6 +289,32 @@ final class ListSpan : Span {
 		return state;
 	}
 
+	ulong computeCompactState(const ref SolveState s) const {
+		// If more than 2/3 of the element split, just explode.
+		const max = 2 * (elements.length + 1) / 3;
+
+		ulong state = 0;
+		foreach (p; elements) {
+			state += s.isSplit(p);
+
+			if (state > max) {
+				return -1;
+			}
+		}
+
+		return state;
+	}
+
+	bool computeMustExplode(const ref SolveState s) const {
+		if (!hasTrailingSplit || type != ListType.Expanding) {
+			// Not the exploding kind.
+			return false;
+		}
+
+		// If the last element is broken, expand the whole thing.
+		return computeMustSplit(s, elements[$ - 1] + 1, trailingSplit + 1);
+	}
+
 	bool computeMustSplit(const ref SolveState s, size_t start,
 	                      size_t stop) const {
 		foreach (c; start .. stop) {
@@ -298,22 +328,12 @@ final class ListSpan : Span {
 		return false;
 	}
 
-	bool mustSplit(const ref SolveState s, size_t start, size_t stop) const {
-		return computeMustSplit(s, start, stop) || mustExplode(s);
-	}
-
-	bool computeMustExplode(const ref SolveState s) const {
-		if (!hasTrailingSplit || type != ListType.Expanding) {
-			// Not the exploding kind.
-			return false;
-		}
-
-		// If the last element is broken, expand the whole thing.
-		return computeMustSplit(s, elements[$ - 1] + 1, trailingSplit + 1);
-	}
-
 	bool mustExplode(const ref SolveState s) const {
 		return getState(s) == -1;
+	}
+
+	bool mustSplit(const ref SolveState s, size_t start, size_t stop) const {
+		return computeMustSplit(s, start, stop) || mustExplode(s);
 	}
 
 	override uint getCost(const ref SolveState s) const {
