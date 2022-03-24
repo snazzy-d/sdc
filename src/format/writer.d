@@ -655,24 +655,27 @@ struct SolveState {
 
 	LinePrefix getLinePrefix(Chunk[] line, size_t i) const {
 		uint offset = 0;
+		const c = line[i];
 
 		// Find the preceding line break.
-		size_t c = line[i].span.getAlignIndex(this, i);
-		while (c > 0 && !isSplit(c)) {
-			offset += line[c].separator == Separator.Space;
-			offset += line[--c].length;
+		size_t r = c.span.getAlignIndex(this, i);
+		while (r > 0 && newLineCount(line, r) == 0) {
+			offset += line[r].separator == Separator.Space;
+			offset += line[--r].length;
 		}
 
-		if (c == 0 || c == i) {
-			// We don't need to do any alignement magic.
-			const indent =
-				line[i].indentation + line[i].span.getIndent(this, i);
+		if (line[r].glued) {
+			return LinePrefix(0, offset);
+		}
 
+		if (r == 0 || r == i) {
+			// We don't need to do any alignement magic.
+			const indent = c.indentation + c.span.getIndent(this, i);
 			return LinePrefix(prefix.indent + indent, prefix.offset + offset);
 		}
 
-		const base = getLinePrefix(line, c);
-		const indent = line[i].span.getExtraIndent(line[c].span, this, i);
+		const base = getLinePrefix(line, r);
+		const indent = line[i].span.getExtraIndent(line[r].span, this, i);
 
 		return LinePrefix(base.indent + indent, base.offset + offset);
 	}
