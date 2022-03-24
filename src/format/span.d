@@ -256,7 +256,7 @@ final class ListSpan : Span {
 			return computeCompactState(s);
 		}
 
-		return 0;
+		return s.isSplit(elements[0]);
 	}
 
 	ulong computeExpandingState(const ref SolveState s) const {
@@ -293,16 +293,16 @@ final class ListSpan : Span {
 		// If more than 2/3 of the element split, just explode.
 		const max = 2 * (elements.length + 1) / 3;
 
-		ulong state = 0;
+		ulong count = 0;
 		foreach (p; elements) {
-			state += s.isSplit(p);
+			count += s.isSplit(p);
 
-			if (state > max) {
+			if (count > max) {
 				return -1;
 			}
 		}
 
-		return state;
+		return (count << 1) | s.isSplit(elements[0]);
 	}
 
 	bool computeMustExplode(const ref SolveState s) const {
