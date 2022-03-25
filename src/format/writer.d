@@ -461,10 +461,13 @@ struct SolveState {
 					continue;
 				}
 
-				const prefix = getLinePrefix(line, i);
-				column = prefix.indent * indentationSize + prefix.offset;
-
+				column = 0;
 				lineLength = c.length;
+
+				if (!c.glued) {
+					const prefix = getLinePrefix(line, i);
+					column = prefix.indent * indentationSize + prefix.offset;
+				}
 			}
 
 			if (i > 0) {
