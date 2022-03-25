@@ -7,7 +7,7 @@ import std.container.rbtree;
 
 string write(Chunk[] chunks, Config config) {
 	auto context = Context(config, null);
-	auto w = Writer(BlockSpecifier(chunks, 0, 0), &context);
+	auto w = Writer(BlockSpecifier(chunks, LinePrefix(0, 0)), &context);
 	w.write();
 	w.buffer ~= '\n';
 	return w.buffer.data;
@@ -15,14 +15,22 @@ string write(Chunk[] chunks, Config config) {
 
 package:
 
+struct LinePrefix {
+	uint indent;
+	uint offset;
+}
+
 struct BlockSpecifier {
 	Chunk[] chunks;
-	uint baseIndent;
-	uint baseAlign;
+	LinePrefix prefix;
+
+	this(Chunk[] chunks, LinePrefix prefix) {
+		this.chunks = chunks;
+		this.prefix = prefix;
+	}
 
 	bool opEquals(const ref BlockSpecifier rhs) const {
-		return chunks is rhs.chunks && baseIndent == rhs.baseIndent
-			&& baseAlign == rhs.baseAlign;
+		return chunks is rhs.chunks && prefix == rhs.prefix;
 	}
 
 	size_t toHash() const @safe nothrow {
@@ -33,7 +41,7 @@ struct BlockSpecifier {
 		h += chunks.length;
 		h ^= (h >>> 33);
 		h *= 0xc4ceb9fe1a85ec53;
-		h += baseIndent * 0x9e3779b97f4a7c15 + baseAlign;
+		h += prefix.indent * 0x9e3779b97f4a7c15 + prefix.offset;
 
 		return h;
 	}
@@ -58,8 +66,7 @@ struct Writer {
 	uint overflow;
 
 	Chunk[] chunks;
-	uint baseIndent;
-	uint baseAlign;
+	LinePrefix prefix;
 
 	import std.array;
 	Appender!string buffer;
@@ -68,8 +75,7 @@ struct Writer {
 		assert(context !is null);
 	} do {
 		chunks = block.chunks;
-		baseIndent = block.baseIndent;
-		baseAlign = block.baseAlign;
+		prefix = block.prefix;
 
 		this.context = context;
 	}
@@ -97,8 +103,8 @@ struct Writer {
 		return FormatResult(cost, overflow, buffer.data);
 	}
 
-	FormatResult formatBlock(Chunk[] chunks, uint baseIndent, uint baseAlign) {
-		auto block = BlockSpecifier(chunks, baseIndent, baseAlign);
+	FormatResult formatBlock(Chunk[] chunks, LinePrefix prefix) {
+		auto block = BlockSpecifier(chunks, prefix);
 		return cache.require(block, Writer(block, context).write());
 	}
 
@@ -122,7 +128,7 @@ struct Writer {
 		}
 	}
 
-	void outputAlign(uint columns) {
+	void outputOffset(uint columns) {
 		foreach (_; 0 .. columns) {
 			output(' ');
 		}
@@ -166,8 +172,9 @@ struct LineWriter {
 			}
 
 			if ((i == 0 || lineCount > 0) && !c.glued) {
-				indent(state.getIndent(line, i));
-				outputAlign(state.getAlign(line, i));
+				auto prefix = state.getLinePrefix(line, i);
+				indent(prefix.indent);
+				outputOffset(prefix.offset);
 			}
 
 			if (lineCount == 0 && c.separator == Separator.Space) {
@@ -180,8 +187,8 @@ struct LineWriter {
 					break;
 
 				case Block:
-					auto f = formatBlock(c.chunks, state.getIndent(line, i),
-					                     state.getAlign(line, i));
+					auto f =
+						formatBlock(c.chunks, state.getLinePrefix(line, i));
 
 					cost += f.cost;
 					overflow += f.overflow;
@@ -299,15 +306,16 @@ struct CheckPoints {
 	}
 
 	ulong getStateHash(const ref SolveState s, size_t i) {
-		ulong h = 0xbf4600628f7c64f5 + s.getIndent(lineWriter.line, i);
+		auto prefix = s.getLinePrefix(lineWriter.line, i);
+
+		ulong h = 0xbf4600628f7c64f5 + prefix.indent;
 
 		h ^= (h >>> 33);
 		h *= 0x4cd6944c5cc20b6d;
 		h ^= (h >>> 33);
 		h *= 0xfc12c5b19d3259e9;
 
-		return getSpanStateHash(s, lineWriter.line[i].span,
-		                        h + s.getAlign(lineWriter.line, i));
+		return getSpanStateHash(s, lineWriter.line[i].span, h + prefix.offset);
 	}
 
 	static isSameSpanState(const ref SolveState a, const ref SolveState b,
@@ -332,12 +340,8 @@ struct CheckPoints {
 			return false;
 		}
 
-		if (a.getIndent(lineWriter.line, i)
-			    != b.getIndent(lineWriter.line, i)) {
-			return false;
-		}
-
-		if (a.getAlign(lineWriter.line, i) != b.getAlign(lineWriter.line, i)) {
+		if (a.getLinePrefix(lineWriter.line, i)
+			    != b.getLinePrefix(lineWriter.line, i)) {
 			return false;
 		}
 
@@ -370,8 +374,8 @@ struct SolveState {
 	uint cost = 0;
 	uint overflow = 0;
 	uint sunk = 0;
-	uint baseIndent = 0;
-	uint baseAlign = 0;
+
+	LinePrefix prefix;
 
 	import format.rulevalues;
 	RuleValues ruleValues;
@@ -391,8 +395,8 @@ struct SolveState {
 
 	this(ref LineWriter lineWriter, RuleValues ruleValues) {
 		this.ruleValues = ruleValues;
-		this.baseIndent = lineWriter.baseIndent;
-		this.baseAlign = lineWriter.baseAlign;
+		this.prefix = lineWriter.prefix;
+
 		computeCost(lineWriter.line, lineWriter.writer);
 	}
 
@@ -429,8 +433,7 @@ struct SolveState {
 			}
 
 			if (c.kind == ChunkKind.Block) {
-				auto f = writer.formatBlock(c.chunks, getIndent(line, i),
-				                            getAlign(line, i));
+				auto f = writer.formatBlock(c.chunks, getLinePrefix(line, i));
 
 				// Compute the column at which the block starts.
 				auto text = f.text;
@@ -458,9 +461,10 @@ struct SolveState {
 					continue;
 				}
 
+				const prefix = getLinePrefix(line, i);
+				column = prefix.indent * indentationSize + prefix.offset;
+
 				lineLength = c.length;
-				column =
-					getIndent(line, i) * indentationSize + getAlign(line, i);
 			}
 
 			if (i > 0) {
@@ -649,13 +653,17 @@ struct SolveState {
 		return usedSpans !is null && span in usedSpans;
 	}
 
-	uint getIndent(Chunk[] line, size_t i) const {
-		return
-			baseIndent + line[i].indentation + line[i].span.getIndent(this, i);
+	LinePrefix getLinePrefix(Chunk[] line, size_t i) const {
+		return LinePrefix(getIndent(line, i), getOffset(line, i));
 	}
 
-	uint getAlign(const Chunk[] line, size_t i) const {
-		uint ret = baseAlign;
+	uint getIndent(Chunk[] line, size_t i) const {
+		return prefix.indent + line[i].indentation
+			+ line[i].span.getIndent(this, i);
+	}
+
+	uint getOffset(const Chunk[] line, size_t i) const {
+		uint ret = prefix.offset;
 
 		// Find the preceding line break.
 		size_t c = line[i].span.getAlignIndex(this, i);
@@ -665,7 +673,7 @@ struct SolveState {
 		}
 
 		if (c != i) {
-			ret += getAlign(line, c);
+			ret += getOffset(line, c);
 		}
 
 		return ret;
