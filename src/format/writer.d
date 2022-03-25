@@ -663,11 +663,18 @@ struct SolveState {
 			offset += line[--c].length;
 		}
 
-		const base = (c == i) ? prefix : getLinePrefix(line, c);
-		const indent = prefix.indent + line[i].indentation
-			+ line[i].span.getIndent(this, i);
+		if (c == 0 || c == i) {
+			// We don't need to do any alignement magic.
+			const indent =
+				line[i].indentation + line[i].span.getIndent(this, i);
 
-		return LinePrefix(indent, base.offset + offset);
+			return LinePrefix(prefix.indent + indent, prefix.offset + offset);
+		}
+
+		const base = getLinePrefix(line, c);
+		const indent = line[i].span.getExtraIndent(line[c].span, this, i);
+
+		return LinePrefix(base.indent + indent, base.offset + offset);
 	}
 
 	// Return if this solve state must be chosen over rhs as a solution.

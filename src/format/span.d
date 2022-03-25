@@ -95,6 +95,77 @@ uint getIndent(const Span span, const ref SolveState s, size_t i) {
 	return span.computeIndent(s, i) + span.parent.getIndent(s, i);
 }
 
+uint getExtraIndent(const Span span, const Span base, const ref SolveState s,
+                    size_t i) {
+	if (base is null) {
+		return span.getIndent(s, i);
+	}
+
+	if (span is null || span is base || span is base.parent) {
+		return 0;
+	}
+
+	const current = span.computeIndent(s, i);
+	if (current == 0) {
+		return span.parent.getExtraIndent(base, s, i);
+	}
+
+	/**
+	 * We have some extra indentation. We want to count only
+	 * the indentation that has not already been accounted for
+	 * in base. Doign so require to find the common ancestor
+	 * between span and base.
+	 */
+
+	// Try to early bail.
+	if (span.parent is null || span.parent is base
+		    || span.parent is base.parent) {
+		return current;
+	}
+
+	static uint getDepth(const Span s) {
+		return s is null ? 0 : 1 + getDepth(s.parent);
+	}
+
+	auto baseDepth = getDepth(base);
+	auto depth = getDepth(span);
+
+	static const(Span) popTo(const Span s, uint sDepth, uint target) {
+		return sDepth > target ? popTo(s.parent, sDepth - 1, target) : s;
+	}
+
+	const rebaseDepth = depth < baseDepth ? depth : baseDepth;
+	const rebase = popTo(base, baseDepth, depth);
+	if (span is rebase) {
+		return 0;
+	}
+
+	static finalize(const Span a, const Span b, const ref SolveState s,
+	                size_t i) {
+		if (a is b) {
+			return 0;
+		}
+
+		return a.computeIndent(s, i) + finalize(a.parent, b.parent, s, i);
+	}
+
+	static sum(const Span a, uint aDepth, const Span b, uint bDepth,
+	           const ref SolveState s, size_t i) {
+		if (aDepth == bDepth) {
+			return finalize(a, b, s, i);
+		}
+
+		if (bDepth > aDepth) {
+			return sum(a, aDepth, b.parent, bDepth - 1, s, i);
+		}
+
+		return
+			a.computeIndent(s, i) + sum(a.parent, aDepth - 1, b, bDepth, s, i);
+	}
+
+	return current + sum(span.parent, depth - 1, rebase, rebaseDepth, s, i);
+}
+
 size_t getAlignIndex(const Span span, const ref SolveState s, size_t i) {
 	if (span is null) {
 		return 0;
