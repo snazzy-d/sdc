@@ -654,31 +654,20 @@ struct SolveState {
 	}
 
 	LinePrefix getLinePrefix(Chunk[] line, size_t i) const {
-		return LinePrefix(getIndent(line, i), getOffset(line, i));
-	}
-
-	uint getIndent(Chunk[] line, size_t i) const {
-		return prefix.indent + line[i].indentation
-			+ line[i].span.getIndent(this, i);
-	}
-
-	uint getOffset(const Chunk[] line, size_t i) const {
-		uint ret = 0;
+		uint offset = 0;
 
 		// Find the preceding line break.
 		size_t c = line[i].span.getAlignIndex(this, i);
 		while (c > 0 && !isSplit(c)) {
-			ret += line[c].separator == Separator.Space;
-			ret += line[--c].length;
+			offset += line[c].separator == Separator.Space;
+			offset += line[--c].length;
 		}
 
-		if (c == i) {
-			ret += prefix.offset;
-		} else {
-			ret += getOffset(line, c);
-		}
+		const base = (c == i) ? prefix : getLinePrefix(line, c);
+		const indent = prefix.indent + line[i].indentation
+			+ line[i].span.getIndent(this, i);
 
-		return ret;
+		return LinePrefix(indent, base.offset + offset);
 	}
 
 	// Return if this solve state must be chosen over rhs as a solution.
