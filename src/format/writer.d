@@ -18,6 +18,10 @@ package:
 struct LinePrefix {
 	uint indent;
 	uint offset;
+
+	size_t toHash() const @safe nothrow {
+		return indent * 0x9e3779b97f4a7c15 + offset + 0xbf4600628f7c64f5;
+	}
 }
 
 struct BlockSpecifier {
@@ -41,9 +45,8 @@ struct BlockSpecifier {
 		h += chunks.length;
 		h ^= (h >>> 33);
 		h *= 0xc4ceb9fe1a85ec53;
-		h += prefix.indent * 0x9e3779b97f4a7c15 + prefix.offset;
 
-		return h;
+		return h + prefix.toHash();
 	}
 }
 
@@ -285,6 +288,11 @@ struct CheckPoints {
 	import format.span;
 	static getSpanStateHash(const ref SolveState s, const Span span, ulong h) {
 		if (span is null) {
+			h ^= (h >>> 33);
+			h *= 0x4cd6944c5cc20b6d;
+			h ^= (h >>> 33);
+			h *= 0xfc12c5b19d3259e9;
+
 			return h;
 		}
 
@@ -306,16 +314,8 @@ struct CheckPoints {
 	}
 
 	ulong getStateHash(const ref SolveState s, size_t i) {
-		auto prefix = s.getLinePrefix(lineWriter.line, i);
-
-		ulong h = 0xbf4600628f7c64f5 + prefix.indent;
-
-		h ^= (h >>> 33);
-		h *= 0x4cd6944c5cc20b6d;
-		h ^= (h >>> 33);
-		h *= 0xfc12c5b19d3259e9;
-
-		return getSpanStateHash(s, lineWriter.line[i].span, h + prefix.offset);
+		const prefix = s.getLinePrefix(lineWriter.line, i);
+		return getSpanStateHash(s, lineWriter.line[i].span, prefix.toHash());
 	}
 
 	static isSameSpanState(const ref SolveState a, const ref SolveState b,
