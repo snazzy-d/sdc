@@ -663,7 +663,7 @@ struct SolveState {
 	}
 
 	uint getOffset(const Chunk[] line, size_t i) const {
-		uint ret = prefix.offset;
+		uint ret = 0;
 
 		// Find the preceding line break.
 		size_t c = line[i].span.getAlignIndex(this, i);
@@ -672,7 +672,9 @@ struct SolveState {
 			ret += line[--c].length;
 		}
 
-		if (c != i) {
+		if (c == i) {
+			ret += prefix.offset;
+		} else {
 			ret += getOffset(line, c);
 		}
 
