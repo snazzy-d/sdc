@@ -21,4 +21,6 @@ void fun() {
 		: (c + d)
 			? long_result_5
 			: long_result_6;
+
+	auto x = a.b * c;
 }

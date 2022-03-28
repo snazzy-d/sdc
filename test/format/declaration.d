@@ -15,3 +15,6 @@ enum Foo {
 }
 
 void foo(int[] args...) {}
+
+Foo[]* a;
+Foo[10][Bar]* a;

@@ -1920,6 +1920,7 @@ private:
 	 * Expressions
 	 */
 	void parseExpression() {
+		canBeDeclaration = false;
 		parseBaseExpression();
 		parseAssignExpressionSuffix();
 	}
