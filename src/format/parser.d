@@ -19,6 +19,7 @@ private:
 
 	bool needDoubleIndent = false;
 	bool doubleIndentBlock = false;
+	bool canBeDeclaration = false;
 
 	enum Mode {
 		Declaration,
@@ -458,6 +459,8 @@ private:
 	void parseStructuralElement() {
 		emitInFlightComments();
 
+		canBeDeclaration = true;
+
 	Entry:
 		switch (token.type) with (TokenType) {
 			case End:
@@ -736,7 +739,7 @@ private:
 					break;
 				}
 
-				if (!parseType()) {
+				if (!parseIdentifier()) {
 					// We made no progress, start skipping.
 					skipToken();
 					return;
@@ -1099,6 +1102,9 @@ private:
 	}
 
 	IdentifierKind parseIdentifierSuffix(IdentifierKind kind) {
+		const tryDeclaration = canBeDeclaration;
+		canBeDeclaration = false;
+
 		while (true) {
 			switch (token.type) with (TokenType) {
 				case Dot:
@@ -1135,15 +1141,54 @@ private:
 					auto lookahead = trange.getLookahead();
 					lookahead.popFront();
 
-					switch (lookahead.front.type) {
-						case Star, Function, Delegate:
-							kind = IdentifierKind.Type;
-							nextToken();
-							break;
+					IdentifierStarLookahead: while (true) {
+						switch (lookahead.front.type) {
+							case Identifier:
+								// Lean toward Indentifier* Identifier being a delcaration.
+								if (tryDeclaration) {
+									goto IdentifierStarType;
+								}
 
-						default:
-							// No idea what this is, move on.
-							return IdentifierKind.Symbol;
+								goto IdentifierStarExpression;
+
+							case Comma, CloseParen, CloseBracket:
+								// This indicates some kind of termination, so assume a type.
+								goto IdentifierStarType;
+
+							case Star, Function, Delegate:
+								goto IdentifierStarType;
+
+							IdentifierStarType:
+								kind = IdentifierKind.Type;
+								nextToken();
+								break IdentifierStarLookahead;
+
+							case This:
+							case Super:
+							case True:
+							case False:
+							case Null:
+							case IntegerLiteral:
+							case FloatLiteral:
+							case StringLiteral:
+							case CharacterLiteral:
+							case __File__:
+							case __Line__:
+							case Dollar:
+								goto IdentifierStarExpression;
+
+							IdentifierStarExpression:
+								return IdentifierKind.Expression;
+
+							case OpenBracket:
+								import source.parserutil;
+								lookahead.popMatchingDelimiter!OpenBracket();
+								continue;
+
+							default:
+								// No idea what this is, move on.
+								return IdentifierKind.Symbol;
+						}
 					}
 
 					break;
@@ -1179,6 +1224,7 @@ private:
 
 				case OpenParen:
 					// FIXME: customize based on kind.
+					kind = IdentifierKind.Expression;
 					parseArgumentList();
 					break;
 
@@ -1193,6 +1239,8 @@ private:
 					return kind;
 			}
 		}
+
+		assert(0, "DMD is not smart enough to figure out this is unreachable.");
 	}
 
 	bool parseMixin() {
