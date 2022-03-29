@@ -16,5 +16,9 @@ enum Foo {
 
 void foo(int[] args...) {}
 
+void foo(void function() @safe a ) {}
+
+void foo(void delegate() @safe a ) {}
+
 Foo[]* a;
 Foo[10][Bar]* a;
