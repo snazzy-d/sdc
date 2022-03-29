@@ -1198,6 +1198,13 @@ private:
 					space();
 					nextToken();
 					parseParameterList();
+					space();
+					if (!parseStorageClasses(true)) {
+						// Not sure how this will fare in the presence of comments,
+						// but this will have to do for now.
+						clearSeparator();
+					}
+
 					break;
 
 				case Bang:
