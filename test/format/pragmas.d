@@ -4,6 +4,5 @@ pragma(mangle, "foo")
 export void foo() {}
 
 static if (condition)
-	pragma(mangle,
-	       "foo")
+	pragma(mangle, "foo")
 	export void foo() {}

@@ -45,6 +45,10 @@ class Span {
 	}
 
 protected:
+	bool matchLevel(const Span s) const {
+		return false;
+	}
+
 	enum Split {
 		No,
 		Can,
@@ -85,6 +89,22 @@ bool contains(const Span span, const Span s) {
 	}
 
 	return span.parent.contains(s);
+}
+
+bool isSameLevel(const Span a, const Span b) {
+	if (a is b) {
+		return true;
+	}
+
+	if (a !is null && a.matchLevel(b)) {
+		return true;
+	}
+
+	if (b !is null && b.matchLevel(a)) {
+		return true;
+	}
+
+	return false;
 }
 
 uint getIndent(const Span span, const ref SolveState s, size_t i) {
@@ -552,5 +572,9 @@ final class StorageClassSpan : Span {
 
 	override uint computeIndent(const ref SolveState s, size_t i) const {
 		return 0;
+	}
+
+	override bool matchLevel(const Span s) const {
+		return parent.isSameLevel(s);
 	}
 }

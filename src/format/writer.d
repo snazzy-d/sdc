@@ -578,14 +578,14 @@ struct SolveState {
 			return 0;
 		}
 
-		// If it is the same span or there are no previous span,
-		// then it's a feature, not a bug.
-		if (c.span is previousSpan || previousSpan is null) {
+		// No penality for double line breaks.
+		if (c.separator == Separator.TwoNewLines) {
 			return 0;
 		}
 
-		// No penality for double line breaks.
-		if (c.separator == Separator.TwoNewLines) {
+		// If both spans are expected to be on the same level,
+		// then it's all good.
+		if (previousSpan.isSameLevel(c.span)) {
 			return 0;
 		}
 
