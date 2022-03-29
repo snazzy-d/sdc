@@ -686,6 +686,27 @@ private:
 				parseConstructor();
 				break;
 
+			case Tilde:
+				// Check for destructors.
+				auto lookahead = trange.getLookahead();
+				lookahead.popFront();
+
+				if (lookahead.front.type != TokenType.This) {
+					// This is an expression.
+					goto default;
+				}
+
+				lookahead.popFront();
+
+				auto t = lookahead.front.type;
+				if (t != TokenType.OpenParen || mode != Mode.Declaration) {
+					// This is an expression.
+					goto default;
+				}
+
+				parseDestructor();
+				break;
+
 			case Template:
 				parseTemplate();
 				break;
@@ -2324,6 +2345,13 @@ private:
 		nextToken();
 		parseParameterPacks();
 		parseFunctionBody();
+	}
+
+	void parseDestructor() in {
+		assert(match(TokenType.Tilde));
+	} do {
+		nextToken();
+		parseConstructor();
 	}
 
 	void parseFunctionBody() {
