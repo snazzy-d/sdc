@@ -166,12 +166,16 @@ struct DLexer {
 			"0X" : "lexNumeric",
 			
 			// String literals.
-			"`"  : "lexString",
-			`"`  : "lexString",
-			`x"` : "lexDString",
-			`q"` : "lexDString",
-			"q{" : "lexDString",
-			`r"` : "lexDString",
+			"`"   : "lexString",
+			`"`   : "lexString",
+			`x"`  : "lexDString",
+			"q{"  : "lexDString",
+			`q"`  : "lexDString",
+			`q"(` : "lexDString",
+			`q"[` : "lexDString",
+			`q"{` : "lexDString",
+			`q"<` : "lexDString",
+			`r"`  : "lexDString",
 			
 			// Character literals.
 			"'" : "lexCharacter",
@@ -251,7 +255,60 @@ struct DLexer {
 		t.location = base.getWithOffsets(begin, index);
 		return t;
 	}
-	
+
+	Token lexQDelimintedString(char delimiter) in {
+		assert(delimiter != '"');
+	} do {
+		uint begin = index - 3;
+		uint start = index;
+
+		Token t;
+		t.type = TokenType.StringLiteral;
+
+		// This is not technically correct, but the actual value of
+		// previous doesn't matter when the delimiter isn't '"'.
+		char previous = frontChar;
+		char c = previous;
+
+		while (c != '\0' && (c != '"' || previous != delimiter)) {
+			popChar();
+			previous = c;
+			c = frontChar;
+		}
+
+		if (c == '\0') {
+			setError(t, "Unexpected end of file");
+			t.location = base.getWithOffsets(begin, index);
+			return t;
+		}
+
+		if (decodeStrings) {
+			string decoded = content[start .. index - 1];
+			t.name = context.getName(decoded);
+		}
+
+		popChar();
+
+		t.location = base.getWithOffsets(begin, index);
+		return t;
+	}
+
+	Token lexDString(string s : `q"(`)() {
+		return lexQDelimintedString(')');
+	}
+
+	Token lexDString(string s : `q"[`)() {
+		return lexQDelimintedString(']');
+	}
+
+	Token lexDString(string s : `q"{`)() {
+		return lexQDelimintedString('}');
+	}
+
+	Token lexDString(string s : `q"<`)() {
+		return lexQDelimintedString('>');
+	}
+
 	Token lexDString(string s)() in {
 		assert(index >= s.length);
 	} do {
@@ -528,6 +585,58 @@ unittest {
 		lex.match(TokenType.IntegerLiteral);
 		lex.match(TokenType.Dot);
 		lex.match(TokenType.Identifier);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer(`q"(("))"`);
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == `(")`);
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+
+	{
+		auto lex = testlexer(`q"[]"`);
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == "");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+
+	{
+		auto lex = testlexer(`q"{<}"`);
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == "<");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer(`q"<">"`);
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == `"`);
+		lex.popFront();
+		
 		assert(lex.front.type == TokenType.End);
 	}
 	
