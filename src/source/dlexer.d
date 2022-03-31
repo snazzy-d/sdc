@@ -168,7 +168,6 @@ struct DLexer {
 			// String literals.
 			"`"   : "lexString",
 			`"`   : "lexString",
-			`x"`  : "lexDString",
 			"q{"  : "lexDString",
 			`q"`  : "lexDString",
 			`q"(` : "lexDString",
