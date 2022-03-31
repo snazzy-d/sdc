@@ -308,10 +308,77 @@ struct DLexer {
 		return lexQDelimintedString('>');
 	}
 
-	Token lexDString(string s)() in {
-		assert(index >= s.length);
-	} do {
-		assert(0, s ~ " style string are not implemented");
+	Token lexDString(string s : `q"`)() {
+		uint idstart = index;
+		uint begin = index - 2;
+
+		Token t = lexIdentifier();
+		if (t.type == TokenType.Invalid) {
+			// If this is an error, pass it on!
+			return t;
+		}
+
+		t.type = TokenType.StringLiteral;
+		auto id = content[idstart .. index];
+
+		if (frontChar == '\r') {
+			// Be nice to the Windows minions out there.
+			popChar();
+		}
+
+		if (frontChar != '\n') {
+			setError(t, "Identifier must be followed by a new line.");
+			t.location = base.getWithOffsets(begin, index);
+			return t;
+		}
+
+		popChar();
+
+		uint start = index;
+		char c = frontChar;
+
+		// Skip the inital chars where a match is not possible.
+		for (size_t i = 0; c != '\0' && i < id.length; i++) {
+			popChar();
+			c = frontChar;
+		}
+
+		while (true) {
+			while (c != '\0' && c != '"')  {
+				popChar();
+				c = frontChar;
+			}
+
+			if (c == '\0') {
+				setError(t, "Unexpected end of file");
+				t.location = base.getWithOffsets(begin, index);
+				return t;
+			}
+
+			// The closing identifier must come immediuately after a new line.
+			if (content[index - id.length - 1] != '\n') {
+				continue;
+			}
+
+			for (size_t i = 0; c != '\0' && i < id.length; i++) {
+				if (content[index - id.length + i] != id[i]) {
+					continue;
+				}
+			}
+
+			// We found our guy.
+			break;
+		}
+
+		if (decodeStrings) {
+			string decoded = content[start .. index - id.length];
+			t.name = context.getName(decoded);
+		}
+
+		popChar();
+
+		t.location = base.getWithOffsets(begin, index);
+		return t;
 	}
 }
 
@@ -721,6 +788,50 @@ unittest {
 		
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "{foo}");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer(`q"EOF
+EOF"`);
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == "");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer(`q"EOF
+
+EOF"`);
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == "\n");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer(`q"EOF
+🙈🙉🙊
+EOF"`);
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == "🙈🙉🙊\n");
 		lex.popFront();
 		
 		assert(lex.front.type == TokenType.End);

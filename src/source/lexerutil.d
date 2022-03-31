@@ -275,7 +275,7 @@ private:
 		return c == '_' || (c & 0x80) || (hc >= 'a' && hc <= 'z');
 	}
 
-	auto lexIdentifier(string s : "")() {
+	auto lexIdentifier(string s : "" = "")() {
 		uint begin = index;
 		
 		char c = frontChar;
