@@ -269,32 +269,53 @@ private:
 		t.location = base.getWithOffsets(begin, end);
 		return t;
 	}
-	
-	auto lexIdentifier(string s)() {
-		static if (s == "") {
-			if (isIdChar(frontChar)) {
+
+	static wantIdentifier(char c) {
+		auto hc = c | 0x20;
+		return c == '_' || (c & 0x80) || (hc >= 'a' && hc <= 'z');
+	}
+
+	auto lexIdentifier(string s : "")() {
+		uint begin = index;
+		
+		char c = frontChar;
+		if (!wantIdentifier(c)) {
+			// Make sure we don't stay in place.
+			if (c != '\0') {
 				popChar();
-				return lexIdentifier(1);
 			}
 			
-			// XXX: proper error reporting.
-			assert(frontChar & 0x80, "lex error");
-			
-			// XXX: Dafuq does this need to be a size_t ?
-			size_t i = index;
-			
-			import std.utf;
-			auto u = content.decode(i);
-			
-			import std.uni;
-			assert(isAlpha(u), "lex error");
-			
-			auto l = cast(ubyte) (i - index);
-			index += l;
-			return lexIdentifier(l);
-		} else {
-			return lexIdentifier(s.length);
+			Token t;
+			setError(t, "Unexpected token");
+			t.location = base.getWithOffsets(begin, index);
+			return t;
 		}
+
+		if (c < 0x80) {
+			popChar();
+			return lexIdentifier(1);
+		}
+
+		// XXX: Dafuq does this need to be a size_t ?
+		size_t i = index;
+		
+		import std.utf;
+		auto u = content.decode(i);
+		index = cast(uint) i;
+		
+		import std.uni;
+		if (!isAlpha(u)) {
+			Token t;
+			setError(t, "Unexpected token");
+			t.location = base.getWithOffsets(begin, index);
+			return t;
+		}
+		
+		return lexIdentifier(index - begin);
+	}
+
+	auto lexIdentifier(string s)() if (s != "") {
+		return lexIdentifier(s.length);
 	}
 	
 	auto lexIdentifier(uint prefixLength) in {
@@ -592,11 +613,6 @@ private:
 			auto floatSavePoint = index;
 
 			popSkippableChars();
-			
-			static wantIdentifier(char c) {
-				auto hc = c | 0x20;
-				return c == '_' || (c & 0x80) || (hc >= 'a' && hc <= 'z');
-			}
 			
 			if (wantIdentifier(frontChar)) {
 				index = savePoint;

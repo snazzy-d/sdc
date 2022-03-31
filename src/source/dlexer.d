@@ -512,6 +512,80 @@ unittest {
 	}
 	
 	{
+		auto lex = testlexer("a");
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.Identifier);
+		assert(t.name.toString(context) == "a");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("_");
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.Identifier);
+		assert(t.name.toString(context) == "_");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("_0");
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.Identifier);
+		assert(t.name.toString(context) == "_0");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("é");
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.Identifier);
+		assert(t.name.toString(context) == "é");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("Γαῖα");
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.Identifier);
+		assert(t.name.toString(context) == "Γαῖα");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("🙈🙉🙊");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.Invalid);
+		lex.match(TokenType.Invalid);
+		lex.match(TokenType.Invalid);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
 		auto lex = testlexer("0");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
