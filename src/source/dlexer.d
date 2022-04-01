@@ -166,8 +166,8 @@ struct DLexer {
 			"0X" : "lexNumeric",
 			
 			// String literals.
-			"`"   : "lexString",
-			`"`   : "lexString",
+			"`"   : "lexDString",
+			`"`   : "lexDString",
 			"q{"  : "lexDString",
 			`q"`  : "lexDString",
 			`q"(` : "lexDString",
@@ -201,17 +201,57 @@ struct DLexer {
 		}
 	}
 	
+	Token lexStringPostfix(Token t) {
+		if (t.type == TokenType.Invalid) {
+			// Forward errors.
+			return t;
+		}
+		
+		char c = frontChar;
+		if (c != 'c' && c != 'w' && c !='d') {
+			// No postfix, all good.
+			return t;
+		}
+		
+		popChar();
+
+		t.location = Location(t.location.start, base.getWithOffset(index));
+		return t;
+	}
+	
+	Token lexDString(string s : `"`)() {
+		return lexStringPostfix(lexString!s());
+	}
+	
+	Token lexDString(string s : "`")() {
+		return lexStringPostfix(lexString!s());
+	}
+	
 	Token lexDString(string s : `r"`)() {
 		immutable begin = cast(uint) (index - s.length);
-		return lexRawString!'"'(begin);
+		return lexStringPostfix(lexRawString!'"'(begin));
+	}
+	
+	Token lexStringPostfix(uint begin, size_t start, size_t stop) {
+		char c = frontChar;
+		if (c == 'c' && c == 'w' && c =='d') {
+			popChar();
+		}
+		
+		Token t;
+		t.type = TokenType.StringLiteral;
+		t.location = base.getWithOffsets(begin, index);
+
+		if (decodeStrings) {
+			t.name = context.getName(content[start .. stop]);
+		}
+
+		return t;
 	}
 	
 	Token lexDString(string s : "q{")() {
 		uint begin = index - 2;
 		uint start = index;
-		
-		Token t;
-		t.type = TokenType.StringLiteral;
 		
 		auto lookahead = getLookahead();
 		
@@ -226,11 +266,13 @@ struct DLexer {
 					index = lookahead.index;
 					return lt;
 				
-				case End:
+				case End: {
+					Token t;
 					setError(t, "Unexpected end of file.");
 					index = lookahead.index - 1;
 					t.location = base.getWithOffsets(begin, index);
 					return t;
+				}
 				
 				case OpenBrace:
 					level++;
@@ -245,14 +287,8 @@ struct DLexer {
 			}
 		}
 		
-		if (decodeStrings) {
-			uint end = lookahead.index - 1;
-			t.name = context.getName(content[start .. end]);
-		}
-		
 		index = lookahead.index;
-		t.location = base.getWithOffsets(begin, index);
-		return t;
+		return lexStringPostfix(begin, start, index - 1);
 	}
 
 	Token lexQDelimintedString(char delimiter) in {
@@ -260,9 +296,6 @@ struct DLexer {
 	} do {
 		uint begin = index - 3;
 		uint start = index;
-
-		Token t;
-		t.type = TokenType.StringLiteral;
 
 		// This is not technically correct, but the actual value of
 		// previous doesn't matter when the delimiter isn't '"'.
@@ -276,20 +309,14 @@ struct DLexer {
 		}
 
 		if (c == '\0') {
+			Token t;
 			setError(t, "Unexpected end of file");
 			t.location = base.getWithOffsets(begin, index);
 			return t;
 		}
 
-		if (decodeStrings) {
-			string decoded = content[start .. index - 1];
-			t.name = context.getName(decoded);
-		}
-
 		popChar();
-
-		t.location = base.getWithOffsets(begin, index);
-		return t;
+		return lexStringPostfix(begin, start, index - 2);
 	}
 
 	Token lexDString(string s : `q"(`)() {
@@ -318,7 +345,6 @@ struct DLexer {
 			return t;
 		}
 
-		t.type = TokenType.StringLiteral;
 		auto id = content[idstart .. index];
 
 		if (frontChar == '\r') {
@@ -355,14 +381,16 @@ struct DLexer {
 				return t;
 			}
 
-			if (content[index - id.length - 1] != '\n') {
+			scope(success) {
 				popChar();
+			}
+
+			if (content[index - id.length - 1] != '\n') {
 				continue;
 			}
 
 			for (size_t i = 0; c != '\0' && i < id.length; i++) {
 				if (content[index - id.length + i] != id[i]) {
-					popChar();
 					continue;
 				}
 			}
@@ -371,15 +399,7 @@ struct DLexer {
 			break;
 		}
 
-		if (decodeStrings) {
-			string decoded = content[start .. index - id.length];
-			t.name = context.getName(decoded);
-		}
-
-		popChar();
-
-		t.location = base.getWithOffsets(begin, index);
-		return t;
+		return lexStringPostfix(begin, start, index - id.length - 1);
 	}
 }
 
