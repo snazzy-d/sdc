@@ -187,7 +187,7 @@ struct TestRunner {
 			import std.exception;
 			enforce(testNumber > 0, "No tests found.");
 
-			tests = iota(0, testNumber - 1).map!getTestFilename().array();
+			tests = iota(0, testNumber).map!getTestFilename().array();
 		}
 
 		auto legacy_tests = tests.map!(t => Task(t, compiler, Mode.Legacy));

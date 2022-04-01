@@ -355,13 +355,14 @@ struct DLexer {
 				return t;
 			}
 
-			// The closing identifier must come immediuately after a new line.
 			if (content[index - id.length - 1] != '\n') {
+				popChar();
 				continue;
 			}
 
 			for (size_t i = 0; c != '\0' && i < id.length; i++) {
 				if (content[index - id.length + i] != id[i]) {
+					popChar();
 					continue;
 				}
 			}
@@ -823,15 +824,30 @@ EOF"`);
 	}
 	
 	{
-		auto lex = testlexer(`q"EOF
+		auto lex = testlexer(`q"MONKEYS
 🙈🙉🙊
-EOF"`);
+MONKEYS"`);
 		lex.match(TokenType.Begin);
 		
 		auto t = lex.front;
 		
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "🙈🙉🙊\n");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer(`q"I_LOVE_PYTHON
+"""python comment!"""
+I_LOVE_PYTHON"`);
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == `"""python comment!"""` ~ '\n');
 		lex.popFront();
 		
 		assert(lex.front.type == TokenType.End);
