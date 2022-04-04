@@ -25,7 +25,6 @@ private:
 		Declaration,
 		Statement,
 		Parameter,
-		Attribute,
 	}
 
 	Mode mode;
@@ -872,16 +871,16 @@ private:
 			case Identifier:
 				nextToken();
 
-				if (mode == Mode.Attribute) {
-					return kind;
-				}
+				import source.parserutil;
+				auto lookahead = trange.getLookahead();
+				auto t = getStorageClassTokenType(lookahead);
 
-				parseStorageClasses(true);
-				if (!match(EqualMore)) {
+				if (t != EqualMore) {
 					return kind;
 				}
 
 				// Lambda expression
+				parseStorageClasses(true);
 				space();
 				nextToken();
 				space();
@@ -927,10 +926,6 @@ private:
 				return IdentifierKind.Expression;
 
 			case OpenParen: {
-				if (mode == Mode.Attribute) {
-					goto ParenIdentifier;
-				}
-
 				import source.parserutil;
 				auto lookahead = trange.getLookahead();
 				lookahead.popMatchingDelimiter!OpenParen();
@@ -2516,13 +2511,29 @@ private:
 		parseIdentifier();
 	}
 
-	bool parseAttributes() {
-		auto guard = changeMode(Mode.Attribute);
+	bool parseAttribute() {
+		if (!match(TokenType.At)) {
+			return false;
+		}
 
-		bool ret = false;
-		while (match(TokenType.At)) {
-			nextToken();
+		nextToken();
+		if (parseAliasList()) {
+			return true;
+		}
+
+		if (!match(TokenType.Identifier)) {
 			parseIdentifier();
+			return true;
+		}
+
+		nextToken();
+		parseIdentifierSuffix(IdentifierKind.Symbol);
+		return true;
+	}
+
+	bool parseAttributes() {
+		bool ret = false;
+		while (parseAttribute()) {
 			space();
 			ret = true;
 		}
@@ -2578,6 +2589,7 @@ private:
 					break;
 
 				case At:
+					// FIXME: A declarator is not apropriate here.
 					popDeclarator(lookahead);
 					break;
 

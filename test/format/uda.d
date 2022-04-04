@@ -1,5 +1,7 @@
-@delegateUDA!((
-ref a ) => a.type != Type.Toe ) Foo bar;
+@delegateUDA!(
+	(ref a) => a.type != Type.Toe)
+Foo bar;
 
-@templateUda!Bang
+@templateUda!Bang @templateUDA!(Foo,
+                                Bar)
 struct S {}
