@@ -935,7 +935,7 @@ private:
 				auto lookahead = trange.getLookahead();
 				lookahead.popMatchingDelimiter!OpenParen();
 
-				auto t = lookahead.front.type;
+				auto t = getStorageClassTokenType(lookahead);
 				if (t != OpenBrace && t != EqualMore && t != At && t != Nothrow
 					    && t != Pure && t != Ref && t != Synchronized) {
 					// Not a lambda.
@@ -2549,7 +2549,10 @@ private:
 
 	TokenType getStorageClassTokenType() {
 		auto lookahead = trange.getLookahead();
+		return getStorageClassTokenType(lookahead);
+	}
 
+	static getStorageClassTokenType(ref TokenRange lookahead) {
 		while (true) {
 			auto t = lookahead.front.type;
 			switch (t) with (TokenType) {
