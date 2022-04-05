@@ -1237,9 +1237,7 @@ private:
 					// Template instance.
 					kind = IdentifierKind.Symbol;
 					nextToken();
-					if (match(OpenParen)) {
-						parseAliasList();
-					} else {
+					if (!parseAliasList()) {
 						parseBaseIdentifier(IdentifierKind.Symbol);
 					}
 
@@ -2956,13 +2954,14 @@ private:
 		parseAssignExpressionSuffix();
 	}
 
-	void parseAliasList() {
+	bool parseAliasList() {
 		if (!match(TokenType.OpenParen)) {
-			return;
+			return false;
 		}
 
 		nextToken();
 		parseList!parseAliasEntry(TokenType.CloseParen);
+		return true;
 	}
 
 	void parseAggregate() in {
