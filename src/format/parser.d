@@ -2532,13 +2532,18 @@ private:
 	}
 
 	bool parseAttributes() {
-		bool ret = false;
-		while (parseAttribute()) {
-			space();
-			ret = true;
+		if (!parseAttribute()) {
+			return false;
 		}
 
-		return ret;
+		while (match(TokenType.At)) {
+			space();
+			split();
+			parseAttribute();
+		}
+
+		space();
+		return true;
 	}
 
 	static popDeclarator(ref TokenRange lookahead) {
