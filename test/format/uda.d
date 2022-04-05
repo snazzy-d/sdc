@@ -9,3 +9,6 @@ struct S {}
 static foreach (T; Ts)
 	@templateUda!T
 	void foo(T t) {}
+
+@property
+	empty() {}
