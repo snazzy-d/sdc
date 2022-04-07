@@ -209,9 +209,19 @@ struct LineWriter {
 			return best;
 		}
 
-		uint attempts = 0;
+		static precisePred(const SolveState a, const SolveState b) {
+			return a < b;
+		}
+
 		auto checkpoints = CheckPoints(&this);
-		scope queue = redBlackTree(best);
+		return exploreStates!precisePred(best, checkpoints, MAX_ATTEMPT);
+	}
+
+	SolveState exploreStates(
+		alias pred
+	)(SolveState best, ref CheckPoints checkpoints, uint max_attempts) {
+		uint attempts = 0;
+		scope queue = redBlackTree!pred(best);
 
 		// Once we have a solution that fits, or no more things
 		// to try, then we are done.
@@ -232,7 +242,7 @@ struct LineWriter {
 
 			// This algorithm is exponential in nature, so make sure to stop
 			// after some time, even if we haven't found an optimal solution.
-			if (attempts++ > MAX_ATTEMPT) {
+			if (attempts++ > max_attempts) {
 				break;
 			}
 
