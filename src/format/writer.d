@@ -313,7 +313,7 @@ struct CheckPoints {
 		return getSpanStateHash(s, span.parent, h);
 	}
 
-	ulong getStateHash(const ref SolveState s, size_t i) {
+	ulong getPathHash(const ref SolveState s, size_t i) {
 		const prefix = s.getLinePrefix(lineWriter.line, i);
 		return getSpanStateHash(s, lineWriter.line[i].span, prefix.toHash());
 	}
@@ -335,7 +335,7 @@ struct CheckPoints {
 		return isSameSpanState(a, b, span.parent);
 	}
 
-	bool isSameState(const ref SolveState a, const ref SolveState b, size_t i) {
+	bool isSamePath(const ref SolveState a, const ref SolveState b, size_t i) {
 		if (a == b) {
 			return false;
 		}
@@ -355,7 +355,7 @@ struct CheckPoints {
 		}
 
 		const i = s.ruleValues.frozen - 1;
-		const h = getStateHash(s, i);
+		const h = getPathHash(s, i);
 
 		const c = h in paths[i];
 		const cmp = s.opCmp(c);
@@ -372,7 +372,7 @@ struct CheckPoints {
 
 		// We are on a path that is worse than the checkpoint.
 		// If this isn't a collision, this path is redundant.
-		return isSameState(s, *c, i);
+		return isSamePath(s, *c, i);
 	}
 }
 
