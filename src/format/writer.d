@@ -358,7 +358,13 @@ struct CheckPoints {
 		const h = getStateHash(s, i);
 
 		const c = h in paths[i];
-		if (c is null || s < *c) {
+		const cmp = s.opCmp(c);
+		if (cmp == 0) {
+			// We are at the checkpoint.
+			return false;
+		}
+
+		if (cmp < 0) {
 			// We have a new best on that specific path.
 			paths[i][h] = cast() s;
 			return false;
@@ -712,7 +718,7 @@ struct SolveState {
 		return ruleValues < rhs.ruleValues;
 	}
 
-	// lhs < rhs => rhs.opCmp(rhs) < 0
+	// lhs < rhs => lhs.opCmp(rhs) < 0
 	int opCmp(const ref SolveState rhs) const {
 		if (sunk != rhs.sunk) {
 			return sunk - rhs.sunk;
@@ -727,5 +733,13 @@ struct SolveState {
 		}
 
 		return ruleValues.opCmp(rhs.ruleValues);
+	}
+
+	int opCmp(const SolveState* rhs) const {
+		if (rhs is null) {
+			return -1;
+		}
+
+		return this.opCmp(*rhs);
 	}
 }
