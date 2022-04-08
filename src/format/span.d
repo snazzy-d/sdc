@@ -339,23 +339,12 @@ final:
 		return s.isSplit(elements[0]) || !s.isUsed(this);
 	}
 
-	bool computeMustSplit(const ref SolveState s, size_t start,
-	                      size_t stop) const {
-		foreach (c; start .. stop) {
-			if (s.isSplit(c)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
 	bool mustExplode(const ref SolveState s) const {
 		return getState(s) == -1;
 	}
 
 	bool mustSplit(const ref SolveState s, size_t start, size_t stop) const {
-		return computeMustSplit(s, start, stop) || mustExplode(s);
+		return s.isSplit(start, stop) || mustExplode(s);
 	}
 
 	override uint computeIndent(const ref SolveState s, size_t i) const {
@@ -459,19 +448,11 @@ final class ExpandingListSpan : ListSpan {
 		return 13;
 	}
 
-	bool computeMustExplode(const ref SolveState s) const {
-		if (!hasTrailingSplit) {
-			// Not the exploding kind.
-			return false;
-		}
-
-		// If the last element is broken, expand the whole thing.
-		return computeMustSplit(s, elements[$ - 1] + 1, trailingSplit + 1);
-	}
-
 	mixin CachedState;
 	ulong computeState(const ref SolveState s) const {
-		if (computeMustExplode(s)) {
+		// If the last element is broken, expand the whole thing.
+		if (hasTrailingSplit
+			    && s.isSplit(elements[$ - 1] + 1, trailingSplit + 1)) {
 			return -1;
 		}
 
@@ -483,7 +464,7 @@ final class ExpandingListSpan : ListSpan {
 				previous = p;
 			}
 
-			if (!computeMustSplit(s, previous + 1, p + 1)) {
+			if (!s.isSplit(previous + 1, p + 1)) {
 				continue;
 			}
 

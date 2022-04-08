@@ -660,6 +660,16 @@ struct SolveState {
 		return ruleValues[i];
 	}
 
+	bool isSplit(size_t from, size_t to) const {
+		foreach (i; from .. to) {
+			if (isSplit(i)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	uint newLineCount(const Chunk[] line, size_t i) const {
 		if (auto c = line[i].newLineCount()) {
 			return c;
