@@ -409,11 +409,9 @@ final class ListSpan : Span {
 	bool computeMustSplit(const ref SolveState s, size_t start,
 	                      size_t stop) const {
 		foreach (c; start .. stop) {
-			if (!s.isSplit(c)) {
-				continue;
+			if (s.isSplit(c)) {
+				return true;
 			}
-
-			return true;
 		}
 
 		return false;
