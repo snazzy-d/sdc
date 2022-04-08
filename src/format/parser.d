@@ -1460,6 +1460,13 @@ private:
 	}
 
 	void parseElsableBlock() {
+		if (match(TokenType.Colon)) {
+			parseColonBlock();
+			return;
+		}
+
+		space();
+
 		bool isBlock = parseControlFlowBlock();
 		if (!match(TokenType.Else)) {
 			return;
@@ -1496,8 +1503,6 @@ private:
 		space();
 
 		parseCondition();
-
-		space();
 		parseElsableBlock();
 	}
 
@@ -1517,7 +1522,6 @@ private:
 			runOnType!(TokenType.CloseParen, nextToken)();
 		}
 
-		space();
 		parseElsableBlock();
 	}
 
