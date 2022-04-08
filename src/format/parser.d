@@ -1625,13 +1625,13 @@ private:
 	}
 
 	void parseForArguments() {
-		auto guard = span!ListSpan();
+		auto guard = span!CompactListSpan();
 
 		if (match(TokenType.Semicolon)) {
 			nextToken();
 		} else {
 			split();
-			guard.registerFix(function(ListSpan s, size_t i) {
+			guard.registerFix(function(CompactListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -1644,7 +1644,7 @@ private:
 		} else {
 			space();
 			split();
-			guard.registerFix(function(ListSpan s, size_t i) {
+			guard.registerFix(function(CompactListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -1657,7 +1657,7 @@ private:
 		} else {
 			space();
 			split();
-			guard.registerFix(function(ListSpan s, size_t i) {
+			guard.registerFix(function(CompactListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -1674,17 +1674,17 @@ private:
 		if (match(TokenType.OpenParen)) {
 			nextToken();
 			auto modeGuard = changeMode(Mode.Parameter);
-			auto listGuard = span!ListSpan();
+			auto listGuard = span!CompactListSpan();
 
 			split();
-			listGuard.registerFix(function(ListSpan s, size_t i) {
+			listGuard.registerFix(function(CompactListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
 			parseList!parseStructuralElement(TokenType.Semicolon);
 
 			split();
-			listGuard.registerFix(function(ListSpan s, size_t i) {
+			listGuard.registerFix(function(CompactListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -2282,15 +2282,12 @@ private:
 	 * Declarations
 	 */
 	void parseParameterPacks() {
-		ListOptions options;
-		options.closingTokenType = TokenType.CloseParen;
-		options.listType = ListType.Expanding;
-
 		auto guard = changeMode(Mode.Parameter);
 
 		while (match(TokenType.OpenParen)) {
 			nextToken();
-			parseList!parseStructuralElement(options);
+			parseList!(parseStructuralElement,
+			           ExpandingListSpan)(TokenType.CloseParen);
 		}
 	}
 
@@ -2469,11 +2466,8 @@ private:
 		auto guard = changeMode(Mode.Parameter);
 		nextToken();
 
-		ListOptions options;
-		options.closingTokenType = TokenType.CloseParen;
-		options.listType = ListType.Expanding;
-
-		parseList!parseStructuralElement(options);
+		parseList!(parseStructuralElement,
+		           ExpandingListSpan)(TokenType.CloseParen);
 		return true;
 	}
 
@@ -3020,27 +3014,13 @@ private:
 	/**
 	 * Parsing utilities
 	 */
-	struct ListOptions {
-		TokenType closingTokenType;
-		ListType listType = ListType.Compact;
-		bool addNewLines = false;
-	}
-
-	void parseList(alias fun)(TokenType closingTokenType,
-	                          bool addNewLines = false) {
-		ListOptions options;
-		options.closingTokenType = closingTokenType;
-		options.addNewLines = addNewLines;
-
-		return parseList!fun(options);
-	}
-
 	void parseListAdapter(alias fun)(size_t i) {
 		fun();
 	}
 
-	void parseList(alias fun)(ListOptions options) {
-		if (match(options.closingTokenType)) {
+	void parseList(alias fun, S = CompactListSpan)(TokenType closingTokenType,
+	                                               bool addNewLines = false) {
+		if (match(closingTokenType)) {
 			auto guard = builder.virtualSpan();
 			nextToken();
 			return;
@@ -3052,16 +3032,16 @@ private:
 			alias afun = parseListAdapter!fun;
 		}
 
-		auto guard = span!ListSpan(options.listType);
+		auto guard = span!S();
 
 		size_t i = 0;
-		while (!match(options.closingTokenType)) {
-			if (options.addNewLines) {
+		while (!match(closingTokenType)) {
+			if (addNewLines) {
 				newline(1);
 			}
 
 			split();
-			guard.registerFix(function(ListSpan s, size_t i) {
+			guard.registerFix(function(S s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -3075,20 +3055,20 @@ private:
 			space();
 		}
 
-		if (match(options.closingTokenType)) {
-			if (options.addNewLines) {
+		if (match(closingTokenType)) {
+			if (addNewLines) {
 				newline(1);
 			}
 
 			split();
-			guard.registerFix(function(ListSpan s, size_t i) {
+			guard.registerFix(function(S s, size_t i) {
 				s.registerTrailingSplit(i);
 			});
 
 			nextToken();
 		}
 
-		if (options.addNewLines) {
+		if (addNewLines) {
 			newline(2);
 		}
 	}
@@ -3103,14 +3083,14 @@ private:
 		split();
 		nextToken();
 
-		auto listGuard = span!ListSpan();
+		auto listGuard = span!CompactListSpan();
 		bool first = true;
 		while (true) {
 			space();
 			split(first);
 			first = false;
 
-			listGuard.registerFix(function(ListSpan s, size_t i) {
+			listGuard.registerFix(function(CompactListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 

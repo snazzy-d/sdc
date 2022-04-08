@@ -307,26 +307,32 @@ final class AlignedSpan : Span {
 /**
  * Span ensuring lists of items are formatted as expected.
  */
-enum ListType {
-	Compact,
-	Expanding,
-}
-
-final class ListSpan : Span {
-	ListType type;
-
+abstract class ListSpan : Span {
 	size_t[] elements;
 	size_t trailingSplit = size_t.max;
 
+	this(Span parent) {
+		super(parent);
+	}
+
+final:
 	@property
 	bool hasTrailingSplit() const {
 		return trailingSplit != size_t.max;
 	}
 
-	this(Span parent, ListType type = ListType.Compact) {
-		super(parent);
+	void registerElement(size_t i) in {
+		assert(elements.length == 0 || elements[$ - 1] < i);
+		assert(!hasTrailingSplit);
+	} do {
+		elements ~= i;
+	}
 
-		this.type = type;
+	void registerTrailingSplit(size_t i) in {
+		assert(elements[$ - 1] < i);
+		assert(!hasTrailingSplit);
+	} do {
+		trailingSplit = i;
 	}
 
 	bool isActive(const ref SolveState s) const {
@@ -344,120 +350,12 @@ final class ListSpan : Span {
 		return false;
 	}
 
-	bool computeMustExplode(const ref SolveState s) const {
-		if (!hasTrailingSplit || type != ListType.Expanding) {
-			// Not the exploding kind.
-			return false;
-		}
-
-		// If the last element is broken, expand the whole thing.
-		return computeMustSplit(s, elements[$ - 1] + 1, trailingSplit + 1);
-	}
-
-	ulong computeExpandingState(const ref SolveState s) const {
-		ulong state = s.isSplit(elements[0]);
-
-		size_t previous = elements[0];
-		foreach (k, p; elements[1 .. $]) {
-			scope(success) {
-				previous = p;
-			}
-
-			if (!computeMustSplit(s, previous + 1, p + 1)) {
-				continue;
-			}
-
-			if (state > 1) {
-				return -1;
-			}
-
-			state |= (k + 1) << 1;
-		}
-
-		// For length 1 and 2, we won't trip the explode state earlier,
-		// so we push the trigger now if apropriate.
-		auto splitCount = (state & 0x01) + (state > 1);
-		if (elements.length <= splitCount) {
-			return -1;
-		}
-
-		return state;
-	}
-
-	ulong computeCompactState(const ref SolveState s) const {
-		// If more than 2/3 of the element split, just explode.
-		const max = 2 * (elements.length + 1) / 3;
-
-		ulong count = 0;
-		foreach (p; elements) {
-			count += s.isSplit(p);
-
-			if (count > max) {
-				return -1;
-			}
-		}
-
-		return (count << 1) | s.isSplit(elements[0]);
-	}
-
-	mixin CachedState;
-	ulong computeState(const ref SolveState s) const {
-		if (computeMustExplode(s)) {
-			return -1;
-		}
-
-		if (type == ListType.Expanding) {
-			return computeExpandingState(s);
-		}
-
-		if (type == ListType.Compact) {
-			return computeCompactState(s);
-		}
-
-		return s.isSplit(elements[0]);
-	}
-
 	bool mustExplode(const ref SolveState s) const {
 		return getState(s) == -1;
 	}
 
 	bool mustSplit(const ref SolveState s, size_t start, size_t stop) const {
 		return computeMustSplit(s, start, stop) || mustExplode(s);
-	}
-
-	override uint getCost(const ref SolveState s) const {
-		// If there is just one element, make it slitghtly more exepensive to split.
-		if (elements.length <= 1) {
-			return 15;
-		}
-
-		if (type == ListType.Expanding && s.isSplit(elements[0])) {
-			return 14;
-		}
-
-		if (type == ListType.Compact && isActive(s)) {
-			foreach (p; elements[1 .. $]) {
-				if (s.isSplit(p)) {
-					return 14;
-				}
-			}
-		}
-
-		return 13;
-	}
-
-	void registerElement(size_t i) in {
-		assert(elements.length == 0 || elements[$ - 1] < i);
-		assert(!hasTrailingSplit);
-	} do {
-		elements ~= i;
-	}
-
-	void registerTrailingSplit(size_t i) in {
-		assert(elements[$ - 1] < i);
-		assert(!hasTrailingSplit);
-	} do {
-		trailingSplit = i;
 	}
 
 	override uint computeIndent(const ref SolveState s, size_t i) const {
@@ -498,6 +396,112 @@ final class ListSpan : Span {
 		}
 
 		return Split.Can;
+	}
+}
+
+final class CompactListSpan : ListSpan {
+	this(Span parent) {
+		super(parent);
+	}
+
+	override uint getCost(const ref SolveState s) const {
+		// If there is just one element, make it slitghtly more exepensive to split.
+		if (elements.length <= 1) {
+			return 15;
+		}
+
+		if (!isActive(s)) {
+			return 13;
+		}
+
+		foreach (p; elements[1 .. $]) {
+			if (s.isSplit(p)) {
+				return 14;
+			}
+		}
+
+		return 13;
+	}
+
+	mixin CachedState;
+	ulong computeState(const ref SolveState s) const {
+		// If more than 2/3 of the element split, just explode.
+		const max = 2 * (elements.length + 1) / 3;
+
+		ulong count = 0;
+		foreach (p; elements) {
+			count += s.isSplit(p);
+
+			if (count > max) {
+				return -1;
+			}
+		}
+
+		return (count << 1) | s.isSplit(elements[0]);
+	}
+}
+
+final class ExpandingListSpan : ListSpan {
+	this(Span parent) {
+		super(parent);
+	}
+
+	override uint getCost(const ref SolveState s) const {
+		// If there is just one element, make it slitghtly more exepensive to split.
+		if (elements.length <= 1) {
+			return 15;
+		}
+
+		if (s.isSplit(elements[0])) {
+			return 14;
+		}
+
+		return 13;
+	}
+
+	bool computeMustExplode(const ref SolveState s) const {
+		if (!hasTrailingSplit) {
+			// Not the exploding kind.
+			return false;
+		}
+
+		// If the last element is broken, expand the whole thing.
+		return computeMustSplit(s, elements[$ - 1] + 1, trailingSplit + 1);
+	}
+
+	mixin CachedState;
+	ulong computeState(const ref SolveState s) const {
+		if (computeMustExplode(s)) {
+			return -1;
+		}
+
+		ulong state = s.isSplit(elements[0]);
+
+		size_t previous = elements[0];
+		foreach (k, p; elements[1 .. $]) {
+			scope(success) {
+				previous = p;
+			}
+
+			if (!computeMustSplit(s, previous + 1, p + 1)) {
+				continue;
+			}
+
+			if (state > 1) {
+				return -1;
+			}
+
+			state |= (k + 1) << 1;
+		}
+
+		// For length 1 and 2, we won't trip the explode state earlier,
+		// so we push the trigger now if apropriate.
+		auto splitCount = (state & 0x01) + (state > 1);
+		if (elements.length <= splitCount) {
+			return -1;
+		}
+
+		return state;
 	}
 }
 
