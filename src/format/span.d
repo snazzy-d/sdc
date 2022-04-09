@@ -371,13 +371,17 @@ final:
 	}
 
 	override Split computeSplit(const ref SolveState s, size_t i) const {
+		if (i < elements[0] || i > trailingSplit) {
+			return Split.Can;
+		}
+
 		if (i == trailingSplit) {
 			return mustExplode(s) ? Split.Must : Split.No;
 		}
 
 		size_t previous = elements[0];
-		foreach (k, p; elements) {
-			if (p > i) {
+		foreach (p; elements) {
+			if (previous > i) {
 				// We went past the index we are interested in.
 				break;
 			}
@@ -386,6 +390,12 @@ final:
 				// We have not reached our goal, move on to the next param.
 				previous = p;
 				continue;
+			}
+
+			if (p > i) {
+				// We can only split within an element
+				// if the element itself is split.
+				return s.isSplit(previous) ? Split.Can : Split.No;
 			}
 
 			return mustSplit(s, previous + 1, p) ? Split.Must : Split.Can;
