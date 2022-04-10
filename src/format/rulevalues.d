@@ -72,6 +72,7 @@ public:
 	@property
 	size_t frozen(size_t f) in {
 		assert(f > 0 && f <= capacity);
+		assert(this[f - 1]);
 	} do {
 		if (isDirect()) {
 			// Replace the previous frozen value.
@@ -197,12 +198,12 @@ unittest {
 	assert(!(r0 < r1));
 	assert(!(r1 > r0));
 
-	r1.frozen = 5;
+	r1.frozen = 6;
 	assert(r0 != r1);
 	assert(r0 > r1);
 	assert(r1 < r0);
 
-	r0.frozen = 5;
+	r0.frozen = 6;
 	assert(r0 == r1);
 	assert(!(r0 < r1));
 	assert(!(r1 > r0));

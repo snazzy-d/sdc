@@ -500,11 +500,6 @@ struct SolveState {
 			previousColumn = column;
 			length = column + lineLength;
 
-			// If we do not plan to expand, freeze previous regions.
-			if (!canExpand && regionStart > ruleValues.frozen) {
-				ruleValues.frozen = regionStart;
-			}
-
 			if (c.continuation) {
 				continue;
 			}
