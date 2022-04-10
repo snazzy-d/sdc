@@ -208,8 +208,15 @@ bool canSplit(const Span span, const ref SolveState s, size_t i) {
 		return true;
 	}
 
-	if (span.computeSplit(s, i) != Span.Split.Can) {
-		return false;
+	final switch (span.computeSplit(s, i)) with (Span.Split) {
+		case No:
+			return false;
+
+		case Must:
+			return true;
+
+		case Can:
+			break;
 	}
 
 	return span.parent.canSplit(s, i);
