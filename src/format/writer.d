@@ -236,7 +236,8 @@ struct LineWriter {
 
 			// There is no point trying to expand this if it cannot
 			// lead to a a solution better than the current best.
-			if (next.isDeadSubTree(best) || checkpoints.isRedundant(next)) {
+			if (next.isDeadSubTree(best)
+				    || checkpoints.isRedundant(next, false)) {
 				continue;
 			}
 
@@ -269,7 +270,7 @@ struct LineWriter {
 				// We check for redundant path first so that, even in the
 				// case where this candidate is rulled out, it can serve
 				// as a checkpoint.
-				if (checkpoints.isRedundant(candidate)) {
+				if (checkpoints.isRedundant(candidate, true)) {
 					continue;
 				}
 
@@ -358,7 +359,7 @@ struct CheckPoints {
 		return isSameSpanState(a, b, lineWriter.line[i].span);
 	}
 
-	bool isRedundant(const ref SolveState s) {
+	bool isRedundant(const ref SolveState s, bool isRedundantWithSelf) {
 		if (!s.canExpand || s.ruleValues.frozen >= lineWriter.line.length) {
 			// There is nothing more to explore down this path.
 			return true;
@@ -370,8 +371,8 @@ struct CheckPoints {
 		const c = h in paths[i];
 		const cmp = s.opCmp(c);
 		if (cmp == 0) {
-			// We are at the checkpoint.
-			return false;
+			// A state is always redundant with itself.
+			return isRedundantWithSelf;
 		}
 
 		if (cmp < 0) {
