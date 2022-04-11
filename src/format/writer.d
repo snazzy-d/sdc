@@ -227,25 +227,30 @@ struct LineWriter {
 		// to try, then we are done.
 		while (!queue.empty) {
 			auto next = queue.front;
-			queue.removeFront();
 
 			// We found the lowest cost solution that fit on the page.
-			if (next.overflow == 0) {
+			if (next.overflow == 0 || attempts > max_attempts) {
+				break;
+			}
+
+			// We pop from the queue *AFTER* checking for termination condition
+			// so that we do nto lose that state for the next iterration.
+			queue.removeFront();
+
+			// We reach a dead subtree, there is no point erxploring further.
+			if (next.isDeadSubTree(best)) {
 				break;
 			}
 
 			// There is no point trying to expand this if it cannot
 			// lead to a a solution better than the current best.
-			if (next.isDeadSubTree(best)
-				    || checkpoints.isRedundant(next, false)) {
+			if (checkpoints.isRedundant(next, false)) {
 				continue;
 			}
 
 			// This algorithm is exponential in nature, so make sure to stop
 			// after some time, even if we haven't found an optimal solution.
-			if (attempts++ > max_attempts) {
-				break;
-			}
+			attempts++;
 
 			bool split = false;
 			foreach (rule; next.ruleValues.frozen .. line.length) {
