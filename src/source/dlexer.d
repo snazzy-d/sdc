@@ -638,6 +638,75 @@ unittest {
 	}
 	
 	{
+		auto lex = testlexer("0b0");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("0b_0");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("0b_0_");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("0b_");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.Invalid);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("0x0");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("0x_0");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("0x_0_");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("0x_");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.Invalid);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("_0");
+		lex.match(TokenType.Begin);
+		
+		auto t = lex.front;
+		
+		assert(t.type == TokenType.Identifier);
+		assert(t.name.toString(context) == "_0");
+		lex.popFront();
+		
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
 		auto lex = testlexer("é");
 		lex.match(TokenType.Begin);
 		

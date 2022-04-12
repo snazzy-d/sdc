@@ -676,6 +676,10 @@ private:
 	Token lexNumeric(string s : "0b")() {
 		uint begin = index - 2;
 
+		while (frontChar == '_') {
+			popChar();
+		}
+
 		if (!isBinary(frontChar)) {
 			Token t;
 			t.location = base.getWithOffsets(begin, index);
@@ -710,6 +714,10 @@ private:
 	Token lexNumeric(string s : "0x")() {
 		uint begin = index - 2;
 		
+		while (frontChar == '_') {
+			popChar();
+		}
+
 		if (!isHexadecimal(frontChar)) {
 			Token t;
 			t.location = base.getWithOffsets(begin, index);
