@@ -486,19 +486,31 @@ struct SymbolAnalyzer {
 		v.mangle = v.name;
 		static if(is(V : Variable)) {
 			if (v.storage == Storage.Static) {
-				assert(v.linkage == Linkage.D, "I mangle only D !");
-				
-				auto name = v.name.toString(context);
-				
-				import d.semantic.mangler;
-				auto mangle = TypeMangler(pass).visit(v.type);
-				
-				import std.conv;
-				mangle = "_D" ~ manglePrefix
-					~ to!string(name.length) ~ name
-					~ mangle;
-				
-				v.mangle = context.getName(mangle);
+				switch (v.linkage) with(Linkage) {
+					case D:
+						auto name = v.name.toString(context);
+						import d.semantic.mangler;
+						auto mangle = TypeMangler(pass).visit(v.type);
+
+						import std.conv;
+						mangle = "_D" ~ manglePrefix
+							~ to!string(name.length) ~ name
+							~ mangle;
+
+						v.mangle = context.getName(mangle);
+						break;
+
+					case C:
+						v.mangle = v.name;
+						break;
+
+					default:
+						import std.conv;
+						assert(
+							0,
+							"Linkage " ~ to!string(v.linkage) ~ " is not supported",
+						);
+				}
 			}
 		}
 		
