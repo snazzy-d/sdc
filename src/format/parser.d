@@ -918,8 +918,21 @@ private:
 			case New:
 				nextToken();
 				space();
-				parseType();
+
+				if (!match(Class)) {
+					parseType();
+					parseArgumentList();
+					return IdentifierKind.Expression;
+				}
+
+				// Ok new class.
+				nextToken();
 				parseArgumentList();
+				space();
+				parseIdentifier();
+				space();
+				parseInlineBlock(Mode.Declaration);
+
 				return IdentifierKind.Expression;
 
 			case Is:
@@ -1039,18 +1052,9 @@ private:
 				parseStorageClasses(true);
 				goto Lambda;
 
-				Lambda: {
-					auto oldNeedDoubleIndent = needDoubleIndent;
-					scope(exit) {
-						needDoubleIndent = oldNeedDoubleIndent;
-					}
-
-					needDoubleIndent = false;
-
-					parseBlock(Mode.Statement);
-					clearSeparator();
-					return IdentifierKind.Expression;
-				}
+			Lambda:
+				parseInlineBlock(Mode.Statement);
+				return IdentifierKind.Expression;
 
 			case OpenBracket:
 				parseArrayLiteral();
@@ -1313,6 +1317,17 @@ private:
 
 		nextToken();
 		return true;
+	}
+
+	bool parseInlineBlock(Mode m) {
+		auto oldNeedDoubleIndent = needDoubleIndent;
+		scope(exit) {
+			needDoubleIndent = oldNeedDoubleIndent;
+			clearSeparator();
+		}
+
+		needDoubleIndent = false;
+		return parseBlock(m);
 	}
 
 	bool parseBlock(alias fun = parseBlockContent, T...)(T args) {

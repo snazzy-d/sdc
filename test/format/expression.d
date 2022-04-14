@@ -27,8 +27,7 @@ void fun() {
 	auto x = cast(shared) y;
 	auto x = cast(shared Foo) y;
 
-	auto x = new  class () Foo!Bar {
+	auto x = new class() Foo!Bar {
 		void buzz() const {}
-	}
-;
+	};
 }
