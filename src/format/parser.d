@@ -853,6 +853,7 @@ private:
 					if (match(OpenParen)) {
 						nextToken();
 						parseType();
+						clearSeparator();
 					}
 
 					runOnType!(CloseParen, nextToken)();

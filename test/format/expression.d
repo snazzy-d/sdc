@@ -24,6 +24,6 @@ void fun() {
 
 	auto x = a.b * c;
 
-	auto x = cast(shared ) y;
+	auto x = cast(shared) y;
 	auto x = cast(shared Foo) y;
 }
