@@ -596,6 +596,17 @@ private:
 		t.location = base.getWithOffsets(begin, index);
 		return t;
 	}
+
+	Token lexFloatSuffix(uint begin) {
+		if (frontChar == 'f') {
+			popChar();
+		}
+		
+		Token t;
+		t.type = TokenType.FloatLiteral;
+		t.location = base.getWithOffsets(begin, index);
+		return t;
+	}
 	
 	Token lexFloatLiteral(alias isFun, alias popFun, char E)(uint begin) {
 		popFun();
@@ -607,7 +618,7 @@ private:
 			popChar();
 			if (frontChar == '.') {
 				index = savePoint;
-				goto LexIntegral;
+				goto LexSuffix;
 			}
 			
 			auto floatSavePoint = index;
@@ -616,7 +627,7 @@ private:
 			
 			if (wantIdentifier(frontChar)) {
 				index = savePoint;
-				goto LexIntegral;
+				goto LexSuffix;
 			}
 			
 			index = floatSavePoint;
@@ -640,18 +651,8 @@ private:
 			popFun();
 		}
 		
-		if (isFloat) {
-			goto LexFloat;
-		}
-		
-	LexIntegral:
-		return lexIntegralSuffix(begin);
-
-	LexFloat:
-		Token t;
-		t.type = TokenType.FloatLiteral;
-		t.location = base.getWithOffsets(begin, index);
-		return t;
+	LexSuffix:
+		return isFloat ? lexFloatSuffix(begin) : lexIntegralSuffix(begin);
 	}
 	
 	/**

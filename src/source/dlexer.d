@@ -810,10 +810,25 @@ unittest {
 	}
 	
 	{
+		auto lex = testlexer("1.1f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
 		auto lex = testlexer("1. f");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		lex.match(TokenType.Dot);
+		lex.match(TokenType.Identifier);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1.1 f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
 		lex.match(TokenType.Identifier);
 		assert(lex.front.type == TokenType.End);
 	}
