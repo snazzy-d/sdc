@@ -794,7 +794,98 @@ unittest {
 	}
 	
 	{
+		auto lex = testlexer("1u");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1U");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1l");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1L");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1ul");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1uL");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1Ul");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1UL");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1lu");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1lU");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1Lu");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1LU");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.IntegerLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
 		auto lex = testlexer("1f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1F");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
@@ -811,6 +902,36 @@ unittest {
 	
 	{
 		auto lex = testlexer("1.1f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1.1F");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1.1L");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		// /!\ l is *NOT*  a valid suffix, this on is case sensitive.
+		auto lex = testlexer("1.1l");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		lex.match(TokenType.Identifier);
+		assert(lex.front.type == TokenType.End);
+	}
+	
+	{
+		auto lex = testlexer("1.1F");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);

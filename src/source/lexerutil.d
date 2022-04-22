@@ -598,7 +598,8 @@ private:
 	}
 
 	Token lexFloatSuffix(uint begin) {
-		if (frontChar == 'f') {
+		char c = frontChar;
+		if ((c | 0x20) == 'f' || c == 'L') {
 			popChar();
 		}
 		
