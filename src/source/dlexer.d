@@ -925,8 +925,7 @@ unittest {
 		// /!\ l is *NOT*  a valid suffix, this on is case sensitive.
 		auto lex = testlexer("1.1l");
 		lex.match(TokenType.Begin);
-		lex.match(TokenType.FloatLiteral);
-		lex.match(TokenType.Identifier);
+		lex.match(TokenType.Invalid);
 		assert(lex.front.type == TokenType.End);
 	}
 	

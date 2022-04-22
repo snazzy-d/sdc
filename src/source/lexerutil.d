@@ -598,14 +598,23 @@ private:
 	}
 
 	Token lexFloatSuffix(uint begin) {
-		char c = frontChar;
-		if ((c | 0x20) == 'f' || c == 'L') {
+		Token t;
+		
+		const c = frontChar;
+		const hc = c | 0x20;
+		if (hc == 'f' || hc == 'l') {
 			popChar();
 		}
-		
-		Token t;
-		t.type = TokenType.FloatLiteral;
+
 		t.location = base.getWithOffsets(begin, index);
+		
+		// l is an error for some unexplainable reason.
+		if (c == 'l') {
+			setError(t, "Use 'L' suffix instead of 'l'");
+			return t;
+		}
+		
+		t.type = TokenType.FloatLiteral;
 		return t;
 	}
 	
