@@ -1,0 +1,13 @@
+{
+    "name": "sdc",
+    "description": "The snazzy D compiler. Currently only sdfmt (sdc:sdfmt) is available via dub",
+    "targetType": "none",
+    "subPackages": [
+      {
+        "name": "sdfmt",
+        "targetType": "executable",
+        "mainSourceFile": "src/driver/sdfmt.d",
+        "sourcePaths": ["src/format/", "src/source", "src/config"]
+      }
+    ]
+}
