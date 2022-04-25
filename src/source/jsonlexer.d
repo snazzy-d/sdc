@@ -120,6 +120,9 @@ struct JsonLexer {
 	], [
 		"" : TokenType.FloatLiteral,
 	]);
+	
+	import source.lexstring;
+	mixin LexStringImpl!Token;
 }
 
 unittest {

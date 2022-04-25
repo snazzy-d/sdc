@@ -234,6 +234,9 @@ struct DLexer {
 		return t;
 	}
 	
+	import source.lexstring;
+	mixin LexStringImpl!Token;
+	
 	Token lexStringPostfix(Token t) {
 		if (t.type == TokenType.Invalid) {
 			// Forward errors.
