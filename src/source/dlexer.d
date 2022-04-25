@@ -188,8 +188,8 @@ struct DLexer {
 		return ret;
 	}();
 	
-	import source.lexerutil;
-	mixin TokenRangeImpl!(Token, BaseMap, getKeywordsMap(), getOperatorsMap());
+	import source.lexbase;
+	mixin LexBaseImpl!(Token, BaseMap, getKeywordsMap(), getOperatorsMap());
 	
 	void popSheBang() {
 		auto c = frontChar;

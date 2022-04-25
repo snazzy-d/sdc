@@ -25,7 +25,7 @@ mixin template LexNumericImpl(
 		}
 		
 		while (true) {
-			import source.lexerutil;
+			import source.lexbase;
 			mixin(lexerMixin(getLexerMap(), "fun", ["begin", "prefixStart"]));
 		}
 	}

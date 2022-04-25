@@ -1,6 +1,6 @@
-module source.lexerutil;
+module source.lexbase;
 
-mixin template TokenRangeImpl(Token, alias BaseMap, alias KeywordMap, alias OperatorMap) {
+mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap, alias OperatorMap) {
 // TODO: We shouldn't let consumer play with the internal state of the lexer.
 // Instead, we should provide accessor to useful members.
 // private:
@@ -119,7 +119,7 @@ private:
 		}
 		
 		while (true) {
-			import source.lexerutil;
+			import source.lexbase;
 			// pragma(msg, typeof(this));
 			// pragma(msg, lexerMixin(getLexerMap()));
 			mixin(lexerMixin(getLexerMap()));
@@ -158,7 +158,7 @@ private:
 		}
 		
 		while (true) {
-			import source.lexerutil;
+			import source.lexbase;
 			// pragma(msg, typeof(this));
 			// pragma(msg, lexerMixin(getLexerMap(), "__noop"));
 			mixin(lexerMixin(getLexerMap(), "skip"));

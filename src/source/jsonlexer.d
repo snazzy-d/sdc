@@ -111,8 +111,8 @@ struct JsonLexer {
 		"\0" : TokenType.End,
 	];
 	
-	import source.lexerutil;
-	mixin TokenRangeImpl!(Token, BaseMap, KeywordMap, OperatorMap);
+	import source.lexbase;
+	mixin LexBaseImpl!(Token, BaseMap, KeywordMap, OperatorMap);
 	
 	import source.lexnumeric;
 	mixin LexNumericImpl!(Token, [
