@@ -174,102 +174,9 @@ private:
 		// Just skip over whitespace.
 	}
 	
-	uint popComment(string s)() {
-		auto c = frontChar;
-		
-		static if (s == "//") {
-			// TODO: check for unicode line break.
-			while (c != '\n' && c != '\r') {
-				if (c == 0) {
-					return index;
-				}
-				
-				popChar();
-				c = frontChar;
-			}
-			
-			uint ret = index;
-			
-			popChar();
-			if (c == '\r') {
-				if (frontChar == '\n') {
-					popChar();
-				}
-			}
-			
-			return ret;
-		} else static if (s == "/*") {
-			while (true) {
-				while (c != '*') {
-					popChar();
-					c = frontChar;
-				}
-				
-				auto match = c;
-				popChar();
-				c = frontChar;
-				
-				if (c == '/') {
-					popChar();
-					return index;
-				}
-			}
-		} else static if (s == "/+") {
-			uint stack = 0;
-			while (true) {
-				while (c != '+' && c != '/') {
-					popChar();
-					c = frontChar;
-				}
-				
-				auto match = c;
-				popChar();
-				c = frontChar;
-				
-				switch (match) {
-					case '+' :
-						if (c == '/') {
-							popChar();
-							if (!stack) {
-								return index;
-							}
-							
-							c = frontChar;
-							stack--;
-						}
-						
-						break;
-					
-					case '/' :
-						if (c == '+') {
-							popChar();
-							c = frontChar;
-							
-							stack++;
-						}
-						
-						break;
-					
-					default :
-						assert(0, "Unreachable.");
-				}
-			}
-		} else {
-			static assert(0, s ~ " isn't a known type of comment.");
-		}
-	}
-	
-	auto lexComment(string s)() {
-		Token t;
-		t.type = TokenType.Comment;
-		
-		uint begin = index - uint(s.length);
-		uint end = popComment!s();
-		
-		t.location = base.getWithOffsets(begin, end);
-		return t;
-	}
-
+	/**
+	 * Identifiers.
+	 */
 	static wantIdentifier(char c) {
 		auto hc = c | 0x20;
 		return c == '_' || (c & 0x80) || (hc >= 'a' && hc <= 'z');
@@ -366,207 +273,54 @@ private:
 		return t;
 	}
 	
-	bool lexEscapeSequence(ref string decoded) {
-		char c = frontChar;
-		
-		switch (c) {
-			case '\'', '"', '\\':
-				// Noop.
-				break;
-			
-			case '?':
-				assert(0, "WTF is \\?");
-			
-			case '0':
-				c = '\0';
-				break;
-			
-			case 'a':
-				c = '\a';
-				break;
-			
-			case 'b':
-				c = '\b';
-				break;
-			
-			case 'f':
-				c = '\f';
-				break;
-			
-			case 'r':
-				c = '\r';
-				break;
-			
-			case 'n':
-				c = '\n';
-				break;
-			
-			case 't':
-				c = '\t';
-				break;
-			
-			case 'v':
-				c = '\v';
-				break;
-			
-			case 'u', 'U':
-				popChar();
-				
-				uint v = 0;
-				
-				auto length = 4 * (c == 'U') + 4;
-				foreach (i; 0 .. length) {
-					c = frontChar;
-					
-					uint d = c - '0';
-					uint h = ((c | 0x20) - 'a') & 0xff;
-					uint n = (d < 10) ? d : (h + 10);
-					
-					if (n >= 16) {
-						return false;
-					}
-					
-					v |= n << (4 * (length - i - 1));
-					popChar();
-				}
-				
-				char[4] buf;
-				
-				import std.utf;
-				auto i = encode(buf, v);
-				
-				decoded ~= buf[0 .. i];
-				return true;
-			
-			case '&':
-				assert(0, "HTML5 named character references not implemented");
-			
-			default:
-				return false;
-		}
-		
-		popChar();
-		decoded ~= c;
-		return true;
-	}
-	
-	Token lexRawString(char Delimiter = '`')(uint begin) {
-		Token t;
-		t.type = TokenType.StringLiteral;
-		
-		size_t start = index;
-		
-		auto c = frontChar;
-		while (c != Delimiter && c != '\0') {
-			popChar();
-			c = frontChar;
-		}
-
-		if (c == '\0') {
-			setError(t, "Unexpected end of file");
-			t.location = base.getWithOffsets(begin, index);
-			return t;
-		}
-		
-		if (decodeStrings) {
-			string decoded = content[start .. index];
-			t.name = context.getName(decoded);
-		}
-		
-		popChar();
-		
-		t.location = base.getWithOffsets(begin, index);
-		return t;
-	}
-	
-	Token lexString(string s : "`")() {
-		immutable begin = cast(uint) (index - s.length);
-		return lexRawString!'`'(begin);
-	}
-
-	Token lexString(string s : "'")() {
-		immutable begin = cast(uint) (index - s.length);
-		return lexRawString!'\''(begin);
-	}
-
-	Token lexDecodedString(char Delimiter = '"', TokenType TT = TokenType.StringLiteral)(uint begin) {
-		Token t;
-		t.type = TT;
-		
-		size_t start = index;
-		string decoded;
-		
-		auto c = frontChar;
-		while (c != Delimiter && c != '\0') {
-			if (c == '\\') {
-				immutable beginEscape = index;
-				
-				if (decodeStrings) {
-					scope(success) {
-						start = index;
-					}
-					
-					// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
-					if (decoded == "") {
-						decoded = content[start .. index];
-					} else {
-						decoded ~= content[start .. index];
-					}
-					
-					popChar();
-					if (!lexEscapeSequence(decoded)) {
-						t.location = base.getWithOffsets(beginEscape, index);
-						setError(t, "Invalid escape sequence");
-						return t;
-					}
-					
-					c = frontChar;
-					continue;
-				}
-				
-				popChar();
-				c = frontChar;
-			}
-			
-			popChar();
-			c = frontChar;
-		}
-		
-		if (c == '\0') {
-			setError(t, "Unexpected end of file");
-			t.location = base.getWithOffsets(begin, index);
-			return t;
-		}
-		
-		if (decodeStrings) {
-			// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
-			if (decoded == "") {
-				decoded = content[start .. index];
-			} else {
-				decoded ~= content[start .. index];
-			}
-			
-			t.name = context.getName(decoded);
-		}
-		
-		popChar();
-		
-		t.location = base.getWithOffsets(begin, index);
-		return t;
-	}
-	
-	Token lexString(string s : `"`)() {
-		immutable begin = cast(uint) (index - s.length);
-		return lexDecodedString!'"'(begin);
-	}
-
-	Token lexCharacter(string s : `'`)() {
-		immutable begin = cast(uint) (index - s.length);
-		return lexDecodedString!('\'', TokenType.CharacterLiteral)(begin);
-	}
-
 	/**
-	 * General integer lexing utilities.
+	 * Operators.
+	 */
+	auto lexOperator(string s)() {
+		enum Type = OperatorMap[s];
+		uint l = s.length;
+		
+		Token t;
+		t.type = Type;
+		t.location = base.getWithOffsets(index - l, index);
+		t.name = BuiltinName!s;
+		
+		return t;
+	}
+	
+	/**
+	 * Keywords.
+	 */
+	auto lexKeyword(string s)() {
+		enum Type = KeywordMap[s];
+		uint l = s.length;
+		
+		return lexKeyword(index - l, Type, BuiltinName!s);
+	}
+	
+	import source.name;
+	auto lexKeyword(uint begin, TokenType type, Name keyword) {
+		auto idCharCount = popIdChars();
+
+		Token t;
+		t.type = type;
+		t.name = keyword;
+		t.location = base.getWithOffsets(begin, index);
+		
+		if (idCharCount == 0) {
+			return t;
+		}
+
+		// This is an identifier that happened to start
+		// like a keyword.
+		t.type = TokenType.Identifier;
+		t.name = context.getName(content[begin .. index]);
+		
+		return t;
+	}
+	
+	/**
+	 * Integral and float literals.
 	 */
 	Token lexIntegralSuffix(uint begin) {
 		Token t;
@@ -776,46 +530,304 @@ private:
 	}
 	
 	/**
-	 * Keywords and operators.
+	 * Comments.
 	 */
-	auto lexKeyword(string s)() {
-		enum Type = KeywordMap[s];
-		uint l = s.length;
+	uint popComment(string s)() {
+		auto c = frontChar;
 		
-		return lexKeyword(index - l, Type, BuiltinName!s);
+		static if (s == "//") {
+			// TODO: check for unicode line break.
+			while (c != '\n' && c != '\r') {
+				if (c == 0) {
+					return index;
+				}
+				
+				popChar();
+				c = frontChar;
+			}
+			
+			uint ret = index;
+			
+			popChar();
+			if (c == '\r') {
+				if (frontChar == '\n') {
+					popChar();
+				}
+			}
+			
+			return ret;
+		} else static if (s == "/*") {
+			while (true) {
+				while (c != '*') {
+					popChar();
+					c = frontChar;
+				}
+				
+				auto match = c;
+				popChar();
+				c = frontChar;
+				
+				if (c == '/') {
+					popChar();
+					return index;
+				}
+			}
+		} else static if (s == "/+") {
+			uint stack = 0;
+			while (true) {
+				while (c != '+' && c != '/') {
+					popChar();
+					c = frontChar;
+				}
+				
+				auto match = c;
+				popChar();
+				c = frontChar;
+				
+				switch (match) {
+					case '+' :
+						if (c == '/') {
+							popChar();
+							if (!stack) {
+								return index;
+							}
+							
+							c = frontChar;
+							stack--;
+						}
+						
+						break;
+					
+					case '/' :
+						if (c == '+') {
+							popChar();
+							c = frontChar;
+							
+							stack++;
+						}
+						
+						break;
+					
+					default :
+						assert(0, "Unreachable.");
+				}
+			}
+		} else {
+			static assert(0, s ~ " isn't a known type of comment.");
+		}
 	}
 	
-	import source.name;
-	auto lexKeyword(uint begin, TokenType type, Name keyword) {
-		auto idCharCount = popIdChars();
-
+	auto lexComment(string s)() {
 		Token t;
-		t.type = type;
-		t.name = keyword;
-		t.location = base.getWithOffsets(begin, index);
+		t.type = TokenType.Comment;
 		
-		if (idCharCount == 0) {
-			return t;
+		uint begin = index - uint(s.length);
+		uint end = popComment!s();
+		
+		t.location = base.getWithOffsets(begin, end);
+		return t;
+	}
+
+	/**
+	 * String literals.
+	 */
+	bool lexEscapeSequence(ref string decoded) {
+		char c = frontChar;
+		
+		switch (c) {
+			case '\'', '"', '\\':
+				// Noop.
+				break;
+			
+			case '?':
+				assert(0, "WTF is \\?");
+			
+			case '0':
+				c = '\0';
+				break;
+			
+			case 'a':
+				c = '\a';
+				break;
+			
+			case 'b':
+				c = '\b';
+				break;
+			
+			case 'f':
+				c = '\f';
+				break;
+			
+			case 'r':
+				c = '\r';
+				break;
+			
+			case 'n':
+				c = '\n';
+				break;
+			
+			case 't':
+				c = '\t';
+				break;
+			
+			case 'v':
+				c = '\v';
+				break;
+			
+			case 'u', 'U':
+				popChar();
+				
+				uint v = 0;
+				
+				auto length = 4 * (c == 'U') + 4;
+				foreach (i; 0 .. length) {
+					c = frontChar;
+					
+					uint d = c - '0';
+					uint h = ((c | 0x20) - 'a') & 0xff;
+					uint n = (d < 10) ? d : (h + 10);
+					
+					if (n >= 16) {
+						return false;
+					}
+					
+					v |= n << (4 * (length - i - 1));
+					popChar();
+				}
+				
+				char[4] buf;
+				
+				import std.utf;
+				auto i = encode(buf, v);
+				
+				decoded ~= buf[0 .. i];
+				return true;
+			
+			case '&':
+				assert(0, "HTML5 named character references not implemented");
+			
+			default:
+				return false;
+		}
+		
+		popChar();
+		decoded ~= c;
+		return true;
+	}
+	
+	Token lexRawString(char Delimiter = '`')(uint begin) {
+		Token t;
+		t.type = TokenType.StringLiteral;
+		
+		size_t start = index;
+		
+		auto c = frontChar;
+		while (c != Delimiter && c != '\0') {
+			popChar();
+			c = frontChar;
 		}
 
-		// This is an identifier that happened to start
-		// like a keyword.
-		t.type = TokenType.Identifier;
-		t.name = context.getName(content[begin .. index]);
+		if (c == '\0') {
+			setError(t, "Unexpected end of file");
+			t.location = base.getWithOffsets(begin, index);
+			return t;
+		}
 		
+		if (decodeStrings) {
+			string decoded = content[start .. index];
+			t.name = context.getName(decoded);
+		}
+		
+		popChar();
+		
+		t.location = base.getWithOffsets(begin, index);
 		return t;
 	}
 	
-	auto lexOperator(string s)() {
-		enum Type = OperatorMap[s];
-		uint l = s.length;
-		
+	Token lexString(string s : "`")() {
+		immutable begin = cast(uint) (index - s.length);
+		return lexRawString!'`'(begin);
+	}
+
+	Token lexString(string s : "'")() {
+		immutable begin = cast(uint) (index - s.length);
+		return lexRawString!'\''(begin);
+	}
+
+	Token lexDecodedString(char Delimiter = '"', TokenType TT = TokenType.StringLiteral)(uint begin) {
 		Token t;
-		t.type = Type;
-		t.location = base.getWithOffsets(index - l, index);
-		t.name = BuiltinName!s;
+		t.type = TT;
 		
+		size_t start = index;
+		string decoded;
+		
+		auto c = frontChar;
+		while (c != Delimiter && c != '\0') {
+			if (c == '\\') {
+				immutable beginEscape = index;
+				
+				if (decodeStrings) {
+					scope(success) {
+						start = index;
+					}
+					
+					// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
+					if (decoded == "") {
+						decoded = content[start .. index];
+					} else {
+						decoded ~= content[start .. index];
+					}
+					
+					popChar();
+					if (!lexEscapeSequence(decoded)) {
+						t.location = base.getWithOffsets(beginEscape, index);
+						setError(t, "Invalid escape sequence");
+						return t;
+					}
+					
+					c = frontChar;
+					continue;
+				}
+				
+				popChar();
+				c = frontChar;
+			}
+			
+			popChar();
+			c = frontChar;
+		}
+		
+		if (c == '\0') {
+			setError(t, "Unexpected end of file");
+			t.location = base.getWithOffsets(begin, index);
+			return t;
+		}
+		
+		if (decodeStrings) {
+			// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
+			if (decoded == "") {
+				decoded = content[start .. index];
+			} else {
+				decoded ~= content[start .. index];
+			}
+			
+			t.name = context.getName(decoded);
+		}
+		
+		popChar();
+		
+		t.location = base.getWithOffsets(begin, index);
 		return t;
+	}
+	
+	Token lexString(string s : `"`)() {
+		immutable begin = cast(uint) (index - s.length);
+		return lexDecodedString!'"'(begin);
+	}
+
+	Token lexCharacter(string s : `'`)() {
+		immutable begin = cast(uint) (index - s.length);
+		return lexDecodedString!('\'', TokenType.CharacterLiteral)(begin);
 	}
 }
 
