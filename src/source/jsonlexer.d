@@ -113,6 +113,13 @@ struct JsonLexer {
 	
 	import source.lexerutil;
 	mixin TokenRangeImpl!(Token, BaseMap, KeywordMap, OperatorMap);
+	
+	import source.lexnumeric;
+	mixin LexNumericImpl!(Token, [
+		"" : TokenType.IntegerLiteral,
+	], [
+		"" : TokenType.FloatLiteral,
+	]);
 }
 
 unittest {

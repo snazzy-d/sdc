@@ -201,6 +201,39 @@ struct DLexer {
 		}
 	}
 	
+	import source.lexnumeric;
+	mixin LexNumericImpl!(Token, [
+		"" : TokenType.IntegerLiteral,
+		"u": TokenType.IntegerLiteral,
+		"U": TokenType.IntegerLiteral,
+		"ul": TokenType.IntegerLiteral,
+		"uL": TokenType.IntegerLiteral,
+		"Ul": TokenType.IntegerLiteral,
+		"UL": TokenType.IntegerLiteral,
+		"l": TokenType.IntegerLiteral,
+		"L": TokenType.IntegerLiteral,
+		"lu": TokenType.IntegerLiteral,
+		"lU": TokenType.IntegerLiteral,
+		"Lu": TokenType.IntegerLiteral,
+		"LU": TokenType.IntegerLiteral,
+		"f": TokenType.FloatLiteral,
+		"F": TokenType.FloatLiteral,
+	], [
+		"" : TokenType.FloatLiteral,
+		"f": TokenType.FloatLiteral,
+		"F": TokenType.FloatLiteral,
+		"L": TokenType.FloatLiteral,
+	], null, [
+		"l": "lexFloatSuffixError",
+	]);
+	
+	auto lexFloatSuffixError(string s : "l")(uint begin, uint prefixStart) {
+		Token t;
+		t.location = base.getWithOffsets(begin, index);
+		setError(t, "Use 'L' suffix instead of 'l'");
+		return t;
+	}
+	
 	Token lexStringPostfix(Token t) {
 		if (t.type == TokenType.Invalid) {
 			// Forward errors.
