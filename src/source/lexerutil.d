@@ -313,65 +313,83 @@ private:
 	/**
 	 * Integral and float literals.
 	 */
-	Token lexIntegralSuffix(uint begin) {
-		Token t;
-		t.type = TokenType.IntegerLiteral;
+	auto lexLiteralSuffix(alias Suffixes, alias CustomSuffixes = null)(uint begin) {
+		const prefixStart = index;
+		alias fun = lexLiteralSuffixTpl!Suffixes.fun;
 		
-		auto c = frontChar;
-		switch(c | 0x20) {
-			case 'u':
-				popChar();
-				
-				c = frontChar;
-				if (c == 'L' || c == 'l') {
-					popChar();
-				}
-				
-				break;
+		static getLexerMap() {
+			string[string] ret = CustomSuffixes;
 			
-			case 'l':
-				popChar();
-				
-				c = frontChar;
-				if (c == 'U' || c == 'u') {
-					popChar();
-				}
-				
-				break;
+			foreach (op, _; Suffixes) {
+				ret[op] = "fun";
+			}
 			
-			case 'f':
-				popChar();
-				
-				t.type = TokenType.FloatLiteral;
-				break;
-			
-			default:
-				break;
+			return ret;
 		}
 		
-		t.location = base.getWithOffsets(begin, index);
-		return t;
+		while (true) {
+			import source.lexerutil;
+			mixin(lexerMixin(getLexerMap(), "fun", ["begin", "prefixStart"]));
+		}
 	}
-
-	Token lexFloatSuffix(uint begin) {
-		Token t;
-		
-		const c = frontChar;
-		const hc = c | 0x20;
-		if (hc == 'f' || hc == 'l') {
-			popChar();
-		}
-
-		t.location = base.getWithOffsets(begin, index);
-		
-		// l is an error for some unexplainable reason.
-		if (c == 'l') {
-			setError(t, "Use 'L' suffix instead of 'l'");
+	
+	template lexLiteralSuffixTpl(alias Suffixes) {
+		auto fun(string s)(uint begin, uint prefixStart) {
+			enum Kind = Suffixes[s];
+			auto idCharCount = popIdChars();
+			
+			Token t;
+			t.type = Kind;
+			t.location = base.getWithOffsets(begin, index);
+			
+			if (idCharCount == 0) {
+				return t;
+			}
+			
+			// We have something else.
+			setError(t, "Invalid suffix: " ~ content[prefixStart .. index]);
 			return t;
 		}
+	}
+	
+	Token lexIntegralSuffix(uint begin) {
+		enum IntegralSuffixMap = [
+			"" : TokenType.IntegerLiteral,
+			"u": TokenType.IntegerLiteral,
+			"U": TokenType.IntegerLiteral,
+			"ul": TokenType.IntegerLiteral,
+			"uL": TokenType.IntegerLiteral,
+			"Ul": TokenType.IntegerLiteral,
+			"UL": TokenType.IntegerLiteral,
+			"l": TokenType.IntegerLiteral,
+			"L": TokenType.IntegerLiteral,
+			"lu": TokenType.IntegerLiteral,
+			"lU": TokenType.IntegerLiteral,
+			"Lu": TokenType.IntegerLiteral,
+			"LU": TokenType.IntegerLiteral,
+			"f": TokenType.FloatLiteral,
+			"F": TokenType.FloatLiteral,
+		];
 		
-		t.type = TokenType.FloatLiteral;
+		return lexLiteralSuffix!IntegralSuffixMap(begin);
+	}
+	
+	auto lexFloatSuffixError(string s : "l")(uint begin, uint prefixStart) {
+		Token t;
+		t.location = base.getWithOffsets(begin, index);
+		setError(t, "Use 'L' suffix instead of 'l'");
 		return t;
+	}
+	
+	Token lexFloatSuffix(uint begin) {
+		return lexLiteralSuffix!([
+			"" : TokenType.FloatLiteral,
+			"f": TokenType.FloatLiteral,
+			"F": TokenType.FloatLiteral,
+			"L": TokenType.FloatLiteral,
+		], [
+			"l": "lexFloatSuffixError",
+		])(begin);
 	}
 	
 	Token lexFloatLiteral(alias isFun, alias popFun, char E)(uint begin) {
@@ -832,8 +850,8 @@ void popFront(ref string s) {
 	s = s[1 .. $];
 }
 
-string lexerMixin(string[string] ids, string def = "lexIdentifier") {
-	return lexerMixin(ids, def, "");
+string lexerMixin(string[string] ids, string def = "lexIdentifier", string[] rtArgs = []) {
+	return lexerMixin(ids, def, rtArgs, "");
 }
 
 private:
@@ -843,8 +861,9 @@ auto stringify(string s) {
 	return "`" ~ s.replace("`", "` ~ \"`\" ~ `").replace("\0", "` ~ \"\\0\" ~ `") ~ "`";
 }
 
-auto getLexingCode(string fun, string base) {
-	auto args = "!(" ~ stringify(base) ~ ")()";
+auto getLexingCode(string fun, string[] rtArgs, string base) {
+	import std.array;
+	auto args = "!(" ~ stringify(base) ~ ")(" ~ rtArgs.join(", ") ~ ")";
 	
 	switch (fun[0]) {
 		case '-':
@@ -881,7 +900,7 @@ auto getLexingCode(string fun, string base) {
 	}
 }
 
-string lexerMixin(string[string] ids, string def, string base) {
+string lexerMixin(string[string] ids, string def, string[] rtArgs, string base) {
 	auto defaultFun = def;
 	string[string][char] nextLevel;
 	foreach (id, fun; ids) {
@@ -952,26 +971,26 @@ string lexerMixin(string[string] ids, string def, string base) {
 		auto newBase = base ~ c;
 		if (subids.length == 1) {
 			if (auto cdef = "" in subids) {
-				ret ~= getLexingCode(*cdef, newBase);
+				ret ~= getLexingCode(*cdef, rtArgs, newBase);
 				continue;
 			}
 		}
 		
-		ret ~= lexerMixin(nextLevel[c], def, newBase);
+		ret ~= lexerMixin(nextLevel[c], def, rtArgs, newBase);
 	}
 	
 	if (base == "" || base[$ - 1] < 0x80) {
 		ret ~= "
-				default:" ~ getLexingCode(defaultFun, base) ~ "
-			}
-			";
+			default:" ~ getLexingCode(defaultFun, rtArgs, base) ~ "
+		}
+		";
 	} else {
 		ret ~= "
-				default:
-					// Do not exit in the middle of an unicode sequence.
-					unpopChar();
-					break;
-			}
+			default:
+				// Do not exit in the middle of an unicode sequence.
+				unpopChar();
+				break;
+		}
 			
 			// Fall back to the default instead.
 			goto default;
