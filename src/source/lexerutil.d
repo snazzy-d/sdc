@@ -197,7 +197,7 @@ private:
 				break;
 			}
 			
-			// XXX: Dafuq does this need to be a size_t ?
+			// This needs to be a size_t.
 			size_t i = index;
 			
 			import std.utf;
@@ -216,41 +216,32 @@ private:
 
 	auto lexIdentifier(string s : "" = "")() {
 		uint begin = index;
-		
+
+		Token t;
+		t.type = TokenType.Identifier;
+
 		char c = frontChar;
-		if (!wantIdentifier(c)) {
-			// Make sure we don't stay in place.
-			if (c != '\0') {
-				popChar();
-			}
-			
-			Token t;
-			setError(t, "Unexpected token");
+		if (wantIdentifier(c) && popIdChars() > 0) {
 			t.location = base.getWithOffsets(begin, index);
+			t.name = context.getName(content[begin .. index]);
+
 			return t;
 		}
 
-		if (c < 0x80) {
+		// Make sure we don't stay in place.
+		if (c | 0x80) {
+			import std.utf;
+			size_t i = index;
+			content.decode(i);
+			index = cast(uint) i;
+		} else if (c != '\0') {
 			popChar();
-			return lexIdentifier(1);
 		}
 
-		// XXX: Dafuq does this need to be a size_t ?
-		size_t i = index;
-		
-		import std.utf;
-		auto u = content.decode(i);
-		index = cast(uint) i;
-		
-		import std.uni;
-		if (!isAlpha(u)) {
-			Token t;
-			setError(t, "Unexpected token");
-			t.location = base.getWithOffsets(begin, index);
-			return t;
-		}
-		
-		return lexIdentifier(index - begin);
+		setError(t, "Unexpected token");
+		t.location = base.getWithOffsets(begin, index);
+
+		return t;
 	}
 
 	auto lexIdentifier(string s)() if (s != "") {
@@ -456,15 +447,16 @@ private:
 			popChar();
 		}
 
-		if (!isBinary(frontChar)) {
-			Token t;
-			t.location = base.getWithOffsets(begin, index);
-			setError(t, "Invalid binary sequence");
-			return t;
+		if (isBinary(frontChar)) {
+			popBinary();
+			return lexIntegralSuffix(begin);
 		}
-		
-		popBinary();
-		return lexIntegralSuffix(begin);
+
+		Token t;
+		t.location = base.getWithOffsets(begin, index);
+		setError(t, "Invalid binary sequence");
+
+		return t;
 	}
 	
 	/**
@@ -489,19 +481,19 @@ private:
 	
 	Token lexNumeric(string s : "0x")() {
 		uint begin = index - 2;
-		
+
 		while (frontChar == '_') {
 			popChar();
 		}
 
-		if (!isHexadecimal(frontChar)) {
-			Token t;
-			t.location = base.getWithOffsets(begin, index);
-			setError(t, "Invalid hexadecimal sequence");
-			return t;
+		if (isHexadecimal(frontChar)) {
+			return lexFloatLiteral!(isHexadecimal, popHexadecimal, 'p')(begin);
 		}
-		
-		return lexFloatLiteral!(isHexadecimal, popHexadecimal, 'p')(begin);
+
+		Token t;
+		t.location = base.getWithOffsets(begin, index);
+		setError(t, "Invalid hexadecimal sequence");
+		return t;
 	}
 	
 	/**
