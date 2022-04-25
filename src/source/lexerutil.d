@@ -275,6 +275,38 @@ private:
 		return c == '_' || (c & 0x80) || (hc >= 'a' && hc <= 'z');
 	}
 
+	auto popIdChars() {
+		const begin = index;
+		while (true) {
+			char c = frontChar;
+			
+			import std.ascii : isAlphaNum;
+			while (c == '_' || isAlphaNum(c)) {
+				popChar();
+				c = frontChar;
+			}
+			
+			if (c < 0x80) {
+				break;
+			}
+			
+			// XXX: Dafuq does this need to be a size_t ?
+			size_t i = index;
+			
+			import std.utf;
+			auto u = content.decode(i);
+			
+			import std.uni : isAlpha;
+			if (!isAlpha(u)) {
+				break;
+			}
+			
+			index = cast(uint) i;
+		}
+		
+		return begin - index;
+	}
+
 	auto lexIdentifier(string s : "" = "")() {
 		uint begin = index;
 		
@@ -326,28 +358,7 @@ private:
 		t.type = TokenType.Identifier;
 		immutable begin = index - prefixLength;
 		
-		while (true) {
-			while (isIdChar(frontChar)) {
-				popChar();
-			}
-			
-			if (!(frontChar | 0x80)) {
-				break;
-			}
-			
-			// XXX: Dafuq does this need to be a size_t ?
-			size_t i = index;
-			
-			import std.utf;
-			auto u = content.decode(i);
-			
-			import std.uni;
-			if (!isAlpha(u)) {
-				break;
-			}
-			
-			index = cast(uint) i;
-		}
+		popIdChars();
 		
 		t.location = base.getWithOffsets(begin, index);
 		t.name = context.getName(content[begin .. index]);
@@ -765,53 +776,43 @@ private:
 	}
 	
 	/**
-	 * Keywords and identifiers.
+	 * Keywords and operators.
 	 */
 	auto lexKeyword(string s)() {
-		auto c = frontChar;
-		if (isIdChar(c)) {
-			popChar();
-			return lexIdentifier(s.length + 1);
-		}
-		
-		if (c & 0x80) {
-			size_t i = index;
-			
-			import std.utf;
-			auto u = content.decode(i);
-			
-			import std.uni;
-			if (isAlpha(u)) {
-				auto l = cast(ubyte) (i - index);
-				index += l;
-				return lexIdentifier(s.length + l);
-			}
-		}
-		
 		enum Type = KeywordMap[s];
-		
 		uint l = s.length;
 		
-		Token t;
-		t.type = Type;
-		t.location = base.getWithOffsets(index - l, index);
+		return lexKeyword(index - l, Type, BuiltinName!s);
+	}
+	
+	import source.name;
+	auto lexKeyword(uint begin, TokenType type, Name keyword) {
+		auto idCharCount = popIdChars();
 
-		import source.name;
-		t.name = BuiltinName!s;
+		Token t;
+		t.type = type;
+		t.name = keyword;
+		t.location = base.getWithOffsets(begin, index);
+		
+		if (idCharCount == 0) {
+			return t;
+		}
+
+		// This is an identifier that happened to start
+		// like a keyword.
+		t.type = TokenType.Identifier;
+		t.name = context.getName(content[begin .. index]);
 		
 		return t;
 	}
 	
 	auto lexOperator(string s)() {
 		enum Type = OperatorMap[s];
-		
 		uint l = s.length;
 		
 		Token t;
 		t.type = Type;
 		t.location = base.getWithOffsets(index - l, index);
-
-		import source.name;
 		t.name = BuiltinName!s;
 		
 		return t;
@@ -825,11 +826,6 @@ char front(string s) {
 
 void popFront(ref string s) {
 	s = s[1 .. $];
-}
-
-auto isIdChar(char c) {
-	import std.ascii;
-	return c == '_' || isAlphaNum(c);
 }
 
 string lexerMixin(string[string] ids, string def = "lexIdentifier") {
