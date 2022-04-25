@@ -122,7 +122,9 @@ struct JsonLexer {
 	]);
 	
 	import source.lexstring;
-	mixin LexStringImpl!Token;
+	mixin LexStringImpl!(Token, [
+		"" : TokenType.StringLiteral,
+	]);
 }
 
 unittest {

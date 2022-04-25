@@ -1,9 +1,13 @@
 module source.lexstring;
 
-mixin template LexStringImpl(Token) {
+mixin template LexStringImpl(Token, alias StringSuffixes, alias CustomStringSuffixes = null) {
 	/**
 	 * String literals.
 	 */
+	auto lexStrignSuffix(uint begin) {
+		return lexLiteralSuffix!(StringSuffixes, CustomStringSuffixes)(begin);
+	}
+	
 	bool lexEscapeSequence(ref string decoded) {
 		char c = frontChar;
 		
@@ -89,9 +93,6 @@ mixin template LexStringImpl(Token) {
 	}
 	
 	Token lexRawString(char Delimiter = '`')(uint begin) {
-		Token t;
-		t.type = TokenType.StringLiteral;
-		
 		size_t start = index;
 		
 		auto c = frontChar;
@@ -101,82 +102,69 @@ mixin template LexStringImpl(Token) {
 		}
 
 		if (c == '\0') {
+			Token t;
 			setError(t, "Unexpected end of file");
 			t.location = base.getWithOffsets(begin, index);
 			return t;
 		}
 		
+		uint end = index;
+		popChar();
+		
+		auto t = lexStrignSuffix(begin);
+		if (t.type == TokenType.Invalid) {
+			// Propagate errors.
+			return t;
+		}
+		
 		if (decodeStrings) {
-			string decoded = content[start .. index];
+			string decoded = content[start .. end];
 			t.name = context.getName(decoded);
 		}
 		
-		popChar();
-		
-		t.location = base.getWithOffsets(begin, index);
 		return t;
 	}
 	
 	Token lexString(string s : "`")() {
-		immutable begin = cast(uint) (index - s.length);
-		return lexRawString!'`'(begin);
+		uint l = s.length;
+		return lexRawString!'`'(index - l);
 	}
 
 	Token lexString(string s : "'")() {
-		immutable begin = cast(uint) (index - s.length);
-		return lexRawString!'\''(begin);
+		uint l = s.length;
+		return lexRawString!'\''(index - l);
 	}
 
-	Token lexDecodedString(char Delimiter = '"', TokenType TT = TokenType.StringLiteral)(uint begin) {
-		Token t;
-		t.type = TT;
-		
+	Token lexDecodedString(char Delimiter = '"')(uint begin) {
 		size_t start = index;
 		string decoded;
 		
 		auto c = frontChar;
 		while (c != Delimiter && c != '\0') {
-			if (c == '\\') {
-				immutable beginEscape = index;
+			if (c != '\\') {
+				popChar();
+				c = frontChar;
+				continue;
+			}
+			
+			if (!decodeStrings) {
+				popChar();
 				
-				if (decodeStrings) {
-					scope(success) {
-						start = index;
-					}
-					
-					// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
-					if (decoded == "") {
-						decoded = content[start .. index];
-					} else {
-						decoded ~= content[start .. index];
-					}
-					
-					popChar();
-					if (!lexEscapeSequence(decoded)) {
-						t.location = base.getWithOffsets(beginEscape, index);
-						setError(t, "Invalid escape sequence");
-						return t;
-					}
-					
-					c = frontChar;
-					continue;
+				c = frontChar;
+				if (c == '\0') {
+					break;
 				}
 				
 				popChar();
 				c = frontChar;
+				continue;
 			}
 			
-			popChar();
-			c = frontChar;
-		}
-		
-		if (c == '\0') {
-			setError(t, "Unexpected end of file");
-			t.location = base.getWithOffsets(begin, index);
-			return t;
-		}
-		
-		if (decodeStrings) {
+			const beginEscape = index;
+			scope(success) {
+				start = index;
+			}
+			
 			// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
 			if (decoded == "") {
 				decoded = content[start .. index];
@@ -184,22 +172,59 @@ mixin template LexStringImpl(Token) {
 				decoded ~= content[start .. index];
 			}
 			
+			popChar();
+			if (!lexEscapeSequence(decoded)) {
+				Token t;
+				setError(t, "Invalid escape sequence");
+				t.location = base.getWithOffsets(beginEscape, index);
+				return t;
+			}
+			
+			c = frontChar;
+		}
+		
+		if (c == '\0') {
+			Token t;
+			setError(t, "Unexpected end of file");
+			t.location = base.getWithOffsets(begin, index);
+			return t;
+		}
+		
+		uint end = index;
+		popChar();
+		
+		auto t = lexStrignSuffix(begin);
+		if (t.type == TokenType.Invalid) {
+			// Propagate errors.
+			return t;
+		}
+		
+		if (decodeStrings) {
+			// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
+			if (decoded == "") {
+				decoded = content[start .. end];
+			} else {
+				decoded ~= content[start .. end];
+			}
+			
 			t.name = context.getName(decoded);
 		}
 		
-		popChar();
-		
-		t.location = base.getWithOffsets(begin, index);
 		return t;
 	}
 	
 	Token lexString(string s : `"`)() {
-		immutable begin = cast(uint) (index - s.length);
-		return lexDecodedString!'"'(begin);
+		uint l = s.length;
+		return lexDecodedString!'"'(index - l);
 	}
 
 	Token lexCharacter(string s : `'`)() {
-		immutable begin = cast(uint) (index - s.length);
-		return lexDecodedString!('\'', TokenType.CharacterLiteral)(begin);
+		uint l = s.length;
+		auto t = lexDecodedString!('\'')(index - l);
+		if (t.type != TokenType.Invalid) {
+			t.type = TokenType.CharacterLiteral;
+		}
+		
+		return t;
 	}
 }

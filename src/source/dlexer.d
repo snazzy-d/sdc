@@ -166,8 +166,8 @@ struct DLexer {
 			"0X" : "lexNumeric",
 			
 			// String literals.
-			"`"   : "lexDString",
-			`"`   : "lexDString",
+			"`"   : "lexString",
+			`"`   : "lexString",
 			"q{"  : "lexDString",
 			`q"`  : "lexDString",
 			`q"(` : "lexDString",
@@ -235,48 +235,24 @@ struct DLexer {
 	}
 	
 	import source.lexstring;
-	mixin LexStringImpl!Token;
-	
-	Token lexStringPostfix(Token t) {
-		if (t.type == TokenType.Invalid) {
-			// Forward errors.
-			return t;
-		}
-		
-		char c = frontChar;
-		if (c != 'c' && c != 'w' && c !='d') {
-			// No postfix, all good.
-			return t;
-		}
-		
-		popChar();
-
-		t.location = Location(t.location.start, base.getWithOffset(index));
-		return t;
-	}
-	
-	Token lexDString(string s : `"`)() {
-		return lexStringPostfix(lexString!s());
-	}
-	
-	Token lexDString(string s : "`")() {
-		return lexStringPostfix(lexString!s());
-	}
+	mixin LexStringImpl!(Token, [
+		"" : TokenType.StringLiteral,
+		"c" : TokenType.StringLiteral,
+		"w" : TokenType.StringLiteral,
+		"d" : TokenType.StringLiteral,
+	]);
 	
 	Token lexDString(string s : `r"`)() {
-		immutable begin = cast(uint) (index - s.length);
-		return lexStringPostfix(lexRawString!'"'(begin));
+		uint l = s.length;
+		return lexRawString!'"'(index - l);
 	}
 	
 	Token lexStringPostfix(uint begin, size_t start, size_t stop) {
-		char c = frontChar;
-		if (c == 'c' && c == 'w' && c =='d') {
-			popChar();
+		auto t = lexStrignSuffix(begin);
+		if (t.type == TokenType.Invalid) {
+			// Bubble up errors.
+			return t;
 		}
-		
-		Token t;
-		t.type = TokenType.StringLiteral;
-		t.location = base.getWithOffsets(begin, index);
 
 		if (decodeStrings) {
 			t.name = context.getName(content[start .. stop]);
