@@ -143,7 +143,7 @@ auto lex(Position base, Context context) {
 	lexer.previous = base;
 	
 	// Pop #!
-	lexer.popSheBang();
+	lexer.t.name = lexer.popSheBang();
 	
 	lexer.t.location =  Location(base, base.getWithOffset(lexer.index));
 	return lexer;
@@ -191,14 +191,19 @@ struct DLexer {
 	import source.lexbase;
 	mixin LexBaseImpl!(Token, BaseMap, getKeywordsMap(), getOperatorsMap());
 	
-	void popSheBang() {
+	import source.name;
+	Name popSheBang() {
 		auto c = frontChar;
-		if (c == '#') {
-			while (c != '\n') {
-				popChar();
-				c = frontChar;
-			}
+		if (c != '#') {
+			return BuiltinName!"";
 		}
+		
+		while (c != '\n') {
+			popChar();
+			c = frontChar;
+		}
+		
+		return context.getName(content[0 .. index]);
 	}
 	
 	import source.lexnumeric;

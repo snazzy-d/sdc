@@ -83,8 +83,13 @@ public:
 	Chunk[] parse() in {
 		assert(match(TokenType.Begin));
 	} do {
-		// Eat the begin token and get the game rolling.
-		nextToken();
+		// Emit the shebang if there is one.
+		write(token.location, token.toString(context));
+		trange.popFront();
+		newline();
+
+		parseComments();
+
 		parseModule();
 
 		assert(match(TokenType.End));
