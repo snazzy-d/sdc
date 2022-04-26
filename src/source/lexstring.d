@@ -21,6 +21,20 @@ mixin template LexStringImpl(Token, alias StringSuffixes, alias CustomStringSuff
 		return lexLiteralSuffix!(StringSuffixes, CustomStringSuffixes)(begin);
 	}
 	
+	Token buildRawString(uint begin, size_t start, size_t stop) {
+		auto t = lexStrignSuffix(begin);
+		if (t.type == TokenType.Invalid) {
+			// Bubble up errors.
+			return t;
+		}
+
+		if (decodeStrings) {
+			t.name = context.getName(content[start .. stop]);
+		}
+
+		return t;
+	}
+	
 	Token lexRawString(char Delimiter = '`')(uint begin) {
 		size_t start = index;
 		
@@ -40,18 +54,7 @@ mixin template LexStringImpl(Token, alias StringSuffixes, alias CustomStringSuff
 		uint end = index;
 		popChar();
 		
-		auto t = lexStrignSuffix(begin);
-		if (t.type == TokenType.Invalid) {
-			// Propagate errors.
-			return t;
-		}
-		
-		if (decodeStrings) {
-			string decoded = content[start .. end];
-			t.name = context.getName(decoded);
-		}
-		
-		return t;
+		return buildRawString(begin, start, end);
 	}
 	
 	Token lexString(string s : "`")() {

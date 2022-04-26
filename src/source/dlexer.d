@@ -247,20 +247,6 @@ struct DLexer {
 		return lexRawString!'"'(index - l);
 	}
 	
-	Token lexStringPostfix(uint begin, size_t start, size_t stop) {
-		auto t = lexStrignSuffix(begin);
-		if (t.type == TokenType.Invalid) {
-			// Bubble up errors.
-			return t;
-		}
-
-		if (decodeStrings) {
-			t.name = context.getName(content[start .. stop]);
-		}
-
-		return t;
-	}
-	
 	Token lexDString(string s : "q{")() {
 		uint begin = index - 2;
 		uint start = index;
@@ -300,7 +286,7 @@ struct DLexer {
 		}
 		
 		index = lookahead.index;
-		return lexStringPostfix(begin, start, index - 1);
+		return buildRawString(begin, start, index - 1);
 	}
 
 	Token lexQDelimintedString(char delimiter) in {
@@ -328,7 +314,7 @@ struct DLexer {
 		}
 
 		popChar();
-		return lexStringPostfix(begin, start, index - 2);
+		return buildRawString(begin, start, index - 2);
 	}
 
 	Token lexDString(string s : `q"(`)() {
@@ -411,7 +397,7 @@ struct DLexer {
 			break;
 		}
 
-		return lexStringPostfix(begin, start, index - id.length - 1);
+		return buildRawString(begin, start, index - id.length - 1);
 	}
 }
 
