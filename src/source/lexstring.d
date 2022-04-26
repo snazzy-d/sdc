@@ -2,94 +2,23 @@ module source.lexstring;
 
 mixin template LexStringImpl(Token, alias StringSuffixes, alias CustomStringSuffixes = null) {
 	/**
+	 * Character literals.
+	 */
+	Token lexCharacter(string s : `'`)() {
+		uint l = s.length;
+		auto t = lexDecodedString!('\'')(index - l);
+		if (t.type != TokenType.Invalid) {
+			t.type = TokenType.CharacterLiteral;
+		}
+		
+		return t;
+	}
+	
+	/**
 	 * String literals.
 	 */
 	auto lexStrignSuffix(uint begin) {
 		return lexLiteralSuffix!(StringSuffixes, CustomStringSuffixes)(begin);
-	}
-	
-	bool lexEscapeSequence(ref string decoded) {
-		char c = frontChar;
-		
-		switch (c) {
-			case '\'', '"', '\\':
-				// Noop.
-				break;
-			
-			case '?':
-				assert(0, "WTF is \\?");
-			
-			case '0':
-				c = '\0';
-				break;
-			
-			case 'a':
-				c = '\a';
-				break;
-			
-			case 'b':
-				c = '\b';
-				break;
-			
-			case 'f':
-				c = '\f';
-				break;
-			
-			case 'r':
-				c = '\r';
-				break;
-			
-			case 'n':
-				c = '\n';
-				break;
-			
-			case 't':
-				c = '\t';
-				break;
-			
-			case 'v':
-				c = '\v';
-				break;
-			
-			case 'u', 'U':
-				popChar();
-				
-				uint v = 0;
-				
-				auto length = 4 * (c == 'U') + 4;
-				foreach (i; 0 .. length) {
-					c = frontChar;
-					
-					uint d = c - '0';
-					uint h = ((c | 0x20) - 'a') & 0xff;
-					uint n = (d < 10) ? d : (h + 10);
-					
-					if (n >= 16) {
-						return false;
-					}
-					
-					v |= n << (4 * (length - i - 1));
-					popChar();
-				}
-				
-				char[4] buf;
-				
-				import std.utf;
-				auto i = encode(buf, v);
-				
-				decoded ~= buf[0 .. i];
-				return true;
-			
-			case '&':
-				assert(0, "HTML5 named character references not implemented");
-			
-			default:
-				return false;
-		}
-		
-		popChar();
-		decoded ~= c;
-		return true;
 	}
 	
 	Token lexRawString(char Delimiter = '`')(uint begin) {
@@ -218,13 +147,90 @@ mixin template LexStringImpl(Token, alias StringSuffixes, alias CustomStringSuff
 		return lexDecodedString!'"'(index - l);
 	}
 
-	Token lexCharacter(string s : `'`)() {
-		uint l = s.length;
-		auto t = lexDecodedString!('\'')(index - l);
-		if (t.type != TokenType.Invalid) {
-			t.type = TokenType.CharacterLiteral;
+	/**
+	 * Escape sequences.
+	 */
+	bool lexEscapeSequence(ref string decoded) {
+		char c = frontChar;
+		
+		switch (c) {
+			case '\'', '"', '\\':
+				// Noop.
+				break;
+			
+			case '?':
+				assert(0, "WTF is \\?");
+			
+			case '0':
+				c = '\0';
+				break;
+			
+			case 'a':
+				c = '\a';
+				break;
+			
+			case 'b':
+				c = '\b';
+				break;
+			
+			case 'f':
+				c = '\f';
+				break;
+			
+			case 'r':
+				c = '\r';
+				break;
+			
+			case 'n':
+				c = '\n';
+				break;
+			
+			case 't':
+				c = '\t';
+				break;
+			
+			case 'v':
+				c = '\v';
+				break;
+			
+			case 'u', 'U':
+				popChar();
+				
+				uint v = 0;
+				
+				auto length = 4 * (c == 'U') + 4;
+				foreach (i; 0 .. length) {
+					c = frontChar;
+					
+					uint d = c - '0';
+					uint h = ((c | 0x20) - 'a') & 0xff;
+					uint n = (d < 10) ? d : (h + 10);
+					
+					if (n >= 16) {
+						return false;
+					}
+					
+					v |= n << (4 * (length - i - 1));
+					popChar();
+				}
+				
+				char[4] buf;
+				
+				import std.utf;
+				auto i = encode(buf, v);
+				
+				decoded ~= buf[0 .. i];
+				return true;
+			
+			case '&':
+				assert(0, "HTML5 named character references not implemented");
+			
+			default:
+				return false;
 		}
 		
-		return t;
+		popChar();
+		decoded ~= c;
+		return true;
 	}
 }
