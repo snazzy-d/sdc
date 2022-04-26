@@ -10,45 +10,6 @@ mixin template LexNumericImpl(
 	/**
 	 * Integral and float literals.
 	 */
-	auto lexLiteralSuffix(alias Suffixes, alias CustomSuffixes = null)(uint begin) {
-		const prefixStart = index;
-		alias fun = lexLiteralSuffixTpl!Suffixes.fun;
-		
-		static getLexerMap() {
-			string[string] ret = CustomSuffixes;
-			
-			foreach (op, _; Suffixes) {
-				ret[op] = "fun";
-			}
-			
-			return ret;
-		}
-		
-		while (true) {
-			import source.lexbase;
-			mixin(lexerMixin(getLexerMap(), "fun", ["begin", "prefixStart"]));
-		}
-	}
-	
-	template lexLiteralSuffixTpl(alias Suffixes) {
-		auto fun(string s)(uint begin, uint prefixStart) {
-			enum Kind = Suffixes[s];
-			auto idCharCount = popIdChars();
-			
-			Token t;
-			t.type = Kind;
-			t.location = base.getWithOffsets(begin, index);
-			
-			if (idCharCount == 0) {
-				return t;
-			}
-			
-			// We have something else.
-			setError(t, "Invalid suffix: " ~ content[prefixStart .. index]);
-			return t;
-		}
-	}
-	
 	Token lexIntegralSuffix(uint begin) {
 		return lexLiteralSuffix!(IntegralSuffixes, CustomIntegralSuffixes)(begin);
 	}
