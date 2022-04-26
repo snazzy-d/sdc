@@ -228,10 +228,7 @@ struct DLexer {
 	]);
 	
 	auto lexFloatSuffixError(string s : "l")(uint begin, uint prefixStart) {
-		Token t;
-		t.location = base.getWithOffsets(begin, index);
-		setError(t, "Use 'L' suffix instead of 'l'");
-		return t;
+		return getError(begin, "Use 'L' suffix instead of 'l'.");
 	}
 	
 	import source.lexstring;
@@ -264,13 +261,9 @@ struct DLexer {
 					index = lookahead.index;
 					return lt;
 				
-				case End: {
-					Token t;
-					setError(t, "Unexpected end of file.");
+				case End:
 					index = lookahead.index - 1;
-					t.location = base.getWithOffsets(begin, index);
-					return t;
-				}
+					return getError(begin, "Unexpected end of file.");
 				
 				case OpenBrace:
 					level++;
@@ -307,10 +300,7 @@ struct DLexer {
 		}
 
 		if (c == '\0') {
-			Token t;
-			setError(t, "Unexpected end of file");
-			t.location = base.getWithOffsets(begin, index);
-			return t;
+			return getError(begin, "Unexpected end of file.");
 		}
 
 		popChar();
@@ -351,9 +341,7 @@ struct DLexer {
 		}
 
 		if (frontChar != '\n') {
-			setError(t, "Identifier must be followed by a new line.");
-			t.location = base.getWithOffsets(begin, index);
-			return t;
+			return getError(begin, "Identifier must be followed by a new line.");
 		}
 
 		popChar();
@@ -374,9 +362,7 @@ struct DLexer {
 			}
 
 			if (c == '\0') {
-				setError(t, "Unexpected end of file");
-				t.location = base.getWithOffsets(begin, index);
-				return t;
+				return getError(begin, "Unexpected end of file.");
 			}
 
 			scope(success) {

@@ -91,16 +91,12 @@ mixin template LexNumericImpl(
 			popChar();
 		}
 
-		if (isBinary(frontChar)) {
-			popBinary();
-			return lexIntegralSuffix(begin);
+		if (!isBinary(frontChar)) {
+			return getError(begin, "Invalid binary sequence.");
 		}
 
-		Token t;
-		t.location = base.getWithOffsets(begin, index);
-		setError(t, "Invalid binary sequence");
-
-		return t;
+		popBinary();
+		return lexIntegralSuffix(begin);
 	}
 	
 	/**
@@ -130,14 +126,11 @@ mixin template LexNumericImpl(
 			popChar();
 		}
 
-		if (isHexadecimal(frontChar)) {
-			return lexFloatLiteral!(isHexadecimal, popHexadecimal, 'p')(begin);
+		if (!isHexadecimal(frontChar)) {
+			return getError(begin, "Invalid hexadecimal sequence.");
 		}
 
-		Token t;
-		t.location = base.getWithOffsets(begin, index);
-		setError(t, "Invalid hexadecimal sequence");
-		return t;
+		return lexFloatLiteral!(isHexadecimal, popHexadecimal, 'p')(begin);
 	}
 	
 	/**

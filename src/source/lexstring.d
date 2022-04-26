@@ -45,10 +45,7 @@ mixin template LexStringImpl(Token, alias StringSuffixes, alias CustomStringSuff
 		}
 
 		if (c == '\0') {
-			Token t;
-			setError(t, "Unexpected end of file");
-			t.location = base.getWithOffsets(begin, index);
-			return t;
+			return getError(begin, "Unexpected end of file.");
 		}
 		
 		uint end = index;
@@ -106,20 +103,14 @@ mixin template LexStringImpl(Token, alias StringSuffixes, alias CustomStringSuff
 			
 			popChar();
 			if (!lexEscapeSequence(decoded)) {
-				Token t;
-				setError(t, "Invalid escape sequence");
-				t.location = base.getWithOffsets(beginEscape, index);
-				return t;
+				return getError(begin, "Invalid escape sequence.");
 			}
 			
 			c = frontChar;
 		}
 		
 		if (c == '\0') {
-			Token t;
-			setError(t, "Unexpected end of file");
-			t.location = base.getWithOffsets(begin, index);
-			return t;
+			return getError(begin, "Unexpected end of file.");
 		}
 		
 		uint end = index;

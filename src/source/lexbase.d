@@ -129,9 +129,12 @@ private:
 		assert(0);
 	}
 	
-	void setError(ref Token t, string message) {
+	Token getError(uint begin, string message) {
+		Token t;
 		t.type = TokenType.Invalid;
 		t.name = context.getName(message);
+		t.location = base.getWithOffsets(begin, index);
+		return t;
 	}
 	
 	void popChar() in {
@@ -217,11 +220,10 @@ private:
 	auto lexIdentifier(string s : "" = "")() {
 		uint begin = index;
 
-		Token t;
-		t.type = TokenType.Identifier;
-
 		char c = frontChar;
 		if (wantIdentifier(c) && popIdChars() > 0) {
+			Token t;
+			t.type = TokenType.Identifier;
 			t.location = base.getWithOffsets(begin, index);
 			t.name = context.getName(content[begin .. index]);
 
@@ -238,26 +240,19 @@ private:
 			popChar();
 		}
 
-		setError(t, "Unexpected token");
-		t.location = base.getWithOffsets(begin, index);
-
-		return t;
+		return getError(begin, "Unexpected token.");
 	}
 
 	auto lexIdentifier(string s)() if (s != "") {
-		return lexIdentifier(s.length);
+		uint l = s.length;
+		return lexIdentifier(index - l);
 	}
 	
-	auto lexIdentifier(uint prefixLength) in {
-		assert(prefixLength > 0);
-		assert(index >= prefixLength);
-	} do {
+	auto lexIdentifier(uint begin) {
+		popIdChars();
+
 		Token t;
 		t.type = TokenType.Identifier;
-		immutable begin = index - prefixLength;
-		
-		popIdChars();
-		
 		t.location = base.getWithOffsets(begin, index);
 		t.name = context.getName(content[begin .. index]);
 		
@@ -338,16 +333,15 @@ private:
 			enum Kind = Suffixes[s];
 			auto idCharCount = popIdChars();
 			
+			if (idCharCount != 0) {
+				// We have something else.
+				return getError(prefixStart, "Invalid suffix: " ~ content[prefixStart .. index]);
+			}
+			
 			Token t;
 			t.type = Kind;
 			t.location = base.getWithOffsets(begin, index);
 			
-			if (idCharCount == 0) {
-				return t;
-			}
-			
-			// We have something else.
-			setError(t, "Invalid suffix: " ~ content[prefixStart .. index]);
 			return t;
 		}
 	}
