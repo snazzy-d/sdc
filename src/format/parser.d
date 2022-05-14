@@ -2170,13 +2170,14 @@ private:
 		}
 	}
 
-	void parseArgumentList() {
+	bool parseArgumentList() {
 		if (!match(TokenType.OpenParen)) {
-			return;
+			return false;
 		}
 
 		nextToken();
 		parseList!parseExpression(TokenType.CloseParen);
+		return true;
 	}
 
 	void parseArrayLiteral() {
@@ -2397,23 +2398,46 @@ private:
 					auto lookahead = trange.getLookahead();
 					lookahead.popFront();
 
-					if (lookahead.front.type == OpenParen) {
-						split();
+					if (lookahead.front.type == OpenBrace) {
 						nextToken();
-						parseParameterList();
-					} else {
-						nextToken();
-						space();
-						parseBlock(Mode.Statement);
+						goto ContractBlock;
 					}
 
+					split();
+					nextToken();
+					parseArgumentList();
 					break;
 
 				case Out:
-					// FIXME: This doesn't looks like it is doing the right thing.
+					auto lookahead = trange.getLookahead();
+					lookahead.popFront();
+
+					if (lookahead.front.type == OpenBrace) {
+						nextToken();
+						goto ContractBlock;
+					}
+
 					split();
 					nextToken();
-					parseParameterList();
+
+					runOnType!(OpenParen, nextToken)();
+					runOnType!(Identifier, nextToken)();
+
+					if (match(CloseParen)) {
+						nextToken();
+						goto ContractBlock;
+					}
+
+					auto outGuard = span();
+					runOnType!(Semicolon, nextToken)();
+
+					space();
+					split();
+
+					parseList!(parseExpression)(CloseParen);
+					break;
+
+				ContractBlock:
 					space();
 					parseBlock(Mode.Statement);
 					break;
@@ -2431,6 +2455,8 @@ private:
 					break;
 			}
 		}
+
+		assert(0);
 	}
 
 	void parseConstraint() {
