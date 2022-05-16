@@ -20,6 +20,7 @@ private:
 	bool needDoubleIndent = false;
 	bool doubleIndentBlock = false;
 	bool canBeDeclaration = false;
+	bool expectParameters = false;
 
 	enum Mode {
 		Declaration,
@@ -1028,13 +1029,15 @@ private:
 
 			case Function, Delegate:
 				nextToken();
-				if (match(OpenParen) || match(OpenBrace)) {
-					goto LambdaWithParameters;
+				if (!match(OpenParen) && !match(OpenBrace)) {
+					// We have an explicit type.
+					expectParameters = true;
+					scope(success) expectParameters = false;
+
+					space();
+					parseType();
 				}
 
-				// We have an explicit type.
-				space();
-				parseType();
 				goto LambdaWithParameters;
 
 			LambdaWithParameters:
@@ -1125,7 +1128,10 @@ private:
 
 	IdentifierKind parseIdentifierSuffix(IdentifierKind kind) {
 		const tryDeclaration = canBeDeclaration;
+		const skipParentheses = expectParameters;
+
 		canBeDeclaration = false;
+		expectParameters = false;
 
 		while (true) {
 			switch (token.type) with (TokenType) {
@@ -1250,6 +1256,10 @@ private:
 					break;
 
 				case OpenParen:
+					if (skipParentheses) {
+						return kind;
+					}
+
 					// FIXME: customize based on kind.
 					kind = IdentifierKind.Expression;
 					parseArgumentList();
