@@ -11,7 +11,7 @@ bool fun() {
 			new Exception("Ooof!"),
 		delegate {
 			return true;
-		} ,
+		},
 	);
 
 	return (() @trusted =>

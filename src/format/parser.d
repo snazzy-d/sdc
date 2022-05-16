@@ -1028,12 +1028,13 @@ private:
 
 			case Function, Delegate:
 				nextToken();
-				if (!match(OpenParen)) {
-					// We have an explicit type.
-					space();
-					parseType();
+				if (match(OpenParen) || match(OpenBrace)) {
+					goto LambdaWithParameters;
 				}
 
+				// We have an explicit type.
+				space();
+				parseType();
 				goto LambdaWithParameters;
 
 			LambdaWithParameters:
