@@ -6,10 +6,11 @@ bool fun() {
 		(B _) =>
 			foo.bar.buzz.map!(i => j)
 				> 0,
-		(C _) => true, (D _) => false,
+		(C _) => true,
+		(D _) => false,
 		function Type(ArgType) =>
-	throw new Exception("Ooof!")
-	) ;
+			throw new Exception("Ooof!")
+	);
 
 	return (() @trusted =>
 		cast(E[]) result)();

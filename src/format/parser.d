@@ -961,26 +961,7 @@ private:
 				}
 
 				// We have a lambda.
-				parseParameterList();
-				space();
-				parseStorageClasses(true);
-
-				switch (token.type) {
-					case OpenBrace:
-						goto Lambda;
-
-					case EqualMore:
-						nextToken();
-						space();
-						split();
-						parseExpression();
-						break;
-
-					default:
-						break;
-				}
-
-				return IdentifierKind.Expression;
+				goto LambdaWithParameters;
 			}
 
 			ParenIdentifier:
@@ -1053,16 +1034,26 @@ private:
 					parseType();
 				}
 
-				if (match(OpenParen)) {
-					parseParameterList();
-				}
+				goto LambdaWithParameters;
 
+			LambdaWithParameters:
+				parseParameterList();
 				space();
 				parseStorageClasses(true);
 				goto Lambda;
 
 			Lambda:
-				parseInlineBlock(Mode.Statement);
+				if (parseInlineBlock(Mode.Statement)) {
+					return IdentifierKind.Expression;
+				}
+
+				if (match(EqualMore)) {
+					nextToken();
+					space();
+					split();
+					parseExpression();
+				}
+
 				return IdentifierKind.Expression;
 
 			case OpenBracket:
@@ -1332,11 +1323,15 @@ private:
 		auto oldNeedDoubleIndent = needDoubleIndent;
 		scope(exit) {
 			needDoubleIndent = oldNeedDoubleIndent;
-			clearSeparator();
 		}
 
 		needDoubleIndent = false;
-		return parseBlock(m);
+		if (parseBlock(m)) {
+			clearSeparator();
+			return true;
+		}
+
+		return false;
 	}
 
 	bool parseBlock(alias fun = parseBlockContent, T...)(T args) {
