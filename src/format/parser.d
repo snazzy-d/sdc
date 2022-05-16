@@ -920,6 +920,10 @@ private:
 				parseArgumentList();
 				return IdentifierKind.Expression;
 
+			case Throw:
+				parseReturn();
+				return IdentifierKind.Expression;
+
 			case New:
 				nextToken();
 				space();
