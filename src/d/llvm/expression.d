@@ -704,7 +704,45 @@ struct ExpressionGen {
 				
 				auto result = buildCall(declare(pass.object.getClassDowncast()), args[]);
 				return LLVMBuildBitCast(builder, result, type, "");
-			
+
+			case IntToFloat:
+				const toType = e.type.builtin();
+				//Should be correct long before reaching here
+				assert(isFloat(toType));
+				const srcType = e.expr.type.builtin();
+				import std.stdio;
+				//D considers char et al to be an integral type, we do not (yet)
+				const BuiltinType underlyingType = isChar(srcType) ? integralOfChar(srcType) : srcType;
+				if (isSigned(underlyingType))
+					return LLVMBuildSIToFP(builder, value, type, "");
+				else
+					return LLVMBuildUIToFP(builder, value, type, "");
+			case FloatToInt:
+				assert(isFloat(e.expr.type.builtin()));
+				const toType = e.type.builtin();
+				//As above D lets you cast from a char directly to a float.
+				const BuiltinType outerlyingType = isChar(toType) ? integralOfChar(toType) : toType;
+				if (isSigned(outerlyingType))
+					return LLVMBuildFPToSI(builder, value, type, "");
+				else
+					return LLVMBuildFPToUI(builder, value, type, "");
+			case FloatNarrow, FloatWiden:
+				const toType = e.type.builtin();
+				assert(isFloat(toType));
+				const srcType = e.expr.type.builtin();
+				assert(isFloat(srcType));
+				const toSz = getSize(toType);
+				const srcSz = getSize(srcType);
+				assert(toSz != srcSz, "This cast shouldn't exist");
+				if (toSz > srcSz)
+				{
+					//Lower to fpext
+					return LLVMBuildFPExt(builder, value, type, "");
+				} else {
+					//Lower to fpext
+					return LLVMBuildFPTrunc(builder, value, type, "");
+				}
+
 			case Invalid :
 				assert(0, "Invalid cast");
 		}
@@ -999,8 +1037,10 @@ struct AddressOfGen {
 					"",
 				);
 			
-			case Invalid, IntToPtr, PtrToInt, Down :
+			case Invalid, IntToPtr, PtrToInt, Down:
+			case FloatToInt, IntToFloat:
 			case IntToBool, Trunc, SPad, UPad :
+			case FloatNarrow, FloatWiden:
 				assert(0, "Not an lvalue");
 		}
 	}

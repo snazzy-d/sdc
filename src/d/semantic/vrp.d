@@ -222,7 +222,7 @@ public:
 			case IntToPtr, Down :
 				assert(0, "Do not make any sense on integrals");
 			
-			case PtrToInt :
+			case PtrToInt, FloatToInt, IntToFloat, FloatNarrow, FloatWiden:
 				assert(0, "Not implemented");
 				// return ValueRange.get(e.type.builtin);
 			

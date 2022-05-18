@@ -612,7 +612,10 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 		case Null:
 			trange.popFront();
 			return new NullLiteral(location);
-		
+
+		case FloatLiteral:
+			return trange.parseFloatLiteral();
+
 		case IntegerLiteral:
 			return trange.parseIntegerLiteral();
 		
@@ -1046,4 +1049,37 @@ StringLiteral parseStringLiteral(ref TokenRange trange) {
 	trange.match(TokenType.StringLiteral);
 	
 	return new StringLiteral(location, name.toString(trange.context));
+}
+
+/**
+ * Parse floating point literals
+ */
+FloatLiteral parseFloatLiteral(ref TokenRange trange) {
+	const location = trange.front.location;
+	auto litString = trange.front.toString(trange.context);
+
+	trange.match(TokenType.FloatLiteral);
+	import d.common.builtintype : BuiltinType;
+
+	//Look for a suffix
+	if (litString.length > 1)
+	{
+		switch (litString[$-1])
+		{
+			// https://dlang.org/spec/lex.html#FloatSuffix
+			import std.conv : to;
+			case 'f':
+			case 'F':
+				const float f = litString[0..$-1].to!float;
+				return new FloatLiteral(location, f, BuiltinType.Float);
+			case 'L':
+				import source.exception;
+				throw new CompileException(location, "SDC does not support real literals yet");
+			default:
+				//Lexed correctly but no suffix, it's a double
+				const double d = litString[0..$].to!float;
+				return new FloatLiteral(location, d, BuiltinType.Double);
+		}
+	}
+	assert(0);
 }

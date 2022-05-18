@@ -311,10 +311,15 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				goto case Uint;
 			
 			case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent, Ucent :
+				// https://dlang.org/spec/type.html#implicit-conversions
+				// Integrals can implicit convert to floating point types
+				if (isFloat(bt))
+				{
+					return CastKind.IntToFloat;
+				}
 				if (isExplicit && bt == Bool) {
 					return CastKind.IntToBool;
 				}
-				
 				if (!isIntegral(bt)) {
 					return CastKind.Invalid;
 				}
@@ -333,9 +338,21 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 					return bailout(t);
 				}
 			
-			case Float, Double, Real :
-				assert(0, "Floating point casts are not implemented");
-			
+			case Float, Double, Real:
+				bool needsExplicit = false;
+				if (isFloat(bt))
+				{
+					const fromSize = getSize(t);
+					const toSize = getSize(bt);
+					if (toSize == fromSize)
+						return CastKind.Exact;
+					else if (toSize > fromSize)
+						return CastKind.FloatWiden;
+					else
+						return CastKind.FloatNarrow;
+				} else {
+					return isExplicit ? CastKind.FloatToInt : CastKind.Invalid;
+				}
 			case Null :
 				return CastKind.Invalid;
 		}

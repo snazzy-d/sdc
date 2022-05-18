@@ -533,7 +533,8 @@ public:
 			case IntToPtr, PtrToInt, Down, IntToBool, Trunc:
 				assert(0, "Not an implicit cast !");
 			
-			case UPad, SPad, Bit:
+			case UPad, SPad, Bit, FloatToInt, IntToFloat:
+			case FloatNarrow, FloatWiden:
 				return MatchLevel.TypeConvert;
 			
 			case Qual:
