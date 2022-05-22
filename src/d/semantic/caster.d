@@ -72,8 +72,9 @@ Expression buildCast(bool isExplicit)(SemanticPass pass, Location location,
 			case Array:
 				if (al.values.length != to.size) {
 					import d.ir.error;
-					return new CompileError(
-						al.location, "Incorrect element count").expression;
+					return
+						new CompileError(al.location, "Incorrect element count")
+							.expression;
 				}
 
 				goto case;
