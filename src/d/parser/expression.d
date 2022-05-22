@@ -1083,3 +1083,45 @@ FloatLiteral parseFloatLiteral(ref TokenRange trange) {
 	}
 	assert(0);
 }
+
+@("Test FloatLiteral parsing")
+unittest
+{
+	import util.testinfra;
+	import source.context;
+	auto context = new Context();
+	import source.parserutil;
+	auto tokensFromString(string s, bool skipBegin = true) {
+		import source.name;
+		auto base = context.registerMixin(Location.init, s ~ '\0');
+		auto x = lex(base, context);
+		if (skipBegin)
+		{
+			x.match(TokenType.Begin);
+		}
+		return x;
+	}
+	void floatRoundTrip(T)(const string floatString, const T floatValue)
+		if (__traits(isFloating, T))
+	{
+		import d.common.builtintype : BuiltinType;
+		const BuiltinType expectedType = is(T == float) ? BuiltinType.Float : BuiltinType.Double;
+		auto tr = tokensFromString(floatString);
+		const result = parseExpression(tr);
+		if (const FloatLiteral fl = cast(FloatLiteral) result)
+		{
+			import std.exception;
+			import std.math : isClose;
+			enforce(fl.type.builtin == expectedType);
+			//Not a huge fan of this choice of maxRelDiff
+			enforce(fl.value.isClose(floatValue, float.epsilon));
+		} else {
+			import std.format;
+			throw new Exception(format("Got a %s from `%s`", typeid(result).toString(), floatString));
+		}
+	}
+	// A few values, note that "-3.14f" is a UnaExp not a floating point literal
+	floatRoundTrip("3.14f", 3.14f);
+	floatRoundTrip("420.0", 420.0);
+	floatRoundTrip("0.00001", 0.00001);
+}

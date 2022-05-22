@@ -8,6 +8,12 @@ int main() {
 		float x = 3.14f;
 		double x2 = 3.14;
 	}
+
+	{
+		float chimp = -23.0;
+	}
+
+	double p = 420.0;
 	float lightSpeed = 299792458.0;
 	char ch = 'a';
 	double x = ch;

@@ -353,13 +353,19 @@ struct ExpressionGen {
 			
 			case Minus :
 				import d.llvm.type;
-				return LLVMBuildSub(
-					builder,
-					LLVMConstInt(TypeGen(pass.pass).visit(e.type), 0, true),
-					visit(e.expr),
-					"",
-				);
-			
+				import d.common.builtintype : isFloat;
+				if (e.expr.type.builtin.isFloat())
+				{
+					return LLVMBuildFNeg(builder, visit(e.expr), "");
+				} else {
+					return LLVMBuildSub(
+						builder,
+						LLVMConstInt(TypeGen(pass.pass).visit(e.type), 0, true),
+						visit(e.expr),
+						"",
+					);
+				}
+
 			case Not :
 				import d.llvm.type;
 				return LLVMBuildICmp(

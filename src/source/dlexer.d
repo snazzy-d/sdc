@@ -757,7 +757,20 @@ unittest {
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+	{
+		auto lex = testlexer("-1.0");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.Minus);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+	{
+		auto lex = testlexer("-1.0f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.Minus);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
 	{
 		auto lex = testlexer("1. 0");
 		lex.match(TokenType.Begin);
