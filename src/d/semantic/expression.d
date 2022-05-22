@@ -777,15 +777,13 @@ public:
 		auto cds =
 			candidates.map!(e => findCallable(location, e, args)).filter!((e) {
 				auto t = e.type.getCanonical();
-				if (t.kind == TypeKind.Function) {
-					auto ft = t.asFunctionType();
-					return checkArgumentCount(ft.isVariadic, args.length,
-					                          ft.parameters.length);
-				}
-
 				assert(
-					0,
+					t.kind == TypeKind.Function,
 					e.type.toString(pass.context) ~ " is not a function type");
+
+				auto ft = t.asFunctionType();
+				return checkArgumentCount(ft.isVariadic, args.length,
+				                          ft.parameters.length);
 			});
 
 		auto level = MatchLevel.Not;
