@@ -66,6 +66,10 @@ struct ConstantGen {
 		return buildDString(sl.value);
 	}
 
+	LLVMValueRef visit(CStringLiteral csl) {
+		return buildCString(csl.value);
+	}
+
 	LLVMValueRef visit(VoidInitializer v) {
 		import d.llvm.type;
 		return LLVMGetUndef(TypeGen(pass).visit(v.type));

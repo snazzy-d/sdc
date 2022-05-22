@@ -494,6 +494,21 @@ class StringLiteral : CompileTimeExpression {
 	}
 }
 
+class CStringLiteral : CompileTimeExpression {
+	string value;
+
+	this(Location location, string value) {
+		super(location,
+		      Type.get(BuiltinType.Char).getPointer(TypeQualifier.Immutable));
+
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		return "\"" ~ value ~ "\"";
+	}
+}
+
 /**
  * Null literal
  */

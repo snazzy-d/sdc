@@ -110,31 +110,34 @@ final class CodeGen {
 		return m;
 	}
 
+	auto buildCString(string str)
+			in(str.length <= uint.max, "string length must be <= uint.max") {
+		auto cstr = str ~ '\0';
+		auto charArray = LLVMConstStringInContext(llvmCtx, cstr.ptr,
+		                                          cast(uint) cstr.length, true);
+
+		auto globalVar = LLVMAddGlobal(dmodule, LLVMTypeOf(charArray), ".str");
+		LLVMSetInitializer(globalVar, charArray);
+		LLVMSetLinkage(globalVar, LLVMLinkage.Private);
+		LLVMSetGlobalConstant(globalVar, true);
+		LLVMSetUnnamedAddr(globalVar, true);
+
+		auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, true);
+		LLVMValueRef[2] indices = [zero, zero];
+
+		return LLVMConstInBoundsGEP(globalVar, indices.ptr, indices.length);
+	}
+
 	auto buildDString(string str) in {
 		assert(str.length <= uint.max, "string length must be <= uint.max");
 	} do {
 		return stringLiterals.get(str, stringLiterals[str] = {
-			auto cstr = str ~ '\0';
-			auto charArray = LLVMConstStringInContext(
-				llvmCtx, cstr.ptr, cast(uint) cstr.length, true);
+			LLVMValueRef[2] slice = [
+				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), str.length,
+				             false),
+				buildCString(str)];
 
-			auto globalVar =
-				LLVMAddGlobal(dmodule, LLVMTypeOf(charArray), ".str");
-			LLVMSetInitializer(globalVar, charArray);
-			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
-			LLVMSetGlobalConstant(globalVar, true);
-			LLVMSetUnnamedAddr(globalVar, true);
-
-			auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, true);
-			LLVMValueRef[2] indices = [zero, zero];
-
-			LLVMValueRef[2] slice;
-			slice[0] = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), str.length,
-			                        false);
-			slice[1] =
-				LLVMConstInBoundsGEP(globalVar, indices.ptr, indices.length);
-
-			return LLVMConstStructInContext(llvmCtx, slice.ptr, indices.length,
+			return LLVMConstStructInContext(llvmCtx, slice.ptr, slice.length,
 			                                false);
 		}());
 	}

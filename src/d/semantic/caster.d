@@ -92,6 +92,15 @@ Expression buildCast(bool isExplicit)(SemanticPass pass, Location location,
 		}
 	}
 
+	// D-style string literals can be implicitely converted to C-style ones.
+	if (auto sl = cast(StringLiteral) e) {
+		if (to.kind == TypeKind.Pointer
+			    && implicitCastFrom(pass, e.type.element, to.element)
+				    >= CastKind.Qual) {
+			return build!CStringLiteral(e.location, sl.value);
+		}
+	}
+
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
 		static if (is(T : Aggregate)) {
