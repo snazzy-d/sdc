@@ -43,7 +43,7 @@ extern(C) void __sd_eh_throw(Throwable t) {
 	auto f = _Unwind_RaiseException(&ue);
 
 	import core.stdc.stdlib, core.stdc.stdio;
-	printf("FAILED TO RAISE EXCEPTION %i\n".ptr, f);
+	printf("FAILED TO RAISE EXCEPTION %i\n", f);
 	exit(-1);
 }
 
@@ -72,14 +72,14 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 	// -1 because it will point past the last instruction
 	auto ip = _Unwind_GetIP(ctx) - 1;
 
-	// printf("ip:%p\n".ptr, ip);
+	// printf("ip:%p\n", ip);
 
 	auto headers = parseLsdHeader(p, ctx);
 	/+
-	printf("start:\t%p\n".ptr, headers.start);
-	printf("lpStart:\t%p\n".ptr, headers.lpStart);
-	printf("typeTable:\t%p\n".ptr, headers.typeTable);
-	printf("actionTable:\t%p\n".ptr, headers.actionTable);
+	printf("start:\t%p\n", headers.start);
+	printf("lpStart:\t%p\n", headers.lpStart);
+	printf("typeTable:\t%p\n", headers.typeTable);
+	printf("actionTable:\t%p\n", headers.actionTable);
 	+/
 	_Unwind_Ptr landingPad = null;
 	const(ubyte)* actionPtr = null;
@@ -90,7 +90,7 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 		auto lp = read_encoded(p, ctx, headers.callSiteEncoding);
 		auto action = read_uleb128(p);
 
-		// printf("start: %ld\tlen: %ld\tlp: %ld\n".ptr, start, len, lp);
+		// printf("start: %ld\tlen: %ld\tlp: %ld\n", start, len, lp);
 
 		// The table is sorted, so if we've passed the ip, stop.
 		if (ip < headers.start + start) {
@@ -132,7 +132,7 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 
 		if (switchval < 0) {
 			import core.stdc.stdlib, core.stdc.stdio;
-			printf("FILTER NOT SUPPORTED\n".ptr);
+			printf("FILTER NOT SUPPORTED\n");
 			exit(-1);
 		}
 

@@ -589,17 +589,17 @@ template Debug(N, string NodeName) {
 	void print_tree(Link!(N, NodeName) root, uint depth) {
 		foreach (i; 0 .. depth) {
 			import core.stdc.stdio;
-			printf("\t".ptr);
+			printf("\t");
 		}
 
 		if (root.isBlack()) {
 			import core.stdc.stdio;
-			printf("B %p\n".ptr, root.node);
+			printf("B %p\n", root.node);
 		} else {
 			assert(root.isRed());
 
 			import core.stdc.stdio;
-			printf("R %p\n".ptr, root.node);
+			printf("R %p\n", root.node);
 		}
 
 		if (!root.isLeaf()) {

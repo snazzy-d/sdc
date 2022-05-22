@@ -15,19 +15,19 @@ version (linux) {
 
 		if (pthread_getattr_np(pthread_self(), &attr)) {
 			import core.stdc.stdlib, core.stdc.stdio;
-			printf("pthread_getattr_np failed!".ptr);
+			printf("pthread_getattr_np failed!");
 			exit(1);
 		}
 
 		if (pthread_attr_getstack(&attr, &addr, &size)) {
 			import core.stdc.stdlib, core.stdc.stdio;
-			printf("pthread_attr_getstack failed!".ptr);
+			printf("pthread_attr_getstack failed!");
 			exit(1);
 		}
 
 		if (pthread_attr_destroy(&attr)) {
 			import core.stdc.stdlib, core.stdc.stdio;
-			printf("pthread_attr_destroy failed!".ptr);
+			printf("pthread_attr_destroy failed!");
 			exit(1);
 		}
 

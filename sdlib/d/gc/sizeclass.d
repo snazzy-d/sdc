@@ -236,31 +236,30 @@ void computeSizeClass(
 
 void printfAlloc(size_t s) {
 	import d.gc.util, core.stdc.stdio;
-	printf("%lu :\t%lu\t%hhu\n".ptr, s, getAllocSize(s), getBinID(s));
+	printf("%lu :\t%lu\t%hhu\n", s, getAllocSize(s), getBinID(s));
 }
 
 void main() {
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
 		import core.stdc.stdio;
-		printf("%d\t%d\t%d\t%d\t0x%lx\n".ptr, id, grp, delta, ndelta,
+		printf("%d\t%d\t%d\t%d\t0x%lx\n", id, grp, delta, ndelta,
 		       (1UL << grp) + ndelta * (1UL << delta));
 	});
 
 	import core.stdc.stdio;
-	printf("total: %d\tsmall: %d\tlarge: %d\tlookup: %d\n".ptr,
-	       ClassCount.Total, ClassCount.Small, ClassCount.Large,
-	       ClassCount.Lookup);
+	printf("total: %d\tsmall: %d\tlarge: %d\tlookup: %d\n", ClassCount.Total,
+	       ClassCount.Small, ClassCount.Large, ClassCount.Lookup);
 
 	auto bins = getBinInfos();
 
-	printf("bins:\n".ptr);
+	printf("bins:\n");
 	foreach (i; 0 .. ClassCount.Small) {
 		auto b = bins[i];
-		printf("id: %d\tsize: %hd\tneedPages: %hhd\tslots: %hd\n".ptr, i,
+		printf("id: %d\tsize: %hd\tneedPages: %hhd\tslots: %hd\n", i,
 		       b.itemSize, b.needPages, b.slots);
 	}
 
-	printf("allocs:\n".ptr);
+	printf("allocs:\n");
 	printfAlloc(0);
 	printfAlloc(5);
 	printfAlloc(8);

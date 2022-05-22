@@ -3,10 +3,10 @@ module std.stdio;
 
 void writeln(string s) {
 	import core.stdc.stdio;
-	printf("%.*s\n".ptr, s.length, s.ptr);
+	printf("%.*s\n", s.length, s.ptr);
 }
 
 void writeln(int i) {
 	import core.stdc.stdio;
-	printf("%d\n".ptr, i);
+	printf("%d\n", i);
 }

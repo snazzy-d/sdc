@@ -24,7 +24,7 @@ void main() {
 			}
 
 			import core.stdc.stdio;
-			printf("For d = %d\tmul: %d\tshift: %d\n".ptr, d, m, shift);
+			printf("For d = %d\tmul: %d\tshift: %d\n", d, m, shift);
 		}
 	}
 }
