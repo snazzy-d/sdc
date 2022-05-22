@@ -11,25 +11,26 @@ import source.name;
 
 abstract class Expression : AstExpression {
 	Type type;
-	
+
 	this(Location location, Type type) {
 		super(location);
-		
+
 		this.type = type;
 	}
-	
+
 	@property
 	bool isLvalue() const {
 		return false;
 	}
 }
 
-Expression build(E, T...)(T args) if (is(E : Expression) && is(typeof(new E(T.init)))) {
+Expression build(E, T...)(T args)
+		if (is(E : Expression) && is(typeof(new E(T.init)))) {
 	import d.ir.error;
 	if (auto ce = errorize(args)) {
 		return ce.expression;
 	}
-	
+
 	return new E(args);
 }
 
@@ -53,22 +54,22 @@ final:
 class UnaryExpression : Expression {
 	Expression expr;
 	UnaryOp op;
-	
+
 	this(Location location, Type type, UnaryOp op, Expression expr) {
 		super(location, type);
-		
+
 		this.expr = expr;
 		this.op = op;
 	}
-	
+
 	invariant() {
 		assert(expr);
 	}
-	
+
 	override string toString(const Context c) const {
 		return unarizeString(expr.toString(c), op);
 	}
-	
+
 	@property
 	override bool isLvalue() const {
 		return op == UnaryOp.Dereference;
@@ -98,24 +99,19 @@ enum BinaryOp {
 
 class BinaryExpression : Expression {
 	BinaryOp op;
-	
+
 	Expression lhs;
 	Expression rhs;
-	
-	this(
-		Location location,
-		Type type,
-		BinaryOp op,
-		Expression lhs,
-		Expression rhs,
-	) {
+
+	this(Location location, Type type, BinaryOp op, Expression lhs,
+	     Expression rhs) {
 		super(location, type);
-		
+
 		this.op = op;
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
-	
+
 	override string toString(const Context c) const {
 		import std.conv;
 		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
@@ -136,23 +132,18 @@ enum ICmpOp {
  */
 class ICmpExpression : Expression {
 	ICmpOp op;
-	
+
 	Expression lhs;
 	Expression rhs;
-	
-	this(
-		Location location,
-		ICmpOp op,
-		Expression lhs,
-		Expression rhs,
-	) {
+
+	this(Location location, ICmpOp op, Expression lhs, Expression rhs) {
 		super(location, Type.get(BuiltinType.Bool));
-		
+
 		this.op = op;
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
-	
+
 	override string toString(const Context c) const {
 		import std.conv;
 		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
@@ -166,7 +157,7 @@ enum FPCmpOp {
 	GreaterEqual,
 	Less,
 	LessEqual,
-	
+
 	// Weird float operators
 	LessGreater,
 	LessEqualGreater,
@@ -180,23 +171,18 @@ enum FPCmpOp {
 
 class FPCmpExpression : Expression {
 	FPCmpOp op;
-	
+
 	Expression lhs;
 	Expression rhs;
-	
-	this(
-		Location location,
-		FPCmpOp op,
-		Expression lhs,
-		Expression rhs,
-	) {
+
+	this(Location location, FPCmpOp op, Expression lhs, Expression rhs) {
 		super(location, Type.get(BuiltinType.Bool));
-		
+
 		this.op = op;
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
-	
+
 	override string toString(const Context c) const {
 		import std.conv;
 		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
@@ -212,13 +198,15 @@ enum LifetimeOp {
 class LifetimeExpression : Expression {
 	import std.bitmanip;
 	mixin(taggedClassRef!(
+		// sdfmt off
 		Expression, "value",
 		LifetimeOp, "op", 2,
+		// sdfmt on
 	));
-	
+
 	this(Location location, LifetimeOp op, Expression value) {
 		super(location, value.type);
-		
+
 		this.op = op;
 		this.value = value;
 	}
@@ -227,20 +215,20 @@ class LifetimeExpression : Expression {
 class CallExpression : Expression {
 	Expression callee;
 	Expression[] args;
-	
+
 	this(Location location, Type type, Expression callee, Expression[] args) {
 		super(location, type);
-		
+
 		this.callee = callee;
 		this.args = args;
 	}
-	
+
 	override string toString(const Context c) const {
 		import std.algorithm, std.range;
 		auto aa = args.map!(a => a.toString(c)).join(", ");
 		return callee.toString(c) ~ "(" ~ aa ~ ")";
 	}
-	
+
 	@property
 	override bool isLvalue() const {
 		return callee.type.asFunctionType().returnType.isRef;
@@ -264,19 +252,14 @@ enum Intrinsic {
 class IntrinsicExpression : Expression {
 	Intrinsic intrinsic;
 	Expression[] args;
-	
-	this(
-		Location location,
-		Type type,
-		Intrinsic intrinsic,
-		Expression[] args,
-	) {
+
+	this(Location location, Type type, Intrinsic intrinsic, Expression[] args) {
 		super(location, type);
-		
+
 		this.intrinsic = intrinsic;
 		this.args = args;
 	}
-	
+
 	override string toString(const Context c) const {
 		import std.algorithm, std.range, std.conv;
 		auto aa = args.map!(a => a.toString(c)).join(", ");
@@ -290,18 +273,18 @@ class IntrinsicExpression : Expression {
 class IndexExpression : Expression {
 	Expression indexed;
 	Expression index;
-	
+
 	this(Location location, Type type, Expression indexed, Expression index) {
 		super(location, type);
-		
+
 		this.indexed = indexed;
 		this.index = index;
 	}
-	
+
 	override string toString(const Context c) const {
 		return indexed.toString(c) ~ "[" ~ index.toString(c) ~ "]";
 	}
-	
+
 	@property
 	override bool isLvalue() const {
 		// FIXME: make this const compliant
@@ -309,7 +292,7 @@ class IndexExpression : Expression {
 		if (t.kind == TypeKind.Slice || t.kind == TypeKind.Pointer) {
 			return true;
 		}
-		
+
 		return indexed.isLvalue;
 	}
 }
@@ -319,27 +302,22 @@ class IndexExpression : Expression {
  */
 class SliceExpression : Expression {
 	Expression sliced;
-	
+
 	Expression first;
 	Expression second;
-	
-	this(
-		Location location,
-		Type type,
-		Expression sliced,
-		Expression first,
-		Expression second,
-	) {
+
+	this(Location location, Type type, Expression sliced, Expression first,
+	     Expression second) {
 		super(location, type);
-		
+
 		this.sliced = sliced;
 		this.first = first;
 		this.second = second;
 	}
-	
+
 	override string toString(const Context c) const {
-		return sliced.toString(c)
-			~ "[" ~ first.toString(c) ~ " .. " ~ second.toString(c) ~ "]";
+		return sliced.toString(c) ~ "[" ~ first.toString(c) ~ " .. "
+			~ second.toString(c) ~ "]";
 	}
 }
 
@@ -349,13 +327,13 @@ class SliceExpression : Expression {
  */
 class PolysemousExpression : Expression {
 	Expression[] expressions;
-	
+
 	this(Location location, Expression[] expressions) {
 		super(location, Type.get(BuiltinType.None));
-		
+
 		this.expressions = expressions;
 	}
-	
+
 	invariant() {
 		assert(expressions.length > 1);
 	}
@@ -368,15 +346,15 @@ class SuperExpression : Expression {
 	this(Location location) {
 		super(location, Type.get(BuiltinType.None));
 	}
-	
+
 	this(Location location, Type type) {
 		super(location, type);
 	}
-	
+
 	override string toString(const Context) const {
 		return "super";
 	}
-	
+
 	@property
 	override bool isLvalue() const {
 		return true;
@@ -390,11 +368,11 @@ class ContextExpression : Expression {
 	this(Location location, Function f) {
 		super(location, Type.getContextType(f));
 	}
-	
+
 	override string toString(const Context) const {
 		return "__ctx";
 	}
-	
+
 	@property
 	override bool isLvalue() const {
 		return true;
@@ -407,13 +385,13 @@ class ContextExpression : Expression {
  */
 class VtblExpression : Expression {
 	Class dclass;
-	
+
 	this(Location location, Class dclass) {
 		super(location, Type.get(BuiltinType.Void).getPointer());
-		
+
 		this.dclass = dclass;
 	}
-	
+
 	override string toString(const Context c) const {
 		return dclass.toString(c) ~ ".__vtbl";
 	}
@@ -424,13 +402,13 @@ class VtblExpression : Expression {
  */
 class BooleanLiteral : CompileTimeExpression {
 	bool value;
-	
+
 	this(Location location, bool value) {
 		super(location, Type.get(BuiltinType.Bool));
-		
+
 		this.value = value;
 	}
-	
+
 	override string toString(const Context) const {
 		return value ? "true" : "false";
 	}
@@ -441,15 +419,15 @@ class BooleanLiteral : CompileTimeExpression {
  */
 class IntegerLiteral : CompileTimeExpression {
 	ulong value;
-	
+
 	this(Location location, ulong value, BuiltinType t) in {
 		assert(isIntegral(t));
 	} do {
 		super(location, Type.get(t));
-		
+
 		this.value = value;
 	}
-	
+
 	override string toString(const Context) const {
 		import std.conv;
 		return isSigned(type.builtin)
@@ -463,15 +441,15 @@ class IntegerLiteral : CompileTimeExpression {
  */
 class FloatLiteral : CompileTimeExpression {
 	double value;
-	
+
 	this(Location location, double value, BuiltinType t) in {
 		assert(isFloat(t));
 	} do {
 		super(location, Type.get(t));
-		
+
 		this.value = value;
 	}
-	
+
 	override string toString(const Context) const {
 		import std.conv;
 		return to!string(value);
@@ -483,15 +461,15 @@ class FloatLiteral : CompileTimeExpression {
  */
 class CharacterLiteral : CompileTimeExpression {
 	dchar value;
-	
+
 	this(Location location, dchar value, BuiltinType t) in {
 		assert(isChar(t));
 	} do {
 		super(location, Type.get(t));
-		
+
 		this.value = value;
 	}
-	
+
 	override string toString(const Context) const {
 		import std.conv;
 		return "'" ~ to!string(value) ~ "'";
@@ -503,16 +481,14 @@ class CharacterLiteral : CompileTimeExpression {
  */
 class StringLiteral : CompileTimeExpression {
 	string value;
-	
+
 	this(Location location, string value) {
-		super(
-			location,
-			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
-		);
-		
+		super(location,
+		      Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable));
+
 		this.value = value;
 	}
-	
+
 	override string toString(const Context) const {
 		return "\"" ~ value ~ "\"";
 	}
@@ -525,11 +501,11 @@ class NullLiteral : CompileTimeExpression {
 	this(Location location) {
 		this(location, Type.get(BuiltinType.Null));
 	}
-	
+
 	this(Location location, Type t) {
 		super(location, t);
 	}
-	
+
 	override string toString(const Context) const {
 		return "null";
 	}
@@ -554,36 +530,36 @@ enum CastKind {
 
 class CastExpression : Expression {
 	Expression expr;
-	
+
 	CastKind kind;
-	
+
 	this(Location location, CastKind kind, Type type, Expression expr) {
 		super(location, type);
-		
+
 		this.kind = kind;
 		this.expr = expr;
 	}
-	
+
 	override string toString(const Context c) const {
 		return "cast(" ~ type.toString(c) ~ ") " ~ expr.toString(c);
 	}
-	
+
 	@property
 	override bool isLvalue() const {
-		final switch(kind) with(CastKind) {
-			case Invalid :
-			case IntToPtr :
-			case PtrToInt :
-			case Down :
-			case IntToBool :
-			case Trunc :
-			case UPad :
-			case SPad :
+		final switch (kind) with (CastKind) {
+			case Invalid:
+			case IntToPtr:
+			case PtrToInt:
+			case Down:
+			case IntToBool:
+			case Trunc:
+			case UPad:
+			case SPad:
 				return false;
-			
-			case Bit :
-			case Qual :
-			case Exact :
+
+			case Bit:
+			case Qual:
+			case Exact:
 				return expr.isLvalue;
 		}
 	}
@@ -596,21 +572,16 @@ class NewExpression : Expression {
 	Expression dinit;
 	Function ctor;
 	Expression[] args;
-	
-	this(
-		Location location,
-		Type type,
-		Expression dinit,
-		Function ctor,
-		Expression[] args,
-	) {
+
+	this(Location location, Type type, Expression dinit, Function ctor,
+	     Expression[] args) {
 		super(location, type);
-		
+
 		this.dinit = dinit;
 		this.ctor = ctor;
 		this.args = args;
 	}
-	
+
 	override string toString(const Context c) const {
 		import std.algorithm, std.range;
 		auto aa = args.map!(a => a.toString(c)).join(", ");
@@ -623,17 +594,17 @@ class NewExpression : Expression {
  */
 class VariableExpression : Expression {
 	Variable var;
-	
+
 	this(Location location, Variable var) {
 		super(location, var.type);
-		
+
 		this.var = var;
 	}
-	
+
 	override string toString(const Context c) const {
 		return var.name.toString(c);
 	}
-	
+
 	@property
 	override bool isLvalue() const {
 		return var.storage != Storage.Enum;
@@ -646,18 +617,18 @@ class VariableExpression : Expression {
 class FieldExpression : Expression {
 	Expression expr;
 	Field field;
-	
+
 	this(Location location, Expression expr, Field field) {
 		super(location, field.type);
-		
+
 		this.expr = expr;
 		this.field = field;
 	}
-	
+
 	override string toString(const Context c) const {
 		return expr.toString(c) ~ "." ~ field.name.toString(c);
 	}
-	
+
 	@property
 	override bool isLvalue() const {
 		// FIXME: make this const compliant
@@ -665,7 +636,7 @@ class FieldExpression : Expression {
 		if (t.kind == TypeKind.Class || t.kind == TypeKind.Pointer) {
 			return true;
 		}
-		
+
 		return expr.isLvalue;
 	}
 }
@@ -676,13 +647,13 @@ class FieldExpression : Expression {
  */
 class FunctionExpression : Expression {
 	Function fun;
-	
+
 	this(Location location, Function fun) {
 		super(location, fun.type.getType());
-		
+
 		this.fun = fun;
 	}
-	
+
 	override string toString(const Context c) const {
 		return fun.name.toString(c);
 	}
@@ -694,14 +665,14 @@ class FunctionExpression : Expression {
 class DelegateExpression : Expression {
 	Expression[] contexts;
 	Function method;
-	
+
 	this(Location location, Expression[] contexts, Function method) {
 		super(location, method.type.getDelegate(contexts.length).getType());
-		
+
 		this.contexts = contexts;
 		this.method = method;
 	}
-	
+
 	override string toString(const Context c) const {
 		return contexts[$ - 1].toString(c) ~ "." ~ method.name.toString(c);
 	}
@@ -712,13 +683,13 @@ class DelegateExpression : Expression {
  */
 class DynamicTypeidExpression : Expression {
 	Expression argument;
-	
+
 	this(Location location, Type type, Expression argument) {
 		super(location, type);
-		
+
 		this.argument = argument;
 	}
-	
+
 	override string toString(const Context c) const {
 		return "typeid(" ~ argument.toString(c) ~ ")";
 	}
@@ -731,7 +702,7 @@ class VoidInitializer : CompileTimeExpression {
 	this(Location location, Type type) {
 		super(location, type);
 	}
-	
+
 	override string toString(const Context) const {
 		return "void";
 	}
@@ -741,26 +712,26 @@ class VoidInitializer : CompileTimeExpression {
  * tuples. Also used for struct initialization.
  */
 template TupleExpressionImpl(bool isCompileTime = false) {
-	static if(isCompileTime) {
+	static if (isCompileTime) {
 		alias E = CompileTimeExpression;
 	} else {
 		alias E = Expression;
 	}
-	
+
 	class TupleExpressionImpl : E {
 		E[] values;
-		
+
 		this(Location location, Type t, E[] values) {
 			// Implement type tuples.
 			super(location, t);
-			
+
 			this.values = values;
 		}
-		
+
 		override string toString(const Context c) const {
 			import std.algorithm, std.range;
 			auto members = values.map!(v => v.toString(c)).join(", ");
-			
+
 			// TODO: make this look nice for structs, classes, arrays...
 			static if (isCompileTime) {
 				return "ctTuple!(" ~ members ~ ")";
