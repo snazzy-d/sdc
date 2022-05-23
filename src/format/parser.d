@@ -1129,24 +1129,45 @@ private:
 	IdentifierKind parseIdentifierSuffix(IdentifierKind kind) {
 		const tryDeclaration = canBeDeclaration;
 		const skipParentheses = expectParameters;
-
 		canBeDeclaration = false;
 		expectParameters = false;
 
+		kind =
+			parseNonDotIdentifierSuffix(kind, tryDeclaration, skipParentheses);
+		if (!match(TokenType.Dot)) {
+			return kind;
+		}
+
+		auto guard = spliceSpan!ExpandingListSpan();
+		while (match(TokenType.Dot)) {
+			split();
+			guard.registerFix(function(ExpandingListSpan s, size_t i) {
+				s.registerElement(i);
+			});
+
+			nextToken();
+
+			if (!match(TokenType.Identifier)) {
+				return IdentifierKind.None;
+			}
+
+			kind = IdentifierKind.Symbol;
+			nextToken();
+
+			kind = parseNonDotIdentifierSuffix(kind, tryDeclaration,
+			                                   skipParentheses);
+		}
+
+		return kind;
+	}
+
+	IdentifierKind parseNonDotIdentifierSuffix(
+		IdentifierKind kind,
+		bool tryDeclaration,
+		bool skipParentheses,
+	) {
 		while (true) {
 			switch (token.type) with (TokenType) {
-				case Dot:
-					split();
-					nextToken();
-
-					if (!match(Identifier)) {
-						return IdentifierKind.None;
-					}
-
-					kind = IdentifierKind.Symbol;
-					nextToken();
-					break;
-
 				case Star:
 					final switch (kind) with (IdentifierKind) {
 						case Type:

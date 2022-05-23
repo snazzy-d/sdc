@@ -357,8 +357,8 @@ public:
 
 			case Function:
 				import std.algorithm;
-				return asFunctionType().contexts
-					.any!(t => t.isRef || t.getType().hasIndirection);
+				return asFunctionType()
+					.contexts.any!(t => t.isRef || t.getType().hasIndirection);
 
 			case Sequence:
 				import std.algorithm;
@@ -436,7 +436,7 @@ public:
 				import std.algorithm, std.range;
 				// XXX: need to use this because of identifier hijacking in the import.
 				return "(" ~ this.sequence.map!(e => e.toString(c, qualifier))
-					.join(", ") ~ ")";
+				                 .join(", ") ~ ")";
 
 			case Function:
 				auto f = asFunctionType();
@@ -659,7 +659,7 @@ unittest {
 	auto c =
 		Type.get(BuiltinType.Null).getSlice().getParamType(ParamKind.Final);
 	auto p = Type.get(BuiltinType.Float).getSlice(TypeQualifier.Immutable)
-		.getParamType(ParamKind.Ref);
+	             .getParamType(ParamKind.Ref);
 	auto f = FunctionType(Linkage.Java, r, [c, p], true);
 
 	assert(f.linkage == Linkage.Java);

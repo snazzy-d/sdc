@@ -113,7 +113,7 @@ class TemplateInstantiation : Identifier {
 		// Unfortunately, apply isn't const compliant so we cast it away.
 		import std.algorithm, std.range;
 		auto args = arguments.map!(a => (cast() a).apply!(a => a.toString(c)))
-			.join(", ");
+		                     .join(", ");
 		return identifier.toString(c) ~ "!(" ~ args ~ ")";
 	}
 }

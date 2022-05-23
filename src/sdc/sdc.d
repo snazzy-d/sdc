@@ -18,7 +18,9 @@ final class SDC {
 		this.context = context;
 
 		import std.algorithm, std.array, std.conv, std.path;
-		auto includePaths = config.includePaths.map!(
+		auto includePaths = config
+			.includePaths
+			.map!(
 				p => expandTilde(p).asAbsolutePath.asNormalizedPath.to!string())
 			.array();
 
