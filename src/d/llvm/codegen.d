@@ -74,22 +74,19 @@ final class CodeGen {
 		LLVMSetModuleDataLayout(dmodule, targetData);
 		this.targetData = LLVMGetModuleDataLayout(dmodule);
 
-		LLVMValueRef[3] branch_metadata;
-
-		auto id = "branch_weights";
-		branch_metadata[0] =
-			LLVMMDStringInContext(llvmCtx, id.ptr, cast(uint) id.length);
-		branch_metadata[1] =
-			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 65536, false);
-		branch_metadata[2] =
-			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 0, false);
+		const branch_weights = "branch_weights";
+		LLVMValueRef[3] branch_metadata = [
+			LLVMMDStringInContext(llvmCtx, branch_weights.ptr,
+			                      branch_weights.length),
+			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 65536, false),
+			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 0, false),
+		];
 
 		unlikelyBranch = LLVMMDNodeInContext(llvmCtx, branch_metadata.ptr,
-		                                     cast(uint) branch_metadata.length);
+		                                     branch_metadata.length);
 
-		id = "prof";
-		profKindID =
-			LLVMGetMDKindIDInContext(llvmCtx, id.ptr, cast(uint) id.length);
+		const prof = "prof";
+		profKindID = LLVMGetMDKindIDInContext(llvmCtx, prof.ptr, prof.length);
 	}
 
 	~this() {
@@ -111,7 +108,7 @@ final class CodeGen {
 	}
 
 	auto buildCString(string str)
-			in(str.length <= uint.max, "string length must be <= uint.max") {
+			in(str.length < uint.max, "string length must be < uint.max") {
 		auto cstr = str ~ '\0';
 		auto charArray = LLVMConstStringInContext(llvmCtx, cstr.ptr,
 		                                          cast(uint) cstr.length, true);
@@ -128,9 +125,7 @@ final class CodeGen {
 		return LLVMConstInBoundsGEP(globalVar, indices.ptr, indices.length);
 	}
 
-	auto buildDString(string str) in {
-		assert(str.length <= uint.max, "string length must be <= uint.max");
-	} do {
+	auto buildDString(string str) {
 		return stringLiterals.get(str, stringLiterals[str] = {
 			LLVMValueRef[2] slice = [
 				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), str.length,
@@ -144,15 +139,17 @@ final class CodeGen {
 
 	auto checkModule() {
 		char* msg;
-		if (LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus,
-		                     &msg)) {
-			scope(exit) LLVMDisposeMessage(msg);
-
-			import core.stdc.string;
-			auto error = msg[0 .. strlen(msg)].idup;
-
-			throw new Exception(error);
+		if (!LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus,
+		                      &msg)) {
+			return;
 		}
+
+		scope(exit) LLVMDisposeMessage(msg);
+
+		import core.stdc.string;
+		auto error = msg[0 .. strlen(msg)].idup;
+
+		throw new Exception(error);
 	}
 
 	auto getAttribute(string name, ulong val = 0) {
