@@ -58,7 +58,7 @@ mixin template LexNumericImpl(
 				popChar();
 			}
 			
-			popFun();
+			popDecimal();
 		}
 		
 	LexSuffix:
