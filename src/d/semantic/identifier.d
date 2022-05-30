@@ -126,9 +126,7 @@ private:
 		);
 	}
 	
-	void setThis(Expression thisExpr) in {
-		assert(this.thisExpr is null);
-	} do {
+	void setThis(Expression thisExpr) in(this.thisExpr is null) {
 		this.thisExpr = thisExpr;
 	}
 	
@@ -275,13 +273,9 @@ private:
 		}
 	}
 	
-	Identifiable resolve(
-		TemplateInstantiation i,
-		Expression[] fargs = [],
-	) in {
-		// We don't want to resolve argument with the same context we have here.
-		assert(acquireThis() is null);
-	} do {
+	Identifiable resolve(TemplateInstantiation i, Expression[] fargs = [])
+			// We don't want to resolve arguments with the same context we have here.
+			in (acquireThis() is null) {
 		alias astapply = d.ast.identifier.apply;
 		
 		import d.semantic.dtemplate : TemplateInstancier;
@@ -766,16 +760,12 @@ struct ExpressionDotIdentifierResolver {
 		this.name = name;
 	}
 	
-	Identifiable visit(Expression e) in {
-		assert(thisExpr is null);
-	} do {
+	Identifiable visit(Expression e) in(thisExpr is null) {
 		e = wrap(location, e);
 		return visit(e, e);
 	}
 	
-	Identifiable visit(Expression e, Expression base) in {
-		assert(thisExpr is null);
-	} do {
+	Identifiable visit(Expression e, Expression base) in(thisExpr is null) {
 		auto t = e.type.getCanonical();
 		if (t.isAggregate) {
 			auto a = t.aggregate;

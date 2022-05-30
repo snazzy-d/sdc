@@ -30,9 +30,8 @@ struct AliasThisResolver(alias handler) {
 		return resolve(e, t.aggregate);
 	}
 
-	Ret[] resolve(Expression e, Aggregate a) in {
-		assert(e.type.getCanonical().aggregate is a);
-	} do {
+	Ret[] resolve(Expression e, Aggregate a)
+			in(e.type.getCanonical().aggregate is a) {
 		return resolve(e, a.aliasThis);
 	}
 

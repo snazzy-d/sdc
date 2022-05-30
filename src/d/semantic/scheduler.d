@@ -128,20 +128,18 @@ final class Scheduler {
 		return p;
 	}
 
-	void schedule(D, S)(D d, S s) if (isSchedulable!(D, S)) in {
-		assert(s.step == SemanticPass.Step.Parsed,
-		       "Symbol processing already started.");
-	} do {
+	void schedule(D, S)(D d, S s) if (isSchedulable!(D, S))
+			in(s.step == SemanticPass.Step.Parsed,
+			   "Symbol processing already started.") {
 		auto p = getProcess();
 		p.init(d, s);
 
 		processes[s] = p;
 	}
 
-	void schedule(Template t, TemplateInstance i) in {
-		assert(i.step == SemanticPass.Step.Parsed,
-		       "Symbol processing already started.");
-	} do {
+	void schedule(Template t, TemplateInstance i)
+			in(i.step == SemanticPass.Step.Parsed,
+			   "Symbol processing already started.") {
 		auto p = getProcess();
 		p.init(t, i);
 
@@ -151,10 +149,9 @@ final class Scheduler {
 	// FIXME: We should consider a generic way to get things in there.
 	// It is clearly not going to scale that way.
 	import d.ast.expression;
-	void schedule(AstExpression dv, Variable v) in {
-		assert(v.step == SemanticPass.Step.Parsed,
-		       "Symbol processing already started.");
-	} do {
+	void schedule(AstExpression dv, Variable v)
+			in(v.step == SemanticPass.Step.Parsed,
+			   "Symbol processing already started.") {
 		auto p = getProcess();
 		p.init(dv, v);
 
