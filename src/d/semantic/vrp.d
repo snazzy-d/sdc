@@ -1233,7 +1233,7 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		}
 
 		return rhs.reduce!(doOp, true)(ValueRange(0, max))
-			.unionWith(rhs.reduce!(doOp, true)(ValueRange(min, T.max)));
+		          .unionWith(rhs.reduce!(doOp, true)(ValueRange(min, T.max)));
 	}
 
 	auto opBinary(string op : "&")(ValueRange rhs) const if (isSigned!T) {

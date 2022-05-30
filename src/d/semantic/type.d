@@ -87,8 +87,8 @@ struct TypeVisitor {
 		auto type = visit(t);
 
 		import d.semantic.identifier, d.ir.symbol;
-		return IdentifierResolver(pass).build(ikey)
-			.apply!(delegate Type(identified) {
+		return IdentifierResolver(pass)
+			.build(ikey).apply!(delegate Type(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Type)) {
 					assert(0, "Not implemented.");
