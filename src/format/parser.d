@@ -160,12 +160,39 @@ private:
 		builder.split(glued || skipFormatting(), continuation);
 	}
 
+	auto wrappedGuard(alias buildGuard, T...)(T args) {
+		alias G = typeof(buildGuard(&this, args));
+
+		static struct Guard {
+			this(T...)(Parser* parser, T args) {
+				this._guard = buildGuard(parser, args);
+				this.parser = parser;
+			}
+
+			~this() {
+				parser.emitRawContent();
+			}
+
+			alias guard this;
+			@property
+			auto ref guard() {
+				return _guard;
+			}
+
+		private:
+			Parser* parser;
+			G _guard;
+		}
+
+		return Guard(&this, args);
+	}
+
 	auto indent(uint level = 1) {
-		return builder.indent(level);
+		return wrappedGuard!((p, l) => p.builder.indent(l))(level);
 	}
 
 	auto unindent(uint level = 1) {
-		return builder.unindent(level);
+		return wrappedGuard!((p, l) => p.builder.unindent(l))(level);
 	}
 
 	import format.span;
@@ -173,19 +200,21 @@ private:
 		emitSkippedTokens();
 		emitInFlightComments();
 
-		return builder.span!S(args);
+		return
+			wrappedGuard!((Parser* p, T args) => p.builder.span!S(args))(args);
 	}
 
 	auto spliceSpan(S = Span, T...)(T args) {
 		emitSkippedTokens();
 		emitInFlightComments();
 
-		return builder.spliceSpan!S(args);
+		return wrappedGuard!(
+			(Parser* p, T args) => p.builder.spliceSpan!S(args))(args);
 	}
 
 	auto block() {
 		emitRawContent();
-		return builder.block();
+		return wrappedGuard!(p => p.builder.block())();
 	}
 
 	/**
