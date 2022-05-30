@@ -398,7 +398,7 @@ public:
 
 		// Cast all the value to the proper type.
 		values = values.map!(v => buildImplicitCast(pass, v.location, type, v))
-			.array();
+		               .array();
 
 		return build!ArrayLiteral(e.location, type.getSlice(), values);
 	}
@@ -621,12 +621,12 @@ public:
 		if (auto tidi = cast(TemplateInstantiation) c.callee) {
 			// XXX: For some reason this need to be passed a lambda.
 			return IdentifierResolver(pass).build(tidi, args)
-				.apply!(i => postProcess(i))();
+			                               .apply!(i => postProcess(i))();
 		}
 
 		// XXX: For some reason this need to be passed a lambda.
 		return IdentifierResolver(pass).build(c.callee)
-			.apply!((i => postProcess(i)))();
+		                               .apply!((i => postProcess(i)))();
 	}
 
 	Expression visit(TypeCallExpression e) {
@@ -734,7 +734,8 @@ public:
 		scheduler.require(i);
 
 		import d.semantic.identifier;
-		return IdentifierResolver(pass).buildIn(location, i, t.name)
+		return IdentifierResolver(pass)
+			.buildIn(location, i, t.name)
 			.apply!(delegate Expression(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
@@ -884,7 +885,8 @@ public:
 			}
 		})(pass);
 
-		auto results = ar.resolve(callee)
+		auto results = ar
+			.resolve(callee)
 			.filter!(e => e !is null && typeid(e) !is typeid(ErrorExpression))
 			.array();
 
@@ -1133,8 +1135,8 @@ public:
 
 	Expression visit(IdentifierTypeidExpression e) {
 		import d.semantic.identifier;
-		return IdentifierResolver(pass).build(e.argument)
-			.apply!(delegate Expression(identified) {
+		return IdentifierResolver(pass)
+			.build(e.argument).apply!(delegate Expression(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Type)) {
 					return getTypeInfo(e.location, identified);
@@ -1150,8 +1152,8 @@ public:
 
 	Expression visit(IdentifierExpression e) {
 		import d.semantic.identifier;
-		return IdentifierResolver(pass).build(e.identifier)
-			.apply!(delegate Expression(identified) {
+		return IdentifierResolver(pass)
+			.build(e.identifier).apply!(delegate Expression(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
 					return identified;
@@ -1172,20 +1174,24 @@ public:
 	private Expression buildPolysemous(Location location, OverloadSet s) {
 		import std.algorithm, std.array;
 		import d.semantic.identifier;
-		auto exprs = s.set.map!(s => IdentifierResolver(pass)
-			.postProcess(location, s).apply!(delegate Expression(identified) {
-				alias T = typeof(identified);
-				static if (is(T : Expression)) {
-					return identified;
-				} else static if (is(T : Type)) {
-					assert(0, "Type can't be overloaded");
-				} else {
-					// TODO: handle templates.
-					throw new CompileException(
-						identified.location, typeid(identified).toString()
-							~ " is not supported in overload set");
-				}
-			})()).array();
+		auto exprs = s
+			.set
+			.map!(s => IdentifierResolver(pass)
+				.postProcess(location, s)
+				.apply!(delegate Expression(identified) {
+					alias T = typeof(identified);
+					static if (is(T : Expression)) {
+						return identified;
+					} else static if (is(T : Type)) {
+						assert(0, "Type can't be overloaded");
+					} else {
+						// TODO: handle templates.
+						throw new CompileException(
+							identified.location, typeid(identified).toString()
+								~ " is not supported in overload set");
+					}
+				})())
+			.array();
 		return new PolysemousExpression(location, exprs);
 	}
 

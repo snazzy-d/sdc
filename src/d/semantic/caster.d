@@ -82,7 +82,8 @@ Expression buildCast(bool isExplicit)(SemanticPass pass, Location location,
 			case Slice:
 				import std.algorithm, std.array;
 				auto et = to.element;
-				auto values = al.values
+				auto values = al
+					.values
 					.map!(v => buildCast!isExplicit(pass, location, et, v))
 					.array();
 				return build!ArrayLiteral(e.location, to, values);
