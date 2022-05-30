@@ -18,9 +18,7 @@ private:
 	uint nextClosureIndex;
 
 public:
-	this(SemanticPass pass, Function f) in {
-		assert(f.fbody, "f does not have a body");
-	} do {
+	this(SemanticPass pass, Function f) in(f.fbody, "f does not have a body") {
 		this.pass = pass;
 
 		fbody = f.fbody;

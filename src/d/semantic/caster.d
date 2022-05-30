@@ -34,10 +34,12 @@ private:
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
-Expression buildCast(bool isExplicit)(SemanticPass pass, Location location,
-                                      Type to, Expression e) in {
-	assert(e, "Expression must not be null");
-} do {
+Expression buildCast(bool isExplicit)(
+	SemanticPass pass,
+	Location location,
+	Type to,
+	Expression e
+) in(e, "Expression must not be null") {
 	// If the expression is polysemous, we try the several meaning and
 	// exclude the ones that make no sense.
 	if (auto asPolysemous = cast(PolysemousExpression) e) {

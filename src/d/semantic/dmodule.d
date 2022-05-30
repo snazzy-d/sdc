@@ -84,9 +84,8 @@ public:
 		return mod;
 	}
 
-	AstModule parse(string filename, string directory) in {
-		assert(filename[$ - 2 .. $] == ".d");
-	} do {
+	AstModule parse(string filename, string directory)
+			in(filename[$ - 2 .. $] == ".d") {
 		import source.location;
 		auto base = context.registerFile(Location.init, filename, directory);
 

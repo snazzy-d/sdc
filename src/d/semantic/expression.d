@@ -478,9 +478,8 @@ public:
 		}
 	}
 
-	private Expression getContext(Location location, Function f) in {
-		assert(f.step >= Step.Signed);
-	} do {
+	private Expression getContext(Location location, Function f)
+			in(f.step >= Step.Signed) {
 		import d.semantic.closure;
 		auto ctx = ContextFinder(pass).visit(f);
 		return build!ContextExpression(location, ctx);
@@ -670,20 +669,21 @@ public:
 		}
 	}
 
-	private Expression callCtor(Location location, Location calleeLoc,
-	                            Expression thisExpr, Expression[] args) in {
-		assert(thisExpr.type.isAggregate());
-	} do {
+	private Expression callCtor(
+		Location location,
+		Location calleeLoc,
+		Expression thisExpr,
+		Expression[] args
+	) in(thisExpr.type.isAggregate()) {
 		auto ctor = findCtor(location, calleeLoc, thisExpr, args);
 		return callCallable(location, ctor, args);
 	}
 
 	// XXX: factorize with NewExpression
 	private Expression findCtor(Location location, Location calleeLoc,
-	                            Expression thisExpr, Expression[] args) in {
-		assert(thisExpr.type.isAggregate(),
-		       thisExpr.toString(context) ~ " is not an aggregate");
-	} do {
+	                            Expression thisExpr, Expression[] args)
+			in(thisExpr.type.isAggregate(),
+			   thisExpr.toString(context) ~ " is not an aggregate") {
 		auto agg = thisExpr.type.aggregate;
 
 		import source.name, d.semantic.identifier;
