@@ -11,161 +11,161 @@ alias Interface = d.ir.symbol.Interface;
 struct TypeMangler {
 	private SemanticPass pass;
 	alias pass this;
-	
+
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
-	
+
 	string visit(Type t) {
 		auto s = t.accept(this);
-		final switch(t.qualifier) with(TypeQualifier) {
-			case Mutable :
+		final switch (t.qualifier) with (TypeQualifier) {
+			case Mutable:
 				return s;
-			
-			case Inout :
+
+			case Inout:
 				return "Ng" ~ s;
-			
-			case Const :
+
+			case Const:
 				return "x" ~ s;
-			
-			case Shared :
+
+			case Shared:
 				return "O" ~ s;
-			
-			case ConstShared :
+
+			case ConstShared:
 				return "xO" ~ s;
-			
-			case Immutable :
+
+			case Immutable:
 				return "y" ~ s;
 		}
 	}
-	
+
 	string visit(BuiltinType t) {
-		final switch(t) with(BuiltinType) {
-			case None :
+		final switch (t) with (BuiltinType) {
+			case None:
 				assert(0, "none should never be mangled");
-			
-			case Void :
+
+			case Void:
 				return "v";
-			
-			case Bool :
+
+			case Bool:
 				return "b";
-			
-			case Char :
+
+			case Char:
 				return "a";
-			
-			case Wchar :
+
+			case Wchar:
 				return "u";
-			
-			case Dchar :
+
+			case Dchar:
 				return "w";
-			
-			case Byte :
+
+			case Byte:
 				return "g";
-			
-			case Ubyte :
+
+			case Ubyte:
 				return "h";
-			
-			case Short :
+
+			case Short:
 				return "s";
-			
-			case Ushort :
+
+			case Ushort:
 				return "t";
-			
-			case Int :
+
+			case Int:
 				return "i";
-			
-			case Uint :
+
+			case Uint:
 				return "k";
-			
-			case Long :
+
+			case Long:
 				return "l";
-			
-			case Ulong :
+
+			case Ulong:
 				return "m";
-			
-			case Cent :
+
+			case Cent:
 				// Used for ifloat, that won't be implemented.
 				return "o";
-			
-			case Ucent :
+
+			case Ucent:
 				// Used for idouble, that won't be implemented.
 				return "p";
-			
-			case Float :
+
+			case Float:
 				return "f";
-			
-			case Double :
+
+			case Double:
 				return "d";
-			
-			case Real :
+
+			case Real:
 				return "e";
-			
-			case Null :
+
+			case Null:
 				assert(0, "Mangling for typeof(null) is not Implemented");
 		}
 	}
-	
+
 	string visitPointerOf(Type t) {
 		return "P" ~ visit(t);
 	}
-	
+
 	string visitSliceOf(Type t) {
 		return "A" ~ visit(t);
 	}
-	
+
 	string visitArrayOf(uint size, Type t) {
 		import std.conv;
 		return "G" ~ size.to!string() ~ visit(t);
 	}
-	
+
 	string visit(Struct s) {
 		scheduler.require(s, Step.Populated);
 		return s.mangle.toString(context);
 	}
-	
+
 	string visit(Class c) {
 		scheduler.require(c, Step.Populated);
 		return c.mangle.toString(context);
 	}
-	
+
 	string visit(Enum e) {
 		scheduler.require(e);
 		return e.mangle.toString(context);
 	}
-	
+
 	string visit(TypeAlias a) {
 		scheduler.require(a);
 		return a.mangle.toString(context);
 	}
-	
+
 	string visit(Interface i) {
 		scheduler.require(i, Step.Populated);
 		return i.mangle.toString(context);
 	}
-	
+
 	string visit(Union u) {
 		scheduler.require(u, Step.Populated);
 		return u.mangle.toString(context);
 	}
-	
+
 	string visit(Function f) {
 		return "M";
 	}
-	
+
 	string visit(Type[] seq) {
 		assert(0, "Not implemented.");
 	}
-	
+
 	private auto mangleParam(ParamType t) {
 		return (t.isRef ? "K" : "") ~ visit(t.getType());
 	}
-	
+
 	private auto mangleLinkage(Linkage linkage) {
-		switch(linkage) with(Linkage) {
-			case D :
+		switch (linkage) with (Linkage) {
+			case D:
 				return "F";
-			
-			case C :
+
+			case C:
 				return "U";
 			/+
 			case Windows :
@@ -179,10 +179,11 @@ struct TypeMangler {
 			+/
 			default:
 				import std.conv;
-				assert(0, "Linkage " ~ to!string(linkage) ~ " is not supported.");
+				assert(0,
+				       "Linkage " ~ to!string(linkage) ~ " is not supported.");
 		}
 	}
-	
+
 	string visit(FunctionType f) {
 		auto base = f.contexts.length ? "D" : "";
 		auto linkage = mangleLinkage(f.linkage);
@@ -192,11 +193,11 @@ struct TypeMangler {
 		auto ret = mangleParam(f.returnType);
 		return base ~ linkage ~ args ~ "Z" ~ ret;
 	}
-	
+
 	string visit(Pattern p) {
 		assert(0, "Can't mangle pattern.");
 	}
-	
+
 	import d.ir.error;
 	string visit(CompileError e) {
 		assert(0, "Can't mangle error type.");
@@ -206,45 +207,43 @@ struct TypeMangler {
 struct ValueMangler {
 	private SemanticPass pass;
 	alias pass this;
-	
+
 	this(SemanticPass pass) {
 		this.pass = pass;
 	}
-	
+
 	import d.ir.expression, std.conv;
 	string visit(CompileTimeExpression e) {
 		return this.dispatch(e);
 	}
-	
+
 	string visit(StringLiteral s) {
 		auto ret = "a";
 		auto str = s.value;
 		auto len = str.length;
-		
+
 		ret.reserve(len * 2 + 8);
 		ret ~= to!string(len);
 		ret ~= '_';
-		foreach(ubyte c; str) {
+		foreach (ubyte c; str) {
 			ret ~= byte2hex(c);
 		}
-		
+
 		return ret;
 	}
-	
+
 	string visit(BooleanLiteral e) {
 		return to!string(cast(ubyte) e.value);
 	}
-	
+
 	string visit(IntegerLiteral e) {
 		if (!isSigned(e.type.builtin)) {
 			return e.value.to!string();
 		}
-		
+
 		long v = e.value;
-		
-		return v >= 0
-			? v.to!string()
-			: "N" ~ to!string(-v);
+
+		return v >= 0 ? v.to!string() : "N" ~ to!string(-v);
 	}
 }
 
@@ -267,11 +266,10 @@ unittest {
 	void check(string s, string m) {
 		import source.location, d.ir.expression;
 		auto sl = new StringLiteral(Location.init, s);
-		
+
 		assert(ValueMangler().visit(sl) == m);
 	}
-	
+
 	check("Hello World", "a11_48656c6c6f20576f726c64");
 	check("©", "a2_c2a9");
 }
-
