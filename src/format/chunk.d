@@ -120,16 +120,12 @@ public:
 	}
 
 	@property
-	ref inout(string) text() inout in {
-		assert(kind == ChunkKind.Text);
-	} do {
+	ref inout(string) text() inout in(kind == ChunkKind.Text) {
 		return _text;
 	}
 
 	@property
-	ref inout(Chunk[]) chunks() inout in {
-		assert(kind == ChunkKind.Block);
-	} do {
+	ref inout(Chunk[]) chunks() inout in(kind == ChunkKind.Block) {
 		return _chunks;
 	}
 
