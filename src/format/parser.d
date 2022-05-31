@@ -81,9 +81,7 @@ public:
 			lex(base, context).withStringDecoding(false).withComments();
 	}
 
-	Chunk[] parse() in {
-		assert(match(TokenType.Begin));
-	} do {
+	Chunk[] parse() in(match(TokenType.Begin)) {
 		// Emit the shebang if there is one.
 		write(token.location, token.toString(context));
 		trange.popFront();
@@ -438,10 +436,7 @@ private:
 		emitComments(nextComments, token.location);
 	}
 
-	void parseComments() in {
-		assert(inFlightComments == []);
-		assert(nextComments == []);
-	} do {
+	void parseComments() in(inFlightComments == [] && nextComments == []) {
 		if (!match(TokenType.Comment)) {
 			return;
 		}
@@ -827,9 +822,7 @@ private:
 	/**
 	 * Structural elements.
 	 */
-	void parseModuleDeclaration() in {
-		assert(match(TokenType.Module));
-	} do {
+	void parseModuleDeclaration() in(match(TokenType.Module)) {
 		nextToken();
 		space();
 		parseIdentifier();
@@ -1580,9 +1573,7 @@ private:
 		runOnType!(TokenType.CloseParen, nextToken)();
 	}
 
-	void parseIf() in {
-		assert(match(TokenType.If));
-	} do {
+	void parseIf() in(match(TokenType.If)) {
 		nextToken();
 		space();
 
@@ -1590,9 +1581,7 @@ private:
 		parseElsableBlock();
 	}
 
-	void parseVersion() in {
-		assert(match(TokenType.Version) || match(TokenType.Debug));
-	} do {
+	void parseVersion() in(match(TokenType.Version) || match(TokenType.Debug)) {
 		nextToken();
 
 		if (match(TokenType.OpenParen)) {
@@ -1609,9 +1598,7 @@ private:
 		parseElsableBlock();
 	}
 
-	void parseElse() in {
-		assert(match(TokenType.Else));
-	} do {
+	void parseElse() in(match(TokenType.Else)) {
 		space();
 		nextToken();
 		space();
@@ -1659,9 +1646,7 @@ private:
 		}
 	}
 
-	void parseWhile() in {
-		assert(match(TokenType.While));
-	} do {
+	void parseWhile() in(match(TokenType.While)) {
 		nextToken();
 		space();
 
@@ -1671,9 +1656,7 @@ private:
 		parseControlFlowBlock();
 	}
 
-	void parseDoWhile() in {
-		assert(match(TokenType.Do));
-	} do {
+	void parseDoWhile() in(match(TokenType.Do)) {
 		nextToken();
 		space();
 		bool isBlock = parseControlFlowBlock();
@@ -1692,9 +1675,7 @@ private:
 		newline(2);
 	}
 
-	void parseFor() in {
-		assert(match(TokenType.For));
-	} do {
+	void parseFor() in(match(TokenType.For)) {
 		nextToken();
 		space();
 
@@ -1749,9 +1730,8 @@ private:
 		}
 	}
 
-	void parseForeach() in {
-		assert(match(TokenType.Foreach) || match(TokenType.ForeachReverse));
-	} do {
+	void parseForeach()
+			in(match(TokenType.Foreach) || match(TokenType.ForeachReverse)) {
 		nextToken();
 		space();
 
@@ -1780,9 +1760,7 @@ private:
 		parseControlFlowBlock();
 	}
 
-	void parseReturn() in {
-		assert(match(TokenType.Return) || match(TokenType.Throw));
-	} do {
+	void parseReturn() in(match(TokenType.Return) || match(TokenType.Throw)) {
 		nextToken();
 		if (token.type == TokenType.Semicolon) {
 			nextToken();
@@ -1797,9 +1775,7 @@ private:
 		parseExpression();
 	}
 
-	void parseWith() in {
-		assert(match(TokenType.With));
-	} do {
+	void parseWith() in(match(TokenType.With)) {
 		nextToken();
 		space();
 
@@ -1809,9 +1785,7 @@ private:
 		parseStructuralElement();
 	}
 
-	void parseSwitch() in {
-		assert(match(TokenType.Switch));
-	} do {
+	void parseSwitch() in(match(TokenType.Switch)) {
 		nextToken();
 		space();
 
@@ -1960,9 +1934,7 @@ private:
 		return containsCase(lookahead, false);
 	}
 
-	void parseTry() in {
-		assert(match(TokenType.Try));
-	} do {
+	void parseTry() in(match(TokenType.Try)) {
 		nextToken();
 		space();
 		bool isBlock = parseControlFlowBlock();
@@ -1982,9 +1954,7 @@ private:
 		}
 	}
 
-	bool parseCatch() in {
-		assert(match(TokenType.Catch));
-	} do {
+	bool parseCatch() in(match(TokenType.Catch)) {
 		nextToken();
 		space();
 		parseParameterList();
@@ -1992,17 +1962,13 @@ private:
 		return parseControlFlowBlock();
 	}
 
-	bool parseFinally() in {
-		assert(match(TokenType.Finally));
-	} do {
+	bool parseFinally() in(match(TokenType.Finally)) {
 		nextToken();
 		space();
 		return parseControlFlowBlock();
 	}
 
-	void parseScope() in {
-		assert(match(TokenType.Scope));
-	} do {
+	void parseScope() in(match(TokenType.Scope)) {
 		auto lookahead = trange.getLookahead();
 		lookahead.popFront();
 
@@ -2126,9 +2092,7 @@ private:
 		parseConditionalExpressionSuffix();
 	}
 
-	bool isBangIsOrIn() in {
-		assert(match(TokenType.Bang));
-	} do {
+	bool isBangIsOrIn() in(match(TokenType.Bang)) {
 		auto lookahead = trange.getLookahead();
 		lookahead.popFront();
 		auto t = lookahead.front.type;
@@ -2281,9 +2245,7 @@ private:
 		}
 	}
 
-	void parseIsExpression() in {
-		assert(match(TokenType.Is));
-	} do {
+	void parseIsExpression() in(match(TokenType.Is)) {
 		auto modeGuard = changeMode(Mode.Parameter);
 		nextToken();
 		runOnType!(TokenType.OpenParen, nextToken)();
@@ -2376,9 +2338,7 @@ private:
 		}
 	}
 
-	void parseTypedDeclaration() in {
-		assert(match(TokenType.Identifier));
-	} do {
+	void parseTypedDeclaration() in(match(TokenType.Identifier)) {
 		bool isParameter = mode == Mode.Parameter;
 		while (true) {
 			auto guard = span!PrefixSpan();
@@ -2418,17 +2378,13 @@ private:
 		parseFunctionBody();
 	}
 
-	void parseConstructor() in {
-		assert(match(TokenType.This));
-	} do {
+	void parseConstructor() in(match(TokenType.This)) {
 		nextToken();
 		parseParameterPacks();
 		parseFunctionBody();
 	}
 
-	void parseDestructor() in {
-		assert(match(TokenType.Tilde));
-	} do {
+	void parseDestructor() in(match(TokenType.Tilde)) {
 		nextToken();
 		parseConstructor();
 	}
@@ -2533,9 +2489,7 @@ private:
 		parseCondition(true);
 	}
 
-	void parseTemplate() in {
-		assert(match(TokenType.Template));
-	} do {
+	void parseTemplate() in(match(TokenType.Template)) {
 		nextToken();
 		space();
 		runOnType!(TokenType.Identifier, nextToken)();
@@ -2551,9 +2505,7 @@ private:
 		parseBlock(Mode.Declaration);
 	}
 
-	void parseTemplateParameter() in {
-		assert(token.type == TokenType.Identifier);
-	} do {
+	void parseTemplateParameter() in(token.type == TokenType.Identifier) {
 		nextToken();
 
 		if (match(TokenType.DotDotDot)) {
@@ -2581,9 +2533,7 @@ private:
 		return true;
 	}
 
-	void parseImport() in {
-		assert(match(TokenType.Import));
-	} do {
+	void parseImport() in(match(TokenType.Import)) {
 		nextToken();
 
 		auto guard = span!PrefixSpan();
@@ -3089,10 +3039,9 @@ private:
 		return true;
 	}
 
-	void parseAggregate() in {
-		assert(match(TokenType.Struct) || match(TokenType.Union)
-			|| match(TokenType.Class) || match(TokenType.Interface));
-	} do {
+	void parseAggregate() in(
+		match(TokenType.Struct) || match(TokenType.Union)
+			|| match(TokenType.Class) || match(TokenType.Interface)) {
 		nextToken();
 		space();
 
