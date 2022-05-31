@@ -34,9 +34,8 @@ struct ValueRangePropagator(T) if (is(T == uint) || is(T == ulong)) {
 		this.pass = pass;
 	}
 
-	bool canFit(Expression e, Type t) in {
-		assert(isValidExpr(e), "VRP expect integral types.");
-	} do {
+	bool canFit(Expression e, Type t)
+			in(isValidExpr(e), "VRP expect integral types.") {
 		return canFit(e, getBuiltin(t));
 	}
 
@@ -111,9 +110,7 @@ private:
 		return getRange(getBuiltin(t));
 	}
 
-	VR getRange(BuiltinType t) in {
-		assert(t.getSize() <= T.sizeof);
-	} do {
+	VR getRange(BuiltinType t) in(t.getSize() <= T.sizeof) {
 		if (t == BuiltinType.Bool) {
 			return VR(0, 1);
 		}
@@ -126,9 +123,7 @@ private:
 	}
 
 public:
-	VR visit(Expression e) in {
-		assert(isValidExpr(e), "VRP expect integral types.");
-	} do {
+	VR visit(Expression e) in(isValidExpr(e), "VRP expect integral types.") {
 		return this.dispatch!(e => getRange(e.type))(e);
 	}
 
@@ -208,9 +203,7 @@ public:
 		return visit(v);
 	}
 
-	VR visit(Variable v) in {
-		assert(v.step >= Step.Processed);
-	} do {
+	VR visit(Variable v) in(v.step >= Step.Processed) {
 		return (v.storage == Storage.Enum
 				|| v.type.getCanonical().qualifier == TypeQualifier.Immutable)
 			? visit(v.value)
@@ -776,9 +769,8 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		return this + -rhs;
 	}
 
-	auto smul()(ValueRange rhs) const if (isUnsigned!T) in {
-		assert(min > max && max != 0);
-	} do {
+	auto smul()(ValueRange rhs) const if (isUnsigned!T)
+			in(min > max && max != 0) {
 		auto v0 = ValueRange(0, max) * rhs;
 		auto v1 = ValueRange(0, -min) * -rhs;
 
@@ -804,10 +796,8 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		return ValueRange();
 	}
 
-	auto umul()(ValueRange rhs) const if (isUnsigned!T) in {
-		assert(min <= max);
-		assert(rhs.min <= rhs.max);
-	} do {
+	auto umul()(ValueRange rhs) const if (isUnsigned!T)
+			in(min <= max && rhs.min <= rhs.max) {
 		// So we can swap modify.
 		ValueRange lhs = this;
 
@@ -1173,9 +1163,7 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 	 */
 	ValueRange reduceOrdered(alias doOp, bool hasFlipped = false)(
 		ValueRange rhs,
-	) const if (isUnsigned!T) in {
-		assert(min <= max && rhs.min <= rhs.max);
-	} do {
+	) const if (isUnsigned!T) in(min <= max && rhs.min <= rhs.max) {
 		static nextRange(T t) out(result) {
 			assert((t & result) == 0);
 		} do {
