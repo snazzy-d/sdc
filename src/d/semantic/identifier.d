@@ -137,7 +137,7 @@ private:
 enum isIdentifiable(T) = is(T : Expression) || is(T : Type) || is(T : Symbol)
 	|| is(T : Identifiable);
 
-alias IdentifierPass = IdentifierResolver * ;
+alias IdentifierPass = IdentifierResolver*;
 
 struct IdentifierVisitor {
 private:

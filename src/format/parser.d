@@ -1194,24 +1194,6 @@ private:
 		while (true) {
 			switch (token.type) with (TokenType) {
 				case Star:
-					final switch (kind) with (IdentifierKind) {
-						case Type:
-							// This is a pointer.
-							nextToken();
-							continue;
-
-						case Expression:
-							// This is a multiplication.
-							return IdentifierKind.Expression;
-
-						case Symbol:
-							// This could be either. Use lookahead.
-							break;
-
-						case None:
-							assert(0);
-					}
-
 					auto lookahead = trange.getLookahead();
 					lookahead.popFront();
 
@@ -1219,17 +1201,18 @@ private:
 						switch (lookahead.front.type) {
 							case Identifier:
 								// Lean toward Indentifier* Identifier being a delcaration.
-								if (tryDeclaration) {
+								if (tryDeclaration
+									    || kind == IdentifierKind.Type) {
 									goto IdentifierStarType;
 								}
 
 								goto IdentifierStarExpression;
 
-							case Comma, CloseParen, CloseBracket:
+							case Comma, CloseParen, CloseBracket, Semicolon:
 								// This indicates some kind of termination, so assume a type.
 								goto IdentifierStarType;
 
-							case Star, Function, Delegate:
+							case Function, Delegate:
 								goto IdentifierStarType;
 
 							IdentifierStarType:
@@ -1254,14 +1237,21 @@ private:
 							IdentifierStarExpression:
 								return IdentifierKind.Expression;
 
+							case Star:
+								lookahead.popFront();
+								continue;
+
 							case OpenBracket:
 								import source.parserutil;
 								lookahead.popMatchingDelimiter!OpenBracket();
 								continue;
 
 							default:
-								// No idea what this is, move on.
-								return IdentifierKind.Symbol;
+								if (kind == IdentifierKind.Type) {
+									goto IdentifierStarType;
+								}
+
+								return kind;
 						}
 					}
 

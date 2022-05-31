@@ -59,7 +59,7 @@ Options parseArguements(string File, U)(ref U utility, ref string[] args) {
 	ExtraArgsTypes extraArgs;
 
 	// FIXME: sdfmt fails to parse that this is a pointer.
-	alias ptrOf(T) = T * ;
+	alias ptrOf(T) = T*;
 	alias ExtraArgsPtrTypes = staticMap!(ptrOf, ExtraArgsTypes);
 	ExtraArgsPtrTypes extraArgsPtr;
 

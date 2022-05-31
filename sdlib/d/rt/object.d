@@ -30,7 +30,7 @@ version (SDC) {
 } else {
 	// We need to do some dirty manipulation when not
 	// using SDC as expected layout differs.
-	alias ClassInfo = ClassInfoImpl * ;
+	alias ClassInfo = ClassInfoImpl*;
 
 	struct ClassInfoImpl {
 		void* vtbl;
