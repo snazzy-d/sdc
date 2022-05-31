@@ -379,7 +379,7 @@ AstExpression parseShiftExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseAddExpression(lhs);
 	Location location = lhs.location;
 	
-	while(1) {
+	while (true) {
 		void processToken(AstBinaryOp op) {
 			trange.popFront();
 			
@@ -420,7 +420,7 @@ AstExpression parseAddExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseMulExpression(lhs);
 	Location location = lhs.location;
 	
-	while(1) {
+	while (true) {
 		void processToken(AstBinaryOp op) {
 			trange.popFront();
 			
@@ -460,7 +460,7 @@ AstExpression parseMulExpression(ref TokenRange trange) {
 AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
 	Location location = lhs.location;
 	
-	while(1) {
+	while (true) {
 		void processToken(AstBinaryOp op) {
 			trange.popFront();
 			

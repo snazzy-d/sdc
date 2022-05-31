@@ -105,9 +105,9 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 		name = trange.front.name;
 		trange.popFront();
 		
-		switch(trange.front.type) {
+		switch(trange.front.type) with(TokenType) {
 			// Handle opaque declarations.
-			case TokenType.Semicolon :
+			case Semicolon :
 				location.spanTo(trange.front.location);
 				
 				trange.popFront();
@@ -115,10 +115,10 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 				assert(0, "Opaque declaration aren't supported.");
 			
 			// Template structs
-			case TokenType.OpenParen :
+			case OpenParen :
 				parameters = trange.parseTemplateParameters();
 				
-				if(trange.front.type == TokenType.If) {
+				if (trange.front.type == If) {
 					trange.parseConstraint();
 				}
 				
@@ -145,9 +145,7 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 /**
  * Parse enums
  */
-Declaration parseEnum(ref TokenRange trange, StorageClass stc) in {
-	assert(stc.isEnum == true);
-} do {
+Declaration parseEnum(ref TokenRange trange, StorageClass stc) in(stc.isEnum == true) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Enum);
 	
