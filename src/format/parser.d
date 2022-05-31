@@ -488,6 +488,9 @@ private:
 		while (!match(TokenType.End)) {
 			parseStructuralElement();
 		}
+
+		// In case there is still some unformatted content in the pipe.
+		emitRawContent();
 	}
 
 	void parseStructuralElement() {

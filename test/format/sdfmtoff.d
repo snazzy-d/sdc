@@ -16,3 +16,8 @@ auto fun() {
 	Foo(bar);
 }
 // sdfmt on
+
+auto unterminatedSfmtOff() {
+	// sdfmt off
+	return Whatever();
+}
