@@ -105,11 +105,9 @@ Value parseJsonArray(ref JsonLexer lexer) {
 	Value[] values;
 	while (lexer.front.type != TokenType.CloseBracket) {
 		values ~= lexer.parseJsonValue();
-		if (lexer.front.type != TokenType.Comma) {
+		if (!lexer.popOnMatch(TokenType.Comma)) {
 			break;
 		}
-		
-		lexer.popFront();
 	}
 	
 	lexer.match(TokenType.CloseBracket);
@@ -136,11 +134,9 @@ Value parseJsonObject(ref JsonLexer lexer) {
 		lexer.match(TokenType.Colon);
 		
 		values[key] = lexer.parseJsonValue();
-		if (lexer.front.type != TokenType.Comma) {
+		if (!lexer.popOnMatch(TokenType.Comma)) {
 			break;
 		}
-		
-		lexer.popFront();
 	}
 	
 	lexer.match(TokenType.CloseBrace);

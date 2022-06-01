@@ -38,19 +38,15 @@ auto parseTemplateParameters(ref TokenRange trange) {
 	trange.match(TokenType.OpenParen);
 	
 	AstTemplateParameter[] parameters;
-	
-	if (trange.front.type != TokenType.CloseParen) {
+	while(trange.front.type != TokenType.CloseParen) {
 		parameters ~= trange.parseTemplateParameter();
 		
-		while(trange.front.type != TokenType.CloseParen) {
-			trange.match(TokenType.Comma);
-			
-			parameters ~= trange.parseTemplateParameter();
+		if (!trange.popOnMatch(TokenType.Comma)) {
+			break;
 		}
 	}
-	
-	trange.match(TokenType.CloseParen);
-	
+
+	trange.match(TokenType.CloseParen);	
 	return parameters;
 }
 
@@ -211,11 +207,9 @@ auto parseTemplateArguments(ref TokenRange trange) {
 				arguments ~= trange
 					.parseAmbiguous!(p => AstTemplateArgument(p))();
 				
-				if (trange.front.type != Comma) {
+				if (!trange.popOnMatch(TokenType.Comma)) {
 					break;
 				}
-				
-				trange.popFront();
 			}
 			
 			trange.match(CloseParen);

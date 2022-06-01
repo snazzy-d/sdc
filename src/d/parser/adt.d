@@ -37,13 +37,20 @@ private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange,
 		alias DeclarationType = InterfaceDeclaration;
 	}
 	
+	import source.name;
+	Name name;
 	AstTemplateParameter[] parameters;
-	if (trange.front.type == TokenType.OpenParen) {
-		parameters = trange.parseTemplateParameters();
-	}
+	bool isTemplate = false;
 	
-	auto name = trange.front.name;
-	trange.match(TokenType.Identifier);
+	if (trange.front.type == TokenType.Identifier) {
+		name = trange.front.name;
+		trange.match(TokenType.Identifier);
+		
+		isTemplate = trange.front.type == TokenType.OpenParen;
+		if (isTemplate) {
+			parameters = trange.parseTemplateParameters();
+		}
+	}
 	
 	Identifier[] bases;
 	if (trange.front.type == TokenType.Colon) {
@@ -53,10 +60,8 @@ private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange,
 		} while(trange.front.type == TokenType.Comma);
 	}
 	
-	if (parameters.ptr) {
-		if (trange.front.type == TokenType.If) {
-			trange.parseConstraint();
-		}
+	if (isTemplate && trange.front.type == TokenType.If) {
+		trange.parseConstraint();
 	}
 	
 	auto members = trange.parseAggregate();
@@ -64,12 +69,11 @@ private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange,
 	location.spanTo(trange.previous);
 	
 	auto adt = new DeclarationType(location, stc, name, bases, members);
-	
-	if (parameters.ptr) {
-		return new TemplateDeclaration(location, stc, name, parameters, [adt]);
-	} else {
+	if (!isTemplate) {
 		return adt;
 	}
+	
+	return new TemplateDeclaration(location, stc, name, parameters, [adt]);
 }
 
 /**
@@ -100,6 +104,7 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 	import source.name;
 	Name name;
 	AstTemplateParameter[] parameters;
+	bool isTemplate = false;
 	
 	if (trange.front.type == TokenType.Identifier) {
 		name = trange.front.name;
@@ -116,6 +121,7 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 			
 			// Template structs
 			case OpenParen :
+				isTemplate = true;
 				parameters = trange.parseTemplateParameters();
 				
 				if (trange.front.type == If) {
@@ -134,12 +140,11 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 	location.spanTo(trange.previous);
 	
 	auto adt = new DeclarationType(location, stc, name, members);
-	
-	if (parameters.ptr) {
-		return new TemplateDeclaration(location, stc, name, parameters, [adt]);
-	} else {
+	if (!isTemplate) {
 		return adt;
 	}
+	
+	return new TemplateDeclaration(location, stc, name, parameters, [adt]);
 }
 
 /**
@@ -205,9 +210,9 @@ Declaration parseEnum(ref TokenRange trange, StorageClass stc) in(stc.isEnum == 
 		enumEntries ~= new VariableDeclaration(entryLocation, stc, type, entryName, entryValue);
 		
 		// If it is not a comma, then we abort the loop.
-		if (trange.front.type != TokenType.Comma) break;
-		
-		trange.popFront();
+		if (!trange.popOnMatch(TokenType.Comma)) {
+			break;
+		}
 	}
 	
 	location.spanTo(trange.front.location);

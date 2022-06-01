@@ -396,41 +396,39 @@ Declaration parseTypedDeclaration(
 			type.getParamType(stc.isRef ? ParamKind.Ref : ParamKind.Regular),
 			name,
 		);
-	} else {
-		Declaration[] variables;
+	}
+	
+	Declaration[] variables;
+	
+	while (true) {
+		auto name = trange.front.name;
+		Location variableLocation = trange.front.location;
+		trange.match(TokenType.Identifier);
 		
-		while (true) {
-			auto name = trange.front.name;
-			Location variableLocation = trange.front.location;
-			trange.match(TokenType.Identifier);
-			
-			AstExpression value;
-			if (trange.front.type == TokenType.Equal) {
-				trange.popFront();
-				value = trange.parseInitializer();
-				variableLocation.spanTo(value.location);
-			}
-			
-			variables ~= new VariableDeclaration(
-				location,
-				stc,
-				type,
-				name,
-				value,
-			);
-			
-			if (trange.front.type != TokenType.Comma) {
-				break;
-			}
-			
+		AstExpression value;
+		if (trange.front.type == TokenType.Equal) {
 			trange.popFront();
+			value = trange.parseInitializer();
+			variableLocation.spanTo(value.location);
 		}
 		
-		location.spanTo(trange.front.location);
-		trange.match(TokenType.Semicolon);
+		variables ~= new VariableDeclaration(
+			location,
+			stc,
+			type,
+			name,
+			value,
+		);
 		
-		return new GroupDeclaration(location, stc, variables);
+		if (!trange.popOnMatch(TokenType.Comma)) {
+			break;
+		}
 	}
+	
+	location.spanTo(trange.front.location);
+	trange.match(TokenType.Semicolon);
+	
+	return new GroupDeclaration(location, stc, variables);
 }
 
 // XXX: one callsite, remove
@@ -641,11 +639,9 @@ auto parseParameters(bool matchOpenParen = true)(ref TokenRange trange, out bool
 		}
 		
 		parameters ~= trange.parseParameter();
-		if (trange.front.type != TokenType.Comma) {
+		if (!trange.popOnMatch(TokenType.Comma)) {
 			break;
 		}
-		
-		trange.popFront();
 	}
 	
 	trange.match(TokenType.CloseParen);

@@ -19,6 +19,16 @@ void match(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
 	throw new CompileException(token.location, error);
 }
 
+bool popOnMatch(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
+	auto token = lexer.front;
+	if (token.type != type) {
+		return false;
+	}
+	
+	lexer.popFront();
+	return true;
+}
+
 /**
  * Get the matching delimiter
  */

@@ -629,11 +629,9 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 			
 			while (trange.front.type != CloseBracket) {
 				values ~= trange.parseAssignExpression();
-				if (trange.front.type != Comma) {
+				if (!trange.popOnMatch(TokenType.Comma)) {
 					break;
 				}
-				
-				trange.popFront();
 			}
 			
 			location.spanTo(trange.front.location);
@@ -932,11 +930,9 @@ AstExpression[] parseArguments(TokenType openTokenType)(ref TokenRange trange) {
 	AstExpression[] args;
 	while (trange.front.type != closeTokenType) {
 		args ~= trange.parseAssignExpression();
-		if (trange.front.type != TokenType.Comma) {
+		if (!trange.popOnMatch(TokenType.Comma)) {
 			break;
 		}
-		
-		trange.popFront();
 	}
 	
 	trange.match(closeTokenType);
