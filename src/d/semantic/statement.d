@@ -190,7 +190,7 @@ private:
 	}
 
 	BasicBlockRef maybeBranchTo(Location location, BasicBlockRef src,
-	                            BasicBlockRef dst, ) {
+	                            BasicBlockRef dst) {
 		if (!doesTerminate(src)) {
 			fbody[src].branch(location, dst);
 		}
@@ -266,7 +266,7 @@ private:
 	auto buildExpression(AstExpression expr, Type type) {
 		import d.semantic.caster, d.semantic.expression;
 		return check(buildExplicitCast(pass, expr.location, type,
-		                               ExpressionVisitor(pass).visit(expr), ));
+		                               ExpressionVisitor(pass).visit(expr)));
 	}
 
 	auto buildCondition(AstExpression expr) {
@@ -275,8 +275,7 @@ private:
 
 	auto buildString(AstExpression expr) {
 		return buildExpression(
-			expr,
-			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable), );
+			expr, Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable));
 	}
 
 public:
@@ -324,9 +323,10 @@ public:
 					: InitBuilder(pass, s.location).visit(t);
 
 				import d.semantic.caster;
-				auto v = new Variable(
-					s.location, t.getParamType(ParamKind.Regular), s.name,
-					buildImplicitCast(pass, s.location, t, value), );
+				auto v =
+					new Variable(s.location, t.getParamType(ParamKind.Regular),
+					             s.name,
+					             buildImplicitCast(pass, s.location, t, value));
 
 				v.step = Step.Processed;
 				pass.currentScope.addSymbol(v);
@@ -350,7 +350,7 @@ public:
 			autoBlock(s.elseStatement);
 			if (!terminate) {
 				mergeBlock = maybeBranchToNewBlock(s.elseStatement.location,
-				                                   BuiltinName!"endif", );
+				                                   BuiltinName!"endif");
 			}
 		} else {
 			ifFalse = mergeBlock = startNewBranch(BuiltinName!"endif");
@@ -365,7 +365,7 @@ public:
 		}
 
 		fbody[ifBlock]
-			.branch(s.location, buildCondition(s.condition), ifTrue, ifFalse, );
+			.branch(s.location, buildCondition(s.condition), ifTrue, ifFalse);
 	}
 
 	void genLoop(
@@ -400,8 +400,7 @@ public:
 		auto bodyBlock = startNewBranch(BuiltinName!"loop.body");
 
 		continueLabel = Label(incBlock, cast(uint) unwindActions.length);
-		breakLabel =
-			Label(BasicBlockRef.init, cast(uint) unwindActions.length, );
+		breakLabel = Label(BasicBlockRef.init, cast(uint) unwindActions.length);
 
 		if (element !is null) {
 			currentBlock.alloca(element.location, element);
@@ -415,7 +414,7 @@ public:
 		if (condition) {
 			auto breakLabel = getBreakLabel(location);
 			fbody[testBlock]
-				.branch(location, condition, bodyBlock, breakLabel.block, );
+				.branch(location, condition, bodyBlock, breakLabel.block);
 		} else {
 			fbody[testBlock].branch(location, bodyBlock);
 		}
@@ -482,7 +481,7 @@ public:
 					import d.ir.error;
 					return new CompileError(
 							iterated.location,
-							typeid(e).toString() ~ " is not a valid length", )
+							typeid(e).toString() ~ " is not a valid length")
 						.expression;
 				}
 			})();
@@ -494,7 +493,7 @@ public:
 			case 1:
 				import d.semantic.defaultinitializer;
 				idx = new Variable(loc, length.type, BuiltinName!"",
-				                   InitBuilder(pass, loc).visit(length.type), );
+				                   InitBuilder(pass, loc).visit(length.type));
 
 				idx.step = Step.Processed;
 				break;
@@ -514,7 +513,7 @@ public:
 
 				import d.semantic.defaultinitializer;
 				idx = new Variable(idxLoc, t, idxDecl.name,
-				                   InitBuilder(pass, idxLoc).visit(t), );
+				                   InitBuilder(pass, idxLoc).visit(t));
 
 				idx.step = Step.Processed;
 				currentScope.addSymbol(idx);
@@ -530,7 +529,7 @@ public:
 
 		auto idxExpr = new VariableExpression(idx.location, idx);
 		auto increment =
-			build!UnaryExpression(loc, idx.type, UnaryOp.PreInc, idxExpr, );
+			build!UnaryExpression(loc, idx.type, UnaryOp.PreInc, idxExpr);
 
 		import d.semantic.caster;
 		length = buildImplicitCast(pass, idx.location, idx.type, length);
@@ -595,7 +594,7 @@ public:
 
 		auto idx = new Variable(iDecl.location,
 		                        type.getParamType(iDecl.type.paramKind),
-		                        iDecl.name, start, );
+		                        iDecl.name, start);
 
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
@@ -609,7 +608,7 @@ public:
 			condition = build!ICmpExpression(
 				loc, ICmpOp.Greater,
 				build!UnaryExpression(loc, type, UnaryOp.PostDec, idxExpr),
-				stop, );
+				stop);
 		} else {
 			// for(...; idx < stop; idx++)
 			condition = build!ICmpExpression(loc, ICmpOp.Less, idxExpr, stop);
@@ -659,7 +658,7 @@ public:
 
 				value = build!UnaryExpression(s.location,
 				                              value.type.getPointer(),
-				                              UnaryOp.AddressOf, value, );
+				                              UnaryOp.AddressOf, value);
 			}
 		}
 
@@ -669,14 +668,14 @@ public:
 			if (retval is null) {
 				auto v =
 					new Variable(location, value.type, BuiltinName!"return",
-					             new VoidInitializer(location, value.type), );
+					             new VoidInitializer(location, value.type));
 
 				v.step = Step.Processed;
 				retval = new VariableExpression(location, v);
 			}
 
 			currentBlock.eval(location, check(build!BinaryExpression(
-				location, retval.type, BinaryOp.Assign, retval, value, )));
+				location, retval.type, BinaryOp.Assign, retval, value)));
 
 			value = retval;
 		}
@@ -703,7 +702,7 @@ public:
 			case None:
 				import source.exception;
 				throw new CompileException(
-					location, "Cannot break outside of switches and loops", );
+					location, "Cannot break outside of switches and loops");
 
 			case Loop:
 				name = BuiltinName!"loop.exit";
@@ -726,7 +725,7 @@ public:
 		if (!continueLabel) {
 			import source.exception;
 			throw new CompileException(s.location,
-			                           "Cannot continue outside of loops", );
+			                           "Cannot continue outside of loops");
 		}
 
 		unwindAndBranch(s.location, continueLabel);
@@ -764,8 +763,7 @@ public:
 
 		cases = [CaseEntry.init];
 
-		breakLabel =
-			Label(BasicBlockRef.init, cast(uint) unwindActions.length, );
+		breakLabel = Label(BasicBlockRef.init, cast(uint) unwindActions.length);
 
 		currentBlockRef = null;
 		visit(s.statement);
@@ -778,7 +776,7 @@ public:
 			import source.exception;
 			throw new CompileException(
 				s.location,
-				"Reached end of switch statement with unresolved goto case;", );
+				"Reached end of switch statement with unresolved goto case;");
 		}
 
 		auto defaultLabel = BuiltinName!"default" in labels;
@@ -787,7 +785,7 @@ public:
 			throw new CompileException(
 				s.location,
 				"switch statement without a default; use 'final switch' "
-					~ "or add 'default: assert(0);' or add 'default: break;'", );
+					~ "or add 'default: assert(0);' or add 'default: break;'");
 		}
 
 		BasicBlockRef defaultBlock = defaultLabel.block;
@@ -833,13 +831,13 @@ public:
 			if (!isValid) {
 				import source.exception;
 				throw new CompileException(
-					location, "Cannot jump over variable initialization.", );
+					location, "Cannot jump over variable initialization.");
 			}
 		}
 	}
 
 	private void setCaseEntry(Location location, string switchError,
-	                          string fallthroughError, ) {
+	                          string fallthroughError) {
 		scope(success) {
 			varStack = switchStack;
 		}
@@ -864,11 +862,11 @@ public:
 	void visit(CaseStatement s) {
 		setCaseEntry(s.location,
 		             "Case statement can only appear within switch statement.",
-		             "Fallthrough is disabled, use goto case.", );
+		             "Fallthrough is disabled, use goto case.");
 
 		auto caseBlock = maybeBranchToNewBlock(s.location, BuiltinName!"case");
 		fixupGoto(s.location, BuiltinName!"case",
-		          Label(caseBlock, cast(uint) unwindActions.length), );
+		          Label(caseBlock, cast(uint) unwindActions.length));
 
 		foreach (e; s.cases) {
 			auto c = cast(uint) evalIntegral(buildExpression(e));
@@ -912,7 +910,7 @@ public:
 			if (!isValid) {
 				import source.exception;
 				throw new CompileException(
-					s.location, "Cannot goto over variable initialization.", );
+					s.location, "Cannot goto over variable initialization.");
 			}
 		}
 
@@ -970,13 +968,13 @@ public:
 
 		auto successBlock = startNewBranch(BuiltinName!"assert.success");
 		fbody[testBlock].branch(s.location, buildCondition(s.condition),
-		                        successBlock, failBlock, );
+		                        successBlock, failBlock);
 	}
 
 	void visit(ThrowStatement s) {
 		currentBlock.doThrow(
 			s.location,
-			buildExpression(s.value, Type.get(pass.object.getThrowable()), ));
+			buildExpression(s.value, Type.get(pass.object.getThrowable())));
 	}
 
 	void visit(TryStatement s) {
@@ -1029,9 +1027,9 @@ public:
 						assert(0);
 					} else {
 						import source.exception;
-						throw new CompileException(identified.location,
-						                           typeid(identified).toString()
-							                           ~ " is not a class.", );
+						throw new CompileException(
+							identified.location,
+							typeid(identified).toString() ~ " is not a class.");
 					}
 				})();
 
@@ -1203,9 +1201,8 @@ public:
 					break;
 
 				case Failure:
-					assert(
-						b.statement !is null,
-						"Catch blocks must be handled with try statements", );
+					assert(b.statement !is null,
+					       "Catch blocks must be handled with try statements");
 
 					goto case Exit;
 
