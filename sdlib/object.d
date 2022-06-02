@@ -20,7 +20,8 @@ class Object {
 }
 
 class TypeInfo {}
-class ClassInfo : TypeInfo {
+
+final class ClassInfo : TypeInfo {
 	ClassInfo base;
 }
 

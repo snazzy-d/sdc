@@ -449,6 +449,40 @@ struct ExpressionGen {
 		return declare(e.fun);
 	}
 
+	private
+	LLVMValueRef genMethod(LLVMValueRef dg, Expression[] contexts, Function f) {
+		auto m = cast(Method) f;
+		if (m is null || m.isFinal) {
+			return declare(f);
+		}
+
+		// Virtual dispatch.
+		assert(m.hasThis);
+
+		auto classType = contexts[m.hasContext].type.getCanonical();
+		assert(classType.kind == TypeKind.Class,
+		       "Virtual dispatch can only be done on classes");
+
+		LLVMValueRef metadata;
+		auto c = classType.dclass;
+		if (c.isFinal) {
+			auto thisType =
+				LLVMStructGetTypeAtIndex(LLVMTypeOf(dg), m.hasContext);
+			auto metadataType =
+				LLVMStructGetTypeAtIndex(LLVMGetElementType(thisType), 0);
+			metadata =
+				LLVMBuildBitCast(builder, getTypeid(c), metadataType, "");
+		} else {
+			auto thisPtr = LLVMBuildExtractValue(builder, dg, m.hasContext, "");
+			auto metadataPtr = LLVMBuildStructGEP(builder, thisPtr, 0, "");
+			metadata = LLVMBuildLoad(builder, metadataPtr, "");
+		}
+
+		auto vtbl = LLVMBuildStructGEP(builder, metadata, 1, "vtbl");
+		auto funPtr = LLVMBuildStructGEP(builder, vtbl, m.index, "");
+		return LLVMBuildLoad(builder, funPtr, "");
+	}
+
 	LLVMValueRef visit(DelegateExpression e) {
 		auto type = e.type.getCanonical().asFunctionType();
 		auto tCtxs = type.contexts;
@@ -465,23 +499,8 @@ struct ExpressionGen {
 			dg = LLVMBuildInsertValue(builder, dg, ctxValue, cast(uint) i, "");
 		}
 
-		LLVMValueRef fun;
-		if (auto m = cast(Method) e.method) {
-			assert(m.hasThis);
-			assert(eCtxs[m.hasContext].type.getCanonical().dclass,
-			       "Virtual dispatch can only be done on classes");
-
-			auto thisPtr = LLVMBuildExtractValue(builder, dg, m.hasContext, "");
-			auto metadataPtr = LLVMBuildStructGEP(builder, thisPtr, 0, "");
-			auto metadata = LLVMBuildLoad(builder, metadataPtr, "");
-			auto vtbl = LLVMBuildStructGEP(builder, metadata, 1, "vtbl");
-			auto funPtr = LLVMBuildStructGEP(builder, vtbl, m.index, "");
-			fun = LLVMBuildLoad(builder, funPtr, "");
-		} else {
-			fun = declare(e.method);
-		}
-
-		return LLVMBuildInsertValue(builder, dg, fun, length, "");
+		auto m = genMethod(dg, eCtxs, e.method);
+		return LLVMBuildInsertValue(builder, dg, m, length, "");
 	}
 
 	LLVMValueRef visit(NewExpression e) {
@@ -637,15 +656,42 @@ struct ExpressionGen {
 		return ret;
 	}
 
-	LLVMValueRef visit(CastExpression e) {
+	LLVMValueRef buildDownCast(LLVMValueRef value, Class c) {
 		import d.llvm.type;
-		auto type = TypeGen(pass.pass).visit(e.type);
+		auto type = TypeGen(pass.pass).visit(c);
+		auto tid = getTypeid(c);
+
+		if (c.isFinal) {
+			auto cmp = LLVMBuildICmp(builder, LLVMIntPredicate.EQ,
+			                         getTypeid(value), tid, "");
+			auto fastcast = LLVMBuildBitCast(builder, value, type, "");
+			return LLVMBuildSelect(builder, cmp, fastcast, LLVMConstNull(type),
+			                       "");
+		}
+
+		auto obj = TypeGen(pass.pass).visit(pass.object.getObject());
+		LLVMValueRef[2] args = [LLVMBuildBitCast(builder, value, obj, ""), tid];
+
+		auto result =
+			buildCall(declare(pass.object.getClassDowncast()), args[]);
+		return LLVMBuildBitCast(builder, result, type, "");
+	}
+
+	LLVMValueRef visit(CastExpression e) {
 		auto value = visit(e.expr);
+		if (e.kind == CastKind.Exact || e.kind == CastKind.Qual) {
+			return value;
+		}
+
+		auto t = e.type.getCanonical();
+		if (e.kind == CastKind.Down) {
+			return buildDownCast(value, t.dclass);
+		}
+
+		import d.llvm.type;
+		auto type = TypeGen(pass.pass).visit(t);
 
 		final switch (e.kind) with (CastKind) {
-			case Exact, Qual:
-				return value;
-
 			case Bit:
 				return buildBitCast(value, type);
 
@@ -669,17 +715,8 @@ struct ExpressionGen {
 				                     LLVMConstInt(LLVMTypeOf(value), 0, false),
 				                     "");
 
-			case Down:
-				import d.llvm.type;
-				auto obj = TypeGen(pass.pass).visit(pass.object.getObject());
-
-				LLVMValueRef[2] args;
-				args[0] = LLVMBuildBitCast(builder, value, obj, "");
-				args[1] = getTypeid(e.type);
-
-				auto result =
-					buildCall(declare(pass.object.getClassDowncast()), args[]);
-				return LLVMBuildBitCast(builder, result, type, "");
+			case Exact, Qual, Down:
+				assert(0, "Unreachable");
 
 			case Invalid:
 				assert(0, "Invalid cast");
@@ -829,17 +866,19 @@ struct ExpressionGen {
 		return getTypeid(visit(e.argument));
 	}
 
+	private LLVMValueRef getTypeid(Class c) {
+		import d.llvm.type;
+		TypeGen(pass.pass).visit(c);
+
+		return TypeGen(pass.pass).getTypeInfo(c);
+	}
+
 	private LLVMValueRef getTypeid(Type t) {
 		t = t.getCanonical();
 		assert(t.kind == TypeKind.Class, "Not implemented");
 
 		// Ensure that the thing is generated.
-		auto c = t.dclass;
-
-		import d.llvm.type;
-		TypeGen(pass.pass).visit(c);
-
-		return TypeGen(pass.pass).getTypeInfo(c);
+		return getTypeid(t.dclass);
 	}
 
 	LLVMValueRef visit(StaticTypeidExpression e) {

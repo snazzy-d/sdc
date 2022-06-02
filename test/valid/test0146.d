@@ -7,19 +7,33 @@ class A {}
 
 class B : A {}
 
+final class C : B {}
+
 void main() {
 	Object a = new A();
+	auto aa = cast(A) a;
+	auto ab = cast(B) a;
+	auto ac = cast(C) a;
+
+	assert(aa is a);
+	assert(ab is null);
+	assert(ac is null);
+
 	Object b = new B();
+	auto ba = cast(A) b;
+	auto bb = cast(B) b;
+	auto bc = cast(C) b;
 
-	auto a1 = cast(A) a;
-	auto a2 = cast(B) a;
+	assert(ba is b);
+	assert(bb is b);
+	assert(bc is null);
 
-	assert(a1 is a);
-	assert(a2 is null);
+	Object c = new C();
+	auto ca = cast(A) c;
+	auto cb = cast(B) c;
+	auto cc = cast(C) c;
 
-	auto b1 = cast(A) b;
-	auto b2 = cast(B) b;
-
-	assert(b1 is b);
-	assert(b2 is b);
+	assert(ca is c);
+	assert(cb is c);
+	assert(cc is c);
 }

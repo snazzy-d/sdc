@@ -751,6 +751,14 @@ struct SymbolAnalyzer {
 			c.base = pass.object.getObject();
 		}
 
+		// Cannot inherit from final classes.
+		if (c.base.isFinal) {
+			import source.exception;
+			throw new CompileException(c.location, c.name.toString(context)
+				~ " cannot inherit from " ~ c.base.name.toString(context)
+				~ " because it is final.");
+		}
+
 		uint fieldIndex = 0;
 		uint methodIndex = 0;
 
@@ -813,91 +821,99 @@ struct SymbolAnalyzer {
 
 		uint overloadCount = 0;
 		foreach (m; members) {
-			if (auto method = cast(Method) m) {
-				scheduler.require(method, Step.Signed);
+			auto method = cast(Method) m;
+			if (method is null) {
+				continue;
+			}
 
-				auto mt = method.type;
-				auto rt = mt.returnType;
-				auto ats = mt.parameters[1 .. $];
+			scheduler.require(method, Step.Signed);
 
-				CandidatesLoop: foreach (ref candidate; baseMethods) {
-					if (!candidate || method.name != candidate.name) {
-						continue;
+			auto mt = method.type;
+			auto rt = mt.returnType;
+			auto ats = mt.parameters[1 .. $];
+
+			CandidatesLoop: foreach (ref candidate; baseMethods) {
+				if (!candidate || method.name != candidate.name) {
+					continue;
+				}
+
+				auto ct = candidate.type;
+				if (ct.isVariadic != mt.isVariadic) {
+					continue;
+				}
+
+				auto crt = ct.returnType;
+				auto cpts = ct.parameters[1 .. $];
+				if (ats.length != cpts.length || rt.isRef != crt.isRef) {
+					continue;
+				}
+
+				auto rk = implicitCastFrom(pass, rt.getType(), crt.getType());
+
+				if (rk < CastKind.Exact) {
+					continue;
+				}
+
+				import std.range;
+				foreach (at, cpt; lockstep(ats, cpts)) {
+					if (at.isRef != cpt.isRef) {
+						continue CandidatesLoop;
 					}
 
-					auto ct = candidate.type;
-					if (ct.isVariadic != mt.isVariadic) {
-						continue;
-					}
+					auto pk =
+						implicitCastFrom(pass, cpt.getType(), at.getType());
 
-					auto crt = ct.returnType;
-					auto cpts = ct.parameters[1 .. $];
-					if (ats.length != cpts.length || rt.isRef != crt.isRef) {
-						continue;
-					}
-
-					auto rk =
-						implicitCastFrom(pass, rt.getType(), crt.getType());
-
-					if (rk < CastKind.Exact) {
-						continue;
-					}
-
-					import std.range;
-					foreach (at, cpt; lockstep(ats, cpts)) {
-						if (at.isRef != cpt.isRef) {
-							continue CandidatesLoop;
-						}
-
-						auto pk =
-							implicitCastFrom(pass, cpt.getType(), at.getType());
-
-						if (pk < CastKind.Exact) {
-							continue CandidatesLoop;
-						}
-					}
-
-					if (method.index == -1) {
-						method.index = candidate.index;
-
-						// Remove candidate from scope.
-						auto os = cast(OverloadSet)
-							c.resolve(c.location, method.name);
-						assert(os, "This must be an overload set");
-
-						uint i = 0;
-						while (os.set[i] !is candidate) {
-							i++;
-						}
-
-						foreach (s; os.set[i + 1 .. $]) {
-							os.set[i++] = s;
-						}
-
-						os.set = os.set[0 .. i];
-
-						overloadCount++;
-						candidate = null;
-						break;
-					} else {
-						import source.exception;
-						throw new CompileException(
-							method.location, method.name.toString(context)
-								~ " overrides a base class methode "
-								~ "but is not marked override");
+					if (pk < CastKind.Exact) {
+						continue CandidatesLoop;
 					}
 				}
 
-				if (method.index == -1) {
+				if (method.index != -1) {
 					import source.exception;
 					throw new CompileException(
-						method.location, "Override not found for "
-							~ method.name.toString(context));
+						method.location, method.name.toString(context)
+							~ " overrides a base class method "
+							~ "but is not marked override.");
 				}
+
+				if (candidate.isFinal) {
+					import source.exception;
+					throw new CompileException(
+						method.location, method.name.toString(context)
+							~ " overrides a final method.");
+				}
+
+				method.index = candidate.index;
+
+				// Remove candidate from scope.
+				auto os = cast(OverloadSet) c.resolve(c.location, method.name);
+				assert(os, "This must be an overload set");
+
+				uint i = 0;
+				while (os.set[i] !is candidate) {
+					i++;
+				}
+
+				foreach (s; os.set[i + 1 .. $]) {
+					os.set[i++] = s;
+				}
+
+				os.set = os.set[0 .. i];
+
+				overloadCount++;
+				candidate = null;
+				break;
+			}
+
+			if (method.index == -1) {
+				import source.exception;
+				throw new CompileException(
+					method.location,
+					"Override not found for " ~ method.name.toString(context));
 			}
 		}
 
-		// Remove overlaoded base method.
+		// Remove overloaded base method.
 		if (overloadCount) {
 			uint i = 0;
 			while (baseMethods[i] !is null) {
