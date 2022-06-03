@@ -131,7 +131,7 @@ class Function : ValueSymbol, Scope {
 			return Intrinsic.None;
 		}
 
-		return cast(Intrinsic) __derived;
+		return cast(Intrinsic) derived;
 	}
 
 	@property
@@ -139,7 +139,7 @@ class Function : ValueSymbol, Scope {
 		assert(!hasThis, "Method can't be intrinsic");
 		assert(intrinsicID == Intrinsic.None, "This is already an intrinsic");
 	} do {
-		__derived = id;
+		derived = id;
 		return intrinsicID;
 	}
 
@@ -221,13 +221,13 @@ class OverloadSet : Symbol {
 	}
 
 	@property
-		isResolved() const {
-		return !!__derived;
+	bool isResolved() const {
+		return !!derived;
 	}
 
 	@property
-		isResolved(bool resolved) {
-		__derived = resolved;
+	bool isResolved(bool resolved) {
+		derived = resolved;
 		return resolved;
 	}
 }
@@ -276,13 +276,13 @@ class Variable : ValueSymbol {
 	}
 
 	@property
-		storage() const {
-		return cast(Storage) (__derived & 0x03);
+	Storage storage() const {
+		return cast(Storage) (derived & 0x03);
 	}
 
 	@property
-		storage(Storage storage) {
-		__derived = storage;
+	Storage storage(Storage storage) {
+		derived = storage;
 		return storage;
 	}
 
@@ -313,7 +313,7 @@ class Field : ValueSymbol {
 	}
 
 	@property
-		index() const {
+	uint index() const {
 		return derived;
 	}
 }
@@ -339,13 +339,13 @@ class Template : ScopeSymbol {
 	}
 
 	@property
-		storage() const {
-		return cast(Storage) (__derived & 0x03);
+	Storage storage() const {
+		return cast(Storage) (derived & 0x03);
 	}
 
 	@property
-		storage(Storage storage) {
-		__derived = storage;
+	Storage storage(Storage storage) {
+		derived = storage;
 		return storage;
 	}
 }
@@ -430,13 +430,13 @@ class TemplateInstance : Symbol, Scope {
 	}
 
 	@property
-		storage() const {
-		return cast(Storage) (__derived & 0x03);
+	Storage storage() const {
+		return cast(Storage) (derived & 0x03);
 	}
 
 	@property
-		storage(Storage storage) {
-		__derived = storage;
+	Storage storage(Storage storage) {
+		derived = storage;
 		return storage;
 	}
 }
@@ -525,10 +525,9 @@ class Struct : Aggregate {
 	// XXX: std.bitmanip should really offer the possibility to create bitfield
 	// out of unused bits of existing bitfields.
 	@property
-	bool hasIndirection() const in {
-		assert(step >= Step.Signed,
-		       "Struct need to be signed to use hasIndirection");
-	} do {
+	bool hasIndirection() const
+			in(step >= Step.Signed,
+			   "Struct need to be signed to use hasIndirection") {
 		return !!(derived & 0x01);
 	}
 
@@ -544,9 +543,8 @@ class Struct : Aggregate {
 	}
 
 	@property
-	bool isPod() const in {
-		assert(step >= Step.Signed, "Struct need to be signed to use isPod");
-	} do {
+	bool isPod() const
+			in(step >= Step.Signed, "Struct need to be signed to use isPod") {
 		return !!(derived & 0x02);
 	}
 
@@ -562,9 +560,8 @@ class Struct : Aggregate {
 	}
 
 	@property
-	bool isSmall() const in {
-		assert(step >= Step.Signed, "Struct need to be signed to use isSmall");
-	} do {
+	bool isSmall() const
+			in(step >= Step.Signed, "Struct need to be signed to use isSmall") {
 		return !!(derived & 0x04);
 	}
 
@@ -589,15 +586,14 @@ class Union : Aggregate {
 	}
 
 	@property
-		hasIndirection() const in {
-		assert(step >= Step.Signed,
-		       "Union need to be signed to use hasIndirection");
-	} do {
+	bool hasIndirection() const
+			in(step >= Step.Signed,
+			   "Union need to be signed to use hasIndirection") {
 		return !!derived;
 	}
 
 	@property
-		hasIndirection(bool hasIndirection) {
+	bool hasIndirection(bool hasIndirection) {
 		derived = hasIndirection;
 		return hasIndirection;
 	}
