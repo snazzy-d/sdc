@@ -55,7 +55,7 @@ struct TypeGen {
 		}
 	}
 	
-	LLVMValueRef getTypeInfo(Aggregate a) {
+	LLVMValueRef getTypeInfo(A : Aggregate)(A a) {
 		if (a !in typeInfos) {
 			this.dispatch(a);
 		}
@@ -263,42 +263,21 @@ struct TypeGen {
 		}
 		
 		auto mangle = c.mangle.toString(context);
-		auto llvmStruct = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
-		auto structPtr = typeSymbols[c] = LLVMPointerType(llvmStruct, 0);
+		auto classStruct = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
+		auto classPtr = typeSymbols[c] = LLVMPointerType(classStruct, 0);
 		
 		import std.string;
+		auto metadataStruct = LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__metadata"));
+		auto metadata = LLVMAddGlobal(dmodule, metadataStruct, toStringz(mangle ~ "__vtbl"));
+
 		auto classInfoPtr = visit(classInfoClass);
-		auto classInfoStruct = LLVMGetElementType(classInfoPtr);
-		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__vtbl"));
-		auto vtblPtr = LLVMPointerType(vtblStruct, 0);
-		
-		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblStruct];
-		auto classMetadataStruct = LLVMStructTypeInContext(
-			llvmCtx,
-			classMetadataElts.ptr,
-			classMetadataElts.length,
-			false,
-		);
-		
-		import std.string;
-		auto classMetadata = LLVMAddGlobal(
-			dmodule,
-			classMetadataStruct,
-			toStringz(mangle ~ "__Metadata"),
-		);
-		
-		typeInfos[c] = LLVMConstBitCast(classMetadata, classInfoPtr);
-		auto classMetadataPtr = LLVMPointerType(classMetadataStruct, 0);
-		
+		typeInfos[c] = LLVMConstBitCast(metadata, classInfoPtr);
+		auto metadataPtr = LLVMPointerType(metadataStruct, 0);
+
 		LLVMValueRef[] methods;
-		LLVMTypeRef[] initTypes = [classMetadataPtr];
+		LLVMTypeRef[] initTypes = [metadataPtr];
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
-				auto oldBody = m.fbody;
-				scope(exit) m.fbody = oldBody;
-				// FIXME: Do whatever is needed here.
-				// m.fbody = null;
-				
 				import d.llvm.global;
 				methods ~= GlobalGen(pass).declare(m);
 			} else if (auto f = cast(Field) member) {
@@ -308,34 +287,31 @@ struct TypeGen {
 			}
 		}
 		
-		LLVMStructSetBody(
-			llvmStruct,
-			initTypes.ptr,
-			cast(uint) initTypes.length,
-			false,
-		);
+		LLVMStructSetBody(classStruct, initTypes.ptr, cast(uint) initTypes.length, false);
 		
 		import std.algorithm, std.array;
 		auto vtblTypes = methods.map!(m => LLVMTypeOf(m)).array();
-		LLVMStructSetBody(
-			vtblStruct,
+		auto vtblStruct = LLVMStructTypeInContext(
+			llvmCtx,
 			vtblTypes.ptr,
 			cast(uint) vtblTypes.length,
 			false,
 		);
 		
-		auto vtbl = LLVMConstNamedStruct(
-			vtblStruct,
+		auto classInfoStruct = LLVMGetElementType(classInfoPtr);
+		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblStruct];
+		LLVMStructSetBody(metadataStruct, classMetadataElts.ptr, classMetadataElts.length, false);
+		
+		auto vtbl = LLVMConstStructInContext(
+			llvmCtx,
 			methods.ptr,
 			cast(uint) methods.length,
+			false,
 		);
 		
 		// Doing it at the end to avoid infinite recursion
-		// when generating object.ClassInfo
-		auto base = c.base;
-		visit(base);
-		
-		LLVMValueRef[2] classInfoData = [getTypeInfo(classInfoClass), getTypeInfo(base)];
+		// when generating object.ClassInfo.
+		LLVMValueRef[2] classInfoData = [getTypeInfo(classInfoClass), getTypeInfo(c.base)];
 		auto classInfoGen = LLVMConstNamedStruct(
 			classInfoStruct,
 			classInfoData.ptr,
@@ -343,17 +319,17 @@ struct TypeGen {
 		);
 		
 		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
-		auto classMetadataGen = LLVMConstNamedStruct(
-			classMetadataStruct,
+		auto metadataGen = LLVMConstNamedStruct(
+			metadataStruct,
 			classDataData.ptr,
 			classDataData.length,
 		);
 		
-		LLVMSetInitializer(classMetadata, classMetadataGen);
-		LLVMSetGlobalConstant(classMetadata, true);
-		LLVMSetLinkage(classMetadata, LLVMLinkage.LinkOnceODR);
+		LLVMSetInitializer(metadata, metadataGen);
+		LLVMSetGlobalConstant(metadata, true);
+		LLVMSetLinkage(metadata, LLVMLinkage.LinkOnceODR);
 		
-		return structPtr;
+		return classPtr;
 	}
 	
 	LLVMTypeRef visit(Enum e) {

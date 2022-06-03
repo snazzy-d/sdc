@@ -868,8 +868,6 @@ struct ExpressionGen {
 
 	private LLVMValueRef getTypeid(Class c) {
 		import d.llvm.type;
-		TypeGen(pass.pass).visit(c);
-
 		return TypeGen(pass.pass).getTypeInfo(c);
 	}
 
