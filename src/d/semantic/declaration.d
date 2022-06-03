@@ -48,9 +48,10 @@ struct DeclarationVisitor {
 			bool, "isRef", 1,
 			bool, "isOverride", 1,
 			bool, "isAbstract", 1,
+			bool, "isFinal", 1,
 			bool, "isProperty", 1,
 			bool, "isNoGC", 1,
-			uint, "", 12,
+			uint, "", 11,
 			// sdfmt on
 		));
 	}
@@ -208,6 +209,7 @@ struct DeclarationVisitor {
 		f.hasContext = isStatic ? false : addContext;
 
 		f.isAbstract = isAbstract || stc.isAbstract;
+		f.isFinal = isFinal || stc.isFinal;
 		f.isProperty = isProperty || stc.isProperty;
 
 		addOverloadableSymbol(f);
@@ -247,9 +249,13 @@ struct DeclarationVisitor {
 	}
 
 	void visit(StructDeclaration d) {
+		auto stc = d.storageClass;
+		auto storage = getStorage(stc);
+
 		auto s = new Struct(d.location, currentScope, d.name, []);
-		s.linkage = linkage;
-		s.visibility = visibility;
+
+		s.linkage = getLinkage(stc);
+		s.visibility = getVisibility(stc);
 		s.inTemplate = inTemplate;
 
 		s.hasContext = storage.isGlobal ? false : addContext;
@@ -259,9 +265,13 @@ struct DeclarationVisitor {
 	}
 
 	void visit(UnionDeclaration d) {
+		auto stc = d.storageClass;
+		auto storage = getStorage(stc);
+
 		auto u = new Union(d.location, currentScope, d.name, []);
-		u.linkage = linkage;
-		u.visibility = visibility;
+
+		u.linkage = getLinkage(stc);
+		u.visibility = getVisibility(stc);
 		u.inTemplate = inTemplate;
 
 		u.hasContext = storage.isGlobal ? false : addContext;
@@ -271,22 +281,33 @@ struct DeclarationVisitor {
 	}
 
 	void visit(ClassDeclaration d) {
+		auto stc = d.storageClass;
+		auto storage = getStorage(stc);
+
 		auto c = new Class(d.location, currentScope, d.name, []);
-		c.linkage = linkage;
-		c.visibility = visibility;
+
+		c.linkage = getLinkage(stc);
+		c.visibility = getVisibility(stc);
 		c.inTemplate = inTemplate;
 
 		c.hasThis = storage.isGlobal ? false : addThis;
 		c.hasContext = storage.isGlobal ? false : addContext;
+
+		c.isAbstract = isAbstract || stc.isAbstract;
+		c.isFinal = isFinal || stc.isFinal;
 
 		addSymbol(c);
 		select(d, c);
 	}
 
 	void visit(InterfaceDeclaration d) {
+		auto stc = d.storageClass;
+		auto storage = getStorage(stc);
+
 		auto i = new Interface(d.location, currentScope, d.name, [], []);
-		i.linkage = linkage;
-		i.visibility = visibility;
+
+		i.linkage = getLinkage(stc);
+		i.visibility = getVisibility(stc);
 		i.inTemplate = inTemplate;
 
 		addSymbol(i);
@@ -408,6 +429,7 @@ struct DeclarationVisitor {
 		auto oldIsRef = isRef;
 		auto oldIsOverride = isOverride;
 		auto oldIsAbstract = isAbstract;
+		auto oldIsFinal = isFinal;
 		auto oldIsProperty = isProperty;
 		auto oldIsNoGC = isNoGC;
 
@@ -419,6 +441,7 @@ struct DeclarationVisitor {
 			isRef = oldIsRef;
 			isOverride = oldIsOverride;
 			isAbstract = oldIsAbstract;
+			isFinal = oldIsFinal;
 			isProperty = oldIsProperty;
 			isNoGC = oldIsNoGC;
 		}
@@ -433,6 +456,7 @@ struct DeclarationVisitor {
 		isRef = isRef || stc.isRef;
 		isOverride = isOverride || stc.isOverride;
 		isAbstract = isAbstract || stc.isAbstract;
+		isFinal = isFinal || stc.isFinal;
 		isProperty = isProperty || stc.isProperty;
 		isNoGC = isNoGC || stc.isNoGC;
 

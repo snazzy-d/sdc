@@ -38,8 +38,9 @@ class Symbol : Node {
 		bool, "hasContext", 1,
 		bool, "isPoisoned", 1,
 		bool, "isAbstract", 1,
+		bool, "isFinal", 1,
 		bool, "isProperty", 1,
-		uint, "__derived", 18,
+		uint, "__derived", 17,
 		// sdfmt on
 	));
 
@@ -243,15 +244,16 @@ class Variable : ValueSymbol {
 	     Expression value = null) {
 		super(location, name);
 
-		this.paramType = paramType;
 		this.value = value;
+		this.paramType = paramType;
+		isFinal = paramType.isFinal;
 	}
 
 	this(Location location, Type type, Name name, Expression value = null) {
 		super(location, name);
 
-		this.type = type;
 		this.value = value;
+		this.type = type;
 	}
 
 	@property
@@ -262,17 +264,13 @@ class Variable : ValueSymbol {
 	@property
 	Type type(Type t) {
 		paramType = t.getParamType(ParamKind.Regular);
+		isFinal = paramType.isFinal;
 		return t;
 	}
 
 	@property
 	bool isRef() const {
 		return paramType.isRef;
-	}
-
-	@property
-	bool isFinal() const {
-		return paramType.isFinal;
 	}
 
 	@property

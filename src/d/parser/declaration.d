@@ -127,6 +127,10 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				stc.isDeprecated = true;
 				goto HandleStorageClass;
 			
+			case Final:
+				stc.isFinal = true;
+				goto HandleStorageClass;
+			
 			case Nothrow:
 				stc.isNoThrow = true;
 				goto HandleStorageClass;
