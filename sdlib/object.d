@@ -22,7 +22,15 @@ class Object {
 class TypeInfo {}
 
 final class ClassInfo : TypeInfo {
-	ClassInfo base;
+	ClassInfo[] primaries;
+	/+
+	// FIXME: this causes the codegen to generate ClassInfo twice.
+	@property
+	ClassInfo base() {
+		const len = primaries.length;
+		return len > 2 ? primaries[len - 2] : typeid(Object);
+	}
+	// +/
 }
 
 class Throwable {}

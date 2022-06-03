@@ -5,17 +5,15 @@ extern(C):
 Object __sd_class_downcast(Object o, ClassInfo c) {
 	auto t = getTypeid(o);
 
-	if (t is c) {
-		return o;
+	auto oDepth = t.primaries.length - 1;
+	auto cDepth = c.primaries.length - 1;
+
+	if (oDepth < cDepth) {
+		return null;
 	}
 
-	while (t !is t.base) {
-		// Promote
-		t = t.base;
-
-		if (t is c) {
-			return o;
-		}
+	if (t.primaries[cDepth] is c) {
+		return o;
 	}
 
 	return null;
@@ -34,7 +32,7 @@ version (SDC) {
 
 	struct ClassInfoImpl {
 		void* vtbl;
-		ClassInfo base;
+		ClassInfo[] primaries;
 	}
 
 	ClassInfo getTypeid(Object o) {

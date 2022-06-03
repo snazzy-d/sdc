@@ -133,11 +133,11 @@ struct TypeGen {
 	}
 	
 	LLVMTypeRef visitSliceOf(Type t) {
-		LLVMTypeRef[2] types;
-		types[0] = LLVMInt64TypeInContext(llvmCtx);
-		types[1] = visitPointerOf(t);
+		LLVMTypeRef[2] types = [
+		LLVMInt64TypeInContext(llvmCtx),
+		visitPointerOf(t)];
 		
-		return LLVMStructTypeInContext(llvmCtx, types.ptr, 2, false);
+		return LLVMStructTypeInContext(llvmCtx, types.ptr, types.length, false);
 	}
 	
 	LLVMTypeRef visitArrayOf(uint size, Type t) {
@@ -155,9 +155,7 @@ struct TypeGen {
 		);
 	}
 	
-	LLVMTypeRef visit(Struct s) in {
-		assert(s.step >= Step.Signed);
-	} do {
+	LLVMTypeRef visit(Struct s) in(s.step >= Step.Signed) {
 		// FIXME: Ensure we don't have forward references.
 		auto llvmStruct = buildOpaque(s);
 		if (!LLVMIsOpaqueStruct(llvmStruct)) {
@@ -186,9 +184,7 @@ struct TypeGen {
 		);
 	}
 	
-	LLVMTypeRef visit(Union u) in {
-		assert(u.step >= Step.Signed);
-	} do {
+	LLVMTypeRef visit(Union u) in(u.step >= Step.Signed) {
 		// FIXME: Ensure we don't have forward references.
 		auto llvmStruct = buildOpaque(u);
 		if (!LLVMIsOpaqueStruct(llvmStruct)) {
@@ -246,7 +242,47 @@ struct TypeGen {
 		return llvmStruct;
 	}
 	
-	LLVMTypeRef visit(Class c) {
+	private LLVMValueRef genPrimaries(Class c, string mangle, LLVMTypeRef classInfoPtr) {
+		auto count = cast(uint) c.primaries.length;
+		LLVMValueRef[2] elts = [
+			LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), count, false),
+			LLVMConstNull(LLVMPointerType(classInfoPtr, 0))
+		];
+		
+		auto slice = LLVMConstStructInContext(
+			llvmCtx,
+			elts.ptr,
+			elts.length,
+			false,
+		);
+
+		if (count == 0) {
+			return slice;
+		}
+
+		auto type = LLVMArrayType(classInfoPtr, count);
+		auto gen = LLVMGetUndef(type);
+		
+		uint i = 0;
+		
+		import std.algorithm, std.array;
+		foreach (v; c.primaries.map!(p => getTypeInfo(p))) {
+			auto index = i++;
+			gen = LLVMConstInsertValue(gen, v, &index, 1);
+		}
+
+		import std.string;
+		auto primaries = LLVMAddGlobal(dmodule, type, toStringz(mangle ~ "__primaries"));
+		LLVMSetInitializer(primaries, gen);
+		LLVMSetGlobalConstant(primaries, true);
+		LLVMSetUnnamedAddr(primaries, true);
+		LLVMSetLinkage(primaries, LLVMLinkage.LinkOnceODR);
+		
+		uint index = 1;
+		return LLVMConstInsertValue(slice, primaries, &index, 1);
+	}
+	
+	LLVMTypeRef visit(Class c) in(c.step >= Step.Signed) {
 		// Ensure classInfo is built first.
 		if (!classInfoClass) {
 			classInfoClass = pass.object.getClassInfo();
@@ -309,9 +345,7 @@ struct TypeGen {
 			false,
 		);
 		
-		// Doing it at the end to avoid infinite recursion
-		// when generating object.ClassInfo.
-		LLVMValueRef[2] classInfoData = [getTypeInfo(classInfoClass), getTypeInfo(c.base)];
+		LLVMValueRef[2] classInfoData = [getTypeInfo(classInfoClass), genPrimaries(c, mangle, classInfoPtr)];
 		auto classInfoGen = LLVMConstNamedStruct(
 			classInfoStruct,
 			classInfoData.ptr,

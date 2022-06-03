@@ -720,8 +720,6 @@ struct SymbolAnalyzer {
 		manglePrefix = manglePrefix ~ name.length.to!string() ~ name;
 		c.mangle = context.getName("C" ~ manglePrefix);
 
-		Field[] baseFields;
-		Method[] baseMethods;
 		foreach (i; d.bases) {
 			import d.semantic.identifier;
 			c.base = IdentifierResolver(pass)
@@ -747,7 +745,7 @@ struct SymbolAnalyzer {
 		}
 
 		// If no inheritance is specified, inherit from object.
-		if (!c.base) {
+		if (c.base is null) {
 			c.base = pass.object.getObject();
 		}
 
@@ -759,6 +757,8 @@ struct SymbolAnalyzer {
 				~ " because it is final.");
 		}
 
+		Field[] baseFields;
+		Method[] baseMethods;
 		uint fieldIndex = 0;
 		uint methodIndex = 0;
 
@@ -767,20 +767,17 @@ struct SymbolAnalyzer {
 			auto vtblType =
 				Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
 
-			// XXX: d is hijacked without explicit import
 			import source.name : BuiltinName;
-
-			// TODO: use defaultinit.
 			auto vtbl =
 				new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
 
 			vtbl.step = Step.Processed;
 
 			baseFields = [vtbl];
-
 			fieldIndex = 1;
 		} else {
 			scheduler.require(c.base);
+			c.primaries = c.base.primaries ~ c;
 
 			fieldIndex = 0;
 			foreach (m; c.base.members) {

@@ -602,6 +602,8 @@ class Union : Aggregate {
  */
 class Class : Aggregate {
 	Class base;
+
+	Class[] primaries;
 	Interface[] interfaces;
 
 	this(Location location, Scope parentScope, Name name, Symbol[] members) {
