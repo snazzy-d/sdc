@@ -121,6 +121,17 @@ private:
 
 enum Reserved = ["__ctor", "__dtor", "__postblit", "__vtbl"];
 
+unittest {
+	static foreach (r; Reserved) {
+		assert(BuiltinName!r.isReserved, "Expected " ~ r ~ " to be reserved");
+	}
+
+	static foreach (r; Prefill) {
+		assert(!BuiltinName!r.isReserved,
+		       "Expected " ~ r ~ " to not be reserved");
+	}
+}
+
 enum Prefill = [
 	// Linkages
 	"C", "D", "C++", "Windows", "System", "Pascal", "Java",
