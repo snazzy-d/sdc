@@ -472,8 +472,9 @@ struct ExpressionGen {
 			       "Virtual dispatch can only be done on classes");
 
 			auto thisPtr = LLVMBuildExtractValue(builder, dg, m.hasContext, "");
-			auto vtblPtr = LLVMBuildStructGEP(builder, thisPtr, 0, "");
-			auto vtbl = LLVMBuildLoad(builder, vtblPtr, "vtbl");
+			auto metadataPtr = LLVMBuildStructGEP(builder, thisPtr, 0, "");
+			auto metadata = LLVMBuildLoad(builder, metadataPtr, "");
+			auto vtbl = LLVMBuildStructGEP(builder, metadata, 1, "vtbl");
 			auto funPtr = LLVMBuildStructGEP(builder, vtbl, m.index, "");
 			fun = LLVMBuildLoad(builder, funPtr, "");
 		} else {
@@ -815,18 +816,17 @@ struct ExpressionGen {
 		return tuple;
 	}
 
-	LLVMValueRef visit(DynamicTypeidExpression e) {
-		auto vtblPtr = LLVMBuildStructGEP(builder, visit(e.argument), 0, "");
-		auto vtbl = LLVMBuildLoad(builder, vtblPtr, "");
+	private LLVMValueRef getTypeid(LLVMValueRef value) {
+		auto tidPtr = LLVMBuildStructGEP(builder, value, 0, "");
+		auto tid = LLVMBuildLoad(builder, tidPtr, "");
 
 		import d.llvm.type;
 		auto classInfo = TypeGen(pass.pass).visit(pass.object.getClassInfo());
+		return LLVMBuildBitCast(builder, tid, classInfo, "");
+	}
 
-		// The classInfo is just before the vtbls in memory.
-		// So we cast the pointer and look at index -1 to get it.
-		auto ptr = LLVMBuildBitCast(builder, vtbl, classInfo, "");
-		auto idx = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), -1, true);
-		return LLVMBuildGEP(builder, ptr, &idx, 1, "");
+	LLVMValueRef visit(DynamicTypeidExpression e) {
+		return getTypeid(visit(e.argument));
 	}
 
 	private LLVMValueRef getTypeid(Type t) {
@@ -844,14 +844,6 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(StaticTypeidExpression e) {
 		return getTypeid(e.argument);
-	}
-
-	LLVMValueRef visit(VtblExpression e) {
-		// Vtbl do not have a known type in D, so we need to cast.
-		import d.llvm.type;
-		return LLVMBuildPointerCast(builder,
-		                            TypeGen(pass.pass).getVtbl(e.dclass),
-		                            TypeGen(pass.pass).visit(e.type), "");
 	}
 }
 

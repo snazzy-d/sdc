@@ -38,7 +38,6 @@ version (SDC) {
 	}
 
 	ClassInfo getTypeid(Object o) {
-		auto vtbl = *(cast(void**) o);
-		return cast(ClassInfo) (vtbl - ClassInfoImpl.sizeof);
+		return cast(ClassInfo) *(cast(void**) o);
 	}
 }

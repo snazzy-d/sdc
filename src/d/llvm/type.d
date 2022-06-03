@@ -21,7 +21,6 @@ private:
 	LLVMTypeRef[Aggregate] aggTypes;
 	LLVMValueRef[Aggregate] typeInfos;
 	
-	LLVMValueRef[Class] vtbls;
 	LLVMTypeRef[Function] funCtxTypes;
 }
 
@@ -51,11 +50,6 @@ struct TypeGen {
 		}
 		
 		@property
-		ref LLVMValueRef[Class] vtbls() {
-			return pass.typeGenData.vtbls;
-		}
-		
-		@property
 		ref LLVMTypeRef[Function] funCtxTypes() {
 			return pass.typeGenData.funCtxTypes;
 		}
@@ -67,11 +61,6 @@ struct TypeGen {
 		}
 		
 		return typeInfos[a];
-	}
-	
-	// XXX: Remove ?
-	LLVMValueRef getVtbl(Class c) {
-		return vtbls[c];
 	}
 	
 	LLVMTypeRef visit(Type t) {
@@ -267,6 +256,8 @@ struct TypeGen {
 			}
 		}
 		
+		// We do so after generating ClassInfo in case
+		// we are generating a base of ClassInfo.
 		if (auto ct = c in typeSymbols) {
 			return *ct;
 		}
@@ -281,25 +272,26 @@ struct TypeGen {
 		auto vtblStruct = LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__vtbl"));
 		auto vtblPtr = LLVMPointerType(vtblStruct, 0);
 		
-		LLVMTypeRef[2] classDataElts = [classInfoStruct, vtblStruct];
-		auto classDataStruct = LLVMStructTypeInContext(
+		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblStruct];
+		auto classMetadataStruct = LLVMStructTypeInContext(
 			llvmCtx,
-			classDataElts.ptr,
-			cast(uint) classDataElts.length,
+			classMetadataElts.ptr,
+			classMetadataElts.length,
 			false,
 		);
 		
 		import std.string;
-		auto classData = LLVMAddGlobal(
+		auto classMetadata = LLVMAddGlobal(
 			dmodule,
-			classDataStruct,
+			classMetadataStruct,
 			toStringz(mangle ~ "__Metadata"),
 		);
 		
-		typeInfos[c] = LLVMConstBitCast(classData, classInfoPtr);
+		typeInfos[c] = LLVMConstBitCast(classMetadata, classInfoPtr);
+		auto classMetadataPtr = LLVMPointerType(classMetadataStruct, 0);
 		
 		LLVMValueRef[] methods;
-		LLVMTypeRef[] initTypes = [vtblPtr];
+		LLVMTypeRef[] initTypes = [classMetadataPtr];
 		foreach(member; c.members) {
 			if (auto m = cast(Method) member) {
 				auto oldBody = m.fbody;
@@ -338,24 +330,12 @@ struct TypeGen {
 			cast(uint) methods.length,
 		);
 		
-		auto i32 = LLVMInt32TypeInContext(llvmCtx);
-		LLVMValueRef[2] indices = [
-			LLVMConstInt(i32, 0, false),
-			LLVMConstInt(i32, 1, false),
-		];
-		
-		vtbls[c] = LLVMConstInBoundsGEP(
-			classData,
-			indices.ptr,
-			indices.length,
-		);
-		
 		// Doing it at the end to avoid infinite recursion
 		// when generating object.ClassInfo
 		auto base = c.base;
 		visit(base);
 		
-		LLVMValueRef[2] classInfoData = [getVtbl(classInfoClass), getTypeInfo(base)];
+		LLVMValueRef[2] classInfoData = [getTypeInfo(classInfoClass), getTypeInfo(base)];
 		auto classInfoGen = LLVMConstNamedStruct(
 			classInfoStruct,
 			classInfoData.ptr,
@@ -363,15 +343,15 @@ struct TypeGen {
 		);
 		
 		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
-		auto classDataGen = LLVMConstNamedStruct(
-			classDataStruct,
+		auto classMetadataGen = LLVMConstNamedStruct(
+			classMetadataStruct,
 			classDataData.ptr,
 			classDataData.length,
 		);
 		
-		LLVMSetInitializer(classData, classDataGen);
-		LLVMSetGlobalConstant(classData, true);
-		LLVMSetLinkage(classData, LLVMLinkage.LinkOnceODR);
+		LLVMSetInitializer(classMetadata, classMetadataGen);
+		LLVMSetGlobalConstant(classMetadata, true);
+		LLVMSetLinkage(classMetadata, LLVMLinkage.LinkOnceODR);
 		
 		return structPtr;
 	}

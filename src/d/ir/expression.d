@@ -380,24 +380,6 @@ class ContextExpression : Expression {
 }
 
 /**
- * Virtual table
- * XXX: This is highly dubious. Explore the alternatives and get rid of that.
- */
-class VtblExpression : Expression {
-	Class dclass;
-
-	this(Location location, Class dclass) {
-		super(location, Type.get(BuiltinType.Void).getPointer());
-
-		this.dclass = dclass;
-	}
-
-	override string toString(const Context c) const {
-		return dclass.toString(c) ~ ".__vtbl";
-	}
-}
-
-/**
  * Boolean literal
  */
 class BooleanLiteral : CompileTimeExpression {

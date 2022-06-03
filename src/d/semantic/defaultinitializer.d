@@ -151,6 +151,12 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		}
 	}
 
+	E visit(Union u) {
+		// FIXME: Computing this properly would require layout
+		// informations from the backend. Will do for now.
+		return new VoidInitializer(location, Type.get(u));
+	}
+
 	E visit(Class c) {
 		static if (isNew) {
 			scheduler.require(c);
@@ -161,7 +167,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				               return f.value;
 			               }).array();
 
-			fields[0] = new VtblExpression(location, c);
+			fields[0] = new StaticTypeidExpression(
+				location, Type.get(pass.object.getTypeInfo()), Type.get(c));
 			if (c.hasContext) {
 				import std.algorithm;
 				import source.name;
@@ -188,15 +195,6 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		}
 	}
 
-	E visit(Enum e) {
-		assert(0, "Not implemented");
-	}
-
-	E visit(TypeAlias a) {
-		// TODO: build implicit cast.
-		return visit(a.type);
-	}
-
 	E visit(Interface i) {
 		CompileTimeExpression[] init = [
 			new NullLiteral(location, Type.get(pass.object.getObject())),
@@ -205,10 +203,13 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		return new CompileTimeTupleExpression(location, Type.get(i), init);
 	}
 
-	E visit(Union u) {
-		// FIXME: Computing this properly would require layout
-		// informations from the backend. Will do for now.
-		return new VoidInitializer(location, Type.get(u));
+	E visit(Enum e) {
+		assert(0, "Not implemented");
+	}
+
+	E visit(TypeAlias a) {
+		// TODO: build implicit cast.
+		return visit(a.type);
 	}
 
 	E visit(Function f) {
