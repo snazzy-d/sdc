@@ -153,7 +153,6 @@ enum Prefill = [
 	// Runtime
 	"__sd_assert_fail",
 	"__sd_assert_fail_msg",
-	"__sd_class_downcast",
 	"__sd_eh_throw",
 	"__sd_eh_personality",
 	"__sd_array_concat",

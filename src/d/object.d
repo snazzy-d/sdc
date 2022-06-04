@@ -58,10 +58,6 @@ final class ObjectReference {
 		return cast(Function) os.set[0];
 	}
 	
-	auto getClassDowncast() {
-		return getFunction(BuiltinName!"__sd_class_downcast");
-	}
-	
 	auto getThrow() {
 		return getFunction(BuiltinName!"__sd_eh_throw");
 	}

@@ -41,7 +41,6 @@ class Error: Throwable {}
 extern(C) {
 	void __sd_assert_fail(string, int);
 	void __sd_assert_fail_msg(string, string, int);
-	Object __sd_class_downcast(Object o, ClassInfo c);
 	void __sd_eh_throw(Throwable t);
 	int __sd_eh_personality(int, int, ulong, void*, void*);
 	int __sd_array_outofbounds(string, int);

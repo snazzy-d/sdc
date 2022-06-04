@@ -5,10 +5,9 @@ extern(C):
 Object __sd_class_downcast(Object o, ClassInfo c) {
 	auto t = getTypeid(o);
 
-	auto oDepth = t.primaries.length - 1;
 	auto cDepth = c.primaries.length - 1;
 
-	if (oDepth < cDepth) {
+	if (t.primaries.length <= cDepth) {
 		return null;
 	}
 
