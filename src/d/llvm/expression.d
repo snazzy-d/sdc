@@ -552,10 +552,10 @@ struct ExpressionGen {
 
 		auto floc = location.getFullLocation(context);
 
-		LLVMValueRef[2] args = [
-			buildDString(floc.getSource().getFileName().toString()),
-			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx),
-			             floc.getStartLineNumber(), false)];
+		LLVMValueRef[2] args =
+			[buildDString(floc.getSource().getFileName().toString()),
+			 LLVMConstInt(LLVMInt32TypeInContext(llvmCtx),
+			              floc.getStartLineNumber(), false)];
 
 		buildCall(declare(pass.object.getArrayOutOfBounds()), args);
 
@@ -655,8 +655,8 @@ struct ExpressionGen {
 		auto ctid = getTypeid(c);
 
 		if (c.isFinal) {
-			auto cmp = LLVMBuildICmp(builder, LLVMIntPredicate.EQ,
-			                         otid, ctid, "");
+			auto cmp =
+				LLVMBuildICmp(builder, LLVMIntPredicate.EQ, otid, ctid, "");
 			return LLVMBuildSelect(builder, cmp, bitcast, nullcast, "");
 		}
 
@@ -665,16 +665,16 @@ struct ExpressionGen {
 		auto oPrimitives = LLVMBuildStructGEP(builder, otid, 1, "");
 		auto oDepthPtr = LLVMBuildStructGEP(builder, oPrimitives, 0, "");
 		auto oDepth = LLVMBuildLoad(builder, oDepthPtr, "");
-		
+
 		// This should constant fold.
 		auto cPrimitives = LLVMBuildStructGEP(builder, ctid, 1, "");
 		auto cDepthPtr = LLVMBuildStructGEP(builder, cPrimitives, 0, "");
 		auto cDepth = LLVMBuildLoad(builder, cDepthPtr, "");
 		auto one = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 1, false);
 		auto index = LLVMBuildSub(builder, cDepth, one, "");
-		
-		auto depthCheck = LLVMBuildICmp(builder, LLVMIntPredicate.UGT, oDepth,
-		                                index, "");
+
+		auto depthCheck =
+			LLVMBuildICmp(builder, LLVMIntPredicate.UGT, oDepth, index, "");
 
 		auto depthCheckBB = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(depthCheckBB);
@@ -685,16 +685,18 @@ struct ExpressionGen {
 			LLVMAppendBasicBlockInContext(llvmCtx, fun, "downcast.merge");
 
 		LLVMBuildCondBr(builder, depthCheck, downCastBB, mergeBB);
-		
+
 		// Check if the parent of the value at c's depth is c.
 		LLVMPositionBuilderAtEnd(builder, downCastBB);
 		auto primitivesPtr = LLVMBuildStructGEP(builder, oPrimitives, 1, "");
 		auto primitives = LLVMBuildLoad(builder, primitivesPtr, "");
-		auto parentPtr = LLVMBuildInBoundsGEP(builder, primitives, &index, 1, "");
+		auto parentPtr =
+			LLVMBuildInBoundsGEP(builder, primitives, &index, 1, "");
 		auto parent = LLVMBuildLoad(builder, parentPtr, "");
-		auto typeCheck = LLVMBuildICmp(builder, LLVMIntPredicate.EQ,
-		                                 parent, ctid, "");
-		auto downcast = LLVMBuildSelect(builder, typeCheck, bitcast, nullcast, "");
+		auto typeCheck =
+			LLVMBuildICmp(builder, LLVMIntPredicate.EQ, parent, ctid, "");
+		auto downcast =
+			LLVMBuildSelect(builder, typeCheck, bitcast, nullcast, "");
 
 		// Merge and generate Phi node.
 		LLVMBuildBr(builder, mergeBB);
@@ -795,7 +797,8 @@ struct ExpressionGen {
 
 		// Build the slice.
 		auto slice = LLVMGetUndef(TypeGen(pass.pass).visit(t));
-		auto llvmCount = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), count, false);
+		auto llvmCount =
+			LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), count, false);
 		slice = LLVMBuildInsertValue(builder, slice, llvmCount, 0, "");
 
 		auto elPtrType = LLVMPointerType(et, 0);
@@ -1024,7 +1027,8 @@ struct AddressOfGen {
 		switch (t.kind) with (TypeKind) {
 			case Slice:
 				auto slice = valueOf(indexed);
-				auto i = LLVMBuildZExt(builder, valueOf(index), LLVMInt64TypeInContext(llvmCtx), "");
+				auto i = LLVMBuildZExt(builder, valueOf(index),
+				                       LLVMInt64TypeInContext(llvmCtx), "");
 				auto length =
 					LLVMBuildExtractValue(builder, slice, 0, ".length");
 				auto condition =
@@ -1047,8 +1051,7 @@ struct AddressOfGen {
 				auto condition =
 					LLVMBuildICmp(builder, LLVMIntPredicate.ULT,
 					              LLVMBuildZExt(builder, i, i64, ""),
-					              LLVMConstInt(i64, t.size, false),
-					              "");
+					              LLVMConstInt(i64, t.size, false), "");
 
 				genBoundCheck(location, condition);
 
