@@ -134,13 +134,8 @@ struct ExpressionGen {
 		auto phiNode =
 			LLVMBuildPhi(builder, TypeGen(pass.pass).visit(e.type), "");
 
-		LLVMValueRef[2] incomingValues;
-		incomingValues[0] = lhs;
-		incomingValues[1] = rhs;
-
-		LLVMBasicBlockRef[2] incomingBlocks;
-		incomingBlocks[0] = lhsBB;
-		incomingBlocks[1] = rhsBB;
+		LLVMValueRef[2] incomingValues = [lhs, rhs];
+		LLVMBasicBlockRef[2] incomingBlocks = [lhsBB, rhsBB];
 
 		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr,
 		                incomingValues.length);
@@ -415,13 +410,8 @@ struct ExpressionGen {
 		auto phiNode =
 			LLVMBuildPhi(builder, TypeGen(pass.pass).visit(e.type), "");
 
-		LLVMValueRef[2] incomingValues;
-		incomingValues[0] = lhs;
-		incomingValues[1] = rhs;
-
-		LLVMBasicBlockRef[2] incomingBlocks;
-		incomingBlocks[0] = lhsBB;
-		incomingBlocks[1] = rhsBB;
+		LLVMValueRef[2] incomingValues = [lhs, rhs];
+		LLVMBasicBlockRef[2] incomingBlocks = [lhsBB, rhsBB];
 
 		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr,
 		                incomingValues.length);
@@ -562,10 +552,10 @@ struct ExpressionGen {
 
 		auto floc = location.getFullLocation(context);
 
-		LLVMValueRef[2] args;
-		args[0] = buildDString(floc.getSource().getFileName().toString());
-		args[1] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx),
-		                       floc.getStartLineNumber(), false);
+		LLVMValueRef[2] args = [
+			buildDString(floc.getSource().getFileName().toString()),
+			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx),
+			             floc.getStartLineNumber(), false)];
 
 		buildCall(declare(pass.object.getArrayOutOfBounds()), args);
 
@@ -577,6 +567,7 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(SliceExpression e) {
 		auto t = e.sliced.type.getCanonical();
+		auto i64 = LLVMInt64TypeInContext(llvmCtx);
 
 		LLVMValueRef length, ptr;
 		if (t.kind == TypeKind.Slice) {
@@ -587,8 +578,7 @@ struct ExpressionGen {
 		} else if (t.kind == TypeKind.Pointer) {
 			ptr = visit(e.sliced);
 		} else if (t.kind == TypeKind.Array) {
-			length =
-				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), t.size, false);
+			length = LLVMConstInt(i64, t.size, false);
 
 			import d.llvm.type;
 			auto ptrType =
@@ -598,7 +588,6 @@ struct ExpressionGen {
 			assert(0, "Don't know how to slice " ~ e.type.toString(context));
 		}
 
-		auto i64 = LLVMInt64TypeInContext(llvmCtx);
 		auto first = LLVMBuildZExt(builder, visit(e.first), i64, "");
 		auto second = LLVMBuildZExt(builder, visit(e.second), i64, "");
 
@@ -761,8 +750,7 @@ struct ExpressionGen {
 
 		// Build the slice.
 		auto slice = LLVMGetUndef(TypeGen(pass.pass).visit(t));
-		auto i64 = LLVMInt64TypeInContext(llvmCtx);
-		auto llvmCount = LLVMConstInt(i64, count, false);
+		auto llvmCount = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), count, false);
 		slice = LLVMBuildInsertValue(builder, slice, llvmCount, 0, "");
 
 		auto elPtrType = LLVMPointerType(et, 0);
@@ -991,8 +979,7 @@ struct AddressOfGen {
 		switch (t.kind) with (TypeKind) {
 			case Slice:
 				auto slice = valueOf(indexed);
-				auto i64 = LLVMInt64TypeInContext(llvmCtx);
-				auto i = LLVMBuildZExt(builder, valueOf(index), i64, "");
+				auto i = LLVMBuildZExt(builder, valueOf(index), LLVMInt64TypeInContext(llvmCtx), "");
 				auto length =
 					LLVMBuildExtractValue(builder, slice, 0, ".length");
 				auto condition =
@@ -1015,16 +1002,12 @@ struct AddressOfGen {
 				auto condition =
 					LLVMBuildICmp(builder, LLVMIntPredicate.ULT,
 					              LLVMBuildZExt(builder, i, i64, ""),
-					              LLVMConstInt(LLVMInt64TypeInContext(llvmCtx),
-					                           t.size, false),
+					              LLVMConstInt(i64, t.size, false),
 					              "");
 
 				genBoundCheck(location, condition);
 
-				LLVMValueRef[2] indices;
-				indices[0] = LLVMConstInt(i64, 0, false);
-				indices[1] = i;
-
+				LLVMValueRef[2] indices = [LLVMConstInt(i64, 0, false), i];
 				return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr,
 				                            indices.length, "");
 
