@@ -371,10 +371,11 @@ struct TypeGen {
 		import std.string;
 		auto vtblStruct =
 			LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__vtbl"));
-		LLVMTypeRef[2] elements;
-		elements[0] = visit(pass.object.getObject());
-		elements[1] = LLVMPointerType(vtblStruct, 0);
+
+		LLVMTypeRef[2] elements =
+			[visit(pass.object.getObject()), LLVMPointerType(vtblStruct, 0)];
 		LLVMStructSetBody(llvmStruct, elements.ptr, elements.length, false);
+
 		return llvmStruct;
 	}
 
