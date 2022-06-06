@@ -139,12 +139,11 @@ public:
 
 	private auto getModuleName(Module m) {
 		auto name = m.name.toString(context);
-		if (m.parent) {
-			auto dpackage = m.parent;
-			while (dpackage) {
-				name = dpackage.name.toString(context) ~ "." ~ name;
-				dpackage = dpackage.parent;
-			}
+
+		auto p = m.parent;
+		while (p !is null) {
+			name = p.name.toString(context) ~ "." ~ name;
+			p = p.parent;
 		}
 
 		return name;
