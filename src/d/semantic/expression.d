@@ -1098,13 +1098,12 @@ public:
 
 	private Expression handleTypeid(Location location, Expression e) {
 		auto c = e.type.getCanonical();
-		if (c.kind == TypeKind.Class) {
-			auto classInfo = pass.object.getClassInfo();
-			return
-				build!DynamicTypeidExpression(location, Type.get(classInfo), e);
+		if (c.kind != TypeKind.Class) {
+			return getTypeInfo(location, e.type);
 		}
 
-		return getTypeInfo(location, e.type);
+		return build!DynamicTypeidExpression(
+			location, Type.get(pass.object.getClassInfo()), e);
 	}
 
 	auto getTypeInfo(Location location, Type t) {
