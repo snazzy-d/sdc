@@ -117,27 +117,22 @@ struct TypePromoter {
 		auto r = t1.dclass;
 
 		// Find a common superclass.
-		auto lup = c;
-		do {
-			// Avoid allocation when possible.
-			if (r is lup) {
-				return t1;
+		scheduler.require(c, Step.Signed);
+		auto cp = c.primaries;
+
+		scheduler.require(r, Step.Signed);
+		auto rp = r.primaries;
+
+		import std.algorithm;
+		auto i = min(cp.length, rp.length);
+		while (i-- > 0) {
+			if (cp[i] is rp[i]) {
+				return Type.get(cp[i]);
 			}
+		}
 
-			auto rup = r.base;
-			while (rup !is rup.base) {
-				if (rup is lup) {
-					return Type.get(rup);
-				}
-
-				rup = rup.base;
-			}
-
-			lup = lup.base;
-		} while (lup !is lup.base);
-
-		// lup must be Object by now.
-		return Type.get(lup);
+		// We did not find a common ancestor, fallback on object.
+		return Type.get(pass.object.getObject());
 	}
 
 	Type visit(Enum e) {

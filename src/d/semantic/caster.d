@@ -484,30 +484,32 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Exact;
 		}
 
-		auto upcast = from;
+		scheduler.require(to, Step.Signed);
+		auto tp = to.primaries;
+		auto tDepth = tp.length;
 
-		// Stop at object.
-		while (upcast !is upcast.base) {
-			// Automagically promote to base type.
-			upcast = upcast.base;
-
-			if (upcast is to) {
-				return CastKind.Bit;
-			}
+		if (tDepth == 0) {
+			// This is Object
+			return CastKind.Bit;
 		}
 
-		static if (isExplicit) {
-			auto downcast = to;
+		scheduler.require(from, Step.Signed);
+		auto fp = from.primaries;
+		auto fDepth = fp.length;
 
-			// Stop at object.
-			while (downcast !is downcast.base) {
-				// Automagically promote to base type.
-				downcast = downcast.base;
+		if (isExplicit && fDepth == 0) {
+			// We are casting from object, this is a downcast.
+			return CastKind.Down;
+		}
 
-				if (downcast is from) {
-					return CastKind.Down;
-				}
-			}
+		if (fDepth > tDepth && fp[tDepth - 1] is to) {
+			// This is an upcast.
+			return CastKind.Bit;
+		}
+
+		if (isExplicit && fDepth < tDepth && tp[fDepth - 1] is from) {
+			// This is a downcast.
+			return CastKind.Down;
 		}
 
 		return CastKind.Invalid;
@@ -522,7 +524,6 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		}
 
 		if (to.kind == TypeKind.Class) {
-			scheduler.require(c, Step.Signed);
 			auto kind = castClass(c, to.dclass);
 			if (kind > CastKind.Invalid) {
 				return kind;
