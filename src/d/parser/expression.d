@@ -612,7 +612,10 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 		case Null:
 			trange.popFront();
 			return new NullLiteral(location);
-		
+
+		case FloatLiteral:
+			return trange.parseFloatLiteral();
+
 		case IntegerLiteral:
 			return trange.parseIntegerLiteral();
 		
@@ -1042,4 +1045,81 @@ StringLiteral parseStringLiteral(ref TokenRange trange) {
 	trange.match(TokenType.StringLiteral);
 	
 	return new StringLiteral(location, name.toString(trange.context));
+}
+
+/**
+ * Parse floating point literals
+ */
+FloatLiteral parseFloatLiteral(ref TokenRange trange) {
+	const location = trange.front.location;
+	auto litString = trange.front.toString(trange.context);
+
+	trange.match(TokenType.FloatLiteral);
+	import d.common.builtintype : BuiltinType;
+
+
+	assert(litString.length > 1);
+	// Look for a suffix
+	switch (litString[$-1])
+	{
+		// https://dlang.org/spec/lex.html#FloatSuffix
+		import std.conv : to;
+		case 'f':
+		case 'F':
+			const float f = litString[0..$-1].to!float;
+			return new FloatLiteral(location, f, BuiltinType.Float);
+		case 'L':
+			import source.exception;
+			throw new CompileException(location, "SDC does not support real literals yet");
+		default:
+			// Lexed correctly but no suffix, it's a double
+			const double d = litString[0..$].to!double;
+			return new FloatLiteral(location, d, BuiltinType.Double);
+	}
+}
+
+@("Test FloatLiteral parsing")
+unittest
+{
+	import source.context;
+	auto context = new Context();
+	import source.parserutil;
+	auto tokensFromString(string s) {
+		import source.name;
+		auto base = context.registerMixin(Location.init, s ~ '\0');
+		auto x = lex(base, context);
+		x.match(TokenType.Begin);
+		return x;
+	}
+	void floatRoundTrip(T)(const string floatString, const T floatValue)
+		if (__traits(isFloating, T))
+	{
+		import d.common.builtintype : BuiltinType;
+		const BuiltinType expectedType = is(T == float) ? BuiltinType.Float : BuiltinType.Double;
+		// Acceptable relativeError
+		const T maxRelError = is(T == float) ? float.epsilon : double.epsilon;
+		auto tr = tokensFromString(floatString);
+		const fl = parseFloatLiteral(tr);
+
+		import std.format : format;
+		assert(fl, format("Got a %s from `%s`", typeid(fl).toString(), floatString));
+
+		assert(fl.type.builtin == expectedType);
+		// Note that the value is store in the FloatLiteral as a double.
+		if (fl.value !is floatValue)
+		{
+			import std.math : log10, abs;
+			const relError = abs((fl.value - floatValue) / floatValue) * 100.0;
+			assert(0, format("%s yielded %f, missed by %e % whereas desired precision is %e", floatString, floatValue, relError, maxRelError));
+		}
+	}
+	// A few values, note that "-3.14f" is a UnaExp not a floating point literal
+	floatRoundTrip("4.14f", 4.14f);
+	floatRoundTrip("420.0", 420.0);
+	floatRoundTrip("4200.0", 4200.0);
+	floatRoundTrip("0.222225", 0.222225);
+	floatRoundTrip("0x1p-52 ", 0x1p-52);
+	// sdc can't lex this yet
+	// floatRoundTrip("0x1.FFFFFFFFFFFFFp1023", 0x1.FFFFFFFFFFFFFp1023);
+	floatRoundTrip("1.175494351e-38F", 1.175494351e-38F);
 }
