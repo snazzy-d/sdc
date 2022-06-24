@@ -186,11 +186,12 @@ private:
 	}
 
 	auto indent(uint level = 1) {
-		return wrappedGuard!((p, l) => p.builder.indent(l))(level);
+		return wrappedGuard!((Parser* p, uint l) => p.builder.indent(l))(level);
 	}
 
 	auto unindent(uint level = 1) {
-		return wrappedGuard!((p, l) => p.builder.unindent(l))(level);
+		return
+			wrappedGuard!((Parser* p, uint l) => p.builder.unindent(l))(level);
 	}
 
 	import format.span;
@@ -212,7 +213,7 @@ private:
 
 	auto block() {
 		emitRawContent();
-		return wrappedGuard!(p => p.builder.block())();
+		return wrappedGuard!((Parser* p) => p.builder.block())();
 	}
 
 	/**
