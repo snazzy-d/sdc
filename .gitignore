@@ -20,6 +20,7 @@ a.out
 /bin
 /lib
 /obj
+/.dub
 
 # Eclipse
 build.rf
