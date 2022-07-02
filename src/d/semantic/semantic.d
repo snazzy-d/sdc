@@ -69,13 +69,24 @@ final class SemanticPass {
 	alias EvaluatorBuilder = Evaluator delegate(SemanticPass);
 	alias DataLayoutBuilder = DataLayout delegate(ObjectReference);
 
-	this(Context context, string[] includePaths, bool enableUnittest,
-	     EvaluatorBuilder evBuilder, DataLayoutBuilder dlBuilder) {
+	this(
+		Context context,
+		string[] includePaths,
+		string[] preload,
+		ref Module[] preloadedModules,
+		bool enableUnittest,
+		EvaluatorBuilder evBuilder,
+		DataLayoutBuilder dlBuilder,
+	) {
 		this.context = context;
 		this.includePaths = includePaths;
 		this.enableUnittest = enableUnittest;
 
 		scheduler = new Scheduler(this);
+
+		foreach (filename; preload) {
+			preloadedModules ~= add(filename);
+		}
 
 		import source.name;
 		auto obj = importModule([BuiltinName!"object"]);

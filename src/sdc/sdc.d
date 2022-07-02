@@ -14,7 +14,7 @@ final class SDC {
 	Module[] modules;
 
 	import sdc.config;
-	this(Context context, string name, Config config) {
+	this(Context context, string name, Config config, string[] preload = []) {
 		this.context = context;
 
 		import std.algorithm, std.array, std.conv, std.path;
@@ -42,7 +42,7 @@ final class SDC {
 			return evBackend.getDataLayout();
 		}
 
-		semantic = new SemanticPass(context, includePaths,
+		semantic = new SemanticPass(context, includePaths, preload, modules,
 		                            config.enableUnittest, &evb, &dlb);
 		backend = new LLVMBackend(semantic, name, config.optLevel,
 		                          config.linkerPaths);

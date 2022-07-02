@@ -80,11 +80,7 @@ int run(Context context, string[] args) {
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
 	import sdc.sdc;
-	auto c = new SDC(context, files[0], conf);
-
-	foreach (file; files) {
-		c.compile(file);
-	}
+	auto c = new SDC(context, files[0], conf, files);
 
 	import d.ir.symbol;
 	Module m = null;
