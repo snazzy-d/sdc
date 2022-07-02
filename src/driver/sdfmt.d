@@ -1,4 +1,3 @@
-// Hello!
 module driver.sdfmt;
 
 int main(string[] args) {

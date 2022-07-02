@@ -5,30 +5,8 @@ import source.context;
 immutable string[2] ResultStr = ["FAIL", "PASS"];
 
 int main(string[] args) {
-	auto context = new Context();
-
-	import std.getopt, source.exception;
-	try {
-		return context.run(args);
-	} catch (GetOptException ex) {
-		import std.stdio;
-		writefln("%s", ex.msg);
-		writeln("Please use -h to get a list of valid options.");
-		return 1;
-	} catch (CompileException e) {
-		import util.terminal;
-		outputCaretDiagnostics(e.getFullLocation(context), e.msg);
-
-		// Rethrow in debug, so we have the stack trace.
-		debug {
-			throw e;
-		} else {
-			return 1;
-		}
-	}
-
-	// This is unreachable, but dmd can't figure this out.
-	assert(0);
+	import util.main;
+	return runMain!run(args);
 }
 
 int run(Context context, string[] args) {
