@@ -41,23 +41,18 @@ public:
 		import std.algorithm, std.range;
 		auto name = packages.map!(p => p.toString(pass.context)).join(".");
 
-		return cachedModules.get(name, {
-			import std.algorithm, std.array, std.path;
-			auto basename =
-				packages.map!(p => p.toString(pass.context)).buildPath();
+		if (auto pMod = name in cachedModules) {
+			return *pMod;
+		}
 
-			auto filename = basename ~ ".d";
-			auto dir = getIncludeDir(filename, includePaths);
-
-			auto astm = parse(filename, dir);
-			auto mod = modulize(astm);
-
-			pass.scheduler.schedule(astm, mod);
-			return cachedModules[name] = mod;
-		}());
+		import std.algorithm, std.array, std.path;
+		auto filename =
+			packages.map!(p => p.toString(pass.context)).buildPath() ~ ".d";
+		return parseAndScheduleModule(filename,
+		                              getIncludeDir(filename, includePaths));
 	}
 
-	Module add(string filename) {
+	Module add(string filename) in(filename[$ - 2 .. $] == ".d") {
 		import std.conv, std.path;
 		filename =
 			expandTilde(filename).asAbsolutePath.asNormalizedPath.to!string();
@@ -75,10 +70,14 @@ public:
 			}
 		}
 
-		// XXX: this.parse, because dmd is insane and want to use std.conv :(
-		auto astm = this.parse(relativePath(filename, dir), dir);
+		return parseAndScheduleModule(relativePath(filename, dir), dir);
+	}
+
+	private Module parseAndScheduleModule(string filename, string dir) {
+		auto astm = parse(filename, dir);
 		auto mod = modulize(astm);
-		cachedModules[getModuleName(mod)] = mod;
+		auto name = getModuleName(mod);
+		cachedModules[name] = mod;
 
 		scheduler.schedule(astm, mod);
 		return mod;
