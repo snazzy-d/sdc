@@ -4,9 +4,11 @@ LIBSDMD = lib/libsdmd.a
 
 SDFLAGS ?=
 
-NATIVE_DMD_FLAGS = $(shell echo "" | dmd -v - 2> /dev/null | sed -ne 's/^DFLAGS\s*//p')
-NATIVE_DMD_IMPORTS ?= $(filter -I%, $(NATIVE_DMD_FLAGS))
-LIBSDMD_IMPORTS = $(NATIVE_DMD_IMPORTS) -Isdlib
+# XXX: This kind of stunt would be better suited for the configure
+# step, but we don't have one.
+NATIVE_OBJECT_D = $(shell echo "Here" 1>&2 && echo "int dummy;" | $(DMD) -v - 2> /dev/null | sed -ne 's/^import\s*object\s*(\(.*\))/\1/p')
+NATIVE_DRUNTIME ?= $(dir $(NATIVE_OBJECT_D))
+LIBSDMD_IMPORTS = -I$(NATIVE_DRUNTIME) -Isdlib
 
 obj/sdmd.o: $(LIBSMD_SRC)
 	@mkdir -p lib obj
