@@ -324,6 +324,47 @@ abstract class ListSpan : Span {
 		super(parent);
 	}
 
+	mixin CachedState;
+	ulong computeState(const ref SolveState s) const {
+		if (compact) {
+			return s.isSplit(elements[0]);
+		}
+
+		// If the last element is broken, expand the whole thing.
+		if (hasTrailingSplit
+			    && s.isSplit(elements[$ - 1] + 1, trailingSplit + 1)) {
+			return -1;
+		}
+
+		ulong state = s.isSplit(elements[0]);
+
+		size_t previous = elements[0];
+		foreach (k, p; elements[1 .. $]) {
+			scope(success) {
+				previous = p;
+			}
+
+			if (!s.isSplit(previous + 1, p + 1)) {
+				continue;
+			}
+
+			if (state > 1) {
+				return -1;
+			}
+
+			state |= (k + 1) << 1;
+		}
+
+		// For length 1 and 2, we won't trip the explode state earlier,
+		// so we push the trigger now if apropriate.
+		auto splitCount = (state & 0x01) + (state > 1);
+		if (elements.length <= splitCount) {
+			return -1;
+		}
+
+		return state;
+	}
+
 final:
 	@property
 	bool hasTrailingSplit() const {
@@ -343,8 +384,11 @@ final:
 		assert(elements[$ - 1] < i);
 		assert(!hasTrailingSplit);
 	} do {
-		updateCompactness(i);
 		trailingSplit = i;
+
+		if (elements.length > 1) {
+			updateCompactness(i);
+		}
 	}
 
 	void updateCompactness(size_t i) {
@@ -441,65 +485,11 @@ final class CompactListSpan : ListSpan {
 	this(Span parent) {
 		super(parent);
 	}
-
-	mixin CachedState;
-	ulong computeState(const ref SolveState s) const {
-		// If more than 2/3 of the element split, just explode.
-		const max = 2 * (elements.length + 1) / 3;
-
-		ulong count = 0;
-		foreach (p; elements) {
-			count += s.isSplit(p);
-
-			if (count > max) {
-				return -1;
-			}
-		}
-
-		return (count << 1) | s.isSplit(elements[0]);
-	}
 }
 
 final class ExpandingListSpan : ListSpan {
 	this(Span parent) {
 		super(parent);
-	}
-
-	mixin CachedState;
-	ulong computeState(const ref SolveState s) const {
-		// If the last element is broken, expand the whole thing.
-		if (hasTrailingSplit
-			    && s.isSplit(elements[$ - 1] + 1, trailingSplit + 1)) {
-			return -1;
-		}
-
-		ulong state = s.isSplit(elements[0]);
-
-		size_t previous = elements[0];
-		foreach (k, p; elements[1 .. $]) {
-			scope(success) {
-				previous = p;
-			}
-
-			if (!s.isSplit(previous + 1, p + 1)) {
-				continue;
-			}
-
-			if (state > 1) {
-				return -1;
-			}
-
-			state |= (k + 1) << 1;
-		}
-
-		// For length 1 and 2, we won't trip the explode state earlier,
-		// so we push the trigger now if apropriate.
-		auto splitCount = (state & 0x01) + (state > 1);
-		if (elements.length <= splitCount) {
-			return -1;
-		}
-
-		return state;
 	}
 }
 

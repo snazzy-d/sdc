@@ -139,9 +139,9 @@ struct Task {
 			return TestResult(name, false, hasPassed);
 		}
 
-		auto retval = execute(["./" ~ exeName], /* env = */ null,
-		                      Config.none, /* maxOutput = */ size_t.max,
-		                      dir).status;
+		auto retval = execute(
+			["./" ~ exeName], /* env = */ null, Config.none, /* maxOutput = */
+			size_t.max, dir).status;
 		if (retval != expectedRetval) {
 			stderr.writefln("%s: expected reval %s, got %s", name,
 			                expectedRetval, retval);

@@ -13,10 +13,10 @@ struct ContextFinder {
 		this.pass = pass;
 	}
 
-	Function visit(
-		Symbol s
-	) in(s.hasContext,
-	     "You can't finsource.context of symbol that do not have context") {
+	Function visit(Symbol s) in(
+		s.hasContext,
+		"You can't finsource.context of symbol that do not have context"
+	) {
 		return this.dispatch(s);
 	}
 

@@ -305,9 +305,8 @@ public:
 
 	void visit(IdentifierStarNameStatement s) {
 		import d.semantic.identifier;
-		IdentifierResolver(pass).build(s.identifier).apply!(delegate void(
-			identified
-		) {
+		IdentifierResolver(
+			pass).build(s.identifier).apply!(delegate void(identified) {
 			alias T = typeof(identified);
 			static if (is(T : Expression)) {
 				assert(
@@ -479,9 +478,9 @@ public:
 				} else {
 					import d.ir.error;
 					return new CompileError(
-							iterated.location,
-							typeid(e).toString() ~ " is not a valid length")
-						.expression;
+						iterated.location,
+						typeid(e).toString() ~ " is not a valid length"
+					).expression;
 				}
 			})();
 
@@ -605,9 +604,11 @@ public:
 		if (f.reverse) {
 			// for(...; idx-- > stop; idx)
 			condition = build!ICmpExpression(
-				loc, ICmpOp.Greater,
+				loc,
+				ICmpOp.Greater,
 				build!UnaryExpression(loc, type, UnaryOp.PostDec, idxExpr),
-				stop);
+				stop
+			);
 		} else {
 			// for(...; idx < stop; idx++)
 			condition = build!ICmpExpression(loc, ICmpOp.Less, idxExpr, stop);
@@ -673,8 +674,11 @@ public:
 				retval = new VariableExpression(location, v);
 			}
 
-			currentBlock.eval(location, check(build!BinaryExpression(
-				location, retval.type, BinaryOp.Assign, retval, value)));
+			currentBlock.eval(
+				location,
+				check(build!BinaryExpression(location, retval.type,
+				                             BinaryOp.Assign, retval, value))
+			);
 
 			value = retval;
 		}
@@ -775,7 +779,8 @@ public:
 			import source.exception;
 			throw new CompileException(
 				s.location,
-				"Reached end of switch statement with unresolved goto case;");
+				"Reached end of switch statement with unresolved goto case;"
+			);
 		}
 
 		auto defaultLabel = BuiltinName!"default" in labels;
@@ -784,7 +789,8 @@ public:
 			throw new CompileException(
 				s.location,
 				"switch statement without a default; use 'final switch' "
-					~ "or add 'default: assert(0);' or add 'default: break;'");
+					~ "or add 'default: assert(0);' or add 'default: break;'"
+			);
 		}
 
 		BasicBlockRef defaultBlock = defaultLabel.block;
@@ -859,9 +865,11 @@ public:
 	}
 
 	void visit(CaseStatement s) {
-		setCaseEntry(s.location,
-		             "Case statement can only appear within switch statement.",
-		             "Fallthrough is disabled, use goto case.");
+		setCaseEntry(
+			s.location,
+			"Case statement can only appear within switch statement.",
+			"Fallthrough is disabled, use goto case."
+		);
 
 		auto caseBlock = maybeBranchToNewBlock(s.location, BuiltinName!"case");
 		fixupGoto(s.location, BuiltinName!"case",
@@ -973,7 +981,8 @@ public:
 	void visit(ThrowStatement s) {
 		currentBlock.doThrow(
 			s.location,
-			buildExpression(s.value, Type.get(pass.object.getThrowable())));
+			buildExpression(s.value, Type.get(pass.object.getThrowable()))
+		);
 	}
 
 	void visit(TryStatement s) {
@@ -1028,7 +1037,8 @@ public:
 						import source.exception;
 						throw new CompileException(
 							identified.location,
-							typeid(identified).toString() ~ " is not a class.");
+							typeid(identified).toString() ~ " is not a class."
+						);
 					}
 				})();
 

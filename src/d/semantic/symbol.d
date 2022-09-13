@@ -47,8 +47,11 @@ struct SymbolVisitor {
 
 				if (tid is typeid(SymType)) {
 					auto decl = cast(DeclType) d;
-					assert(decl, "Unexpected declaration type "
-						~ typeid(DeclType).toString());
+					assert(
+						decl,
+						"Unexpected declaration type "
+							~ typeid(DeclType).toString()
+					);
 
 					scheduler.schedule(decl, () @trusted {
 						// Fast cast can be trusted in this case,
@@ -198,9 +201,9 @@ struct SymbolAnalyzer {
 		}
 
 		void buildType() {
-			f.type = FunctionType(f.linkage, pass.returnType,
-			                      params.map!(p => p.paramType).array(),
-			                      fd.isVariadic);
+			f.type = FunctionType(
+				f.linkage, pass.returnType,
+				params.map!(p => p.paramType).array(), fd.isVariadic);
 
 			assert(!isCtor || !isDtor || f.linkage == Linkage.D,
 			       "Only D linkage is supported for ctors and dtors");
@@ -220,8 +223,10 @@ struct SymbolAnalyzer {
 
 				default:
 					import std.conv;
-					assert(0, "Linkage " ~ to!string(f.linkage)
-						~ " is not supported");
+					assert(
+						0,
+						"Linkage " ~ to!string(f.linkage) ~ " is not supported"
+					);
 			}
 
 			f.step = Step.Signed;
@@ -250,9 +255,14 @@ struct SymbolAnalyzer {
 
 					if (fbody) {
 						import d.ast.statement;
-						fbody = new BlockStatement(fbody.location, [
-							fbody, new ReturnStatement(
-								f.location, new ThisExpression(f.location))]);
+						fbody = new BlockStatement(
+							fbody.location,
+							[
+								fbody,
+								new ReturnStatement(
+									f.location, new ThisExpression(f.location))
+							]
+						);
 					}
 				}
 			}
@@ -288,15 +298,19 @@ struct SymbolAnalyzer {
 
 					import d.ast.expression;
 					auto fieldDtor = new IdentifierDotIdentifier(
-						fbody.location, BuiltinName!"__dtor",
+						fbody.location,
+						BuiltinName!"__dtor",
 						new ExpressionDotIdentifier(
 							fbody.location, field.name,
-							new ThisExpression(fbody.location)));
+							new ThisExpression(fbody.location))
+					);
 
 					fieldDtors ~= new ScopeStatement(
-						f.location, ScopeKind.Exit, new ExpressionStatement(
-							new IdentifierCallExpression(fbody.location,
-							                             fieldDtor, [])));
+						f.location,
+						ScopeKind.Exit,
+						new ExpressionStatement(new IdentifierCallExpression(
+							fbody.location, fieldDtor, []))
+					);
 				}
 
 				// Ok, we have fields to destroy, let's do it !
@@ -315,7 +329,8 @@ struct SymbolAnalyzer {
 			if (f.hasThis) {
 				assert(
 					thisType.getType().isAggregate(),
-					"thisType must be defined if funtion has a this pointer.");
+					"thisType must be defined if funtion has a this pointer."
+				);
 
 				auto thisParameter =
 					new Variable(f.location, thisType, BuiltinName!"this");
@@ -479,7 +494,8 @@ struct SymbolAnalyzer {
 				} else {
 					assert(
 						0,
-						"Not implemented for " ~ typeid(identified).toString());
+						"Not implemented for " ~ typeid(identified).toString()
+					);
 				}
 			})();
 
@@ -734,7 +750,8 @@ struct SymbolAnalyzer {
 						import source.exception;
 						throw new CompileException(
 							identified.location,
-							typeid(identified).toString() ~ " is not a class.");
+							typeid(identified).toString() ~ " is not a class."
+						);
 					} else {
 						// for typeof(null)
 						assert(0);
@@ -752,9 +769,11 @@ struct SymbolAnalyzer {
 		// Cannot inherit from final classes.
 		if (c.base.isFinal) {
 			import source.exception;
-			throw new CompileException(c.location, c.name.toString(context)
-				~ " cannot inherit from " ~ c.base.name.toString(context)
-				~ " because it is final.");
+			throw new CompileException(
+				c.location,
+				c.name.toString(context) ~ " cannot inherit from "
+					~ c.base.name.toString(context) ~ " because it is final."
+			);
 		}
 
 		Field[] baseFields;
@@ -803,9 +822,9 @@ struct SymbolAnalyzer {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 
 			import source.name;
-			auto ctx = new Field(c.location, fieldIndex++, ctxPtr,
-			                     BuiltinName!"__ctx",
-			                     new NullLiteral(c.location, ctxPtr));
+			auto ctx = new Field(
+				c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx",
+				new NullLiteral(c.location, ctxPtr));
 
 			ctx.step = Step.Processed;
 			baseFields ~= ctx;
@@ -868,16 +887,20 @@ struct SymbolAnalyzer {
 				if (method.index != -1) {
 					import source.exception;
 					throw new CompileException(
-						method.location, method.name.toString(context)
+						method.location,
+						method.name.toString(context)
 							~ " overrides a base class method "
-							~ "but is not marked override.");
+							~ "but is not marked override."
+					);
 				}
 
 				if (candidate.isFinal) {
 					import source.exception;
 					throw new CompileException(
-						method.location, method.name.toString(context)
-							~ " overrides a final method.");
+						method.location,
+						method.name.toString(context)
+							~ " overrides a final method."
+					);
 				}
 
 				method.index = candidate.index;
@@ -906,7 +929,8 @@ struct SymbolAnalyzer {
 				import source.exception;
 				throw new CompileException(
 					method.location,
-					"Override not found for " ~ method.name.toString(context));
+					"Override not found for " ~ method.name.toString(context)
+				);
 			}
 		}
 
@@ -985,7 +1009,8 @@ struct SymbolAnalyzer {
 			import source.exception;
 			throw new CompileException(
 				e.location,
-				"Unsupported enum type " ~ e.type.toString(context));
+				"Unsupported enum type " ~ e.type.toString(context)
+			);
 		}
 
 		auto bt = e.type.builtin;
@@ -993,7 +1018,8 @@ struct SymbolAnalyzer {
 			import source.exception;
 			throw new CompileException(
 				e.location,
-				"Unsupported enum type " ~ e.type.toString(context));
+				"Unsupported enum type " ~ e.type.toString(context)
+			);
 		}
 
 		import std.conv;
@@ -1132,8 +1158,11 @@ struct SymbolAnalyzer {
 				tap.step = Step.Signed;
 				t.parameters[i] = tap;
 			} else {
-				assert(0, typeid(p).toString()
-					~ " template parameters are not supported.");
+				assert(
+					0,
+					typeid(p).toString()
+						~ " template parameters are not supported."
+				);
 			}
 		}
 

@@ -100,9 +100,9 @@ private:
 		}
 
 		import source.name;
-		auto v = new Variable(value.location,
-		                      value.type.getParamType(ParamKind.Ref),
-		                      BuiltinName!"", value);
+		auto v = new Variable(
+			value.location, value.type.getParamType(ParamKind.Ref),
+			BuiltinName!"", value);
 
 		v.step = Step.Processed;
 		return new VariableExpression(value.location, v);
@@ -129,9 +129,13 @@ private:
 			auto llhs = build!BinaryExpression(location, type, BinaryOp.Comma,
 			                                   rhs, lhs);
 
-			return buildAssign(location, lhs, buildExplicitCast(
-				pass, location, type,
-				buildBinary(location, op.getBaseOp(), llhs, rhs)));
+			return buildAssign(
+				location,
+				lhs,
+				buildExplicitCast(
+					pass, location, type,
+					buildBinary(location, op.getBaseOp(), llhs, rhs))
+			);
 		}
 
 		Type type;
@@ -228,11 +232,13 @@ private:
 				}
 
 				rhs = buildImplicitCast(
-					pass, rhs.location,
+					pass,
+					rhs.location,
 					(rhs.type.getCanonical().kind == TypeKind.Slice)
 						? type
 						: type.element,
-					rhs);
+					rhs
+				);
 
 				return callOverloadSet(location, pass.object.getArrayConcat(),
 				                       [lhs, rhs]);
@@ -304,9 +310,9 @@ public:
 	}
 
 	Expression visit(AstTernaryExpression e) {
-		auto condition = buildExplicitCast(pass, e.condition.location,
-		                                   Type.get(BuiltinType.Bool),
-		                                   visit(e.condition));
+		auto condition = buildExplicitCast(
+			pass, e.condition.location, Type.get(BuiltinType.Bool),
+			visit(e.condition));
 
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
@@ -405,9 +411,11 @@ public:
 
 	Expression buildArgument(Expression arg, ParamType pt) {
 		if (pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
-			return getError(arg, "Can't pass argument ("
-				~ arg.type.toString(context) ~ ") by ref to "
-				~ pt.toString(context));
+			return getError(
+				arg,
+				"Can't pass argument (" ~ arg.type.toString(context)
+					~ ") by ref to " ~ pt.toString(context)
+			);
 		}
 
 		arg = buildImplicitCast(pass, arg.location, pt.getType(), arg);
@@ -535,8 +543,11 @@ public:
 
 		assert(!f.hasContext);
 		if (f.params.length != ctxs.length - f.hasContext) {
-			return getError(e, "Invalid number of argument for @property "
-				~ f.name.toString(context));
+			return getError(
+				e,
+				"Invalid number of argument for @property "
+					~ f.name.toString(context)
+			);
 		}
 
 		Expression[] args;
@@ -761,7 +772,8 @@ public:
 
 			throw new CompileException(
 				s.location,
-				typeid(s).toString() ~ " is not supported in overload set");
+				typeid(s).toString() ~ " is not supported in overload set"
+			);
 		}).array(), args), args);
 	}
 
@@ -780,7 +792,8 @@ public:
 				auto t = e.type.getCanonical();
 				assert(
 					t.kind == TypeKind.Function,
-					e.type.toString(pass.context) ~ " is not a function type");
+					e.type.toString(pass.context) ~ " is not a function type"
+				);
 
 				auto ft = t.asFunctionType();
 				return checkArgumentCount(ft.isVariadic, args.length,
@@ -894,9 +907,12 @@ public:
 			return results[0];
 		}
 
-		return getError(callee, location,
-		                "You must call function or delegates, not "
-			                ~ callee.type.toString(context));
+		return getError(
+			callee,
+			location,
+			"You must call function or delegates, not "
+				~ callee.type.toString(context)
+		);
 	}
 
 	private Expression handleCall(Location location, Expression callee,
@@ -1142,9 +1158,12 @@ public:
 				} else static if (is(T : Expression)) {
 					return handleTypeid(e.location, identified);
 				} else {
-					return getError(identified, e.location,
-					                "Can't get typeid of "
-						                ~ e.argument.toString(pass.context));
+					return getError(
+						identified,
+						e.location,
+						"Can't get typeid of "
+							~ e.argument.toString(pass.context)
+					);
 				}
 			})();
 	}
@@ -1163,9 +1182,12 @@ public:
 						}
 					}
 
-					return getError(identified, e.location,
-					                e.identifier.toString(pass.context)
-						                ~ " isn't an expression");
+					return getError(
+						identified,
+						e.location,
+						e.identifier.toString(pass.context)
+							~ " isn't an expression"
+					);
 				}
 			})();
 	}
@@ -1186,8 +1208,10 @@ public:
 					} else {
 						// TODO: handle templates.
 						throw new CompileException(
-							identified.location, typeid(identified).toString()
-								~ " is not supported in overload set");
+							identified.location,
+							typeid(identified).toString()
+								~ " is not supported in overload set"
+						);
 					}
 				})())
 			.array();
@@ -1204,9 +1228,14 @@ public:
 		auto name = context.getName(prefix ~ offset.to!string());
 
 		auto d = new FunctionDeclaration(
-			location, defaultStorageClass,
-			AstType.getAuto().getParamType(ParamKind.Regular), name, params,
-			isVariadic, fbody);
+			location,
+			defaultStorageClass,
+			AstType.getAuto().getParamType(ParamKind.Regular),
+			name,
+			params,
+			isVariadic,
+			fbody
+		);
 
 		auto f =
 			new Function(location, currentScope, FunctionType.init, name, []);

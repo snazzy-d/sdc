@@ -101,8 +101,11 @@ struct TypePromoter {
 		}
 
 		import source.exception;
-		throw new CompileException(location, "Incompatible struct type "
-			~ s.name.toString(context) ~ " and " ~ t1.toString(context));
+		throw new CompileException(
+			location,
+			"Incompatible struct type " ~ s.name.toString(context) ~ " and "
+				~ t1.toString(context)
+		);
 	}
 
 	Type visit(Class c) {

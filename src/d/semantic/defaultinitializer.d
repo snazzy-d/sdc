@@ -46,8 +46,11 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		final switch (t) with (BuiltinType) {
 			case None, Void:
 				import d.ir.error;
-				return new CompileError(location, Type.get(t).toString(context)
-					~ " has no default initializer").expression;
+				return new CompileError(
+					location,
+					Type.get(t).toString(context)
+						~ " has no default initializer"
+				).expression;
 
 			case Bool:
 				return new BooleanLiteral(location, false);
@@ -73,9 +76,9 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 
 	E visitSliceOf(Type t) {
 		auto sizet = pass.object.getSizeT().type.builtin;
-		CompileTimeExpression[] init = [
-			new NullLiteral(location, t.getPointer()),
-			new IntegerLiteral(location, 0UL, sizet)];
+		CompileTimeExpression[] init =
+			[new NullLiteral(location, t.getPointer()),
+			 new IntegerLiteral(location, 0UL, sizet)];
 
 		// XXX: Should cast to size_t, but buildImplicitCast
 		// doesn't produce CompileTimeExpressions.
@@ -142,9 +145,12 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 
 			auto ctx = new ContextExpression(location, ft.element.context);
 			auto assign = new BinaryExpression(
-				location, ft, BinaryOp.Assign,
+				location,
+				ft,
+				BinaryOp.Assign,
 				new FieldExpression(location, v, f),
-				new UnaryExpression(location, ft, UnaryOp.AddressOf, ctx));
+				new UnaryExpression(location, ft, UnaryOp.AddressOf, ctx)
+			);
 
 			return new BinaryExpression(location, Type.get(s), BinaryOp.Comma,
 			                            assign, v);
@@ -198,7 +204,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	E visit(Interface i) {
 		CompileTimeExpression[] init = [
 			new NullLiteral(location, Type.get(pass.object.getObject())),
-			new NullLiteral(location, Type.get(BuiltinType.Void).getPointer())];
+			new NullLiteral(location, Type.get(BuiltinType.Void).getPointer())
+		];
 
 		return new CompileTimeTupleExpression(location, Type.get(i), init);
 	}

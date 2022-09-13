@@ -307,7 +307,8 @@ public:
 
 				assert(
 					cs.set.length == 0,
-					"Conditional symbols remains when clearing poisoning mode.");
+					"Conditional symbols remains when clearing poisoning mode."
+				);
 				if (cs.selected) {
 					symbols[n] = cs.selected;
 				} else {

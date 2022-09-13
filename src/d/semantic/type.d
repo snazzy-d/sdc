@@ -44,10 +44,12 @@ struct TypeVisitor {
 					return identified.qualify(qualifier);
 				} else {
 					import d.ir.error;
-					return getError(identified, i.location,
-					                i.toString(pass.context) ~ " ("
-						                ~ typeid(identified).toString()
-						                ~ ") isn't an type").type;
+					return getError(
+						identified,
+						i.location,
+						i.toString(pass.context) ~ " ("
+							~ typeid(identified).toString() ~ ") isn't an type"
+					).type;
 				}
 			})();
 	}
@@ -99,8 +101,11 @@ struct TypeVisitor {
 				} else {
 					import d.ir.error;
 					return getError(
-						identified, ikey.location, ikey.toString(pass.context)
-							~ " isn't an type or an expression").type;
+						identified,
+						ikey.location,
+						ikey.toString(pass.context)
+							~ " isn't an type or an expression"
+					).type;
 				}
 			})();
 	}

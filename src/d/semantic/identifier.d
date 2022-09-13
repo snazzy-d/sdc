@@ -228,9 +228,9 @@ private:
 				if (symInMod) {
 					if (symbol) {
 						return new CompileError(
-								location,
-								"Ambiguous symbol " ~ name.toString(context))
-							.symbol;
+							location,
+							"Ambiguous symbol " ~ name.toString(context)
+						).symbol;
 					}
 
 					symbol = symInMod;
@@ -243,8 +243,10 @@ private:
 
 			dscope = dscope.getParentScope();
 			if (dscope is null) {
-				return new CompileError(location, "Symbol "
-					~ name.toString(context) ~ " has not been found").symbol;
+				return new CompileError(
+					location,
+					"Symbol " ~ name.toString(context) ~ " has not been found"
+				).symbol;
 			}
 
 			if (auto sscope = cast(Symbol) dscope) {
@@ -288,8 +290,9 @@ private:
 
 		auto iloc = i.location;
 		auto instance = finalize(
-			i.identifier.location, visit(
-				i.identifier)).apply!(delegate TemplateInstance(identified) {
+			i.identifier.location,
+			visit(i.identifier)
+		).apply!(delegate TemplateInstance(identified) {
 			static if (is(typeof(identified) : Symbol)) {
 				// If we are within a pattern, we are not looking to instanciate.
 				// XXX: Arguably, we'd like the TemplateInstancier to figure out if
@@ -765,10 +768,13 @@ struct ExpressionDotIdentifierResolver {
 		// array.ptr is a special case.
 		if (et.kind == TypeKind.Array && name == BuiltinName!"ptr") {
 			return Identifiable(new UnaryExpression(
-				location, t.element.getPointer(), UnaryOp.AddressOf,
+				location,
+				t.element.getPointer(),
+				UnaryOp.AddressOf,
 				new IndexExpression(
 					location, t.element, e,
-					new IntegerLiteral(location, 0, BuiltinType.Uint))));
+					new IntegerLiteral(location, 0, BuiltinType.Uint))
+			));
 		}
 
 		// UFCS
@@ -783,7 +789,8 @@ struct ExpressionDotIdentifierResolver {
 		// Try to autodereference pointers.
 		return visit(
 			new UnaryExpression(e.location, t.element, UnaryOp.Dereference, e),
-			base);
+			base
+		);
 	}
 
 	Symbol lookupInBase(Class c) {
@@ -874,8 +881,12 @@ struct TypeDotIdentifierResolver {
 				pass.object.getSizeT().type.builtin));
 		}
 
-		return Identifiable(getError(t, location, name.toString(context)
-			~ " can't be resolved in type " ~ t.toString(context)).symbol);
+		return Identifiable(getError(
+			t,
+			location,
+			name.toString(context) ~ " can't be resolved in type "
+				~ t.toString(context)
+		).symbol);
 	}
 
 	Identifiable visit(Type t) {

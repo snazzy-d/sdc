@@ -777,7 +777,8 @@ private:
 		auto c = argCount;
 		return inout(Instantiation)(
 			payload.args[c].get!(TemplateArgument.Tag.Symbol),
-			payload.args[0 .. c]);
+			payload.args[0 .. c]
+		);
 	}
 
 public:

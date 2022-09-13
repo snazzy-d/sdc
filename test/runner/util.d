@@ -19,11 +19,15 @@ int runUtility(U, string File = __FILE__)(auto ref U utility, string[] args) {
 
 	import std.stdio;
 	writefln!"Summary: %s tests, %s pass%s, %s failure%s, %.2f%% pass rate, %s regressions, %s improvements."(
-		result.count, result.passed, result.passed == 1 ? "" : "es",
+		result.count,
+		result.passed,
+		result.passed == 1 ? "" : "es",
 		result.count - result.passed,
 		(result.count - result.passed) == 1 ? "" : "s",
-		100 * (double(result.passed) / result.count), result.regressions,
-		result.improvments);
+		100 * (double(result.passed) / result.count),
+		result.regressions,
+		result.improvments
+	);
 
 	if (options.waitOnExit) {
 		write("Press any key to exit...");
@@ -96,14 +100,16 @@ Options parseArguements(string File, U)(ref U utility, ref string[] args) {
 			writeln("Options:");
 
 			foreach (option; help_info.options) {
-				writefln("  %-16s %s",
-				         // bug : optShort is empty if there is no long version
-				         option.optShort.length
-					         ? option.optShort
-					         : (option.optLong.length == 3)
-						         ? option.optLong[1 .. $]
-						         : option.optLong,
-				         option.help);
+				writefln(
+					"  %-16s %s",
+					// bug : optShort is empty if there is no long version
+					option.optShort.length
+						? option.optShort
+						: (option.optLong.length == 3)
+							? option.optLong[1 .. $]
+							: option.optLong,
+					option.help
+				);
 			}
 
 			import core.stdc.stdlib;

@@ -410,9 +410,9 @@ unittest {
 		 * Variables
 		 */
 		import source.name;
-		auto var = new Variable(Location.init,
-		                        tuint.getParamType(ParamKind.Regular),
-		                        BuiltinName!"", i1);
+		auto var = new Variable(
+			Location.init, tuint.getParamType(ParamKind.Regular),
+			BuiltinName!"", i1);
 		var.step = Step.Processed;
 
 		v = vrp.visit(var);
@@ -1161,9 +1161,9 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 	 * This whole dance is O(n^2) but n is small, so it doesn't matter.
 	 * This split lhs into reduced ranges and combine the results.
 	 */
-	ValueRange reduceOrdered(alias doOp, bool hasFlipped = false)(
-		ValueRange rhs,
-	) const if (isUnsigned!T) in(min <= max && rhs.min <= rhs.max) {
+	ValueRange reduceOrdered(alias doOp,
+	                         bool hasFlipped = false)(ValueRange rhs, ) const
+			if (isUnsigned!T) in(min <= max && rhs.min <= rhs.max) {
 		static nextRange(T t) out(result) {
 			assert((t & result) == 0);
 		} do {

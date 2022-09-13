@@ -839,9 +839,11 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 		}
 
 		auto msg = evalString(buildExplicitCast(
-			pass, a.condition.location,
+			pass,
+			a.condition.location,
 			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
-			ExpressionVisitor(pass).visit(a.message)));
+			ExpressionVisitor(pass).visit(a.message)
+		));
 
 		throw new CompileException(a.location, "assertion failure: " ~ msg);
 	}

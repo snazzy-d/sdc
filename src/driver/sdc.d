@@ -41,14 +41,16 @@ int run(Context context, string[] args) {
 		writeln("Options:");
 
 		foreach (option; help_info.options) {
-			writefln("  %-16s %s",
-			         // bug : optShort is empty if there is no long version
-			         option.optShort.length
-				         ? option.optShort
-				         : (option.optLong.length == 3)
-					         ? option.optLong[1 .. $]
-					         : option.optLong,
-			         option.help);
+			writefln(
+				"  %-16s %s",
+				// bug : optShort is empty if there is no long version
+				option.optShort.length
+					? option.optShort
+					: (option.optLong.length == 3)
+						? option.optLong[1 .. $]
+						: option.optLong,
+				option.help
+			);
 		}
 
 		return 0;

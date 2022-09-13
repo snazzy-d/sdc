@@ -158,12 +158,17 @@ final class SemanticPass {
 		}
 
 		auto bootstrap = new Function(
-			main.location, main.getModule(),
+			main.location,
+			main.getModule(),
 			FunctionType(
 				Linkage.C,
-				Type.get(BuiltinType.Int).getParamType(ParamKind.Regular), [],
-				false),
-			BuiltinName!"_Dmain", []);
+				Type.get(BuiltinType.Int).getParamType(ParamKind.Regular),
+				[],
+				false
+			),
+			BuiltinName!"_Dmain",
+			[]
+		);
 
 		bootstrap.fbody = fbody;
 
