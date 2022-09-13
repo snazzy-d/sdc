@@ -769,6 +769,10 @@ struct SolveState {
 			return cd < 0;
 		}
 
+		if (lines != rhs.lines) {
+			return lines < rhs.lines;
+		}
+
 		return ruleValues < rhs.ruleValues;
 	}
 
@@ -784,6 +788,10 @@ struct SolveState {
 
 		if (overflow != rhs.overflow) {
 			return overflow - rhs.overflow;
+		}
+
+		if (lines != rhs.lines) {
+			return lines - rhs.lines;
 		}
 
 		return ruleValues.opCmp(rhs.ruleValues);
