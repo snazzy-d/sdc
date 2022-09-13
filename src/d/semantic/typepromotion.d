@@ -210,8 +210,9 @@ unittest {
 			}
 		}
 
-		foreach (t1; [Bool, Char, Wchar, Dchar, Byte, Ubyte, Short, Ushort, Int,
-		              Uint]) {
+		foreach (t1;
+			[Bool, Char, Wchar, Dchar, Byte, Ubyte, Short, Ushort, Int, Uint]
+		) {
 			foreach (t2; [Dchar, Uint]) {
 				assert(promoteBuiltin(t1, t2) == Uint);
 				assert(promoteBuiltin(t2, t1) == Uint);

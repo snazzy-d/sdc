@@ -1150,46 +1150,44 @@ public:
 
 	Expression visit(IdentifierTypeidExpression e) {
 		import d.semantic.identifier;
-		return IdentifierResolver(pass)
-			.build(e.argument).apply!(delegate Expression(identified) {
-				alias T = typeof(identified);
-				static if (is(T : Type)) {
-					return getTypeInfo(e.location, identified);
-				} else static if (is(T : Expression)) {
-					return handleTypeid(e.location, identified);
-				} else {
-					return getError(
-						identified,
-						e.location,
-						"Can't get typeid of "
-							~ e.argument.toString(pass.context)
-					);
-				}
-			})();
+		return IdentifierResolver(
+			pass
+		).build(e.argument).apply!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			static if (is(T : Type)) {
+				return getTypeInfo(e.location, identified);
+			} else static if (is(T : Expression)) {
+				return handleTypeid(e.location, identified);
+			} else {
+				return getError(
+					identified, e.location,
+					"Can't get typeid of " ~ e.argument.toString(pass.context));
+			}
+		})();
 	}
 
 	Expression visit(IdentifierExpression e) {
 		import d.semantic.identifier;
-		return IdentifierResolver(pass)
-			.build(e.identifier).apply!(delegate Expression(identified) {
-				alias T = typeof(identified);
-				static if (is(T : Expression)) {
-					return identified;
-				} else {
-					static if (is(T : Symbol)) {
-						if (auto s = cast(OverloadSet) identified) {
-							return buildPolysemous(e.location, s);
-						}
+		return IdentifierResolver(
+			pass
+		).build(e.identifier).apply!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			static if (is(T : Expression)) {
+				return identified;
+			} else {
+				static if (is(T : Symbol)) {
+					if (auto s = cast(OverloadSet) identified) {
+						return buildPolysemous(e.location, s);
 					}
-
-					return getError(
-						identified,
-						e.location,
-						e.identifier.toString(pass.context)
-							~ " isn't an expression"
-					);
 				}
-			})();
+
+				return getError(
+					identified,
+					e.location,
+					e.identifier.toString(pass.context) ~ " isn't an expression"
+				);
+			}
+		})();
 	}
 
 	private Expression buildPolysemous(Location location, OverloadSet s) {

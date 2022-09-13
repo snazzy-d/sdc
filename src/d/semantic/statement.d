@@ -306,12 +306,13 @@ public:
 	void visit(IdentifierStarNameStatement s) {
 		import d.semantic.identifier;
 		IdentifierResolver(
-			pass).build(s.identifier).apply!(delegate void(identified) {
+			pass
+		).build(s.identifier).apply!(delegate void(identified) {
 			alias T = typeof(identified);
 			static if (is(T : Expression)) {
 				assert(
-					0,
-					"expression identifier * identifier are not implemented.");
+					0, "expression identifier * identifier are not implemented."
+				);
 			} else static if (is(T : Type)) {
 				auto t = identified.getPointer();
 

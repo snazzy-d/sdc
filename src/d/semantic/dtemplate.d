@@ -36,7 +36,8 @@ struct TemplateInstancier {
 			auto t = cast(Template) candidate;
 			assert(
 				t,
-				"We should have ensured that we only have templates at this point.");
+				"We should have ensured that we only have templates at this point."
+			);
 
 			TemplateArgument[] cdArgs;
 			cdArgs.length = t.parameters.length;

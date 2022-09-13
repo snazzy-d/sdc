@@ -452,7 +452,11 @@ final:
 		}
 
 		if (i == trailingSplit) {
-			return mustExplode(s) ? Split.Must : Split.No;
+			if (mustExplode(s)) {
+				return Split.Must;
+			}
+
+			return (compact && s.isSplit(elements[0])) ? Split.Can : Split.No;
 		}
 
 		size_t previous = elements[0];

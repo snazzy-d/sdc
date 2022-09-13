@@ -1161,9 +1161,9 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 	 * This whole dance is O(n^2) but n is small, so it doesn't matter.
 	 * This split lhs into reduced ranges and combine the results.
 	 */
-	ValueRange reduceOrdered(alias doOp,
-	                         bool hasFlipped = false)(ValueRange rhs, ) const
-			if (isUnsigned!T) in(min <= max && rhs.min <= rhs.max) {
+	ValueRange reduceOrdered(alias doOp, bool hasFlipped = false)(
+		ValueRange rhs,
+	) const if (isUnsigned!T) in(min <= max && rhs.min <= rhs.max) {
 		static nextRange(T t) out(result) {
 			assert((t & result) == 0);
 		} do {
@@ -1427,8 +1427,9 @@ unittest {
 		assert(VR(0).pad(0xFF) == VR(0));
 		assert(VR(15).pad(0xFF) == VR(15));
 		assert(VR(255).pad(0xFF) == (isSigned!T ? VR(-1) : VR(255)));
-		assert(VR(176, 248).pad(0xFF)
-			== (isSigned!T ? VR(-80, -8) : VR(176, 248)));
+		assert(
+			VR(176, 248).pad(0xFF) == (isSigned!T ? VR(-80, -8) : VR(176, 248))
+		);
 		assert(
 			VR(-80, -8).pad(0xFF) == (isSigned!T ? VR(-80, -8) : VR(176, 248)));
 
@@ -1436,8 +1437,9 @@ unittest {
 		assert(
 			VR(1, 158).pad(0xFF) == (isSigned!T ? VR(-128, 127) : VR(1, 158)));
 		assert(VR(-8, 15).pad(0xFF) == (isSigned!T ? VR(-8, 15) : VR(0, 255)));
-		assert(VR(5, 300).pad(0xFF)
-			== (isSigned!T ? VR(-0x80, 0x7F) : VR(0, 0xFF)));
+		assert(
+			VR(5, 300).pad(0xFF) == (isSigned!T ? VR(-0x80, 0x7F) : VR(0, 0xFF))
+		);
 
 		/**
 		 * Test complement
