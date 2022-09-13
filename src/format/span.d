@@ -318,6 +318,8 @@ abstract class ListSpan : Span {
 	size_t[] elements;
 	size_t trailingSplit = size_t.max;
 
+	bool compact = true;
+
 	this(Span parent) {
 		super(parent);
 	}
@@ -332,14 +334,23 @@ final:
 		assert(elements.length == 0 || elements[$ - 1] < i);
 		assert(!hasTrailingSplit);
 	} do {
+		updateCompactness(i);
 		elements ~= i;
 	}
 
 	void registerTrailingSplit(size_t i) in {
+		assert(elements.length > 0);
 		assert(elements[$ - 1] < i);
 		assert(!hasTrailingSplit);
 	} do {
+		updateCompactness(i);
 		trailingSplit = i;
+	}
+
+	void updateCompactness(size_t i) {
+		if (compact && elements.length > 0) {
+			compact = i <= elements[$ - 1] + 1;
+		}
 	}
 
 	bool isActive(const ref SolveState s) const {
@@ -352,6 +363,27 @@ final:
 
 	bool mustSplit(const ref SolveState s, size_t start, size_t stop) const {
 		return s.isSplit(start, stop) || mustExplode(s);
+	}
+
+	override uint getCost(const ref SolveState s) const {
+		// If there is just one element, make it slitghtly more exepensive to split.
+		if (elements.length <= 1) {
+			return 15;
+		}
+
+		if (compact) {
+			if (!isActive(s)) {
+				return 13;
+			}
+
+			foreach (p; elements[1 .. $]) {
+				if (s.isSplit(p)) {
+					return 14;
+				}
+			}
+		}
+
+		return 13;
 	}
 
 	override uint computeIndent(const ref SolveState s, size_t i) const {
@@ -410,25 +442,6 @@ final class CompactListSpan : ListSpan {
 		super(parent);
 	}
 
-	override uint getCost(const ref SolveState s) const {
-		// If there is just one element, make it slitghtly more exepensive to split.
-		if (elements.length <= 1) {
-			return 15;
-		}
-
-		if (!isActive(s)) {
-			return 13;
-		}
-
-		foreach (p; elements[1 .. $]) {
-			if (s.isSplit(p)) {
-				return 14;
-			}
-		}
-
-		return 13;
-	}
-
 	mixin CachedState;
 	ulong computeState(const ref SolveState s) const {
 		// If more than 2/3 of the element split, just explode.
@@ -450,19 +463,6 @@ final class CompactListSpan : ListSpan {
 final class ExpandingListSpan : ListSpan {
 	this(Span parent) {
 		super(parent);
-	}
-
-	override uint getCost(const ref SolveState s) const {
-		// If there is just one element, make it slitghtly more exepensive to split.
-		if (elements.length <= 1) {
-			return 15;
-		}
-
-		if (s.isSplit(elements[0])) {
-			return 14;
-		}
-
-		return 13;
 	}
 
 	mixin CachedState;

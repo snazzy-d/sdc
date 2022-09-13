@@ -742,10 +742,9 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 		auto d = unit.staticIf;
 
 		import d.ir.expression, d.semantic.caster, d.semantic.expression;
-		auto condition = evalIntegral(
-			buildExplicitCast(pass, d.condition.location,
-			                  Type.get(BuiltinType.Bool),
-			                  ExpressionVisitor(pass).visit(d.condition)));
+		auto condition = evalIntegral(buildExplicitCast(
+			pass, d.condition.location, Type.get(BuiltinType.Bool),
+			ExpressionVisitor(pass).visit(d.condition)));
 
 		CtUnit[] items;
 		if (condition) {
@@ -826,10 +825,9 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 
 	private void checkStaticAssert(StaticAssert!Declaration a) {
 		import d.semantic.caster, d.semantic.expression;
-		auto condition = evalIntegral(
-			buildExplicitCast(pass, a.condition.location,
-			                  Type.get(BuiltinType.Bool),
-			                  ExpressionVisitor(pass).visit(a.condition)));
+		auto condition = evalIntegral(buildExplicitCast(
+			pass, a.condition.location, Type.get(BuiltinType.Bool),
+			ExpressionVisitor(pass).visit(a.condition)));
 
 		if (condition) {
 			return;

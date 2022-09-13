@@ -363,9 +363,8 @@ struct Chunk {
 		auto workLength = header.worklist.length + 1;
 
 		// We realloc everytime. It doesn't really matter at this point.
-		auto workPtr = cast(const(void)**)
-			header.arena
-			      .realloc(header.worklist.ptr, workLength * void*.sizeof);
+		auto workPtr = cast(const(void)**) header
+			.arena.realloc(header.worklist.ptr, workLength * void*.sizeof);
 
 		workPtr[workLength - 1] = ptr;
 		header.worklist = workPtr[0 .. workLength];

@@ -73,9 +73,9 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 
 	E visitSliceOf(Type t) {
 		auto sizet = pass.object.getSizeT().type.builtin;
-		CompileTimeExpression[] init =
-			[new NullLiteral(location, t.getPointer()),
-			 new IntegerLiteral(location, 0UL, sizet)];
+		CompileTimeExpression[] init = [
+			new NullLiteral(location, t.getPointer()),
+			new IntegerLiteral(location, 0UL, sizet)];
 
 		// XXX: Should cast to size_t, but buildImplicitCast
 		// doesn't produce CompileTimeExpressions.
@@ -172,9 +172,9 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			if (c.hasContext) {
 				import std.algorithm;
 				import source.name;
-				auto ctxr =
-					c.members.filter!(m => m.name == BuiltinName!"__ctx")
-					 .map!(m => cast(Field) m);
+				auto ctxr = c
+					.members.filter!(m => m.name == BuiltinName!"__ctx")
+					.map!(m => cast(Field) m);
 
 				foreach (f; ctxr) {
 					assert(f, "Context must be a field");

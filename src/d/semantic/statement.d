@@ -323,10 +323,9 @@ public:
 					: InitBuilder(pass, s.location).visit(t);
 
 				import d.semantic.caster;
-				auto v =
-					new Variable(s.location, t.getParamType(ParamKind.Regular),
-					             s.name,
-					             buildImplicitCast(pass, s.location, t, value));
+				auto v = new Variable(
+					s.location, t.getParamType(ParamKind.Regular), s.name,
+					buildImplicitCast(pass, s.location, t, value));
 
 				v.step = Step.Processed;
 				pass.currentScope.addSymbol(v);
@@ -592,9 +591,9 @@ public:
 			stop = tmp;
 		}
 
-		auto idx = new Variable(iDecl.location,
-		                        type.getParamType(iDecl.type.paramKind),
-		                        iDecl.name, start);
+		auto idx = new Variable(
+			iDecl.location, type.getParamType(iDecl.type.paramKind), iDecl.name,
+			start);
 
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
@@ -656,9 +655,9 @@ public:
 					                           "Cannot ref return lvalues");
 				}
 
-				value = build!UnaryExpression(s.location,
-				                              value.type.getPointer(),
-				                              UnaryOp.AddressOf, value);
+				value = build!UnaryExpression(
+					s.location, value.type.getPointer(), UnaryOp.AddressOf,
+					value);
 			}
 		}
 
@@ -666,9 +665,9 @@ public:
 		if (unwindActions.length) {
 			auto location = value.location;
 			if (retval is null) {
-				auto v =
-					new Variable(location, value.type, BuiltinName!"return",
-					             new VoidInitializer(location, value.type));
+				auto v = new Variable(
+					location, value.type, BuiltinName!"return",
+					new VoidInitializer(location, value.type));
 
 				v.step = Step.Processed;
 				retval = new VariableExpression(location, v);

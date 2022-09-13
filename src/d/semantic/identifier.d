@@ -869,9 +869,9 @@ struct TypeDotIdentifierResolver {
 			return Identifiable(InitBuilder(pass.pass, location).visit(t));
 		} else if (name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
-			return Identifiable(
-				new IntegerLiteral(location, SizeofVisitor(pass.pass).visit(t),
-				                   pass.object.getSizeT().type.builtin));
+			return Identifiable(new IntegerLiteral(
+				location, SizeofVisitor(pass.pass).visit(t),
+				pass.object.getSizeT().type.builtin));
 		}
 
 		return Identifiable(getError(t, location, name.toString(context)

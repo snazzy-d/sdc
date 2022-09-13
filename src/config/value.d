@@ -416,13 +416,12 @@ auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
 // Assignement and comparison.
 unittest {
 	import std.meta;
-	alias Cases = AliasSeq!(null, true, false, 0, 1, 42, 0., 3.141592,
-	                        float.infinity, -float.infinity, "", "foobar",
-	                        [1, 2, 3], [1, 2, 3, 4], ["y" : true, "n" : false],
-	                        ["x" : 3, "y" : 5], ["foo" : "bar"],
-	                        ["fizz" : "buzz"],
-	                        ["first" : [1, 2], "second" : [3, 4]],
-	                        [["a", "b"] : [1, 2], ["c", "d"] : [3, 4]]);
+	alias Cases = AliasSeq!(
+		null, true, false, 0, 1, 42, 0., 3.141592, float.infinity,
+		-float.infinity, "", "foobar", [1, 2, 3], [1, 2, 3, 4],
+		["y" : true, "n" : false], ["x" : 3, "y" : 5], ["foo" : "bar"],
+		["fizz" : "buzz"], ["first" : [1, 2], "second" : [3, 4]],
+		[["a", "b"] : [1, 2], ["c", "d"] : [3, 4]]);
 
 	static testAllValues(E)(Value v, E expected, Value.Kind k) {
 		assert(v.kind == k);
