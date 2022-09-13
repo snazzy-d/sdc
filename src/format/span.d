@@ -314,7 +314,7 @@ final class AlignedSpan : Span {
 /**
  * Span ensuring lists of items are formatted as expected.
  */
-abstract class ListSpan : Span {
+final class ListSpan : Span {
 	size_t[] elements;
 	size_t trailingSplit = size_t.max;
 
@@ -322,47 +322,6 @@ abstract class ListSpan : Span {
 
 	this(Span parent) {
 		super(parent);
-	}
-
-	mixin CachedState;
-	ulong computeState(const ref SolveState s) const {
-		if (compact) {
-			return s.isSplit(elements[0]);
-		}
-
-		// If the last element is broken, expand the whole thing.
-		if (hasTrailingSplit
-			    && s.isSplit(elements[$ - 1] + 1, trailingSplit + 1)) {
-			return -1;
-		}
-
-		ulong state = s.isSplit(elements[0]);
-
-		size_t previous = elements[0];
-		foreach (k, p; elements[1 .. $]) {
-			scope(success) {
-				previous = p;
-			}
-
-			if (!s.isSplit(previous + 1, p + 1)) {
-				continue;
-			}
-
-			if (state > 1) {
-				return -1;
-			}
-
-			state |= (k + 1) << 1;
-		}
-
-		// For length 1 and 2, we won't trip the explode state earlier,
-		// so we push the trigger now if apropriate.
-		auto splitCount = (state & 0x01) + (state > 1);
-		if (elements.length <= splitCount) {
-			return -1;
-		}
-
-		return state;
 	}
 
 final:
@@ -407,6 +366,47 @@ final:
 
 	bool mustSplit(const ref SolveState s, size_t start, size_t stop) const {
 		return s.isSplit(start, stop) || mustExplode(s);
+	}
+
+	mixin CachedState;
+	ulong computeState(const ref SolveState s) const {
+		if (compact) {
+			return s.isSplit(elements[0]);
+		}
+
+		// If the last element is broken, expand the whole thing.
+		if (hasTrailingSplit
+			    && s.isSplit(elements[$ - 1] + 1, trailingSplit + 1)) {
+			return -1;
+		}
+
+		ulong state = s.isSplit(elements[0]);
+
+		size_t previous = elements[0];
+		foreach (k, p; elements[1 .. $]) {
+			scope(success) {
+				previous = p;
+			}
+
+			if (!s.isSplit(previous + 1, p + 1)) {
+				continue;
+			}
+
+			if (state > 1) {
+				return -1;
+			}
+
+			state |= (k + 1) << 1;
+		}
+
+		// For length 1 and 2, we won't trip the explode state earlier,
+		// so we push the trigger now if apropriate.
+		auto splitCount = (state & 0x01) + (state > 1);
+		if (elements.length <= splitCount) {
+			return -1;
+		}
+
+		return state;
 	}
 
 	override uint getCost(const ref SolveState s) const {
@@ -478,18 +478,6 @@ final:
 		}
 
 		return Split.Can;
-	}
-}
-
-final class CompactListSpan : ListSpan {
-	this(Span parent) {
-		super(parent);
-	}
-}
-
-final class ExpandingListSpan : ListSpan {
-	this(Span parent) {
-		super(parent);
 	}
 }
 

@@ -1164,10 +1164,10 @@ private:
 			return kind;
 		}
 
-		auto guard = spliceSpan!ExpandingListSpan();
+		auto guard = spliceSpan!ListSpan();
 		while (match(TokenType.Dot)) {
 			split();
-			guard.registerFix(function(ExpandingListSpan s, size_t i) {
+			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -1681,13 +1681,13 @@ private:
 	}
 
 	void parseForArguments() {
-		auto guard = span!CompactListSpan();
+		auto guard = span!ListSpan();
 
 		if (match(TokenType.Semicolon)) {
 			nextToken();
 		} else {
 			split();
-			guard.registerFix(function(CompactListSpan s, size_t i) {
+			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -1700,7 +1700,7 @@ private:
 		} else {
 			space();
 			split();
-			guard.registerFix(function(CompactListSpan s, size_t i) {
+			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -1713,7 +1713,7 @@ private:
 		} else {
 			space();
 			split();
-			guard.registerFix(function(CompactListSpan s, size_t i) {
+			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -1729,17 +1729,17 @@ private:
 		if (match(TokenType.OpenParen)) {
 			nextToken();
 			auto modeGuard = changeMode(Mode.Parameter);
-			auto listGuard = span!CompactListSpan();
+			auto listGuard = span!ListSpan();
 
 			split();
-			listGuard.registerFix(function(CompactListSpan s, size_t i) {
+			listGuard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
 			parseList!parseStructuralElement(TokenType.Semicolon);
 
 			split();
-			listGuard.registerFix(function(CompactListSpan s, size_t i) {
+			listGuard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -2324,8 +2324,7 @@ private:
 
 		while (match(TokenType.OpenParen)) {
 			nextToken();
-			parseList!(parseStructuralElement,
-			           ExpandingListSpan)(TokenType.CloseParen);
+			parseList!parseStructuralElement(TokenType.CloseParen);
 		}
 	}
 
@@ -2444,7 +2443,7 @@ private:
 					space();
 					split();
 
-					parseList!(parseExpression)(CloseParen);
+					parseList!parseExpression(CloseParen);
 					break;
 
 				ContractBlock:
@@ -2519,8 +2518,7 @@ private:
 		auto guard = changeMode(Mode.Parameter);
 		nextToken();
 
-		parseList!(parseStructuralElement,
-		           ExpandingListSpan)(TokenType.CloseParen);
+		parseList!parseStructuralElement(TokenType.CloseParen);
 		return true;
 	}
 
@@ -3068,8 +3066,8 @@ private:
 		fun();
 	}
 
-	void parseList(alias fun, S = CompactListSpan)(TokenType closingTokenType,
-	                                               bool addNewLines = false) {
+	void parseList(alias fun)(TokenType closingTokenType,
+	                          bool addNewLines = false) {
 		if (match(closingTokenType)) {
 			auto guard = builder.virtualSpan();
 			nextToken();
@@ -3082,7 +3080,7 @@ private:
 			alias afun = parseListAdapter!fun;
 		}
 
-		auto guard = span!S();
+		auto guard = span!ListSpan();
 
 		size_t i = 0;
 		while (!match(closingTokenType)) {
@@ -3091,7 +3089,7 @@ private:
 			}
 
 			split();
-			guard.registerFix(function(S s, size_t i) {
+			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
@@ -3111,7 +3109,7 @@ private:
 			}
 
 			split();
-			guard.registerFix(function(S s, size_t i) {
+			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerTrailingSplit(i);
 			});
 
@@ -3133,14 +3131,14 @@ private:
 		split();
 		nextToken();
 
-		auto listGuard = span!CompactListSpan();
+		auto listGuard = span!ListSpan();
 		bool first = true;
 		while (true) {
 			space();
 			split(first);
 			first = false;
 
-			listGuard.registerFix(function(CompactListSpan s, size_t i) {
+			listGuard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
