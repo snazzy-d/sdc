@@ -471,11 +471,7 @@ final class ListSpan : Span {
 		}
 
 		if (i == trailingSplit) {
-			if (mustExplode(s)) {
-				return Split.Must;
-			}
-
-			return (compact && s.isSplit(headerSplit)) ? Split.Can : Split.No;
+			return mustExplode(s) ? Split.Must : Split.No;
 		}
 
 		size_t previous = headerSplit;
