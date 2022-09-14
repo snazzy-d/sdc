@@ -439,7 +439,7 @@ final:
 	}
 
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
-		if (i < elements[0] || i >= trailingSplit) {
+		if (i <= elements[0] || i >= trailingSplit || !s.isUsed(this)) {
 			return 0;
 		}
 
