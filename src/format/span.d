@@ -377,12 +377,8 @@ final class ListSpan : Span {
 
 	mixin CachedState;
 	ulong computeState(const ref SolveState s) const {
-		if (compact) {
-			return s.isSplit(headerSplit);
-		}
-
 		// If the last element is broken, expand the whole thing.
-		if (hasTrailingSplit
+		if (!compact && hasTrailingSplit
 			    && s.isSplit(elements[$ - 1] + 1, trailingSplit + 1)) {
 			return -1;
 		}
@@ -454,6 +450,18 @@ final class ListSpan : Span {
 	}
 
 	override Split computeSplit(const ref SolveState s, size_t i) const {
+		if (compact) {
+			if (i == headerSplit && mustExplode(s)) {
+				return Split.Must;
+			}
+
+			if (i == trailingSplit && !s.isSplit(headerSplit)) {
+				return Split.No;
+			}
+
+			return Split.Can;
+		}
+
 		if (i < headerSplit || i > trailingSplit) {
 			return Split.Can;
 		}
