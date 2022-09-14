@@ -474,8 +474,8 @@ final class ListSpan : Span {
 			return mustExplode(s) ? Split.Must : Split.No;
 		}
 
-		size_t previous = headerSplit;
-		foreach (p; elements) {
+		size_t previous = elements[0];
+		foreach (p; elements[1 .. $]) {
 			if (previous > i) {
 				// We went past the index we are interested in.
 				break;

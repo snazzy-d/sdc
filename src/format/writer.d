@@ -562,6 +562,12 @@ struct SolveState {
 				ruleValues[i] = true;
 			}
 
+			if (isSplit(i) && !canSplit(line, i)) {
+				// If we must split something but cannot,
+				// impose a very steep penality.
+				overflow += 1000;
+			}
+
 			// If there are no spans to break, move on.
 			if (c.span is null) {
 				continue;
@@ -619,7 +625,7 @@ struct SolveState {
 		}
 
 		foreach (j; ruleValues.frozen .. i) {
-			if (canSplit(line, j)) {
+			if (!isSplit(j) && canSplit(line, j)) {
 				canExpand = true;
 				return;
 			}
@@ -642,10 +648,6 @@ struct SolveState {
 	}
 
 	bool canSplit(const Chunk[] line, size_t i) const {
-		if (isSplit(i)) {
-			return false;
-		}
-
 		auto c = line[i];
 		if (!c.canSplit()) {
 			return false;
