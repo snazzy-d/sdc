@@ -326,8 +326,8 @@ struct DeclarationVisitor {
 			select(d, e);
 		} else {
 			// XXX: Code duplication with symbols. Refactor.
-			import d.ast.expression
-				: AstExpression, AstBinaryExpression, AstBinaryOp;
+			import d.ast.expression : AstExpression, AstBinaryExpression,
+			                          AstBinaryOp;
 			AstExpression previous;
 			AstExpression one;
 			foreach (vd; d.entries) {

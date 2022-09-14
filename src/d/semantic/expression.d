@@ -1050,8 +1050,8 @@ public:
 					return identified;
 				} else {
 					return new CompileError(
-							location, "Cannot find a suitable this pointer")
-						.expression;
+						location, "Cannot find a suitable this pointer"
+					).expression;
 				}
 			})();
 

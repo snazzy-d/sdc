@@ -316,6 +316,7 @@ final class AlignedSpan : Span {
  */
 final class ListSpan : Span {
 	size_t[] elements;
+	size_t headerSplit = size_t.max;
 	size_t trailingSplit = size_t.max;
 
 	bool compact = true;
@@ -324,7 +325,6 @@ final class ListSpan : Span {
 		super(parent);
 	}
 
-final:
 	@property
 	bool hasTrailingSplit() const {
 		return trailingSplit != size_t.max;
@@ -334,8 +334,15 @@ final:
 		assert(elements.length == 0 || elements[$ - 1] < i);
 		assert(!hasTrailingSplit);
 	} do {
+		import std.algorithm;
+		headerSplit = min(i, headerSplit);
+
 		updateCompactness(i);
 		elements ~= i;
+	}
+
+	void registerHeaderSplit(size_t i) in(elements.length == 0) {
+		headerSplit = i;
 	}
 
 	void registerTrailingSplit(size_t i) in {
@@ -350,14 +357,14 @@ final:
 		}
 	}
 
-	void updateCompactness(size_t i) {
+	private void updateCompactness(size_t i) {
 		if (compact && elements.length > 0) {
 			compact = i <= elements[$ - 1] + 1;
 		}
 	}
 
 	bool isActive(const ref SolveState s) const {
-		return s.isSplit(elements[0]) || !s.isUsed(this);
+		return s.isSplit(headerSplit) || !s.isUsed(this);
 	}
 
 	bool mustExplode(const ref SolveState s) const {
@@ -371,7 +378,7 @@ final:
 	mixin CachedState;
 	ulong computeState(const ref SolveState s) const {
 		if (compact) {
-			return s.isSplit(elements[0]);
+			return s.isSplit(headerSplit);
 		}
 
 		// If the last element is broken, expand the whole thing.
@@ -380,10 +387,10 @@ final:
 			return -1;
 		}
 
-		ulong state = s.isSplit(elements[0]);
+		ulong state = s.isSplit(headerSplit);
 
-		size_t previous = elements[0];
-		foreach (k, p; elements[1 .. $]) {
+		size_t previous = headerSplit;
+		foreach (k, p; elements) {
 			scope(success) {
 				previous = p;
 			}
@@ -431,11 +438,11 @@ final:
 	}
 
 	override uint computeIndent(const ref SolveState s, size_t i) const {
-		if (i >= trailingSplit) {
+		if (i < headerSplit || i >= trailingSplit) {
 			return 0;
 		}
 
-		return (s.isSplit(elements[0]) && s.isUsed(this)) ? 1 : 0;
+		return (s.isSplit(headerSplit) && s.isUsed(this)) ? 1 : 0;
 	}
 
 	override size_t computeAlignIndex(const ref SolveState s, size_t i) const {
@@ -443,12 +450,16 @@ final:
 			return 0;
 		}
 
-		return isActive(s) ? 0 : elements[0];
+		return elements[0];
 	}
 
 	override Split computeSplit(const ref SolveState s, size_t i) const {
-		if (i < elements[0] || i > trailingSplit) {
+		if (i < headerSplit || i > trailingSplit) {
 			return Split.Can;
+		}
+
+		if (i == headerSplit) {
+			return mustExplode(s) ? Split.Must : Split.Can;
 		}
 
 		if (i == trailingSplit) {
@@ -456,10 +467,10 @@ final:
 				return Split.Must;
 			}
 
-			return (compact && s.isSplit(elements[0])) ? Split.Can : Split.No;
+			return (compact && s.isSplit(headerSplit)) ? Split.Can : Split.No;
 		}
 
-		size_t previous = elements[0];
+		size_t previous = headerSplit;
 		foreach (p; elements) {
 			if (previous > i) {
 				// We went past the index we are interested in.

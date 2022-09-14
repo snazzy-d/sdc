@@ -3126,29 +3126,32 @@ private:
 			return false;
 		}
 
-		auto colonGuard = spliceSpan();
+		auto guard = span!ListSpan();
 		space();
 		split();
+		guard.registerFix(function(ListSpan s, size_t i) {
+			s.registerHeaderSplit(i);
+		});
+
 		nextToken();
+		space();
+		split(true);
+		guard.registerFix(function(ListSpan s, size_t i) {
+			s.registerElement(i);
+		});
 
-		auto listGuard = span!ListSpan();
-		bool first = true;
-		while (true) {
+		fun();
+
+		while (match(TokenType.Comma)) {
+			nextToken();
 			space();
-			split(first);
-			first = false;
+			split();
 
-			listGuard.registerFix(function(ListSpan s, size_t i) {
+			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
 			fun();
-
-			if (!match(TokenType.Comma)) {
-				break;
-			}
-
-			nextToken();
 		}
 
 		return true;
