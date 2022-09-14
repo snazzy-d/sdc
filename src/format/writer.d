@@ -712,6 +712,29 @@ struct SolveState {
 		return LinePrefix(base.indent + indent, base.offset + offset);
 	}
 
+	@property
+	auto usedSpansCount() const {
+		if (usedSpans is null) {
+			return 0;
+		}
+
+		return usedSpans.length;
+	}
+
+	int compareCost(const ref SolveState rhs) const {
+		if (cost != rhs.cost) {
+			return cost - rhs.cost;
+		}
+
+		const usc = usedSpansCount;
+		const rusc = rhs.usedSpansCount;
+		if (usc != rusc) {
+			return cast(int) (usc - rusc);
+		}
+
+		return 0;
+	}
+
 	// Return if this solve state must be chosen over rhs as a solution.
 	bool isDeadSubTree(const ref SolveState best) const {
 		if (sunk > best.overflow) {
@@ -719,7 +742,7 @@ struct SolveState {
 			return true;
 		}
 
-		if (sunk == best.overflow && cost >= best.cost) {
+		if (sunk == best.overflow && compareCost(best) >= 0) {
 			// We already comitted to a cost greater than the best.
 			return true;
 		}
@@ -734,8 +757,8 @@ struct SolveState {
 			return overflow < rhs.overflow;
 		}
 
-		if (cost != rhs.cost) {
-			return cost < rhs.cost;
+		if (int cd = compareCost(rhs)) {
+			return cd < 0;
 		}
 
 		return ruleValues < rhs.ruleValues;
@@ -747,8 +770,8 @@ struct SolveState {
 			return sunk - rhs.sunk;
 		}
 
-		if (cost != rhs.cost) {
-			return cost - rhs.cost;
+		if (int cd = compareCost(rhs)) {
+			return cd;
 		}
 
 		if (overflow != rhs.overflow) {
