@@ -398,6 +398,7 @@ struct SolveState {
 	uint cost = 0;
 	uint overflow = 0;
 	uint sunk = 0;
+	uint lines = 0;
 
 	LinePrefix prefix;
 
@@ -425,9 +426,10 @@ struct SolveState {
 	}
 
 	void computeCost(Chunk[] line, Writer* writer) {
-		sunk = 0;
-		overflow = 0;
 		cost = 0;
+		overflow = 0;
+		sunk = 0;
+		lines = 0;
 
 		// If there is nothing to be done, just skip.
 		if (line.length == 0) {
@@ -512,7 +514,7 @@ struct SolveState {
 				continue;
 			}
 
-			cost += 1;
+			lines += 1;
 
 			auto span = c.span;
 			bool needInsert = true;
@@ -726,6 +728,10 @@ struct SolveState {
 	int compareCost(const ref SolveState rhs) const {
 		if (cost != rhs.cost) {
 			return cost - rhs.cost;
+		}
+
+		if (lines != rhs.lines) {
+			return lines - rhs.lines;
 		}
 
 		const usc = usedSpansCount;
