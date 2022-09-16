@@ -363,10 +363,6 @@ final class ListSpan : Span {
 		}
 	}
 
-	bool isActive(const ref SolveState s) const {
-		return s.isSplit(headerSplit) || !s.isUsed(this);
-	}
-
 	bool mustExplode(const ref SolveState s) const {
 		return getState(s) == -1;
 	}
@@ -383,7 +379,10 @@ final class ListSpan : Span {
 			return -1;
 		}
 
-		ulong state = s.isSplit(headerSplit);
+		const maxSplit = 1;
+
+		ulong headSplit = s.isSplit(headerSplit);
+		ulong count = 0;
 
 		size_t previous = headerSplit;
 		foreach (k, p; elements) {
@@ -395,21 +394,20 @@ final class ListSpan : Span {
 				continue;
 			}
 
-			if (state > 1) {
+			count++;
+			if (count > maxSplit) {
 				return -1;
 			}
-
-			state |= (k + 1) << 1;
 		}
 
 		// For length 1 and 2, we won't trip the explode state earlier,
 		// so we push the trigger now if apropriate.
-		auto splitCount = (state & 0x01) + (state > 1);
+		auto splitCount = headSplit + count;
 		if (elements.length <= splitCount) {
 			return -1;
 		}
 
-		return state;
+		return headSplit + (count << 1);
 	}
 
 	override uint getCost(const ref SolveState s) const {
@@ -418,16 +416,17 @@ final class ListSpan : Span {
 			return 15;
 		}
 
-		if (compact) {
-			if (!isActive(s)) {
-				return 13;
-			}
+		auto state = getState(s);
+		if (state == 0) {
+			return 12;
+		}
 
-			foreach (p; elements[1 .. $]) {
-				if (s.isSplit(p)) {
-					return 14;
-				}
-			}
+		if (state == 1) {
+			return 14;
+		}
+
+		if (state & 0x01) {
+			return 15;
 		}
 
 		return 13;

@@ -95,8 +95,9 @@ public:
 		auto m = l.parseModule();
 
 		import std.algorithm, std.array, std.path;
-		auto packages = filename[0 .. $ - 2]
-			.pathSplitter().map!(p => pass.context.getName(p)).array();
+		auto packages =
+			filename[0 .. $ - 2].pathSplitter()
+			                    .map!(p => pass.context.getName(p)).array();
 
 		auto name = packages[$ - 1];
 		packages = packages[0 .. $ - 1];

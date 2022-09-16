@@ -657,9 +657,9 @@ public:
 					                           "Cannot ref return lvalues");
 				}
 
-				value = build!UnaryExpression(
-					s.location, value.type.getPointer(), UnaryOp.AddressOf,
-					value);
+				value =
+					build!UnaryExpression(s.location, value.type.getPointer(),
+					                      UnaryOp.AddressOf, value);
 			}
 		}
 
@@ -667,9 +667,9 @@ public:
 		if (unwindActions.length) {
 			auto location = value.location;
 			if (retval is null) {
-				auto v = new Variable(
-					location, value.type, BuiltinName!"return",
-					new VoidInitializer(location, value.type));
+				auto v =
+					new Variable(location, value.type, BuiltinName!"return",
+					             new VoidInitializer(location, value.type));
 
 				v.step = Step.Processed;
 				retval = new VariableExpression(location, v);

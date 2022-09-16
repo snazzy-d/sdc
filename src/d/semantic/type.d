@@ -72,8 +72,9 @@ struct TypeVisitor {
 	import d.ir.expression;
 	private Type buildArray(Expression size, Type t) {
 		import d.semantic.caster, d.semantic.expression;
-		auto s = evalIntegral(buildImplicitCast(
-			pass, size.location, pass.object.getSizeT().type, size));
+		auto s = evalIntegral(
+			buildImplicitCast(pass, size.location, pass.object.getSizeT().type,
+			                  size));
 
 		assert(s <= uint.max, "Array larger than uint.max are not supported");
 		return t.getArray(cast(uint) s, qualifier);

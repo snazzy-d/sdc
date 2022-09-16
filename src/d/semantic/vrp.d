@@ -387,8 +387,9 @@ unittest {
 		                                   BinaryOp.LeftShift, i1, i3));
 		assert(v == VR(-28));
 
-		v = vrp.visit(new BinaryExpression(
-			Location.init, tuint, BinaryOp.UnsignedRightShift, i1, i3));
+		v = vrp.visit(
+			new BinaryExpression(Location.init, tuint,
+			                     BinaryOp.UnsignedRightShift, i1, i3));
 		assert(v == VR((T.max >> 2) - 1));
 
 		v = vrp.visit(new BinaryExpression(Location.init, tint,
@@ -410,9 +411,9 @@ unittest {
 		 * Variables
 		 */
 		import source.name;
-		auto var = new Variable(
-			Location.init, tuint.getParamType(ParamKind.Regular),
-			BuiltinName!"", i1);
+		auto var =
+			new Variable(Location.init, tuint.getParamType(ParamKind.Regular),
+			             BuiltinName!"", i1);
 		var.step = Step.Processed;
 
 		v = vrp.visit(var);
@@ -1211,10 +1212,9 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		}
 	}
 
-	ValueRange reduce(
-		alias doOp,
-		bool hasFlipped = false,
-	)(ValueRange rhs) const if (isUnsigned!T) {
+	ValueRange reduce(alias doOp, bool hasFlipped = false, )(
+		ValueRange rhs
+	) const if (isUnsigned!T) {
 		if (min <= max) {
 			return hasFlipped
 				? reduceOrdered!doOp(rhs)

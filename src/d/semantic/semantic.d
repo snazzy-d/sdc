@@ -142,8 +142,9 @@ final class SemanticPass {
 
 		auto type = main.type;
 		auto returnType = type.returnType.getType();
-		auto call = new CallExpression(
-			location, returnType, new FunctionExpression(location, main), []);
+		auto call =
+			new CallExpression(location, returnType,
+			                   new FunctionExpression(location, main), []);
 
 		import d.ir.instruction;
 		Body fbody;

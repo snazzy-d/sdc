@@ -178,9 +178,9 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			if (c.hasContext) {
 				import std.algorithm;
 				import source.name;
-				auto ctxr = c
-					.members.filter!(m => m.name == BuiltinName!"__ctx")
-					.map!(m => cast(Field) m);
+				auto ctxr =
+					c.members.filter!(m => m.name == BuiltinName!"__ctx")
+					 .map!(m => cast(Field) m);
 
 				foreach (f; ctxr) {
 					assert(f, "Context must be a field");

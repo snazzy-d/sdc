@@ -217,11 +217,9 @@ struct LineWriter {
 		return exploreStates!precisePred(best, checkpoints, MAX_ATTEMPT);
 	}
 
-	SolveState exploreStates(alias pred)(
-		SolveState best,
-		ref CheckPoints checkpoints,
-		uint max_attempts,
-	) {
+	SolveState exploreStates(
+		alias pred
+	)(SolveState best, ref CheckPoints checkpoints, uint max_attempts) {
 		uint attempts = 0;
 		scope queue = redBlackTree!pred(best);
 
@@ -499,8 +497,9 @@ struct SolveState {
 			if (i > 0) {
 				// Try to avoid subsequent line to have the same indentation
 				// level if they belong to a different span.
-				uint penality = computeNewLinePenality(
-					c, column, length, previousColumn, previousSpan);
+				uint penality =
+					computeNewLinePenality(c, column, length, previousColumn,
+					                       previousSpan);
 
 				// End the previous line if there is one.
 				endLine(line, i, length, pageWidth, penality);

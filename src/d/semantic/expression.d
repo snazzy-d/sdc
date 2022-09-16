@@ -100,9 +100,9 @@ private:
 		}
 
 		import source.name;
-		auto v = new Variable(
-			value.location, value.type.getParamType(ParamKind.Ref),
-			BuiltinName!"", value);
+		auto v =
+			new Variable(value.location, value.type.getParamType(ParamKind.Ref),
+			             BuiltinName!"", value);
 
 		v.step = Step.Processed;
 		return new VariableExpression(value.location, v);
@@ -310,9 +310,9 @@ public:
 	}
 
 	Expression visit(AstTernaryExpression e) {
-		auto condition = buildExplicitCast(
-			pass, e.condition.location, Type.get(BuiltinType.Bool),
-			visit(e.condition));
+		auto condition =
+			buildExplicitCast(pass, e.condition.location,
+			                  Type.get(BuiltinType.Bool), visit(e.condition));
 
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
@@ -390,8 +390,9 @@ public:
 
 	Expression visit(AstCastExpression e) {
 		import d.semantic.type;
-		return buildExplicitCast(
-			pass, e.location, TypeVisitor(pass).visit(e.type), visit(e.expr));
+		return
+			buildExplicitCast(pass, e.location, TypeVisitor(pass).visit(e.type),
+			                  visit(e.expr));
 	}
 
 	Expression visit(AstArrayLiteral e) {
@@ -1049,9 +1050,10 @@ public:
 				static if (is(typeof(identified) : Expression)) {
 					return identified;
 				} else {
-					return new CompileError(
-						location, "Cannot find a suitable this pointer"
-					).expression;
+					return
+						new CompileError(location,
+						                 "Cannot find a suitable this pointer")
+							.expression;
 				}
 			})();
 

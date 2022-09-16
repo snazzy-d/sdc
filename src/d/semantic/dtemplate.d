@@ -161,8 +161,9 @@ private:
 			} else if (auto v = cast(ValueTemplateParameter) p) {
 				if (v.defaultValue !is null) {
 					import d.semantic.caster;
-					auto e = pass.evaluate(buildImplicitCast(
-						pass, v.location, v.type, v.defaultValue));
+					auto e = pass.evaluate(
+						buildImplicitCast(pass, v.location, v.type,
+						                  v.defaultValue));
 					return ValueMatcher(pass, matchedArgs, e).visit(v);
 				}
 			}

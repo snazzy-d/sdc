@@ -359,8 +359,9 @@ private:
 	Identifiable resolveBracket(Location location, Type base,
 	                            Expression index) {
 		import d.semantic.caster, d.semantic.expression;
-		auto size = evalIntegral(buildImplicitCast(
-			pass.pass, index.location, pass.object.getSizeT().type, index));
+		auto size = evalIntegral(
+			buildImplicitCast(pass.pass, index.location,
+			                  pass.object.getSizeT().type, index));
 
 		assert(size <= uint.max,
 		       "Array larger than uint.max are not supported");
@@ -503,8 +504,10 @@ struct IdentifierPostProcessor(bool asAlias) {
 
 		switch (exprs.length) {
 			case 0:
-				return Identifiable(new CompileError(
-					location, "No valid candidate in overload set").symbol);
+				return Identifiable(
+					new CompileError(location,
+					                 "No valid candidate in overload set")
+						.symbol);
 
 			case 1:
 				return Identifiable(exprs[0]);
@@ -639,8 +642,10 @@ struct SymbolDotIdentifierResolver {
 			return Identifiable(s);
 		}
 
-		return Identifiable(new CompileError(
-			location, "Cannot resolve " ~ name.toString(context)).symbol);
+		return Identifiable(
+			new CompileError(location,
+			                 "Cannot resolve " ~ name.toString(context)).symbol
+		);
 	}
 
 	Identifiable visit(TemplateInstance ti) {
@@ -655,8 +660,10 @@ struct SymbolDotIdentifierResolver {
 			return resolveIn(location, s, name);
 		}
 
-		return Identifiable(new CompileError(
-			location, "Cannot resolve " ~ name.toString(context)).symbol);
+		return Identifiable(
+			new CompileError(location,
+			                 "Cannot resolve " ~ name.toString(context)).symbol
+		);
 	}
 
 	Identifiable visit(SymbolAlias s) {
@@ -876,9 +883,9 @@ struct TypeDotIdentifierResolver {
 			return Identifiable(InitBuilder(pass.pass, location).visit(t));
 		} else if (name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
-			return Identifiable(new IntegerLiteral(
-				location, SizeofVisitor(pass.pass).visit(t),
-				pass.object.getSizeT().type.builtin));
+			return Identifiable(
+				new IntegerLiteral(location, SizeofVisitor(pass.pass).visit(t),
+				                   pass.object.getSizeT().type.builtin));
 		}
 
 		return Identifiable(getError(
@@ -951,8 +958,9 @@ struct TypeDotIdentifierResolver {
 			return bailout(t.getArray(size));
 		}
 
-		return Identifiable(new IntegerLiteral(
-			location, size, pass.object.getSizeT().type.builtin));
+		return Identifiable(
+			new IntegerLiteral(location, size,
+			                   pass.object.getSizeT().type.builtin));
 	}
 
 	Symbol resolveInAggregate(Aggregate a) {

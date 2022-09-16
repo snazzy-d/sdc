@@ -308,8 +308,9 @@ struct SymbolAnalyzer {
 					fieldDtors ~= new ScopeStatement(
 						f.location,
 						ScopeKind.Exit,
-						new ExpressionStatement(new IdentifierCallExpression(
-							fbody.location, fieldDtor, []))
+						new ExpressionStatement(
+							new IdentifierCallExpression(fbody.location,
+							                             fieldDtor, []))
 					);
 				}
 
@@ -822,9 +823,9 @@ struct SymbolAnalyzer {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 
 			import source.name;
-			auto ctx = new Field(
-				c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx",
-				new NullLiteral(c.location, ctxPtr));
+			auto ctx =
+				new Field(c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx",
+				          new NullLiteral(c.location, ctxPtr));
 
 			ctx.step = Step.Processed;
 			baseFields ~= ctx;
@@ -1147,8 +1148,9 @@ struct SymbolAnalyzer {
 				ap.step = Step.Signed;
 				t.parameters[i] = ap;
 			} else if (auto atap = cast(AstTypedAliasTemplateParameter) p) {
-				auto tap = new TypedAliasTemplateParameter(
-					atap.location, atap.name, cast(uint) i, none);
+				auto tap =
+					new TypedAliasTemplateParameter(atap.location, atap.name,
+					                                cast(uint) i, none);
 
 				t.addSymbol(tap);
 
