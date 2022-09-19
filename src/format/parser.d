@@ -1576,7 +1576,6 @@ private:
 		nextToken();
 
 		if (match(TokenType.OpenParen)) {
-			space();
 			nextToken();
 
 			if (match(TokenType.Identifier) || match(TokenType.IntegerLiteral)

@@ -816,7 +816,7 @@ private:
 }
 
 extern(C):
-version (OSX) {
+version(OSX) {
 	// For some reason OSX's symbol get a _ prepended.
 	bool _sdgc_push_registers(bool delegate());
 	alias __sdgc_push_registers = _sdgc_push_registers;

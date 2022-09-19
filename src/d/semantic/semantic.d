@@ -188,19 +188,19 @@ auto getDefaultVersions() {
 	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64",
 	                 BuiltinName!"X86_64", BuiltinName!"Posix"];
 
-	version (linux) {
+	version(linux) {
 		versions ~= BuiltinName!"linux";
 	}
 
-	version (OSX) {
+	version(OSX) {
 		versions ~= BuiltinName!"OSX";
 	}
 
-	version (FreeBSD) {
+	version(FreeBSD) {
 		versions ~= BuiltinName!"FreeBSD";
 	}
 
-	version (Posix) {
+	version(Posix) {
 		versions ~= BuiltinName!"Posix";
 	}
 

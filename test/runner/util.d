@@ -75,7 +75,7 @@ Options parseArguements(string File, U)(ref U utility, ref string[] args) {
 
 	Options options;
 
-	version (linux) {
+	version(linux) {
 		import core.sys.posix.unistd;
 		options.jobCount = sysconf(_SC_NPROCESSORS_ONLN);
 	}

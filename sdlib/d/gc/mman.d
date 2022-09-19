@@ -101,7 +101,7 @@ enum Prot {
 	Exec = 0x4,
 }
 
-version (OSX) {
+version(OSX) {
 	enum Map {
 		Shared = 0x01,
 		Private = 0x02,
@@ -110,7 +110,7 @@ version (OSX) {
 	}
 }
 
-version (FreeBSD) {
+version(FreeBSD) {
 	enum Map {
 		Shared = 0x01,
 		Private = 0x02,
@@ -119,7 +119,7 @@ version (FreeBSD) {
 	}
 }
 
-version (linux) {
+version(linux) {
 	enum Map {
 		Shared = 0x01,
 		Private = 0x02,

@@ -4,7 +4,7 @@ import std.stdio;
 
 import source.location;
 
-version (Windows) {
+version(Windows) {
 	import core.sys.windows.windows;
 }
 

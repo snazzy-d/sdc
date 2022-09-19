@@ -7,7 +7,7 @@ extern(C) void __sd_thread_init() {
 
 private:
 
-version (linux) {
+version(linux) {
 	void* getStackBottom() {
 		pthread_attr_t attr;
 		void* addr;
@@ -66,7 +66,7 @@ version (linux) {
 	}
 }
 
-version (OSX) {
+version(OSX) {
 	void* getStackBottom() {
 		return pthread_get_stackaddr_np(pthread_self());
 	}
@@ -78,7 +78,7 @@ version (OSX) {
 	}
 }
 
-version (FreeBSD) {
+version(FreeBSD) {
 	void* getStackBottom() {
 		pthread_attr_t attr;
 		void* addr;
@@ -107,18 +107,18 @@ extern(C):
 
 pthread_t pthread_self();
 
-version (linux) {
+version(linux) {
 	int pthread_getattr_np(pthread_t __th, pthread_attr_t* __attr);
 	int pthread_attr_getstack(const pthread_attr_t* __attr, void** __stackaddr,
 	                          size_t* __stacksize);
 	int pthread_attr_destroy(pthread_attr_t* __attr);
 }
 
-version (OSX) {
+version(OSX) {
 	void* pthread_get_stackaddr_np(pthread_t __th);
 }
 
-version (FreeBSD) {
+version(FreeBSD) {
 	int pthread_attr_init(pthread_attr_t*);
 	int pthread_attr_get_np(pthread_t, pthread_attr_t*);
 	int pthread_attr_getstack(pthread_attr_t*, void**, size_t*);

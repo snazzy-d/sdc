@@ -20,7 +20,7 @@ Object __sd_class_downcast(Object o, ClassInfo c) {
 
 extern(D):
 
-version (SDC) {
+version(SDC) {
 	ClassInfo getTypeid(Object o) {
 		return typeid(o);
 	}

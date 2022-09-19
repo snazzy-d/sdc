@@ -1,11 +1,11 @@
-version (Foo) {
-	version (Bar) {}
+version(Foo) {
+	version(Bar) {}
 
-	version (123) {}
+	version(123) {}
 } else {
-	version (unittest) {}
+	version(unittest) {}
 
-	version (assert) {}
+	version(assert) {}
 }
 
 version
@@ -13,10 +13,10 @@ version
 version
 = 456;
 
-debug (Foo) {
-	debug (Bar) {}
+debug(Foo) {
+	debug(Bar) {}
 
-	debug (123) {}
+	debug(123) {}
 } else {
 	debug {}
 }

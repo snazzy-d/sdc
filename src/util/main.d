@@ -1,8 +1,8 @@
 module driver.main;
 
 int runMain(alias run)(string[] args) {
-	version (DigitalMars) {
-		version (linux) {
+	version(DigitalMars) {
+		version(linux) {
 			import etc.linux.memoryerror;
 			// druntime not containe the necessary symbol.
 			// registerMemoryErrorHandler();
