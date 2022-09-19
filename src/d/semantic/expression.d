@@ -390,9 +390,8 @@ public:
 
 	Expression visit(AstCastExpression e) {
 		import d.semantic.type;
-		return
-			buildExplicitCast(pass, e.location, TypeVisitor(pass).visit(e.type),
-			                  visit(e.expr));
+		return buildExplicitCast(
+			pass, e.location, TypeVisitor(pass).visit(e.type), visit(e.expr));
 	}
 
 	Expression visit(AstArrayLiteral e) {
@@ -1050,10 +1049,9 @@ public:
 				static if (is(typeof(identified) : Expression)) {
 					return identified;
 				} else {
-					return
-						new CompileError(location,
-						                 "Cannot find a suitable this pointer")
-							.expression;
+					return new CompileError(
+						location, "Cannot find a suitable this pointer"
+					).expression;
 				}
 			})();
 

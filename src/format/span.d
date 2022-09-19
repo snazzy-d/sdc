@@ -179,8 +179,8 @@ uint getExtraIndent(const Span span, const Span base, const ref SolveState s,
 			return sum(a, aDepth, b.parent, bDepth - 1, s, i);
 		}
 
-		return
-			a.computeIndent(s, i) + sum(a.parent, aDepth - 1, b, bDepth, s, i);
+		return a.computeIndent(s, i)
+			+ sum(a.parent, aDepth - 1, b, bDepth, s, i);
 	}
 
 	return current + sum(span.parent, depth - 1, rebase, rebaseDepth, s, i);

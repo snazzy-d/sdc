@@ -334,8 +334,9 @@ struct TypeMatcher(bool isIFTI) {
 	}
 
 	bool visit(BuiltinType t) {
-		return
-			(matchee.kind == TypeKind.Builtin) ? t == matchee.builtin : false;
+		return (matchee.kind == TypeKind.Builtin)
+			? t == matchee.builtin
+			: false;
 	}
 
 	bool visitPointerOf(Type t) {

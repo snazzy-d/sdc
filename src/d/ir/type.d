@@ -827,8 +827,8 @@ public:
 
 			case TypeBracketValue:
 				auto p = getTypeValuePair();
-				return
-					p.type.toString(c) ~ '[' ~ p.value.name.toString(c) ~ ']';
+				return p.type.toString(c) ~ '[' ~ p.value.name.toString(c)
+					~ ']';
 
 			case TypeBracketType:
 				assert(0, "Not implemented");

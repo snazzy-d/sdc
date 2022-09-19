@@ -243,8 +243,9 @@ public:
 					auto signed = isIntegral(t) && isSigned(t);
 					auto mask = cast(R.U) ((1UL << t.getBits()) - 1);
 
-					return
-						signed ? r.signed.trunc(mask).as!T : r.trunc(mask).as!T;
+					return signed
+						? r.signed.trunc(mask).as!T
+						: r.trunc(mask).as!T;
 				}
 
 				return
@@ -762,8 +763,9 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		auto overflow =
 			Bits < 64 ? range > U.max : range < lrange && range < rrange;
 
-		return
-			overflow ? ValueRange() : ValueRange(min + rhs.min, max + rhs.max);
+		return overflow
+			? ValueRange()
+			: ValueRange(min + rhs.min, max + rhs.max);
 	}
 
 	auto opBinary(string op : "-")(ValueRange rhs) const {

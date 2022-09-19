@@ -1758,7 +1758,7 @@ private:
 			return;
 		}
 
-		auto guard = span();
+		auto guard = span!PrefixSpan();
 
 		space();
 		split();
