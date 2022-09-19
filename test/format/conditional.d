@@ -8,10 +8,8 @@ version(Foo) {
 	version(assert) {}
 }
 
-version
-= Baz;
-version
-= 456;
+version = Baz;
+version = 456;
 
 debug(Foo) {
 	debug(Bar) {}
@@ -21,7 +19,5 @@ debug(Foo) {
 	debug {}
 }
 
-debug
-= Baz;
-debug
-= 456;
+debug = Baz;
+debug = 456;

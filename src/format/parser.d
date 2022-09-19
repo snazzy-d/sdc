@@ -1575,18 +1575,36 @@ private:
 	void parseVersion() in(match(TokenType.Version) || match(TokenType.Debug)) {
 		nextToken();
 
-		if (match(TokenType.OpenParen)) {
-			nextToken();
-
-			if (match(TokenType.Identifier) || match(TokenType.IntegerLiteral)
-				    || match(TokenType.Unittest) || match(TokenType.Assert)) {
+		switch (token.type) with (TokenType) {
+			case OpenParen:
 				nextToken();
-			}
 
-			runOnType!(TokenType.CloseParen, nextToken)();
+				if (match(Identifier) || match(IntegerLiteral)
+					    || match(Unittest) || match(Assert)) {
+					nextToken();
+				}
+
+				runOnType!(CloseParen, nextToken)();
+				goto default;
+
+			case Equal:
+				auto guard = span();
+				space();
+				nextToken();
+				space();
+				split();
+
+				if (match(Identifier) || match(IntegerLiteral)) {
+					nextToken();
+				}
+
+				runOnType!(Semicolon, nextToken)();
+				break;
+
+			default:
+				parseElsableBlock();
+				break;
 		}
-
-		parseElsableBlock();
 	}
 
 	void parseElse() in(match(TokenType.Else)) {
