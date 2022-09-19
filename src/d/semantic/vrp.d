@@ -1214,9 +1214,10 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		}
 	}
 
-	ValueRange reduce(alias doOp, bool hasFlipped = false, )(
-		ValueRange rhs
-	) const if (isUnsigned!T) {
+	ValueRange reduce(
+		alias doOp,
+		bool hasFlipped = false,
+	)(ValueRange rhs) const if (isUnsigned!T) {
 		if (min <= max) {
 			return hasFlipped
 				? reduceOrdered!doOp(rhs)

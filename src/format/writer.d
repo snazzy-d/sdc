@@ -217,9 +217,11 @@ struct LineWriter {
 		return exploreStates!precisePred(best, checkpoints, MAX_ATTEMPT);
 	}
 
-	SolveState exploreStates(
-		alias pred
-	)(SolveState best, ref CheckPoints checkpoints, uint max_attempts) {
+	SolveState exploreStates(alias pred)(
+		SolveState best,
+		ref CheckPoints checkpoints,
+		uint max_attempts
+	) {
 		uint attempts = 0;
 		scope queue = redBlackTree!pred(best);
 

@@ -419,11 +419,11 @@ final class ListSpan : Span {
 		auto state = getState(s);
 		switch (state) {
 			case 0:
-				return 12;
+				return 11;
 			case 1:
-				return 14;
+				return 13;
 			default:
-				return (state & 0x01) ? 15 : 13;
+				return (state & 0x01) ? 14 : 12;
 		}
 	}
 
