@@ -1,13 +1,11 @@
 version (Foo) {
 	version (Bar) {}
 
-	version (
-		123 ){}
+	version (123) {}
 } else {
 	version (unittest) {}
 
-	version (
-		assert ) {}
+	version (assert) {}
 }
 
 version
@@ -18,8 +16,7 @@ version
 debug (Foo) {
 	debug (Bar) {}
 
-	debug (
-		123 ){}
+	debug (123) {}
 } else {
 	debug {}
 }

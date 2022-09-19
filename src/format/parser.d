@@ -1579,7 +1579,8 @@ private:
 			space();
 			nextToken();
 
-			if (match(TokenType.Identifier) || match(TokenType.Unittest)) {
+			if (match(TokenType.Identifier) || match(TokenType.IntegerLiteral)
+				    || match(TokenType.Unittest) || match(TokenType.Assert)) {
 				nextToken();
 			}
 
