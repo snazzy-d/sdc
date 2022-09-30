@@ -717,31 +717,15 @@ struct SolveState {
 		return LinePrefix(base.indent + indent, base.offset + offset);
 	}
 
-	@property
-	auto usedSpansCount() const {
-		if (usedSpans is null) {
-			return 0;
-		}
-
-		return usedSpans.length;
-	}
-
 	int compareCost(const ref SolveState rhs) const {
 		if (cost != rhs.cost) {
 			return cost - rhs.cost;
 		}
 
-		if (lines != rhs.lines) {
-			return lines - rhs.lines;
-		}
-
-		const usc = usedSpansCount;
-		const rusc = rhs.usedSpansCount;
-		if (usc != rusc) {
-			return cast(int) (usc - rusc);
-		}
-
-		return 0;
+		// At equal cost, try to break as few spans as possible.
+		const usc = usedSpans is null ? 0 : usedSpans.length;
+		const rusc = rhs.usedSpans is null ? 0 : rhs.usedSpans.length;
+		return (usc > rusc) - (usc < rusc);
 	}
 
 	// Return if this solve state must be chosen over rhs as a solution.
@@ -751,13 +735,13 @@ struct SolveState {
 			return true;
 		}
 
-		if (sunk == best.overflow && compareCost(best) >= 0) {
-			// We already comitted to a cost greater than the best.
-			return true;
+		if (sunk < best.overflow) {
+			// We have not commited to as much overflow, there is hope!
+			return false;
 		}
 
-		// There is still hope to find a better solution down that path.
-		return false;
+		// We already comitted to a cost greater or equal to the best.
+		return compareCost(best) >= 0;
 	}
 
 	// Return if this solve state must be chosen over rhs as a solution.
