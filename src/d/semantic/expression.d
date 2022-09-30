@@ -133,11 +133,8 @@ private:
 				location,
 				lhs,
 				buildExplicitCast(
-					pass,
-					location,
-					type,
-					buildBinary(location, op.getBaseOp(), llhs, rhs)
-				)
+					pass, location, type,
+					buildBinary(location, op.getBaseOp(), llhs, rhs))
 			);
 		}
 
@@ -624,10 +621,8 @@ public:
 					                args);
 				} else {
 					return getError(
-						identified,
-						c.location,
-						c.callee.toString(pass.context) ~ " isn't callable"
-					);
+						identified, c.location,
+						c.callee.toString(pass.context) ~ " isn't callable");
 				}
 			}
 		}
@@ -677,12 +672,8 @@ public:
 
 				auto thisExpr = getTemporary(di);
 				return build!BinaryExpression(
-					location,
-					t,
-					BinaryOp.Comma,
-					callCtor(location, calleeLoc, thisExpr, args),
-					thisExpr
-				);
+					location, t, BinaryOp.Comma,
+					callCtor(location, calleeLoc, thisExpr, args), thisExpr);
 
 			default:
 				return getError(t, location, "Cannot build this type");
@@ -739,10 +730,8 @@ public:
 				}
 
 				return getError(
-					i,
-					location,
-					agg.name.toString(pass.context) ~ " isn't callable"
-				);
+					i, location,
+					agg.name.toString(pass.context) ~ " isn't callable");
 			})();
 	}
 
@@ -764,10 +753,8 @@ public:
 					return identified;
 				} else {
 					return getError(
-						identified,
-						location,
-						t.name.toString(pass.context) ~ " isn't callable"
-					);
+						identified, location,
+						t.name.toString(pass.context) ~ " isn't callable");
 				}
 			})();
 	}
@@ -1173,10 +1160,8 @@ public:
 				return handleTypeid(e.location, identified);
 			} else {
 				return getError(
-					identified,
-					e.location,
-					"Can't get typeid of " ~ e.argument.toString(pass.context)
-				);
+					identified, e.location,
+					"Can't get typeid of " ~ e.argument.toString(pass.context));
 			}
 		})();
 	}

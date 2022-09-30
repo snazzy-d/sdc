@@ -759,12 +759,8 @@ struct ExpressionGen {
 
 			case IntToBool:
 				return LLVMBuildICmp(
-					builder,
-					LLVMIntPredicate.NE,
-					value,
-					LLVMConstInt(LLVMTypeOf(value), 0, false),
-					""
-				);
+					builder, LLVMIntPredicate.NE, value,
+					LLVMConstInt(LLVMTypeOf(value), 0, false), "");
 
 			case Exact, Qual, Down:
 				assert(0, "Unreachable");
@@ -995,11 +991,8 @@ struct AddressOfGen {
 		}
 
 		return LLVMBuildBitCast(
-			builder,
-			ptr,
-			LLVMPointerType(TypeGen(pass.pass).visit(e.type), 0),
-			""
-		);
+			builder, ptr, LLVMPointerType(TypeGen(pass.pass).visit(e.type), 0),
+			"");
 	}
 
 	LLVMValueRef visit(ContextExpression e)

@@ -116,11 +116,8 @@ struct StatementGen {
 				auto switchTable = bb.switchTable;
 				auto e = genExpression(bb.value);
 				auto switchInstr = LLVMBuildSwitch(
-					builder,
-					e,
-					genBasicBlock(switchTable.defaultBlock),
-					switchTable.entryCount,
-				);
+					builder, e, genBasicBlock(switchTable.defaultBlock),
+					switchTable.entryCount);
 
 				auto t = LLVMTypeOf(e);
 				foreach (c; switchTable.cases) {
@@ -189,11 +186,8 @@ struct StatementGen {
 
 					import d.llvm.type;
 					auto typeinfo = LLVMBuildBitCast(
-						builder,
-						TypeGen(pass.pass).getTypeInfo(c.type),
-						voidstar,
-						"",
-					);
+						builder, TypeGen(pass.pass).getTypeInfo(c.type),
+						voidstar, "");
 
 					LLVMBuildCondBr(
 						builder,

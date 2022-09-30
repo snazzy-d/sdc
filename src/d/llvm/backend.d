@@ -51,14 +51,8 @@ public:
 		}
 
 		targetMachine = LLVMCreateTargetMachine(
-			LLVMGetFirstTarget(),
-			triple,
-			"x86-64".ptr,
-			"".ptr,
-			LLVMCodeGenOptLevel.Default,
-			Reloc,
-			LLVMCodeModel.Default,
-		);
+			LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr,
+			LLVMCodeGenOptLevel.Default, Reloc, LLVMCodeModel.Default);
 
 		auto td = LLVMCreateTargetDataLayout(targetMachine);
 		scope(exit) LLVMDisposeTargetData(td);
@@ -127,12 +121,8 @@ public:
 		import std.string;
 		char* errorPtr;
 		auto emitError = LLVMTargetMachineEmitToFile(
-			targetMachine,
-			pass.dmodule,
-			objFile.toStringz(),
-			LLVMCodeGenFileType.Object,
-			&errorPtr,
-		);
+			targetMachine, pass.dmodule, objFile.toStringz(),
+			LLVMCodeGenFileType.Object, &errorPtr);
 
 		if (emitError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);
@@ -150,12 +140,8 @@ public:
 		import std.string;
 		char* errorPtr;
 		auto printError = LLVMTargetMachineEmitToFile(
-			targetMachine,
-			pass.dmodule,
-			filename.toStringz(),
-			LLVMCodeGenFileType.Assembly,
-			&errorPtr,
-		);
+			targetMachine, pass.dmodule, filename.toStringz(),
+			LLVMCodeGenFileType.Assembly, &errorPtr);
 
 		if (printError) {
 			scope(exit) LLVMDisposeMessage(errorPtr);

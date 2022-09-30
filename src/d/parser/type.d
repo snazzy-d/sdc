@@ -200,11 +200,8 @@ AstType parseTypeSuffix(ParseMode mode)(ref TokenRange trange, AstType type) {
 				// TODO: parse postfix attributes.
 				// TODO: ref return.
 				type = FunctionAstType(
-					Linkage.D,
-					type.getParamType(ParamKind.Regular),
-					params,
-					isVariadic,
-				).getType();
+					Linkage.D, type.getParamType(ParamKind.Regular), params,
+					isVariadic).getType();
 
 				break;
 			}
@@ -225,12 +222,8 @@ AstType parseTypeSuffix(ParseMode mode)(ref TokenRange trange, AstType type) {
 				// TODO: parse postfix attributes and storage class.
 				// TODO: ref return.
 				type = FunctionAstType(
-					Linkage.D,
-					type.getParamType(ParamKind.Regular),
-					ctx,
-					params,
-					isVariadic,
-				).getType();
+					Linkage.D, type.getParamType(ParamKind.Regular), ctx,
+					params, isVariadic).getType();
 			}
 
 				break;

@@ -779,11 +779,8 @@ struct ExpressionDotIdentifierResolver {
 				t.element.getPointer(),
 				UnaryOp.AddressOf,
 				new IndexExpression(
-					location,
-					t.element,
-					e,
-					new IntegerLiteral(location, 0, BuiltinType.Uint)
-				)
+					location, t.element, e,
+					new IntegerLiteral(location, 0, BuiltinType.Uint))
 			));
 		}
 

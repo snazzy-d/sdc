@@ -189,11 +189,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 					assert(ft.kind == TypeKind.Pointer);
 
 					fields[f.index] = new UnaryExpression(
-						location,
-						ft,
-						UnaryOp.AddressOf,
-						new ContextExpression(location, ft.element.context)
-					);
+						location, ft, UnaryOp.AddressOf,
+						new ContextExpression(location, ft.element.context));
 				}
 			}
 

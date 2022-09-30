@@ -573,14 +573,40 @@ struct SolveState {
 	}
 
 	void computeUsedSpans(Chunk[] line) {
-		auto freezePoint = ruleValues.frozen;
-		ruleValues.frozen = 1;
+		foreach (i, ref c; line[0 .. ruleValues.frozen]) {
+			// Continuation are not considered line splits.
+			if (c.continuation) {
+				continue;
+			}
 
-		scope(success) {
-			ruleValues.frozen = freezePoint;
+			if (!isSplit(i)) {
+				if (mustSplit(line, i)) {
+					// If we must split, but have not done so, we penalize.
+					overflow += 1000;
+				}
+
+				continue;
+			}
+
+			if (!canSplit(line, i)) {
+				overflow += 1000;
+			}
+
+			// If there are no spans to break, move on.
+			if (c.span is null) {
+				continue;
+			}
+
+			if (usedSpans is null) {
+				usedSpans = redBlackTree!(const(Span))();
+			}
+
+			usedSpans.insert(c.span);
 		}
 
-		foreach (i, ref c; line) {
+		foreach (b, ref c; line[ruleValues.frozen .. $]) {
+			const i = b + ruleValues.frozen;
+
 			// Continuation are not considered line splits.
 			if (c.continuation) {
 				continue;

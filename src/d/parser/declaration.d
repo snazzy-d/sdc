@@ -424,11 +424,8 @@ private Declaration parseConstructor(ref TokenRange trange, StorageClass stc) {
 	trange.match(TokenType.This);
 
 	return trange.parseFunction(
-		location,
-		stc,
-		AstType.getAuto().getParamType(ParamKind.Regular),
-		BuiltinName!"__ctor",
-	);
+		location, stc, AstType.getAuto().getParamType(ParamKind.Regular),
+		BuiltinName!"__ctor");
 }
 
 // XXX: one callsite, remove
@@ -438,11 +435,8 @@ private Declaration parseDestructor(ref TokenRange trange, StorageClass stc) {
 	trange.match(TokenType.This);
 
 	return trange.parseFunction(
-		location,
-		stc,
-		AstType.getAuto().getParamType(ParamKind.Regular),
-		BuiltinName!"__dtor",
-	);
+		location, stc, AstType.getAuto().getParamType(ParamKind.Regular),
+		BuiltinName!"__dtor");
 }
 
 /**
