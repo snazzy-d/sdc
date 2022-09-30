@@ -278,7 +278,7 @@ struct LineWriter {
 				// When we start to increase the sunk, then we throttle expansion.
 				// This ensure that we don't go into quadratic behavior when
 				// processing very large list of items.
-				if (currentSunk > c.sunk) {
+				if (currentSunk > c.sunk && queue.front < next) {
 					pausedExpansions[next.ruleValues] =
 						Continuation(rule, currentSunk);
 					queue.insert(next);
