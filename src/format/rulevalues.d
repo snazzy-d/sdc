@@ -23,9 +23,7 @@ private:
 	}
 
 public:
-	this(size_t frozen, size_t capacity) in {
-		assert(frozen > 0 && capacity >= frozen);
-	} do {
+	this(size_t frozen, size_t capacity) in(frozen > 0 && capacity >= frozen) {
 		if (capacity > DirectCapacity) {
 			size_t length = 1 + (capacity + Bits - 1) / Bits;
 
@@ -49,9 +47,7 @@ public:
 		return ret;
 	}
 
-	RuleValues withFrozenSplit(size_t i) const in {
-		assert(i >= frozen && i < capacity);
-	} do {
+	RuleValues withFrozenSplit(size_t i) const in(i >= frozen && i < capacity) {
 		RuleValues ret = clone();
 
 		ret[i] = true;
@@ -89,9 +85,7 @@ public:
 		return (values[word(i)] >> shift(i)) & 0x01;
 	}
 
-	void opIndexAssign(bool v, size_t i) in {
-		assert(i >= frozen && i < capacity);
-	} do {
+	void opIndexAssign(bool v, size_t i) in(i >= frozen && i < capacity) {
 		auto w = word(i);
 		auto m = size_t(1) << shift(i);
 

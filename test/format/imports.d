@@ -15,17 +15,18 @@ import foo.bar
 	: symbol1, symbol2, symbol3,
 	  symbol4, symbol5, symbol6;
 import foo.bar
-	: symbol1, symbol2, symbol3,
-	  symbol4, symbol5, symbol6,
-	  symbol7;
+	: symbol1, symbol2,
+	  symbol3, symbol4, symbol5,
+	  symbol6, symbol7;
 import foo.bar
-	: symbol1, symbol2, symbol3,
-	  symbol4, symbol5, symbol6,
-	  symbol7, symbol8;
+	: symbol1, symbol2,
+	  symbol3, symbol4, symbol5,
+	  symbol6, symbol7, symbol8;
 import foo.bar
-	: symbol1, symbol2, symbol3,
-	  symbol4, symbol5, symbol6,
-	  symbol7, symbol8, symbol9;
+	: symbol1, symbol2,
+	  symbol3, symbol4, symbol5,
+	  symbol6, symbol7, symbol8,
+	  symbol9;
 public import foo.bar : symbol1,
                         symbol2;
 static import foo.bar : symbol1,

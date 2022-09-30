@@ -220,10 +220,18 @@ struct LineWriter {
 	SolveState exploreStates(alias pred)(
 		SolveState best,
 		ref CheckPoints checkpoints,
-		uint max_attempts
+		uint max_attempts,
 	) {
 		uint attempts = 0;
 		scope queue = redBlackTree!pred(best);
+
+		struct Continuation {
+			size_t start;
+			size_t sunk;
+		}
+
+		import format.rulevalues;
+		Continuation[RuleValues] pausedExpansions;
 
 		// Once we have a solution that fits, or no more things
 		// to try, then we are done.
@@ -254,10 +262,26 @@ struct LineWriter {
 			// after some time, even if we haven't found an optimal solution.
 			attempts++;
 
+			auto c = pausedExpansions
+				.get(next.ruleValues,
+				     Continuation(next.ruleValues.frozen, next.sunk));
+
 			bool split = false;
-			foreach (rule; next.ruleValues.frozen .. line.length) {
+			size_t currentSunk = c.sunk;
+
+			foreach (rule; c.start .. line.length) {
 				if (split) {
 					// We reach a split point, bail.
+					break;
+				}
+
+				// When we start to increase the sunk, then we throttle expansion.
+				// This ensure that we don't go into quadratic behavior when
+				// processing very large list of items.
+				if (currentSunk > c.sunk) {
+					pausedExpansions[next.ruleValues] =
+						Continuation(rule, currentSunk);
+					queue.insert(next);
 					break;
 				}
 
@@ -269,6 +293,7 @@ struct LineWriter {
 
 				auto newRuleValues = next.ruleValues.withFrozenSplit(rule);
 				auto candidate = SolveState(this, newRuleValues);
+				currentSunk = candidate.sunk;
 
 				if (candidate.isBetterThan(best)) {
 					best = candidate;
@@ -589,7 +614,7 @@ struct SolveState {
 		uint column,
 		uint length,
 		uint previousColumn,
-		const(Span) previousSpan
+		const(Span) previousSpan,
 	) const {
 		// No penality for top level.
 		if (column == 0) {
