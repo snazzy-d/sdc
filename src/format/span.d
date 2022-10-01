@@ -416,15 +416,7 @@ final class ListSpan : Span {
 			return 15;
 		}
 
-		auto state = getState(s);
-		switch (state) {
-			case 0:
-				return 11;
-			case 1:
-				return 13;
-			default:
-				return (state & 0x01) ? 14 : 12;
-		}
+		return (getState(s) & 0x01) ? 13 : 11;
 	}
 
 	override uint computeIndent(const ref SolveState s, size_t i) const {

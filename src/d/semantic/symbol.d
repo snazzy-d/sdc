@@ -202,8 +202,11 @@ struct SymbolAnalyzer {
 
 		void buildType() {
 			f.type = FunctionType(
-				f.linkage, pass.returnType,
-				params.map!(p => p.paramType).array(), fd.isVariadic);
+				f.linkage,
+				pass.returnType,
+				params.map!(p => p.paramType).array(),
+				fd.isVariadic
+			);
 
 			assert(!isCtor || !isDtor || f.linkage == Linkage.D,
 			       "Only D linkage is supported for ctors and dtors");
@@ -301,8 +304,10 @@ struct SymbolAnalyzer {
 						fbody.location,
 						BuiltinName!"__dtor",
 						new ExpressionDotIdentifier(
-							fbody.location, field.name,
-							new ThisExpression(fbody.location))
+							fbody.location,
+							field.name,
+							new ThisExpression(fbody.location)
+						)
 					);
 
 					fieldDtors ~= new ScopeStatement(
@@ -606,8 +611,10 @@ struct SymbolAnalyzer {
 
 		init.step = Step.Processed;
 		init.value = new CompileTimeTupleExpression(
-			d.location, type,
-			fields.map!(f => cast(CompileTimeExpression) f.value).array());
+			d.location,
+			type,
+			fields.map!(f => cast(CompileTimeExpression) f.value).array()
+		);
 
 		// If the struct has no dtor and only pod fields, it is a pod.
 		auto hasDtor = s.resolve(s.location, BuiltinName!"__dtor");
@@ -1051,8 +1058,12 @@ struct SymbolAnalyzer {
 					// follow th same path.
 					scheduler.require(previous, Step.Signed);
 					v.value = new BinaryExpression(
-						location, type, BinaryOp.Add,
-						new VariableExpression(location, previous), one);
+						location,
+						type,
+						BinaryOp.Add,
+						new VariableExpression(location, previous),
+						one
+					);
 				} else {
 					v.value = new IntegerLiteral(location, 0, bt);
 				}
@@ -1177,7 +1188,8 @@ struct SymbolAnalyzer {
 
 				import d.semantic.type, std.algorithm, std.array;
 				t.ifti = fun
-					.params.map!(p => TypeVisitor(pass).visit(p.type).getType())
+					.params
+					.map!(p => TypeVisitor(pass).visit(p.type).getType())
 					.array();
 
 				break;

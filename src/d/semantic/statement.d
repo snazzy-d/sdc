@@ -324,8 +324,11 @@ public:
 
 				import d.semantic.caster;
 				auto v = new Variable(
-					s.location, t.getParamType(ParamKind.Regular), s.name,
-					buildImplicitCast(pass, s.location, t, value));
+					s.location,
+					t.getParamType(ParamKind.Regular),
+					s.name,
+					buildImplicitCast(pass, s.location, t, value)
+				);
 
 				v.step = Step.Processed;
 				pass.currentScope.addSymbol(v);
@@ -592,8 +595,11 @@ public:
 		}
 
 		auto idx = new Variable(
-			iDecl.location, type.getParamType(iDecl.type.paramKind), iDecl.name,
-			start);
+			iDecl.location,
+			type.getParamType(iDecl.type.paramKind),
+			iDecl.name,
+			start
+		);
 
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);

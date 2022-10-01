@@ -1678,8 +1678,10 @@ unittest {
 
 		// Signed shift
 		testSRShift(
-			VR(-35, -22), VR(1, 3),
-			isSigned!T ? VR(-18, -3) : VR((umin - 35) >> 3, (umin - 22) >> 1));
+			VR(-35, -22),
+			VR(1, 3),
+			isSigned!T ? VR(-18, -3) : VR((umin - 35) >> 3, (umin - 22) >> 1)
+		);
 		testSRShift(VR(-35, 22), VR(0, 3),
 		            isSigned!T ? VR(-35, 22) : VR((umin - 35) >> 3, 22));
 		testSRShift(VR(-35, 22), VR(1, 3),
