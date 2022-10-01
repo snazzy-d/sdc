@@ -403,7 +403,7 @@ final class ListSpan : Span {
 		// For length 1 and 2, we won't trip the explode state earlier,
 		// so we push the trigger now if apropriate.
 		auto splitCount = headSplit + count;
-		if (elements.length <= splitCount) {
+		if (!compact && elements.length <= splitCount) {
 			return -1;
 		}
 
@@ -441,11 +441,15 @@ final class ListSpan : Span {
 				return Split.Must;
 			}
 
-			if (i == trailingSplit && !s.isSplit(headerSplit)) {
+			if (i != trailingSplit) {
+				return Split.Can;
+			}
+
+			if (!s.isSplit(headerSplit)) {
 				return Split.No;
 			}
 
-			return Split.Can;
+			return mustExplode(s) ? Split.Must : Split.Can;
 		}
 
 		if (i < headerSplit || i > trailingSplit) {

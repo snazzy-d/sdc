@@ -21,17 +21,21 @@ auto a = [
 	[
 		"aaaa", "bbbb", "cccc", "dddd",
 		"eeee", "ffff", "gggg", "hhhh",
-		"iiii", "jjjj", "kkkk", "llll"],
+		"iiii", "jjjj", "kkkk", "llll"
+	],
 	[
 		"aaaa", "bbbb", "cccc", "dddd",
 		"eeee", "ffff", "gggg", "hhhh",
-		"iiii", "jjjj", "kkkk", "llll"],
+		"iiii", "jjjj", "kkkk", "llll"
+	],
 	[
 		"aaaa", "bbbb", "cccc", "dddd",
 		"eeee", "ffff", "gggg", "hhhh",
-		"iiii", "jjjj", "kkkk", "llll"],
+		"iiii", "jjjj", "kkkk", "llll"
+	],
 	[
 		"aaaa", "bbbb", "cccc", "dddd",
 		"eeee", "ffff", "gggg", "hhhh",
-		"iiii", "jjjj", "kkkk", "llll"],
+		"iiii", "jjjj", "kkkk", "llll"
+	],
 ];
