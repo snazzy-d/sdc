@@ -16,3 +16,22 @@ foreach (v; AliasSeq!(
 )) {
 	// Do stuff.
 }
+
+auto a = [
+	[
+		"aaaa", "bbbb", "cccc", "dddd",
+		"eeee", "ffff", "gggg", "hhhh",
+		"iiii", "jjjj", "kkkk", "llll"],
+	[
+		"aaaa", "bbbb", "cccc", "dddd",
+		"eeee", "ffff", "gggg", "hhhh",
+		"iiii", "jjjj", "kkkk", "llll"],
+	[
+		"aaaa", "bbbb", "cccc", "dddd",
+		"eeee", "ffff", "gggg", "hhhh",
+		"iiii", "jjjj", "kkkk", "llll"],
+	[
+		"aaaa", "bbbb", "cccc", "dddd",
+		"eeee", "ffff", "gggg", "hhhh",
+		"iiii", "jjjj", "kkkk", "llll"],
+];
