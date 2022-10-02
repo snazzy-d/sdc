@@ -17,6 +17,10 @@ auto fun() {
 }
 // sdfmt on
 
+// sdfmt off
+struct OneLiner { int a; }
+// sdfmt on
+
 auto unterminatedSfmtOff() {
 	// sdfmt off
 	return Whatever();
