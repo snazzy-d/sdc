@@ -131,7 +131,8 @@ public:
 
 	string toString() const {
 		import std.conv;
-		return "Chunk(" ~ separator.to!string ~ ", " ~ Span.print(span) ~ ", "
+		return "Chunk(" ~ separator.to!string
+			~ ", " /* ~ Span.print(span) ~ ", " */
 			~ glued.to!string ~ ", " ~ continuation.to!string ~ ", "
 			~ indentation.to!string ~ ", " ~ length.to!string ~ ", "
 			~ (kind ? chunks.to!string : [text].to!string) ~ ")";
@@ -227,6 +228,15 @@ public:
 	void write(string s) {
 		emitPendingSeparator();
 
+		if (s.length == 0) {
+			return;
+		}
+
+		if (pendingSeparator == Separator.Space) {
+			chunk.text ~= ' ';
+			pendingSeparator = Separator.None;
+		}
+
 		import std.stdio;
 		// writeln("write: ", [s]);
 		chunk.text ~= s;
@@ -263,36 +273,6 @@ public:
 			emitPendingSeparator();
 		}
 
-		bool isText = chunk.kind == ChunkKind.Text;
-		if (isText && !glued) {
-			uint nlCount = 0;
-
-			size_t last = chunk.text.length;
-			while (last > 0) {
-				char lastChar = chunk.text[last - 1];
-
-				import std.ascii;
-				if (!isWhite(lastChar)) {
-					break;
-				}
-
-				last--;
-				if (lastChar == ' ') {
-					space();
-				}
-
-				if (lastChar == '\n') {
-					nlCount++;
-				}
-			}
-
-			if (nlCount) {
-				newline(nlCount);
-			}
-
-			chunk.text = chunk.text[0 .. last];
-		}
-
 		// There is nothing to flush.
 		if (chunk.empty) {
 			if (chunk.newLineCount == 0) {
@@ -311,7 +291,7 @@ public:
 			}
 		}
 
-		if (isText) {
+		if (chunk.kind == ChunkKind.Text) {
 			import std.uni, std.range;
 			chunk._length = cast(uint) chunk.text.byGrapheme.walkLength();
 		}
@@ -462,6 +442,11 @@ public:
 	 * Block management.
 	 */
 	auto block() {
+		static doNoting() {}
+		return block!doNoting();
+	}
+
+	auto block(alias onClose, T...)(T args) {
 		// We delegate indentation to the block itself.
 		emitPendingSeparator();
 
@@ -478,17 +463,18 @@ public:
 				*builder = outerBuilder;
 				builder.chunk = chunk;
 
-				// Do not use the regular line splitter for blocks.
-				builder.newline(1);
+				onClose(args);
 				builder.split(false, true);
 			}
 
 		private:
 			Builder* builder;
 			Builder outerBuilder;
+
+			T args;
 		}
 
-		auto guard = Guard(&this, this);
+		auto guard = Guard(&this, this, args);
 
 		// Get ready to build the block.
 		this = Builder();
@@ -503,31 +489,19 @@ private:
 	}
 
 	void emitPendingSeparator() {
-		scope(success) {
+		if (chunk.empty) {
 			import std.algorithm;
 			chunk._separator = max(chunk.separator, pendingSeparator);
 			pendingSeparator = Separator.None;
-		}
 
-		if (chunk.empty) {
 			// Indentation is part of the separator.
 			chunk._indentation = indentation;
+
 			return;
 		}
 
-		final switch (pendingSeparator) with (Separator) {
-			case None:
-				// nothing to do.
-				break;
-
-			case Space:
-				chunk.text ~= ' ';
-				pendingSeparator = None;
-				break;
-
-			case NewLine, TwoNewLines:
-				split();
-				break;
+		if (pendingSeparator >= Separator.NewLine) {
+			split();
 		}
 	}
 }

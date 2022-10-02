@@ -9,7 +9,14 @@ string write(Chunk[] chunks, Config config) {
 	auto context = Context(config, null);
 	auto w = Writer(BlockSpecifier(chunks, LinePrefix(0, 0)), &context);
 	w.write();
-	w.buffer ~= '\n';
+
+	// Add a new line at the end of the output
+	// if it doesn't already have one.
+	auto result = w.buffer.data;
+	if (result.length == 0 || result[$ - 1] != '\n') {
+		w.buffer ~= '\n';
+	}
+
 	return w.buffer.data;
 }
 
@@ -74,9 +81,7 @@ struct Writer {
 	import std.array;
 	Appender!string buffer;
 
-	this(BlockSpecifier block, Context* context) in {
-		assert(context !is null);
-	} do {
+	this(BlockSpecifier block, Context* context) in(context !is null) {
 		chunks = block.chunks;
 		prefix = block.prefix;
 

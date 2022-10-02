@@ -213,7 +213,12 @@ private:
 
 	auto block() {
 		emitRawContent();
-		return wrappedGuard!((Parser* p) => p.builder.block())();
+
+		static emitNewLine(Parser* parser) {
+			parser.newline(1);
+		}
+
+		return wrappedGuard!((Parser* p) => p.builder.block!emitNewLine(p))();
 	}
 
 	/**
