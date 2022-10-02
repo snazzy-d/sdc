@@ -282,7 +282,7 @@ private:
 		if (!isIndexInLine(index, lastLineLookup)) {
 			import source.util.lookup;
 			lastLineLookup =
-				lookup!(l => l, 15)(lines, index, lastLineLookup, );
+				lookup!(l => l, 15)(lines, index, lastLineLookup);
 		}
 
 		return lastLineLookup + 1;

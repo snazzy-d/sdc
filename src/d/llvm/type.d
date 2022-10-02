@@ -324,8 +324,9 @@ struct TypeGen {
 
 		import std.algorithm, std.array;
 		auto vtblTypes = methods.map!(m => LLVMTypeOf(m)).array();
-		auto vtblStruct = LLVMStructTypeInContext(
-			llvmCtx, vtblTypes.ptr, cast(uint) vtblTypes.length, false);
+		auto vtblStruct =
+			LLVMStructTypeInContext(llvmCtx, vtblTypes.ptr,
+			                        cast(uint) vtblTypes.length, false);
 
 		auto classInfoStruct = LLVMGetElementType(classInfoPtr);
 		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblStruct];
@@ -337,12 +338,14 @@ struct TypeGen {
 
 		LLVMValueRef[2] classInfoData = [getTypeInfo(classInfoClass),
 		                                 genPrimaries(c, mangle, classInfoPtr)];
-		auto classInfoGen = LLVMConstNamedStruct(
-			classInfoStruct, classInfoData.ptr, classInfoData.length);
+		auto classInfoGen =
+			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
+			                     classInfoData.length);
 
 		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
-		auto metadataGen = LLVMConstNamedStruct(
-			metadataStruct, classDataData.ptr, classDataData.length);
+		auto metadataGen =
+			LLVMConstNamedStruct(metadataStruct, classDataData.ptr,
+			                     classDataData.length);
 
 		LLVMSetInitializer(metadata, metadataGen);
 		LLVMSetGlobalConstant(metadata, true);
@@ -431,7 +434,8 @@ struct TypeGen {
 		auto fun = LLVMPointerType(
 			LLVMFunctionType(buildParamType(f.returnType), params.ptr,
 			                 cast(uint) params.length, f.isVariadic),
-			0);
+			0
+		);
 
 		auto contexts = f.contexts;
 		if (contexts.length == 0) {

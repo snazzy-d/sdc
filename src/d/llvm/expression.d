@@ -352,21 +352,28 @@ struct ExpressionGen {
 				return LLVMBuildSub(
 					builder,
 					LLVMConstInt(TypeGen(pass.pass).visit(e.type), 0, true),
-					visit(e.expr), "");
+					visit(e.expr),
+					""
+				);
 
 			case Not:
 				import d.llvm.type;
 				return LLVMBuildICmp(
-					builder, LLVMIntPredicate.EQ,
+					builder,
+					LLVMIntPredicate.EQ,
 					LLVMConstInt(TypeGen(pass.pass).visit(e.type), 0, true),
-					visit(e.expr), "");
+					visit(e.expr),
+					""
+				);
 
 			case Complement:
 				import d.llvm.type;
 				return LLVMBuildXor(
-					builder, visit(e.expr),
+					builder,
+					visit(e.expr),
 					LLVMConstInt(TypeGen(pass.pass).visit(e.type), -1, true),
-					"");
+					""
+				);
 		}
 	}
 
@@ -552,10 +559,11 @@ struct ExpressionGen {
 
 		auto floc = location.getFullLocation(context);
 
-		LLVMValueRef[2] args =
-			[buildDString(floc.getSource().getFileName().toString()),
-			 LLVMConstInt(LLVMInt32TypeInContext(llvmCtx),
-			              floc.getStartLineNumber(), false)];
+		LLVMValueRef[2] args = [
+			buildDString(floc.getSource().getFileName().toString()),
+			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx),
+			             floc.getStartLineNumber(), false)
+		];
 
 		buildCall(declare(pass.object.getArrayOutOfBounds()), args);
 
@@ -636,10 +644,13 @@ struct ExpressionGen {
 		auto ret = LLVMGetUndef(t);
 		foreach (i; 0 .. count) {
 			ret = LLVMBuildInsertValue(
-				builder, ret,
+				builder,
+				ret,
 				buildBitCast(LLVMBuildExtractValue(builder, v, i, ""),
 				             types[i]),
-				i, "");
+				i,
+				""
+			);
 		}
 
 		return ret;
@@ -747,9 +758,13 @@ struct ExpressionGen {
 				return LLVMBuildPtrToInt(builder, value, type, "");
 
 			case IntToBool:
-				return LLVMBuildICmp(builder, LLVMIntPredicate.NE, value,
-				                     LLVMConstInt(LLVMTypeOf(value), 0, false),
-				                     "");
+				return LLVMBuildICmp(
+					builder,
+					LLVMIntPredicate.NE,
+					value,
+					LLVMConstInt(LLVMTypeOf(value), 0, false),
+					""
+				);
 
 			case Exact, Qual, Down:
 				assert(0, "Unreachable");
@@ -873,7 +888,8 @@ struct ExpressionGen {
 		return buildBitCast(
 			IntrinsicGen(pass).build(e.intrinsic, e.args),
 			// XXX: This is necessary until returning sequence is supported.
-			TypeGen(pass.pass).visit(e.type));
+			TypeGen(pass.pass).visit(e.type)
+		);
 	}
 
 	LLVMValueRef visit(TupleExpression e) {
@@ -960,8 +976,11 @@ struct AddressOfGen {
 				break;
 
 			default:
-				assert(0, "Address of field only work on aggregate types, not "
-					~ type.toString(context));
+				assert(
+					0,
+					"Address of field only work on aggregate types, not "
+						~ type.toString(context)
+				);
 		}
 
 		// Make the type is not opaque.
@@ -976,8 +995,11 @@ struct AddressOfGen {
 		}
 
 		return LLVMBuildBitCast(
-			builder, ptr, LLVMPointerType(TypeGen(pass.pass).visit(e.type), 0),
-			"");
+			builder,
+			ptr,
+			LLVMPointerType(TypeGen(pass.pass).visit(e.type), 0),
+			""
+		);
 	}
 
 	LLVMValueRef visit(ContextExpression e)
@@ -1048,10 +1070,13 @@ struct AddressOfGen {
 				auto i = valueOf(index);
 
 				auto i64 = LLVMInt64TypeInContext(llvmCtx);
-				auto condition =
-					LLVMBuildICmp(builder, LLVMIntPredicate.ULT,
-					              LLVMBuildZExt(builder, i, i64, ""),
-					              LLVMConstInt(i64, t.size, false), "");
+				auto condition = LLVMBuildICmp(
+					builder,
+					LLVMIntPredicate.ULT,
+					LLVMBuildZExt(builder, i, i64, ""),
+					LLVMConstInt(i64, t.size, false),
+					""
+				);
 
 				genBoundCheck(location, condition);
 

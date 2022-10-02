@@ -24,7 +24,8 @@ struct ConstantGen {
 
 		assert(
 			0,
-			"Expected a compile time expression, not " ~ typeid(e).toString());
+			"Expected a compile time expression, not " ~ typeid(e).toString()
+		);
 	}
 
 	LLVMValueRef visit(CompileTimeExpression e) {

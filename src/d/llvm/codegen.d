@@ -130,7 +130,8 @@ final class CodeGen {
 			LLVMValueRef[2] slice = [
 				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), str.length,
 				             false),
-				buildCString(str)];
+				buildCString(str)
+			];
 
 			return LLVMConstStructInContext(llvmCtx, slice.ptr, slice.length,
 			                                false);
