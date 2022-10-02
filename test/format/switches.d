@@ -70,3 +70,19 @@ switch (n) if (() {
 		case 33:
 			buzz("c2 is false");
 }
+
+switch (n) {
+	Foo:
+		return Foo;
+
+		Bar: {
+			return Bar;
+		}
+
+	case 1:
+		goto Foo;
+	case 2:
+		goto Bar;
+	default:
+		break;
+}
