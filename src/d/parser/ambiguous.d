@@ -21,15 +21,15 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 	alias handler,
 	AmbiguousParseMode M = AmbiguousParseMode.Regular,
 )(ref TokenRange trange) {
-	switch (trange.front.type) with(TokenType) {
+	switch (trange.front.type) with (TokenType) {
 		case Identifier:
 			auto i = trange.parseIdentifier();
 			return trange.parseAmbiguousSuffix!(handler, M)(i);
-		
+
 		case Dot:
 			auto i = trange.parseDotIdentifier();
 			return trange.parseAmbiguousSuffix!(handler, M)(i);
-		
+
 		// Types
 		case Typeof:
 		case Bool:
@@ -41,13 +41,13 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 		case Char, Wchar, Dchar:
 		case Float, Double, Real:
 		case Void:
-		
+
 		// Type qualifiers
 		case Const, Immutable, Inout, Shared:
 			auto location = trange.front.location;
 			auto t = trange.parseType!(ParseMode.Reluctant)();
 			return trange.parseAmbiguousSuffix!(handler, M)(location, t);
-		
+
 		case New:
 		case This:
 		case Super:
@@ -66,10 +66,10 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 		case Dollar:
 		case Typeid:
 		case Is:
-		
+
 		// XXX: Should assert really be an expression ?
 		case Assert:
-		
+
 		// Prefixes.
 		case Ampersand:
 		case PlusPlus:
@@ -82,39 +82,43 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 		case Cast:
 			auto e = trange.parseExpression!(ParseMode.Reluctant)();
 			return trange.parseAmbiguousSuffix!(handler, M)(e);
-		
+
 		case OpenParen:
 			auto matchingParen = trange.getLookahead();
 			matchingParen.popMatchingDelimiter!OpenParen();
-			
+
 			switch (matchingParen.front.type) {
 				case OpenBrace, EqualMore:
 					// Delegates.
 					assert(0, "Ambiguous delegates not implemented");
-				
+
 				default:
 					auto location = trange.front.location;
 					trange.popFront();
-					
+
 					// Use ambiguousHandler to avoid infinite recursion
-					return trange.parseAmbiguous!ambiguousHandler()
-						.apply!((parsed) {
-							location.spanTo(trange.front.location);
-							trange.match(CloseParen);
-							
-							alias T = typeof(parsed);
-							static if (is(T : AstType)) {
-								return trange.parseAmbiguousSuffix!(handler, M)(location, parsed);
-							} else static if (is(T : AstExpression)) {
-								auto e = new ParenExpression(location, parsed);
-								return trange.parseAmbiguousSuffix!(handler, M)(e);
-							} else {
-								// XXX: Consider adding ParenIdentifier for AST fidelity.
-								return trange.parseAmbiguousSuffix!(handler, M)(parsed);
-							}
-						})();
+					return trange.parseAmbiguous!ambiguousHandler().apply!((
+						parsed
+					) {
+						location.spanTo(trange.front.location);
+						trange.match(CloseParen);
+
+						alias T = typeof(parsed);
+						static if (is(T : AstType)) {
+							return trange
+								.parseAmbiguousSuffix!(handler, M)(location,
+								                                   parsed);
+						} else static if (is(T : AstExpression)) {
+							auto e = new ParenExpression(location, parsed);
+							return trange.parseAmbiguousSuffix!(handler, M)(e);
+						} else {
+							// XXX: Consider adding ParenIdentifier for AST fidelity.
+							return trange
+								.parseAmbiguousSuffix!(handler, M)(parsed);
+						}
+					})();
 			}
-		
+
 		default:
 			trange.match(Begin);
 			// TODO: handle.
@@ -138,7 +142,7 @@ auto parseAmbiguousStatement(ref TokenRange trange) {
 		case Auto, Static, Const, Immutable, Inout, Shared:
 			auto d = trange.parseDeclaration();
 			return trange.finalizeStatement(d.location, d);
-		
+
 		default:
 			auto location = trange.front.location;
 			return trange.parseAmbiguous!(
@@ -157,30 +161,23 @@ auto parseStatementSuffix(ref TokenRange trange, AstExpression e) {
 
 private:
 
-Declaration finalizeDeclaration(T)(
-	ref TokenRange trange,
-	Location location,
-	T parsed,
-) {
+Declaration finalizeDeclaration(T)(ref TokenRange trange, Location location,
+                                   T parsed) {
 	static if (is(T : AstType)) {
 		alias t = parsed;
 	} else {
 		auto t = AstType.get(parsed);
 	}
-	
+
 	return trange.parseTypedDeclaration(location, defaultStorageClass, t);
 }
 
-Statement finalizeStatement(T)(
-	ref TokenRange trange,
-	Location location,
-	T parsed,
-) {
+Statement finalizeStatement(T)(ref TokenRange trange, Location location,
+                               T parsed) {
 	static if (is(T : AstType)) {
-		return trange.finalizeStatement(
-			location,
-			trange.finalizeDeclaration(location, parsed),
-		);
+		return trange
+			.finalizeStatement(location,
+			                   trange.finalizeDeclaration(location, parsed));
 	} else static if (is(T : Declaration)) {
 		return new DeclarationStatement(parsed);
 	} else static if (is(T : AstExpression)) {
@@ -189,24 +186,16 @@ Statement finalizeStatement(T)(
 	} else static if (is(T : IdentifierStarName)) {
 		trange.match(TokenType.Semicolon);
 		location.spanTo(trange.previous);
-		return new IdentifierStarNameStatement(
-			location,
-			parsed.identifier,
-			parsed.name,
-			parsed.value,
-		);
+		return new IdentifierStarNameStatement(location, parsed.identifier,
+		                                       parsed.name, parsed.value);
 	} else {
 		// Identifier follow by another identifier is a declaration.
 		if (trange.front.type == TokenType.Identifier) {
 			return trange.finalizeStatement(
-				location,
-				trange.finalizeDeclaration(location, parsed),
-			);
+				location, trange.finalizeDeclaration(location, parsed));
 		} else {
-			return trange.finalizeStatement(
-				location,
-				new IdentifierExpression(parsed),
-			);
+			return trange
+				.finalizeStatement(location, new IdentifierExpression(parsed));
 		}
 	}
 }
@@ -231,20 +220,20 @@ alias Ambiguous = AstType.UnionType!(Identifier, AstExpression);
 
 auto apply(alias handler)(Ambiguous a) {
 	alias Tag = typeof(a.tag);
-	final switch (a.tag) with(Tag) {
-		case Identifier :
+	final switch (a.tag) with (Tag) {
+		case Identifier:
 			return handler(a.get!Identifier);
-		
-		case AstExpression :
+
+		case AstExpression:
 			return handler(a.get!AstExpression);
-		
-		case AstType :
+
+		case AstType:
 			return handler(a.get!AstType);
 	}
 }
 
 Ambiguous ambiguousHandler(T)(T t) {
-	static if(is(T == typeof(null))) {
+	static if (is(T == typeof(null))) {
 		assert(0);
 	} else {
 		return Ambiguous(t);
@@ -252,7 +241,7 @@ Ambiguous ambiguousHandler(T)(T t) {
 }
 
 bool indicateExpression(TokenType t) {
-	switch(t) with(TokenType) {
+	switch (t) with (TokenType) {
 		case PlusPlus:
 		case MinusMinus:
 		case Equal:
@@ -302,7 +291,7 @@ bool indicateExpression(TokenType t) {
 		case Percent:
 		case OpenParen:
 			return true;
-		
+
 		default:
 			return false;
 	}
@@ -317,75 +306,75 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 		auto e = trange.parseIdentifierExpression(i);
 		return trange.parseAmbiguousSuffix!handler(e);
 	}
-	
-	switch (tt) with(TokenType) {
+
+	switch (tt) with (TokenType) {
 		case OpenBracket:
 			trange.popFront();
-			
+
 			// This is a slice type
 			if (trange.front.type == CloseBracket) {
 				trange.popFront();
-				return trange.parseAmbiguousSuffix!handler(
-					i.location,
-					AstType.get(i).getSlice(),
-				);
+				return trange
+					.parseAmbiguousSuffix!handler(i.location,
+					                              AstType.get(i).getSlice());
 			}
-			
+
 			return trange.parseAmbiguous!ambiguousHandler().apply!((parsed) {
 				auto location = i.location;
 				location.spanTo(trange.front.location);
 				trange.match(CloseBracket);
-				
+
 				alias T = typeof(parsed);
 				static if (is(T : AstType)) {
 					auto t = AstType.get(i).getMap(parsed);
 					return trange.parseAmbiguousSuffix!handler(i.location, t);
 				} else {
 					static if (is(T : AstExpression)) {
-						auto id = new IdentifierBracketExpression(location, i, parsed);
+						auto id = new IdentifierBracketExpression(location, i,
+						                                          parsed);
 					} else {
-						auto id = new IdentifierBracketIdentifier(location, i, parsed);
+						auto id = new IdentifierBracketIdentifier(location, i,
+						                                          parsed);
 					}
-					
+
 					return trange.parseAmbiguousSuffix!(handler, M)(id);
 				}
 			})();
-		
+
 		case Star:
 			auto lookahead = trange.getLookahead();
 			lookahead.popFront();
-			
+
 			switch (lookahead.front.type) {
 				Type:
-					return trange.parseAmbiguousSuffix!handler(
-						i.location,
-						AstType.get(i),
-					);
-				
-				Expression: {
-					auto lhs = new IdentifierExpression(i);
-					auto e = trange.parseMulExpression(lhs);
-					return trange.parseAmbiguousSuffix!handler(e);
-				}
+					return trange.parseAmbiguousSuffix!handler(i.location,
+					                                           AstType.get(i));
+
+					Expression: {
+						auto lhs = new IdentifierExpression(i);
+						auto e = trange.parseMulExpression(lhs);
+						return trange.parseAmbiguousSuffix!handler(e);
+					}
+
 				case Star:
 					// Identifier** is a pointer to a pointer.
 					goto Type;
-				
+
 				case OpenBracket:
 					// XXX: Array literal or array/slice/map of pointer ?
 					assert(0, "Not supported");
-				
+
 				case Function, Delegate:
 					lookahead.popFront();
-					
+
 					if (lookahead.front.type == OpenParen) {
 						// Function type returning a pointer.
 						goto Type;
 					}
-					
+
 					// IdentifierExpression * function Type(...)
 					goto Expression;
-				
+
 				case New:
 				case This, Super:
 				case True, False:
@@ -401,7 +390,7 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 				case Assert:
 					// These indicate an expression.
 					goto Expression;
-				
+
 				case Identifier:
 					/**
 					 * Deal with:
@@ -413,7 +402,7 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 					static if (M == AmbiguousParseMode.Declaration) {
 						auto name = lookahead.front.name;
 						auto rloc = lookahead.front.location;
-						
+
 						lookahead.popFront();
 						auto rtt = lookahead.front.type;
 						switch (rtt) {
@@ -428,7 +417,7 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 								trange.popFront();
 								auto v = trange.parseInitializer();
 								return handler(IdentifierStarName(name, i, v));
-							
+
 							case OpenParen:
 								/**
 								 * We are faced with Identifier * Identifier(
@@ -439,46 +428,43 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 								 */
 								trange.popFront();
 								return handler(trange.parseTypedDeclaration(
-									i.location,
-									defaultStorageClass,
-									AstType.get(i).getPointer(),
-								));
-							
+									i.location, defaultStorageClass,
+									AstType.get(i).getPointer()));
+
 							default:
 								// FIXME: This is most likely broken.
 								// Cases like *, . and ! are not handled.
 								if (!rtt.indicateExpression()) {
 									trange.moveTo(lookahead);
-									return handler(IdentifierStarName(name, i, null));
+									return handler(
+										IdentifierStarName(name, i, null));
 								}
 						}
 					}
-					
+
 					// Otherwize, it is an expression.
 					goto Expression;
-				
+
 				case Semicolon:
 					// This indicate an end of statement, so we have a type.
 					goto Type;
-				
+
 				default:
 					// XXX: have a proper error message.
 					trange.match(Begin);
 					assert(0);
 			}
-		
+
 		case Dot:
 			trange.popFront();
-			
+
 			auto id = trange.parseQualifiedIdentifier(i.location, i);
 			return trange.parseAmbiguousSuffix!(handler, M)(id);
-		
+
 		case Function, Delegate:
-			return trange.parseAmbiguousSuffix!handler(
-				i.location,
-				AstType.get(i),
-			);
-		
+			return
+				trange.parseAmbiguousSuffix!handler(i.location, AstType.get(i));
+
 		default:
 			return handler(i);
 	}
@@ -489,17 +475,17 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 	AmbiguousParseMode M = AmbiguousParseMode.Regular,
 )(ref TokenRange trange, Location location, AstType t) {
 	t = trange.parseTypeSuffix!(ParseMode.Reluctant)(t);
-	
-	switch (trange.front.type) with(TokenType) {
+
+	switch (trange.front.type) with (TokenType) {
 		case OpenParen:
 			assert(0, "Constructor not implemented");
-		
+
 		case Dot:
 			trange.popFront();
-			
+
 			auto i = trange.parseQualifiedIdentifier(location, t);
 			return trange.parseAmbiguousSuffix!(handler, M)(i);
-		
+
 		default:
 			return handler(t);
 	}
@@ -510,9 +496,9 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 	AmbiguousParseMode M = AmbiguousParseMode.Regular,
 )(ref TokenRange trange, AstExpression e) {
 	e = trange.parsePostfixExpression!(ParseMode.Reluctant)(e);
-	
+
 	while (true) {
-		switch (trange.front.type) with(TokenType) {
+		switch (trange.front.type) with (TokenType) {
 			case Equal:
 			case PlusEqual:
 			case MinusEqual:
@@ -529,31 +515,31 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 			case CaretCaretEqual:
 				e = trange.parseAssignExpression(e);
 				continue;
-			
+
 			case QuestionMark:
 				e = trange.parseTernaryExpression(e);
 				continue;
-			
+
 			case PipePipe:
 				e = trange.parseLogicalOrExpression(e);
 				continue;
-			
+
 			case AmpersandAmpersand:
 				e = trange.parseLogicalAndExpression(e);
 				continue;
-			
+
 			case Pipe:
 				e = trange.parseBitwiseOrExpression(e);
 				continue;
-			
+
 			case Caret:
 				e = trange.parseBitwiseXorExpression(e);
 				continue;
-			
+
 			case Ampersand:
 				e = trange.parseBitwiseAndExpression(e);
 				continue;
-			
+
 			case EqualEqual:
 			case BangEqual:
 			case More:
@@ -573,25 +559,25 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 			case Bang:
 				e = trange.parseComparaisonExpression(e);
 				continue;
-			
+
 			case LessLess, MoreMore, MoreMoreMore:
 				e = trange.parseShiftExpression(e);
 				continue;
-			
+
 			case Plus, Minus, Tilde:
 				e = trange.parseAddExpression(e);
 				continue;
-			
+
 			case Star, Slash, Percent:
 				e = trange.parseMulExpression(e);
 				continue;
-			
+
 			case Dot:
 				trange.popFront();
-				
+
 				auto i = trange.parseQualifiedIdentifier(e.location, e);
 				return trange.parseAmbiguousSuffix!(handler, M)(i);
-			
+
 			default:
 				return handler(e);
 		}

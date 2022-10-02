@@ -9,4 +9,3 @@ enum ParseMode {
 	Greedy,
 	Reluctant,
 }
-

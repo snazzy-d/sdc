@@ -26,9 +26,10 @@ auto parseInterface(ref TokenRange trange, StorageClass stc) {
 	return trange.parsePolymorphic!false(stc);
 }
 
-private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange, StorageClass stc) {
+private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange,
+                                                          StorageClass stc) {
 	Location location = trange.front.location;
-	
+
 	static if (isClass) {
 		trange.match(TokenType.Class);
 		alias DeclarationType = ClassDeclaration;
@@ -36,43 +37,43 @@ private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange,
 		trange.match(TokenType.Interface);
 		alias DeclarationType = InterfaceDeclaration;
 	}
-	
+
 	import source.name;
 	Name name;
 	AstTemplateParameter[] parameters;
 	bool isTemplate = false;
-	
+
 	if (trange.front.type == TokenType.Identifier) {
 		name = trange.front.name;
 		trange.match(TokenType.Identifier);
-		
+
 		isTemplate = trange.front.type == TokenType.OpenParen;
 		if (isTemplate) {
 			parameters = trange.parseTemplateParameters();
 		}
 	}
-	
+
 	Identifier[] bases;
 	if (trange.front.type == TokenType.Colon) {
 		do {
 			trange.popFront();
 			bases ~= trange.parseIdentifier();
-		} while(trange.front.type == TokenType.Comma);
+		} while (trange.front.type == TokenType.Comma);
 	}
-	
+
 	if (isTemplate && trange.front.type == TokenType.If) {
 		trange.parseConstraint();
 	}
-	
+
 	auto members = trange.parseAggregate();
-	
+
 	location.spanTo(trange.previous);
-	
+
 	auto adt = new DeclarationType(location, stc, name, bases, members);
 	if (!isTemplate) {
 		return adt;
 	}
-	
+
 	return new TemplateDeclaration(location, stc, name, parameters, [adt]);
 }
 
@@ -90,9 +91,11 @@ auto parseUnion(ref TokenRange trange, StorageClass stc) {
 	return trange.parseMonomorphic!false(stc);
 }
 
-private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange, StorageClass stc) {
+private
+Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange,
+                                                   StorageClass stc) {
 	Location location = trange.front.location;
-	
+
 	static if (isStruct) {
 		trange.match(TokenType.Struct);
 		alias DeclarationType = StructDeclaration;
@@ -100,123 +103,128 @@ private Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange
 		trange.match(TokenType.Union);
 		alias DeclarationType = UnionDeclaration;
 	}
-	
+
 	import source.name;
 	Name name;
 	AstTemplateParameter[] parameters;
 	bool isTemplate = false;
-	
+
 	if (trange.front.type == TokenType.Identifier) {
 		name = trange.front.name;
 		trange.popFront();
-		
-		switch(trange.front.type) with(TokenType) {
+
+		switch (trange.front.type) with (TokenType) {
 			// Handle opaque declarations.
-			case Semicolon :
+			case Semicolon:
 				location.spanTo(trange.front.location);
-				
+
 				trange.popFront();
-				
+
 				assert(0, "Opaque declaration aren't supported.");
-			
+
 			// Template structs
-			case OpenParen :
+			case OpenParen:
 				isTemplate = true;
 				parameters = trange.parseTemplateParameters();
-				
+
 				if (trange.front.type == If) {
 					trange.parseConstraint();
 				}
-				
+
 				break;
-			
-			default :
+
+			default:
 				break;
 		}
 	}
-	
+
 	auto members = trange.parseAggregate();
-	
+
 	location.spanTo(trange.previous);
-	
+
 	auto adt = new DeclarationType(location, stc, name, members);
 	if (!isTemplate) {
 		return adt;
 	}
-	
+
 	return new TemplateDeclaration(location, stc, name, parameters, [adt]);
 }
 
 /**
  * Parse enums
  */
-Declaration parseEnum(ref TokenRange trange, StorageClass stc) in(stc.isEnum == true) {
+Declaration parseEnum(ref TokenRange trange, StorageClass stc)
+		in(stc.isEnum == true) {
 	Location location = trange.front.location;
 	trange.match(TokenType.Enum);
-	
+
 	import source.name;
 	Name name;
 	AstType type = AstType.getAuto();
-	
-	switch(trange.front.type) with(TokenType) {
-		case Identifier :
+
+	switch (trange.front.type) with (TokenType) {
+		case Identifier:
 			name = trange.front.name;
 			trange.popFront();
-			
+
 			// Ensure we are not in case of manifest constant.
-			assert(trange.front.type != Equal, "Manifest constant must be parsed as auto declaration and not as enums.");
-			
+			assert(
+				trange.front.type != Equal,
+				"Manifest constant must be parsed as auto declaration and not as enums."
+			);
+
 			// If we have a colon, we go to the apropriate case.
 			if (trange.front.type == Colon) {
 				goto case Colon;
 			}
-			
+
 			// If not, then it is time to parse the enum content.
 			goto case OpenBrace;
-		
-		case Colon :
+
+		case Colon:
 			trange.popFront();
 			type = trange.parseType();
-			
+
 			break;
-		
-		case OpenBrace :
+
+		case OpenBrace:
 			break;
-		
-		default :
+
+		default:
 			// TODO: error.
 			trange.match(Begin);
 	}
-	
+
 	trange.match(TokenType.OpenBrace);
 	VariableDeclaration[] enumEntries;
-	
-	while(trange.front.type != TokenType.CloseBrace) {
+
+	while (trange.front.type != TokenType.CloseBrace) {
 		auto entryName = trange.front.name;
 		auto entryLocation = trange.front.location;
-		
+
 		trange.match(TokenType.Identifier);
-		
+
 		AstExpression entryValue;
 		if (trange.front.type == TokenType.Equal) {
 			trange.popFront();
-			
+
 			entryValue = trange.parseAssignExpression();
-			
+
 			// FIXME: don't work for whatever reason.
 			// entryLocation.spanTo(entryValue.location);
 		}
-		
-		enumEntries ~= new VariableDeclaration(entryLocation, stc, type, entryName, entryValue);
-		
+
+		enumEntries ~= new VariableDeclaration(entryLocation, stc, type,
+		                                       entryName, entryValue);
+
 		// If it is not a comma, then we abort the loop.
 		if (!trange.popOnMatch(TokenType.Comma)) {
 			break;
 		}
 	}
-	
+
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.CloseBrace);
-	
+
 	return new EnumDeclaration(location, stc, name, type, enumEntries);
 }

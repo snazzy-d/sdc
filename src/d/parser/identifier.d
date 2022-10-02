@@ -12,10 +12,10 @@ import d.parser.dtemplate;
  */
 Identifier parseIdentifier(ref TokenRange trange) {
 	auto location = trange.front.location;
-	
+
 	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
-	
+
 	return trange.parseBuiltIdentifier(new BasicIdentifier(location, name));
 }
 
@@ -25,27 +25,24 @@ Identifier parseIdentifier(ref TokenRange trange) {
 Identifier parseDotIdentifier(ref TokenRange trange) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Dot);
-	
+
 	location.spanTo(trange.front.location);
-	
+
 	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
-	
+
 	return trange.parseBuiltIdentifier(new DotIdentifier(location, name));
 }
 
 /**
  * Parse any qualifier identifier (qualifier.identifier)
  */
-auto parseQualifiedIdentifier(Namespace)(
-	ref TokenRange trange,
-	Location location,
-	Namespace ns,
-) {
+auto parseQualifiedIdentifier(Namespace)(ref TokenRange trange,
+                                         Location location, Namespace ns) {
 	auto name = trange.front.name;
 	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
-	
+
 	static if (is(Namespace : Identifier)) {
 		alias QualifiedIdentifier = IdentifierDotIdentifier;
 	} else static if (is(Namespace : AstType)) {
@@ -59,55 +56,46 @@ auto parseQualifiedIdentifier(Namespace)(
 				~ " Not a " ~ Namespace.stringof
 		);
 	}
-	
-	return trange.parseBuiltIdentifier(
-		new QualifiedIdentifier(location, name, ns),
-	);
+
+	return trange
+		.parseBuiltIdentifier(new QualifiedIdentifier(location, name, ns));
 }
 
 /**
  * Parse built identifier
  */
-private Identifier parseBuiltIdentifier(
-	ref TokenRange trange,
-	Identifier identifier,
-) {
+private
+Identifier parseBuiltIdentifier(ref TokenRange trange, Identifier identifier) {
 	auto location = identifier.location;
 	while (true) {
-		switch (trange.front.type) with(TokenType) {
+		switch (trange.front.type) with (TokenType) {
 			case Dot:
 				trange.popFront();
 				auto name = trange.front.name;
-				
+
 				location.spanTo(trange.front.location);
 				trange.match(Identifier);
-				
-				identifier = new IdentifierDotIdentifier(
-					location,
-					name,
-					identifier,
-				);
+
+				identifier =
+					new IdentifierDotIdentifier(location, name, identifier);
 				break;
-			
+
 			case Bang:
 				auto lookahead = trange.getLookahead();
 				lookahead.popFront();
 				if (lookahead.front.type == Is || lookahead.front.type == In) {
 					return identifier;
 				}
-				
+
 				trange.popFront();
 				auto arguments = parseTemplateArguments(trange);
-				
+
 				location.spanTo(trange.previous);
-				
-				identifier = new TemplateInstantiation(
-					location,
-					identifier,
-					arguments,
-				);
+
+				identifier =
+					new TemplateInstantiation(location, identifier, arguments);
 				break;
-			
+
 			default:
 				return identifier;
 		}

@@ -14,33 +14,33 @@ import source.name;
 auto parseModule(ref TokenRange trange) {
 	trange.match(TokenType.Begin);
 	Location location = trange.front.location;
-	
+
 	Name name;
 	Name[] packages;
-	
+
 	if (trange.front.type == TokenType.Module) {
 		trange.popFront();
 		name = trange.front.name;
-		
+
 		trange.match(TokenType.Identifier);
 		while (trange.front.type == TokenType.Dot) {
 			trange.popFront();
-			
+
 			packages ~= name;
 			name = trange.front.name;
-			
+
 			trange.match(TokenType.Identifier);
 		}
-		
+
 		trange.match(TokenType.Semicolon);
 	}
-	
+
 	Declaration[] declarations;
 	while (trange.front.type != TokenType.End) {
 		declarations ~= trange.parseDeclaration();
 	}
-	
+
 	location.spanTo(trange.previous);
-	
+
 	return new Module(location, name, packages, declarations);
 }
