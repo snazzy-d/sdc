@@ -42,9 +42,8 @@ public:
 	}
 
 package:
-	uint getOffset(Position p) in {
-		assert(p.getFullPosition(context).getSource() == this);
-	} do {
+	uint getOffset(Position p)
+			in(p.getFullPosition(context).getSource() == this) {
 		return p.offset - sourceManager.getOffset(this);
 	}
 }
@@ -102,9 +101,7 @@ private:
 		return getSourceEntry(f).filename;
 	}
 
-	Name getDirectory(FileID f) in {
-		assert(f.isFile());
-	} do {
+	Name getDirectory(FileID f) in(f.isFile()) {
 		return getSourceEntry(f).directory;
 	}
 
