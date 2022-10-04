@@ -143,6 +143,8 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 
 		p = headers.typeTable - switchval * headers.typeEncoding.getSize();
 		auto tmp = read_encoded(p, ctx, headers.typeEncoding);
+
+		import d.rt.object;
 		auto candidate = *(cast(ClassInfo*) &tmp);
 
 		// Null is a special case that always catches.
@@ -205,6 +207,3 @@ _Unwind_Reason_Code setupCleanup(
 
 	return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
-
-// This is specific from SDC's runtime, so DMD doesn't know about it.
-private extern(C) Object __sd_class_downcast(Object o, ClassInfo c);

@@ -1107,6 +1107,23 @@ public:
 		throw new CompileException(s.location, "assertion failure: " ~ msg);
 	}
 
+	void visit(Version!Statement d) {
+		foreach (v; versions) {
+			if (d.versionId == v) {
+				foreach (item; d.items) {
+					visit(item);
+				}
+
+				return;
+			}
+		}
+
+		// Version has not been found.
+		foreach (item; d.elseItems) {
+			visit(item);
+		}
+	}
+
 	void visit(Mixin!Statement s) {
 		auto str = evalString(buildString(s.value)) ~ '\0';
 		auto base = context.registerMixin(s.location, str);

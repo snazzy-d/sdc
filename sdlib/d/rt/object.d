@@ -1,9 +1,22 @@
 module d.rt.object;
 
-extern(C):
+version(SDC) {} else {
+	// We need to do some dirty manipulation when not
+	// using SDC as expected layout differs.
+	alias ClassInfo = ClassInfoImpl*;
 
-Object __sd_class_downcast(Object o, ClassInfo c) {
-	auto t = getTypeid(o);
+	struct ClassInfoImpl {
+		void* vtbl;
+		ClassInfo[] primaries;
+	}
+}
+
+Object __sd_class_downcast()(Object o, ClassInfo c) {
+	version(SDC) {
+		auto t = typeid(o);
+	} else {
+		auto t = cast(ClassInfo) *(cast(void**) o);
+	}
 
 	auto cDepth = c.primaries.length - 1;
 
@@ -16,25 +29,4 @@ Object __sd_class_downcast(Object o, ClassInfo c) {
 	}
 
 	return null;
-}
-
-extern(D):
-
-version(SDC) {
-	ClassInfo getTypeid(Object o) {
-		return typeid(o);
-	}
-} else {
-	// We need to do some dirty manipulation when not
-	// using SDC as expected layout differs.
-	alias ClassInfo = ClassInfoImpl*;
-
-	struct ClassInfoImpl {
-		void* vtbl;
-		ClassInfo[] primaries;
-	}
-
-	ClassInfo getTypeid(Object o) {
-		return cast(ClassInfo) *(cast(void**) o);
-	}
 }
