@@ -350,88 +350,92 @@ private:
 	/**
 	 * Comments.
 	 */
-	uint popComment(string s)() {
+	uint popComment(string s : "//")() {
 		auto c = frontChar;
 
-		static if (s == "//") {
-			// TODO: check for unicode line break.
-			while (c != '\n' && c != '\r') {
-				if (c == 0) {
-					return index;
-				}
-
-				popChar();
-				c = frontChar;
+		// TODO: check for unicode line break.
+		while (c != '\n' && c != '\r') {
+			if (c == 0) {
+				return index;
 			}
-
-			uint ret = index;
 
 			popChar();
-			if (c == '\r') {
-				if (frontChar == '\n') {
-					popChar();
-				}
+			c = frontChar;
+		}
+
+		uint ret = index;
+
+		popChar();
+		if (c == '\r') {
+			if (frontChar == '\n') {
+				popChar();
 			}
+		}
 
-			return ret;
-		} else static if (s == "/*") {
-			while (true) {
-				while (c != '*') {
-					popChar();
-					c = frontChar;
-				}
+		return ret;
+	}
 
-				auto match = c;
+	uint popComment(string s : "/*")() {
+		auto c = frontChar;
+
+		while (true) {
+			while (c != '*') {
 				popChar();
 				c = frontChar;
-
-				if (c == '/') {
-					popChar();
-					return index;
-				}
 			}
-		} else static if (s == "/+") {
-			uint stack = 0;
-			while (true) {
-				while (c != '+' && c != '/') {
-					popChar();
-					c = frontChar;
-				}
 
-				auto match = c;
+			auto match = c;
+			popChar();
+			c = frontChar;
+
+			if (c == '/') {
+				popChar();
+				return index;
+			}
+		}
+	}
+
+	uint popComment(string s : "/+")() {
+		auto c = frontChar;
+
+		uint stack = 0;
+		while (true) {
+			while (c != '+' && c != '/') {
 				popChar();
 				c = frontChar;
-
-				switch (match) {
-					case '+':
-						if (c == '/') {
-							popChar();
-							if (!stack) {
-								return index;
-							}
-
-							c = frontChar;
-							stack--;
-						}
-
-						break;
-
-					case '/':
-						if (c == '+') {
-							popChar();
-							c = frontChar;
-
-							stack++;
-						}
-
-						break;
-
-					default:
-						assert(0, "Unreachable.");
-				}
 			}
-		} else {
-			static assert(0, s ~ " isn't a known type of comment.");
+
+			auto match = c;
+			popChar();
+			c = frontChar;
+
+			switch (match) {
+				case '+':
+					if (c == '/') {
+						popChar();
+						if (!stack) {
+							return index;
+						}
+
+						c = frontChar;
+						stack--;
+					}
+
+					break;
+
+				case '/':
+					if (c == '+') {
+						popChar();
+						c = frontChar;
+
+						stack++;
+					}
+
+					break;
+
+				default:
+					assert(0, "Unreachable.");
+			}
 		}
 	}
 
