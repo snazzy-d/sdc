@@ -11,67 +11,68 @@ mixin template LexNumericImpl(
 	 * Integral and float literals.
 	 */
 	Token lexIntegralSuffix(uint begin) {
-		return lexLiteralSuffix!(IntegralSuffixes, CustomIntegralSuffixes)(begin);
+		return
+			lexLiteralSuffix!(IntegralSuffixes, CustomIntegralSuffixes)(begin);
 	}
-	
+
 	Token lexFloatSuffix(uint begin) {
 		return lexLiteralSuffix!(FloatSuffixes, CustomFloatSuffixes)(begin);
 	}
-	
+
 	Token lexFloatLiteral(alias isFun, alias popFun, char E)(uint begin) {
 		popFun();
-		
+
 		bool isFloat = false;
 		if (frontChar == '.') {
 			auto savePoint = index;
-			
+
 			popChar();
 			if (frontChar == '.') {
 				index = savePoint;
 				goto LexSuffix;
 			}
-			
+
 			auto floatSavePoint = index;
 
 			popSkippableChars();
-			
+
 			if (wantIdentifier(frontChar)) {
 				index = savePoint;
 				goto LexSuffix;
 			}
-			
+
 			index = floatSavePoint;
 			isFloat = true;
-			
+
 			if (isFun(frontChar)) {
 				popChar();
 				popFun();
 			}
 		}
-		
+
 		if ((frontChar | 0x20) == E) {
 			isFloat = true;
 			popChar();
-			
+
 			auto c = frontChar;
 			if (c == '+' || c == '-') {
 				popChar();
 			}
-			
+
 			popDecimal();
 		}
-		
+
 	LexSuffix:
 		return isFloat ? lexFloatSuffix(begin) : lexIntegralSuffix(begin);
 	}
-	
+
 	/**
 	 * Binary literals.
 	 */
 	static bool isBinary(char c) {
 		return c == '0' || c == '1';
 	}
-	
+
 	void popBinary() {
 		auto c = frontChar;
 		while (isBinary(c) || c == '_') {
@@ -79,11 +80,11 @@ mixin template LexNumericImpl(
 			c = frontChar;
 		}
 	}
-	
+
 	Token lexNumeric(string s : "0B")() {
 		return lexNumeric!"0b"();
 	}
-	
+
 	Token lexNumeric(string s : "0b")() {
 		uint begin = index - 2;
 
@@ -98,7 +99,7 @@ mixin template LexNumericImpl(
 		popBinary();
 		return lexIntegralSuffix(begin);
 	}
-	
+
 	/**
 	 * Hexadecimal literals.
 	 */
@@ -106,7 +107,7 @@ mixin template LexNumericImpl(
 		auto hc = c | 0x20;
 		return (c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f');
 	}
-	
+
 	void popHexadecimal() {
 		auto c = frontChar;
 		while (isHexadecimal(c) || c == '_') {
@@ -114,11 +115,11 @@ mixin template LexNumericImpl(
 			c = frontChar;
 		}
 	}
-	
+
 	Token lexNumeric(string s : "0X")() {
 		return lexNumeric!"0x"();
 	}
-	
+
 	Token lexNumeric(string s : "0x")() {
 		uint begin = index - 2;
 
@@ -132,14 +133,14 @@ mixin template LexNumericImpl(
 
 		return lexFloatLiteral!(isHexadecimal, popHexadecimal, 'p')(begin);
 	}
-	
+
 	/**
 	 * Decimal literals.
 	 */
 	static bool isDecimal(char c) {
 		return c >= '0' && c <= '9';
 	}
-	
+
 	void popDecimal() {
 		auto c = frontChar;
 		while (isDecimal(c) || c == '_') {
@@ -147,14 +148,12 @@ mixin template LexNumericImpl(
 			c = frontChar;
 		}
 	}
-	
+
 	auto lexNumeric(string s)() if (s.length == 1 && isDecimal(s[0])) {
 		return lexNumeric(s[0]);
 	}
-	
-	auto lexNumeric(char c) in {
-		assert(isDecimal(c));
-	} do {
+
+	auto lexNumeric(char c) in(isDecimal(c)) {
 		return lexFloatLiteral!(isDecimal, popDecimal, 'e')(index - 1);
 	}
 }

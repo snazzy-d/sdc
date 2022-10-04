@@ -4,23 +4,24 @@ import source.context;
 import source.location;
 
 enum TokenType {
+	// sdfmt off
 	Invalid = 0,
-	
+
 	Begin,
 	End,
-	
+
 	// Comments
 	Comment,
-	
+
 	// Literals
 	StringLiteral,
 	CharacterLiteral,
 	IntegerLiteral,
 	FloatLiteral,
-	
+
 	// Identifier
 	Identifier,
-	
+
 	// Keywords
 	Abstract, Alias, Align, Asm, Assert, Auto,
 	Body, Bool, Break, Byte,
@@ -48,7 +49,7 @@ enum TokenType {
 	Version, Void, Volatile,
 	Wchar, While, With,
 	__File__, __Line__, __Gshared, __Traits, __Vector, __Parameters,
-	
+
 	// Operators.
 	Slash,              // /
 	SlashEqual,         // /=
@@ -113,17 +114,18 @@ enum TokenType {
 	At,                 // @
 	EqualMore,          // =>
 	Hash,               // #
+	// sdfmt on
 }
 
 struct Token {
 	import source.location;
 	Location location;
-	
+
 	TokenType type;
-	
+
 	import source.name;
 	Name name;
-	
+
 	import source.context;
 	string toString(Context context) {
 		return (type >= TokenType.Identifier)
@@ -134,18 +136,18 @@ struct Token {
 
 auto lex(Position base, Context context) {
 	auto lexer = TokenRange();
-	
+
 	lexer.content = base.getFullPosition(context).getSource().getContent();
 	lexer.t.type = TokenType.Begin;
-	
+
 	lexer.context = context;
 	lexer.base = base;
 	lexer.previous = base;
-	
+
 	// Pop #!
 	lexer.t.name = lexer.popSheBang();
-	
-	lexer.t.location =  Location(base, base.getWithOffset(lexer.index));
+
+	lexer.t.location = Location(base, base.getWithOffset(lexer.index));
 	return lexer;
 }
 
@@ -154,17 +156,18 @@ alias TokenRange = DLexer;
 struct DLexer {
 	enum BaseMap = () {
 		auto ret = [
+			// sdfmt off
 			// Comments
 			"//" : "?tokenizeComments:lexComment|popComment",
 			"/*" : "?tokenizeComments:lexComment|popComment",
 			"/+" : "?tokenizeComments:lexComment|popComment",
-			
+
 			// Integer literals.
 			"0b" : "lexNumeric",
 			"0B" : "lexNumeric",
 			"0x" : "lexNumeric",
 			"0X" : "lexNumeric",
-			
+
 			// String literals.
 			"`"   : "lexString",
 			`"`   : "lexString",
@@ -175,37 +178,39 @@ struct DLexer {
 			`q"{` : "lexDString",
 			`q"<` : "lexDString",
 			`r"`  : "lexDString",
-			
+
 			// Character literals.
 			"'" : "lexCharacter",
+			// sdfmt on
 		];
-		
+
 		foreach (i; 0 .. 10) {
 			import std.conv;
 			ret[to!string(i)] = "lexNumeric";
 		}
-		
+
 		return ret;
 	}();
-	
+
 	import source.lexbase;
 	mixin LexBaseImpl!(Token, BaseMap, getKeywordsMap(), getOperatorsMap());
-	
+
 	import source.name;
 	Name popSheBang() {
 		auto c = frontChar;
 		if (c != '#') {
 			return BuiltinName!"";
 		}
-		
+
 		while (c != '\n') {
 			popChar();
 			c = frontChar;
 		}
-		
+
 		return context.getName(content[0 .. index]);
 	}
-	
+
+	// sdfmt off
 	import source.lexnumeric;
 	mixin LexNumericImpl!(Token, [
 		"" : TokenType.IntegerLiteral,
@@ -231,11 +236,13 @@ struct DLexer {
 	], null, [
 		"l": "lexFloatSuffixError",
 	]);
-	
+	// sdfmt on
+
 	auto lexFloatSuffixError(string s : "l")(uint begin, uint prefixStart) {
 		return getError(begin, "Use 'L' suffix instead of 'l'.");
 	}
-	
+
+	// sdfmt off
 	import source.lexstring;
 	mixin LexStringImpl!(Token, [
 		"" : TokenType.StringLiteral,
@@ -243,53 +250,52 @@ struct DLexer {
 		"w" : TokenType.StringLiteral,
 		"d" : TokenType.StringLiteral,
 	]);
-	
+	// sdfmt on
+
 	Token lexDString(string s : `r"`)() {
 		uint l = s.length;
 		return lexRawString!'"'(index - l);
 	}
-	
+
 	Token lexDString(string s : "q{")() {
 		uint begin = index - 2;
 		uint start = index;
-		
+
 		auto lookahead = getLookahead();
-		
+
 		uint level = 1;
 		while (level > 0) {
 			lookahead.popFront();
 			auto lt = lookahead.front;
-			
+
 			switch (lt.type) with (TokenType) {
 				case Invalid:
 					// Bubble up errors.
 					index = lookahead.index;
 					return lt;
-				
+
 				case End:
 					index = lookahead.index - 1;
 					return getError(begin, "Unexpected end of file.");
-				
+
 				case OpenBrace:
 					level++;
 					break;
-				
+
 				case CloseBrace:
 					level--;
 					break;
-				
+
 				default:
 					break;
 			}
 		}
-		
+
 		index = lookahead.index;
 		return buildRawString(begin, start, index - 1);
 	}
 
-	Token lexQDelimintedString(char delimiter) in {
-		assert(delimiter != '"');
-	} do {
+	Token lexQDelimintedString(char delimiter) in(delimiter != '"') {
 		uint begin = index - 3;
 		uint start = index;
 
@@ -346,7 +352,8 @@ struct DLexer {
 		}
 
 		if (frontChar != '\n') {
-			return getError(begin, "Identifier must be followed by a new line.");
+			return
+				getError(begin, "Identifier must be followed by a new line.");
 		}
 
 		popChar();
@@ -361,7 +368,7 @@ struct DLexer {
 		}
 
 		while (true) {
-			while (c != '\0' && c != '"')  {
+			while (c != '\0' && c != '"') {
 				popChar();
 				c = frontChar;
 			}
@@ -393,9 +400,9 @@ struct DLexer {
 }
 
 auto getOperatorsMap() {
-	//with(TokenType): currently isn't working https://issues.dlang.org/show_bug.cgi?id=14332
-	with(TokenType)
-	return [
+	// with(TokenType): currently isn't working https://issues.dlang.org/show_bug.cgi?id=14332
+	with (TokenType) return [
+		// sdfmt off
 		"/"    : Slash,
 		"/="   : SlashEqual,
 		"."    : Dot,
@@ -460,13 +467,14 @@ auto getOperatorsMap() {
 		"=>"   : EqualMore,
 		"#"    : Hash,
 		"\0"   : End,
+		// sdfmt on
 	];
 }
 
 auto getKeywordsMap() {
-	//with(TokenType): currently isn't working https://issues.dlang.org/show_bug.cgi?id=14332
-	with(TokenType)
-	return [
+	// with(TokenType): currently isn't working https://issues.dlang.org/show_bug.cgi?id=14332
+	with (TokenType) return [
+		// sdfmt off
 		"abstract"        : Abstract,
 		"alias"           : Alias,
 		"align"           : Align,
@@ -567,160 +575,161 @@ auto getKeywordsMap() {
 		"__traits"        : __Traits,
 		"__vector"        : __Vector,
 		"__parameters"    : __Parameters,
+		// sdfmt on
 	];
 }
 
 unittest {
 	auto context = new Context();
-	
+
 	auto testlexer(string s) {
 		import source.name;
 		auto base = context.registerMixin(Location.init, s ~ '\0');
 		return lex(base, context);
 	}
-	
+
 	import source.parserutil;
-	
+
 	{
 		auto lex = testlexer("");
 		lex.match(TokenType.Begin);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("a");
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.Identifier);
 		assert(t.name.toString(context) == "a");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("_");
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.Identifier);
 		assert(t.name.toString(context) == "_");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("_0");
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.Identifier);
 		assert(t.name.toString(context) == "_0");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("0b0");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("0b_0");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("0b_0_");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("0b_");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.Invalid);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("0x0");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("0x_0");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("0x_0_");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("0x_");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.Invalid);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("_0");
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.Identifier);
 		assert(t.name.toString(context) == "_0");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("é");
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.Identifier);
 		assert(t.name.toString(context) == "é");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("Γαῖα");
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.Identifier);
 		assert(t.name.toString(context) == "Γαῖα");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("🙈🙉🙊");
 		lex.match(TokenType.Begin);
@@ -729,35 +738,35 @@ unittest {
 		lex.match(TokenType.Invalid);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("0");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1.");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1.0");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1. 0");
 		lex.match(TokenType.Begin);
@@ -765,7 +774,7 @@ unittest {
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1..");
 		lex.match(TokenType.Begin);
@@ -773,7 +782,7 @@ unittest {
 		lex.match(TokenType.DotDot);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1 .");
 		lex.match(TokenType.Begin);
@@ -781,105 +790,105 @@ unittest {
 		lex.match(TokenType.Dot);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1u");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1U");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1l");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1L");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1ul");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1uL");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1Ul");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1UL");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1lu");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1lU");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1Lu");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1LU");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1f");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1F");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1.f");
 		lex.match(TokenType.Begin);
@@ -888,28 +897,28 @@ unittest {
 		lex.match(TokenType.Identifier);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1.1f");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1.1F");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1.1L");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		// /!\ l is *NOT*  a valid suffix, this one is case sensitive.
 		auto lex = testlexer("1.1l");
@@ -917,14 +926,14 @@ unittest {
 		lex.match(TokenType.Invalid);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1.1F");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1. f");
 		lex.match(TokenType.Begin);
@@ -933,7 +942,7 @@ unittest {
 		lex.match(TokenType.Identifier);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("1.1 f");
 		lex.match(TokenType.Begin);
@@ -941,141 +950,141 @@ unittest {
 		lex.match(TokenType.Identifier);
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer(`q"(("))"`);
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == `(")`);
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
 
 	{
 		auto lex = testlexer(`q"[]"`);
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
 
 	{
 		auto lex = testlexer(`q"{<}"`);
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "<");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer(`q"<">"`);
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == `"`);
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer("q{{foo}}");
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "{foo}");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer(`q"EOF
 EOF"`);
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer(`q"EOF
 
 EOF"`);
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "\n");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer(`q"MONKEYS
 🙈🙉🙊
 MONKEYS"`);
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "🙈🙉🙊\n");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer(`q"I_LOVE_PYTHON
 """python comment!"""
 I_LOVE_PYTHON"`);
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == `"""python comment!"""` ~ '\n');
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
-	
+
 	{
 		auto lex = testlexer(`r"\r"`);
 		lex.match(TokenType.Begin);
-		
+
 		auto t = lex.front;
-		
+
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "\\r");
 		lex.popFront();
-		
+
 		assert(lex.front.type == TokenType.End);
 	}
 }

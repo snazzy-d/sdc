@@ -7,15 +7,15 @@ module source.exception;
 class CompileException : Exception {
 	import source.location;
 	Location location;
-	
+
 	CompileException more; // Optional
 	string fixHint; // Optional
-	
+
 	this(Location loc, string message) {
 		super(message);
 		location = loc;
 	}
-	
+
 	this(Location loc, string message, CompileException more) {
 		this.more = more;
 		this(loc, message);

@@ -217,7 +217,8 @@ struct SourceEntries {
 		import source.util.lookup;
 		return lastFileID = FileID(
 			lookup!(e => e.offset, 7)(sourceEntries, p.offset, lastFileID),
-			p.isMixin());
+			p.isMixin()
+		);
 	}
 }
 
@@ -281,8 +282,7 @@ private:
 		// so we have a one entry cache for it.
 		if (!isIndexInLine(index, lastLineLookup)) {
 			import source.util.lookup;
-			lastLineLookup =
-				lookup!(l => l, 15)(lines, index, lastLineLookup);
+			lastLineLookup = lookup!(l => l, 15)(lines, index, lastLineLookup);
 		}
 
 		return lastLineLookup + 1;
