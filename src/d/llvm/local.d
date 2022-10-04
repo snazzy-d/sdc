@@ -168,9 +168,8 @@ struct LocalGen {
 		return fun;
 	}
 
-	private bool maybeDefine(Function f, LLVMValueRef fun) in {
-		assert(f.step == Step.Processed, "f is not processed");
-	} do {
+	private bool maybeDefine(Function f, LLVMValueRef fun)
+			in(f.step == Step.Processed, "f is not processed") {
 		auto countBB = LLVMCountBasicBlocks(fun);
 		if (countBB) {
 			return false;
@@ -401,10 +400,8 @@ struct LocalGen {
 		return createVariableStorage(v, value);
 	}
 
-	private
-	LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value) in {
-		assert(v.storage.isLocal, "globals not supported");
-	} do {
+	private LLVMValueRef createVariableStorage(Variable v, LLVMValueRef value)
+			in(v.storage.isLocal, "globals not supported") {
 		auto name = v.name.toStringz(context);
 
 		if (v.isRef || v.isFinal) {
@@ -445,9 +442,8 @@ struct LocalGen {
 		return locals[v] = addr;
 	}
 
-	LLVMValueRef createCaptureStorage(Variable v, const char* name) in {
-		assert(v.storage == Storage.Capture, "Expected captured");
-	} do {
+	LLVMValueRef createCaptureStorage(Variable v, const char* name)
+			in(v.storage == Storage.Capture, "Expected captured") {
 		auto closure = &contexts[$ - 1];
 
 		// If we don't have a closure, make one.

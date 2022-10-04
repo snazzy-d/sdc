@@ -31,9 +31,7 @@ struct StatementGen {
 		this.pass = pass;
 	}
 
-	void visit(Body fbody) in {
-		assert(fbody, "Empty body");
-	} do {
+	void visit(Body fbody) in(fbody, "Empty body") {
 		basicBlocks.length = fbody.length;
 		landingPads.length = fbody.length;
 

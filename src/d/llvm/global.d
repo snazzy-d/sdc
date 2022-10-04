@@ -25,9 +25,7 @@ struct GlobalGen {
 		this.mode = mode;
 	}
 
-	void define(Symbol s) in {
-		assert(s.step == Step.Processed);
-	} do {
+	void define(Symbol s) in(s.step == Step.Processed) {
 		if (auto f = cast(Function) s) {
 			define(f);
 		} else if (auto t = cast(Template) s) {
@@ -39,16 +37,14 @@ struct GlobalGen {
 		}
 	}
 
-	LLVMValueRef declare(Function f) in {
-		assert(!f.hasContext, "function must not have context");
-	} do {
+	LLVMValueRef declare(Function f)
+			in(!f.hasContext, "function must not have context") {
 		import d.llvm.local;
 		return LocalGen(pass).declare(f);
 	}
 
-	LLVMValueRef define(Function f) in {
-		assert(!f.hasContext, "function must not have context");
-	} do {
+	LLVMValueRef define(Function f)
+			in(!f.hasContext, "function must not have context") {
 		import d.llvm.local;
 		return LocalGen(pass).define(f);
 	}
@@ -153,15 +149,11 @@ struct GlobalGen {
 		return var;
 	}
 
-	LLVMTypeRef define(Aggregate a) in {
-		assert(a.step == Step.Processed);
-	} do {
+	LLVMTypeRef define(Aggregate a) in(a.step == Step.Processed) {
 		return this.dispatch(a);
 	}
 
-	LLVMTypeRef visit(Struct s) in {
-		assert(s.step == Step.Processed);
-	} do {
+	LLVMTypeRef visit(Struct s) in(s.step == Step.Processed) {
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(s);
 
@@ -174,9 +166,7 @@ struct GlobalGen {
 		return ret;
 	}
 
-	LLVMTypeRef visit(Class c) in {
-		assert(c.step == Step.Processed);
-	} do {
+	LLVMTypeRef visit(Class c) in(c.step == Step.Processed) {
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(c);
 
@@ -198,9 +188,7 @@ struct GlobalGen {
 		return ret;
 	}
 
-	LLVMTypeRef visit(Union u) in {
-		assert(u.step == Step.Processed);
-	} do {
+	LLVMTypeRef visit(Union u) in(u.step == Step.Processed) {
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(u);
 
@@ -213,9 +201,7 @@ struct GlobalGen {
 		return ret;
 	}
 
-	LLVMTypeRef visit(Interface i) in {
-		assert(i.step == Step.Processed);
-	} do {
+	LLVMTypeRef visit(Interface i) in(i.step == Step.Processed) {
 		import d.llvm.type;
 		return TypeGen(pass).visit(i);
 	}

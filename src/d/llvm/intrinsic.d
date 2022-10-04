@@ -60,9 +60,8 @@ struct IntrinsicGen {
 		}
 	}
 
-	LLVMValueRef expect(LLVMValueRef[] args) in {
-		assert(args.length == 2, "Invalid argument count");
-	} do {
+	LLVMValueRef expect(LLVMValueRef[] args)
+			in(args.length == 2, "Invalid argument count") {
 		return expect(args[0], args[1]);
 	}
 
@@ -85,9 +84,8 @@ struct IntrinsicGen {
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
 	}
 
-	LLVMValueRef cas(bool weak, LLVMValueRef[] args) in {
-		assert(args.length == 3, "Invalid argument count");
-	} do {
+	LLVMValueRef cas(bool weak, LLVMValueRef[] args)
+			in(args.length == 3, "Invalid argument count") {
 		return cas(weak, args[0], args[1], args[2],
 		           LLVMAtomicOrdering.SequentiallyConsistent);
 	}
@@ -98,9 +96,8 @@ struct IntrinsicGen {
 		                              ordering, false);
 	}
 
-	LLVMValueRef ctpop(LLVMValueRef[] args) in {
-		assert(args.length == 1, "Invalid argument count");
-	} do {
+	LLVMValueRef ctpop(LLVMValueRef[] args)
+			in(args.length == 1, "Invalid argument count") {
 		return ctpop(args[0]);
 	}
 
@@ -121,9 +118,8 @@ struct IntrinsicGen {
 		                                     LLVMFunctionType(t, &t, 1, false));
 	}
 
-	LLVMValueRef ctlz(LLVMValueRef[] args) in {
-		assert(args.length == 1, "Invalid argument count");
-	} do {
+	LLVMValueRef ctlz(LLVMValueRef[] args)
+			in(args.length == 1, "Invalid argument count") {
 		return ctlz(args[0]);
 	}
 
@@ -150,9 +146,8 @@ struct IntrinsicGen {
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
 	}
 
-	LLVMValueRef cttz(LLVMValueRef[] args) in {
-		assert(args.length == 1, "Invalid argument count");
-	} do {
+	LLVMValueRef cttz(LLVMValueRef[] args)
+			in(args.length == 1, "Invalid argument count") {
 		return cttz(args[0]);
 	}
 
@@ -179,9 +174,8 @@ struct IntrinsicGen {
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
 	}
 
-	LLVMValueRef bswap(LLVMValueRef[] args) in {
-		assert(args.length == 1, "Invalid argument count");
-	} do {
+	LLVMValueRef bswap(LLVMValueRef[] args)
+			in(args.length == 1, "Invalid argument count") {
 		return bswap(args[0]);
 	}
 
