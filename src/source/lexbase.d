@@ -350,7 +350,7 @@ private:
 	/**
 	 * Comments.
 	 */
-	uint popComment(string s : "//")() {
+	uint popComment(string s : "#")() {
 		auto c = frontChar;
 
 		// TODO: check for unicode line break.
@@ -373,6 +373,10 @@ private:
 		}
 
 		return ret;
+	}
+
+	uint popComment(string s : "//")() {
+		return popComment!"#"();
 	}
 
 	uint popComment(string s : "/*")() {

@@ -113,7 +113,6 @@ enum TokenType {
 	TildeEqual,         // ~=
 	At,                 // @
 	EqualMore,          // =>
-	Hash,               // #
 	// sdfmt on
 }
 
@@ -161,6 +160,9 @@ struct DLexer {
 			"//" : "?tokenizeComments:lexComment|popComment",
 			"/*" : "?tokenizeComments:lexComment|popComment",
 			"/+" : "?tokenizeComments:lexComment|popComment",
+
+			// Line directives.
+			"#"  : "?tokenizeComments:lexComment|popComment",
 
 			// Integer literals.
 			"0b" : "lexNumeric",
@@ -465,7 +467,6 @@ auto getOperatorsMap() {
 		"~="   : TildeEqual,
 		"@"    : At,
 		"=>"   : EqualMore,
-		"#"    : Hash,
 		"\0"   : End,
 		// sdfmt on
 	];
