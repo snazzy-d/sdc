@@ -111,6 +111,10 @@ public:
 	auto getFullPosition(Context c) const {
 		return FullPosition(this, c);
 	}
+
+	int opCmp(Position rhs) const {
+		return raw - rhs.raw;
+	}
 }
 
 /**
@@ -149,7 +153,7 @@ public:
 			"Location file mismatch " ~
 				start.getFileName() ~ ":" ~ to!string(getStartOffset()) ~ " and " ~
 				stop.getFileName() ~ ":" ~ to!string(getStopOffset())
-/* +/ /*/ /+ */
+			/* +/ /*/ /+ */
 			"Location file mismatch"
 		// +/
 		);
@@ -163,6 +167,10 @@ public:
 
 	auto getSource() out(result; result.isMixin() == isMixin()) {
 		return start.getSource();
+	}
+
+	auto getFileName() {
+		return getSource().getFileName();
 	}
 
 	string getSlice() {

@@ -48,10 +48,32 @@ package:
 	}
 }
 
+struct LineDirectives {
+	struct LineEntry {
+		Position position;
+		Name filename;
+		uint line;
+	}
+
+	LineEntry[] lineDirectives;
+
+	this(Position p, Name filename, uint line) {
+		lineDirectives = [LineEntry(p, filename, line)];
+	}
+
+	void registerLineDirective(Position p, Name filename, uint line) {
+		if (lineDirectives[$ - 1].position < p) {
+			lineDirectives ~= LineEntry(p, filename, line);
+		}
+	}
+}
+
 struct SourceManager {
 private:
 	SourceEntries files = SourceEntries(1);
 	SourceEntries mixins = SourceEntries(int.min);
+
+	LineDirectives[FileID] lineDirectives;
 
 	// Make it non copyable.
 	@disable
@@ -81,6 +103,18 @@ public:
 		auto e = &getSourceEntry(p);
 		auto o = p.offset - e.base.offset;
 		return o - e.getLineOffset(o);
+	}
+
+	void registerLineDirective(Position p, Name filename, uint line) {
+		auto id = getFileID(p);
+
+		getSourceEntry(id)._hasLineDirectives = true;
+		lineDirectives.update(
+			id,
+			() => LineDirectives(p, filename, line),
+			(ref LineDirectives ds) =>
+				ds.registerLineDirective(p, filename, line)
+		);
 	}
 
 package:
@@ -233,7 +267,13 @@ private:
 	Name _filename;
 	Name _directory;
 
-	ulong pad;
+	import std.bitmanip;
+	mixin(bitfields!(
+		// sdfmt off
+		bool, "_hasLineDirectives", 1,
+		ulong, "_pad", ulong.sizeof * 8 - 1,
+		// sdfmt on
+	));
 
 	// Make sure this is compact enough to fit in a cache line.
 	static assert(SourceEntry.sizeof == 8 * size_t.sizeof);

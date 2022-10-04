@@ -594,14 +594,35 @@ struct DLexer {
 	                           ["line" : "processLineDirective"]);
 
 	Token processLineDirective(uint begin, Token i) {
+		if (base.isMixin()) {
+			// It is really unclear what this should actually do.
+			// Disallow for now. DMD allows this.
+			return getError(
+				i.location,
+				"#line directive are not allowed in string mixins."
+			);
+		}
+
+		uint line;
+		Name file;
+
 		auto t = getNextPreprocessorToken();
 		switch (t.type) with (TokenType) {
 			case IntegerLiteral:
-				// TODO.
-				break;
+				auto l = t.packedInt.toInt(context);
+				if (l <= uint.max) {
+					line = cast(uint) l;
+					break;
+				}
+
+				import std.format;
+				return getError(
+					t.location,
+					format!"Expected 32-bits integers, not `%s`."(l)
+				);
 
 			case __Line__:
-				// TODO.
+				line = t.location.getFullLocation(context).getStartLineNumber();
 				break;
 
 			case End:
@@ -622,11 +643,11 @@ struct DLexer {
 		t = getNextPreprocessorToken();
 		switch (t.type) with (TokenType) {
 			case StringLiteral:
-				// TODO.
+				file = t.decodedString;
 				break;
 
 			case __File__:
-				// TODO.
+				file = t.location.getFullLocation(context).getFileName();
 				break;
 
 			case End:
@@ -654,6 +675,7 @@ struct DLexer {
 		);
 
 	End:
+		context.registerLineDirective(t.location.stop, file, line);
 		return getPreprocessorComment(begin, t);
 	}
 

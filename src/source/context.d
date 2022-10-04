@@ -36,4 +36,8 @@ public:
 	Position registerMixin(Location location, string content) {
 		return sourceManager.registerMixin(location, content);
 	}
+
+	void registerLineDirective(Position p, Name filename, uint line) {
+		return sourceManager.registerLineDirective(p, filename, line);
+	}
 }
