@@ -175,6 +175,58 @@ private:
 	}
 
 	/**
+	 * Fallback for invalid prefixes.
+	 */
+	static identifierPrefixLength(string s) {
+		if (s == "" || !wantIdentifier(s[0])) {
+			return 0;
+		}
+
+		foreach (size_t i, dchar c; s) {
+			import std.uni;
+			if (c != '_' && !isAlphaNum(c)) {
+				return i;
+			}
+		}
+
+		return s.length;
+	}
+
+	auto lexDefaultFallback(string s)() {
+		if (s == "") {
+			return lexIdentifier();
+		}
+
+		enum PL = identifierPrefixLength(s);
+		enum Delta = s.length - PL;
+		index -= Delta;
+
+		static if (PL == 0) {
+			return lexInvalid();
+		} else {
+			enum PS = s[0 .. PL];
+			return lexIdentifier!PS();
+		}
+	}
+
+	auto lexInvalid() {
+		uint begin = index;
+		char c = frontChar;
+
+		// Make sure we don't stay in place.
+		if (c | 0x80) {
+			import std.utf;
+			size_t i = index;
+			content.decode(i);
+			index = cast(uint) i;
+		} else if (c != '\0') {
+			popChar();
+		}
+
+		return getError(begin, "Unexpected token.");
+	}
+
+	/**
 	 * Identifiers.
 	 */
 	static wantIdentifier(char c) {
@@ -214,39 +266,20 @@ private:
 		return begin - index;
 	}
 
-	auto lexIdentifier(string s : "" = "")() {
-		uint begin = index;
+	auto lexIdentifier(string s = "")() {
+		static assert(identifierPrefixLength(s) == s.length,
+		              s ~ " must be an identifier.");
 
-		char c = frontChar;
-		if (wantIdentifier(c) && popIdChars() > 0) {
-			Token t;
-			t.type = TokenType.Identifier;
-			t.location = base.getWithOffsets(begin, index);
-			t.name = context.getName(content[begin .. index]);
-
-			return t;
-		}
-
-		// Make sure we don't stay in place.
-		if (c | 0x80) {
-			import std.utf;
-			size_t i = index;
-			content.decode(i);
-			index = cast(uint) i;
-		} else if (c != '\0') {
-			popChar();
-		}
-
-		return getError(begin, "Unexpected token.");
-	}
-
-	auto lexIdentifier(string s)() if (s != "") {
 		uint l = s.length;
-		return lexIdentifier(index - l);
-	}
+		uint begin = index - l;
 
-	auto lexIdentifier(uint begin) {
-		popIdChars();
+		if (s == "") {
+			if (!wantIdentifier(frontChar) || popIdChars() == 0) {
+				return lexInvalid();
+			}
+		} else {
+			popIdChars();
+		}
 
 		Token t;
 		t.type = TokenType.Identifier;
@@ -464,7 +497,7 @@ void popFront(ref string s) {
 	s = s[1 .. $];
 }
 
-string lexerMixin(string[string] ids, string def = "lexIdentifier",
+string lexerMixin(string[string] ids, string def = "lexDefaultFallback",
                   string[] rtArgs = []) {
 	return lexerMixin(ids, def, rtArgs, "");
 }
