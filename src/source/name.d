@@ -140,10 +140,12 @@ enum Prefill = [
 	"C", "D", "C++", "Windows", "System", "Pascal", "Java",
 	// Version
 	"SDC", "D_LP64", "X86_64", "linux", "OSX", "FreeBSD", "Posix",
-	// Generated
-	"init", "length", "max", "min", "ptr", "sizeof", "alignof",
 	// Comment types
 	"#", "//", "/*", "/+",
+	// Preprocessor
+	"define", "error", "elif", "ifdef", "ifndef", "include", "line", "undef",
+	// Generated
+	"init", "length", "max", "min", "ptr", "sizeof", "alignof",
 	// Scope
 	"exit", "success", "failure",
 	// Main

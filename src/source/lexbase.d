@@ -18,7 +18,8 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 		// sdfmt off
 		bool, "tokenizeComments", 1,
 		bool, "_skipStrings", 1,
-		uint, "__derived", 30,
+		bool, "_skipLineDirectives", 1,
+		uint, "__derived", 29,
 		// sdfmt on
 	));
 
@@ -47,13 +48,26 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 		return r;
 	}
 
+	@property
+	bool processLineDirective() const {
+		return !_skipLineDirectives;
+	}
+
+	auto withLineDirectives(bool ld = true) {
+		auto r = this.save;
+		r._skipLineDirectives = !ld;
+		return r;
+	}
+
 	/**
 	 * Return a copy of this lexer that:
 	 *  - skip over comments.
 	 *  - do not decode strings.
+	 *  - do not try to process line directives.
 	 */
 	auto getLookahead() {
-		return withStringDecoding(false).withComments(false);
+		return withComments(false).withStringDecoding(false)
+		                          .withLineDirectives(false);
 	}
 
 	@property
@@ -177,6 +191,32 @@ private:
 		// sdfmt on
 	];
 
+	void popHorizontalWhiteSpaces() {
+		static getLexerMap() {
+			string[string] ret;
+
+			foreach (op; HorizontalWhiteSpace) {
+				ret[op] = "-skip";
+			}
+
+			return ret;
+		}
+
+		while (true) {
+			// Fast track the usual suspects: space and tabs.
+			auto c = frontChar;
+			while (c == ' ' || c == '\t') {
+				popChar();
+				c = frontChar;
+			}
+
+			import source.lexbase;
+			// pragma(msg, typeof(this));
+			// pragma(msg, lexerMixin(getLexerMap(), "skip"));
+			mixin(lexerMixin(getLexerMap(), "skip"));
+		}
+	}
+
 	enum LineBreaks = [
 		// sdfmt off
 		"\r", "\n", "\r\n",
@@ -200,9 +240,16 @@ private:
 		}
 
 		while (true) {
+			// Fast track the usual suspects: space and tabs, and \n.
+			auto c = frontChar;
+			while (c == ' ' || c == '\t' || c == '\n') {
+				popChar();
+				c = frontChar;
+			}
+
 			import source.lexbase;
 			// pragma(msg, typeof(this));
-			// pragma(msg, lexerMixin(getLexerMap(), "__noop"));
+			// pragma(msg, lexerMixin(getLexerMap(), "skip"));
 			mixin(lexerMixin(getLexerMap(), "skip"));
 		}
 	}
@@ -519,6 +566,50 @@ private:
 
 	bool skipComment(string s)(Token c) {
 		return c.type == TokenType.Comment && !tokenizeComments;
+	}
+
+	/**
+	 * Line directives.
+	 */
+	void popPreprocessorWhiteSpaces() {
+		popHorizontalWhiteSpaces();
+	}
+
+	Token lexLineDirective(string s : "#")() {
+		if (!processLineDirective) {
+			return lexComment!s();
+		}
+
+		uint l = s.length;
+		uint begin = index - l;
+
+		popPreprocessorWhiteSpaces();
+		auto i = lexIdentifier();
+		if (i.type != TokenType.Identifier) {
+			return i;
+		}
+
+		if (i.name == BuiltinName!"if") {
+			return getError(
+				begin,
+				"C preprocessor directive `#if` is not supported, use `version` or `static if`."
+			);
+		}
+
+		if (i.name != BuiltinName!"line") {
+			import std.format;
+			return getError(
+				begin,
+				format!"C preprocessor directive `#%s` is not supported."(
+					i.name.toString(context))
+			);
+		}
+
+		return getComment!s(begin, lexLine());
+	}
+
+	auto skipLineDirective(string s : "#")(Token ld) {
+		return skipComment!s(ld);
 	}
 }
 

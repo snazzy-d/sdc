@@ -162,7 +162,7 @@ struct DLexer {
 			"/+" : "?Comment",
 
 			// Line directives.
-			"#"  : "?Comment",
+			"#"  : "?LineDirective",
 
 			// Integer literals.
 			"0b" : "lexNumeric",
