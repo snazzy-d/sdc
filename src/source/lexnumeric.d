@@ -34,7 +34,7 @@ mixin template LexNumericImpl(
 
 			auto floatSavePoint = index;
 
-			popSkippableChars();
+			popWhiteSpaces();
 
 			if (wantIdentifier(frontChar)) {
 				index = savePoint;

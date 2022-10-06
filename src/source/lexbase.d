@@ -98,15 +98,9 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	}
 
 private:
-	enum Skippable = [" ", "\t", "\v", "\f", "\n", "\r", "\u2028", "\u2029"];
-
 	auto getNextToken() {
 		static getLexerMap() {
 			auto ret = BaseMap;
-
-			foreach (op; Skippable) {
-				ret[op] = "-skip";
-			}
 
 			foreach (kw, _; KeywordMap) {
 				ret[kw] = "lexKeyword";
@@ -120,6 +114,11 @@ private:
 		}
 
 		while (true) {
+			// NB: I'm not sure if it is best to generate one giant switch
+			// or if we are better off skipping whitespace and then try to
+			// lex a token.
+			popWhiteSpaces();
+
 			import source.lexbase;
 			// pragma(msg, typeof(this));
 			// pragma(msg, lexerMixin(getLexerMap()));
@@ -146,11 +145,54 @@ private:
 		index--;
 	}
 
-	void popSkippableChars() {
+	@property
+	char frontChar() const {
+		return content[index];
+	}
+
+	auto skip(string s)() {
+		// Just skip over whitespace.
+	}
+
+	/**
+	 * Whietspaces.
+	 */
+	enum HorizontalWhiteSpace = [
+		// sdfmt off
+		" ", "\t",
+		"\v", // ??
+		"\f", // ??
+
+		// Unicode chapter 6.2, Table 6.2
+		"\u00a0", // No break space.
+		"\u1680", // Ogham space mark.
+
+		// A bag of spaces of different sizes.
+		"\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005",
+		"\u2006", "\u2007", "\u2008", "\u2009", "\u200a",
+
+		"\u202f", // Narrow non breaking space.
+		"\u205f", // Medium mathematical space.
+		"\u3000", // Ideographic space.
+		// sdfmt on
+	];
+
+	enum LineBreaks = [
+		// sdfmt off
+		"\r", "\n", "\r\n",
+		"\u0085", // Next Line.
+		"\u2028", // Line Separator.
+		"\u2029", // Paragraph Separator.
+		// sdfmt on
+	];
+
+	enum WhiteSpaces = HorizontalWhiteSpace ~ LineBreaks;
+
+	void popWhiteSpaces() {
 		static getLexerMap() {
 			string[string] ret;
 
-			foreach (op; Skippable) {
+			foreach (op; WhiteSpaces) {
 				ret[op] = "-skip";
 			}
 
@@ -163,15 +205,6 @@ private:
 			// pragma(msg, lexerMixin(getLexerMap(), "__noop"));
 			mixin(lexerMixin(getLexerMap(), "skip"));
 		}
-	}
-
-	@property
-	char frontChar() const {
-		return content[index];
-	}
-
-	auto skip(string s)() {
-		// Just skip over whitespace.
 	}
 
 	/**
