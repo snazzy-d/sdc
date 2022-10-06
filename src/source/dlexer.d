@@ -113,6 +113,7 @@ enum TokenType {
 	TildeEqual,         // ~=
 	At,                 // @
 	EqualMore,          // =>
+	Hash,               // #
 	// sdfmt on
 }
 
@@ -162,7 +163,7 @@ struct DLexer {
 			"/+" : "?Comment",
 
 			// Line directives.
-			"#"  : "?LineDirective",
+			"#"  : "?PreprocessorDirective",
 
 			// Integer literals.
 			"0b" : "lexNumeric",
@@ -212,6 +213,9 @@ struct DLexer {
 		return context.getName(content[0 .. index]);
 	}
 
+	/**
+	 * Numbers.
+	 */
 	// sdfmt off
 	import source.lexnumeric;
 	mixin LexNumericImpl!(Token, [
@@ -244,6 +248,9 @@ struct DLexer {
 		return getError(begin, "Use 'L' suffix instead of 'l'.");
 	}
 
+	/**
+	 * Strings.
+	 */
 	// sdfmt off
 	import source.lexstring;
 	mixin LexStringImpl!(Token, [
@@ -398,6 +405,24 @@ struct DLexer {
 		}
 
 		return buildRawString(begin, start, index - id.length - 1);
+	}
+
+	/**
+	 * Preprocessor.
+	 */
+	import source.lexpreprocessor;
+	mixin LexPreprocessorImpl!(Token, [TokenType.If : "processIfDirective"],
+	                           ["line" : "processLineDirective"]);
+
+	Token processLineDirective(uint begin, Token i) {
+		return popPreprocessorDirective(begin);
+	}
+
+	Token processIfDirective(uint begin, Token i) {
+		return getError(
+			i.location,
+			"C preprocessor directive `#if` is not supported, use `version` or `static if`."
+		);
 	}
 }
 

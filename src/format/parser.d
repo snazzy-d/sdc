@@ -78,8 +78,8 @@ public:
 	import source.context;
 	this(Position base, Context context) {
 		this.trange =
-			lex(base, context).withStringDecoding(false)
-			                  .withLineDirectives(false).withComments();
+			lex(base, context).withComments().withStringDecoding(false)
+			                  .withPreprocessorDirectives(false);
 	}
 
 	Chunk[] parse() in(match(TokenType.Begin)) {

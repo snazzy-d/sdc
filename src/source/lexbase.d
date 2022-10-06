@@ -18,7 +18,7 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 		// sdfmt off
 		bool, "tokenizeComments", 1,
 		bool, "_skipStrings", 1,
-		bool, "_skipLineDirectives", 1,
+		bool, "_skipPreprocessorDirectives", 1,
 		uint, "__derived", 29,
 		// sdfmt on
 	));
@@ -49,13 +49,13 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	}
 
 	@property
-	bool processLineDirective() const {
-		return !_skipLineDirectives;
+	bool preprocessDirectives() const {
+		return !_skipPreprocessorDirectives;
 	}
 
-	auto withLineDirectives(bool ld = true) {
+	auto withPreprocessorDirectives(bool ppd = true) {
 		auto r = this.save;
-		r._skipLineDirectives = !ld;
+		r._skipPreprocessorDirectives = !ppd;
 		return r;
 	}
 
@@ -67,7 +67,7 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	 */
 	auto getLookahead() {
 		return withComments(false).withStringDecoding(false)
-		                          .withLineDirectives(false);
+		                          .withPreprocessorDirectives(false);
 	}
 
 	@property
@@ -112,21 +112,21 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	}
 
 private:
-	auto getNextToken() {
-		static getLexerMap() {
-			auto ret = BaseMap;
+	static getLexerMap() {
+		auto ret = BaseMap;
 
-			foreach (kw, _; KeywordMap) {
-				ret[kw] = "lexKeyword";
-			}
-
-			foreach (op, _; OperatorMap) {
-				ret[op] = "lexOperator";
-			}
-
-			return ret;
+		foreach (kw, _; KeywordMap) {
+			ret[kw] = "lexKeyword";
 		}
 
+		foreach (op, _; OperatorMap) {
+			ret[op] = "lexOperator";
+		}
+
+		return ret;
+	}
+
+	auto getNextToken() {
 		while (true) {
 			// NB: I'm not sure if it is best to generate one giant switch
 			// or if we are better off skipping whitespace and then try to
@@ -134,21 +134,21 @@ private:
 			popWhiteSpaces();
 
 			import source.lexbase;
-			// pragma(msg, typeof(this));
 			// pragma(msg, lexerMixin(getLexerMap()));
 			mixin(lexerMixin(getLexerMap()));
 		}
-
-		// Necessary because of https://issues.dlang.org/show_bug.cgi?id=22688
-		assert(0);
 	}
 
-	Token getError(uint begin, string message) {
+	Token getError(Location loc, string message) {
 		Token t;
 		t.type = TokenType.Invalid;
 		t.name = context.getName(message);
-		t.location = base.getWithOffsets(begin, index);
+		t.location = loc;
 		return t;
+	}
+
+	Token getError(uint begin, string message) {
+		return getError(base.getWithOffsets(begin, index), message);
 	}
 
 	void popChar() in(index < content.length) {
@@ -192,7 +192,7 @@ private:
 	];
 
 	void popHorizontalWhiteSpaces() {
-		static getLexerMap() {
+		static getMap() {
 			string[string] ret;
 
 			foreach (op; HorizontalWhiteSpace) {
@@ -211,9 +211,8 @@ private:
 			}
 
 			import source.lexbase;
-			// pragma(msg, typeof(this));
-			// pragma(msg, lexerMixin(getLexerMap(), "skip"));
-			mixin(lexerMixin(getLexerMap(), "skip"));
+			// pragma(msg, lexerMixin(getMap(), "skip"));
+			mixin(lexerMixin(getMap(), "skip"));
 		}
 	}
 
@@ -226,10 +225,40 @@ private:
 		// sdfmt on
 	];
 
+	bool popLineBreak() {
+		// Special case the end of file:
+		// it counts as a line break, but we don't pop it.
+		if (frontChar == '\0') {
+			return true;
+		}
+
+		static bool t(string s)() {
+			return true;
+		}
+
+		static bool f(string s)() {
+			return false;
+		}
+
+		static getMap() {
+			string[string] ret;
+
+			foreach (op; LineBreaks) {
+				ret[op] = "t";
+			}
+
+			return ret;
+		}
+
+		import source.lexbase;
+		// pragma(msg, lexerMixin(getMap(), "f"));
+		mixin(lexerMixin(getMap(), "f"));
+	}
+
 	enum WhiteSpaces = HorizontalWhiteSpace ~ LineBreaks;
 
 	void popWhiteSpaces() {
-		static getLexerMap() {
+		static getMap() {
 			string[string] ret;
 
 			foreach (op; WhiteSpaces) {
@@ -248,9 +277,8 @@ private:
 			}
 
 			import source.lexbase;
-			// pragma(msg, typeof(this));
-			// pragma(msg, lexerMixin(getLexerMap(), "skip"));
-			mixin(lexerMixin(getLexerMap(), "skip"));
+			// pragma(msg, lexerMixin(getMap(), "skip"));
+			mixin(lexerMixin(getMap(), "skip"));
 		}
 	}
 
@@ -566,50 +594,6 @@ private:
 
 	bool skipComment(string s)(Token c) {
 		return c.type == TokenType.Comment && !tokenizeComments;
-	}
-
-	/**
-	 * Line directives.
-	 */
-	void popPreprocessorWhiteSpaces() {
-		popHorizontalWhiteSpaces();
-	}
-
-	Token lexLineDirective(string s : "#")() {
-		if (!processLineDirective) {
-			return lexComment!s();
-		}
-
-		uint l = s.length;
-		uint begin = index - l;
-
-		popPreprocessorWhiteSpaces();
-		auto i = lexIdentifier();
-		if (i.type != TokenType.Identifier) {
-			return i;
-		}
-
-		if (i.name == BuiltinName!"if") {
-			return getError(
-				begin,
-				"C preprocessor directive `#if` is not supported, use `version` or `static if`."
-			);
-		}
-
-		if (i.name != BuiltinName!"line") {
-			import std.format;
-			return getError(
-				begin,
-				format!"C preprocessor directive `#%s` is not supported."(
-					i.name.toString(context))
-			);
-		}
-
-		return getComment!s(begin, lexLine());
-	}
-
-	auto skipLineDirective(string s : "#")(Token ld) {
-		return skipComment!s(ld);
 	}
 }
 

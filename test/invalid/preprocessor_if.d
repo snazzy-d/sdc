@@ -1,4 +1,4 @@
-//T error: preprocessor_if.d:4:0:
+//T error: preprocessor_if.d:4:1:
 //T error: C preprocessor directive `#if` is not supported, use `version` or `static if`.
 
 #if 1
