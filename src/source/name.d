@@ -142,6 +142,8 @@ enum Prefill = [
 	"SDC", "D_LP64", "X86_64", "linux", "OSX", "FreeBSD", "Posix",
 	// Generated
 	"init", "length", "max", "min", "ptr", "sizeof", "alignof",
+	// Comment types
+	"#", "//", "/*", "/+",
 	// Scope
 	"exit", "success", "failure",
 	// Main

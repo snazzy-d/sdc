@@ -416,36 +416,41 @@ private:
 	/**
 	 * Comments.
 	 */
-	uint popComment(string s : "#")() {
+	Location popLineComment(uint begin) {
 		auto c = frontChar;
 
 		// TODO: check for unicode line break.
-		while (c != '\n' && c != '\r') {
-			if (c == 0) {
-				return index;
-			}
-
+		while (c != 0 && c != '\n' && c != '\r') {
 			popChar();
 			c = frontChar;
 		}
 
-		uint ret = index;
+		uint end = index;
 
-		popChar();
-		if (c == '\r') {
-			if (frontChar == '\n') {
+		if (c != 0) {
+			popChar();
+			if (c == '\r' && frontChar == '\n') {
 				popChar();
 			}
 		}
 
-		return ret;
+		return base.getWithOffsets(begin, end);
 	}
 
-	uint popComment(string s : "//")() {
-		return popComment!"#"();
+	Location popComment(string s : "#")() {
+		uint l = s.length;
+		return popLineComment(index - l);
 	}
 
-	uint popComment(string s : "/*")() {
+	Location popComment(string s : "//")() {
+		uint l = s.length;
+		return popLineComment(index - l);
+	}
+
+	Location popComment(string s : "/*")() {
+		uint l = s.length;
+		uint begin = index - l;
+
 		auto c = frontChar;
 
 		while (true) {
@@ -460,12 +465,15 @@ private:
 
 			if (c == '/') {
 				popChar();
-				return index;
+				return base.getWithOffsets(begin, index);
 			}
 		}
 	}
 
-	uint popComment(string s : "/+")() {
+	Location popComment(string s : "/+")() {
+		uint l = s.length;
+		uint begin = index - l;
+
 		auto c = frontChar;
 
 		uint stack = 0;
@@ -484,7 +492,7 @@ private:
 					if (c == '/') {
 						popChar();
 						if (!stack) {
-							return index;
+							return base.getWithOffsets(begin, index);
 						}
 
 						c = frontChar;
@@ -509,14 +517,15 @@ private:
 		}
 	}
 
-	auto lexComment(string s)() {
+	bool skipComment(string s)(Location loc) {
+		return !tokenizeComments;
+	}
+
+	auto lexComment(string s)(Location loc) {
 		Token t;
 		t.type = TokenType.Comment;
-
-		uint begin = index - uint(s.length);
-		uint end = popComment!s();
-
-		t.location = base.getWithOffsets(begin, end);
+		t.name = BuiltinName!s;
+		t.location = loc;
 		return t;
 	}
 }
@@ -597,40 +606,30 @@ auto stringify(string s) {
 
 auto getLexingCode(string fun, string[] rtArgs, string base) {
 	import std.format;
-	auto args = format!"!%s(%-(%s, %))"(stringify(base), rtArgs);
+	auto args = format!"(%-(%s, %))"(rtArgs);
+
+	static getFun(string fun, string base) {
+		return format!"%s!%s"(fun, stringify(base));
+	}
 
 	switch (fun[0]) {
 		case '-':
 			return format!"
 				%s%s;
-				continue;"(fun[1 .. $], args);
+				continue;"(getFun(fun[1 .. $], base), args);
 
 		case '?':
-			size_t i = 1;
-			while (fun[i] != ':') {
-				i++;
-			}
-
-			size_t endcond = i;
-			while (fun[i] != '|') {
-				i++;
-			}
-
-			auto cond = fun[1 .. endcond];
-			auto lexCmd = fun[endcond + 1 .. i];
-			auto skipCmd = fun[i + 1 .. $];
-
-			return "
-				if (" ~ cond ~ ") {
-					return " ~ lexCmd ~ args ~ ";
-				} else {
-					" ~ skipCmd ~ args ~ ";
+			return format!"
+				auto r = pop%s%s;
+				if (skip%1$s(r)) {
 					continue;
-				}";
+				}
+
+				return lex%1$s(r);"(getFun(fun[1 .. $], base), args);
 
 		default:
 			return format!"
-				return %s%s;"(fun, args);
+				return %s%s;"(getFun(fun, base), args);
 	}
 }
 
@@ -679,7 +678,7 @@ string lexerMixin(string[string] ids, string def, string[] rtArgs,
 				unpopChar();
 				break;
 		}
-			
+
 			// Fall back to the default instead.
 			goto default;
 			";

@@ -157,12 +157,12 @@ struct DLexer {
 		auto ret = [
 			// sdfmt off
 			// Comments
-			"//" : "?tokenizeComments:lexComment|popComment",
-			"/*" : "?tokenizeComments:lexComment|popComment",
-			"/+" : "?tokenizeComments:lexComment|popComment",
+			"//" : "?Comment",
+			"/*" : "?Comment",
+			"/+" : "?Comment",
 
 			// Line directives.
-			"#"  : "?tokenizeComments:lexComment|popComment",
+			"#"  : "?Comment",
 
 			// Integer literals.
 			"0b" : "lexNumeric",

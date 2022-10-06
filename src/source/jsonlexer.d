@@ -73,9 +73,9 @@ struct JsonLexer {
 		auto ret = [
 			// sdfmt off
 			// Comments
-			"//" : "?tokenizeComments:lexComment|popComment",
-			"/*" : "?tokenizeComments:lexComment|popComment",
-			"/+" : "?tokenizeComments:lexComment|popComment",
+			"//" : "?Comment",
+			"/*" : "?Comment",
+			"/+" : "?Comment",
 
 			// Integer literals.
 			"0b" : "lexNumeric",
