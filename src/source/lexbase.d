@@ -537,22 +537,73 @@ string lexerMixin(string[string] ids, string def = "lexDefaultFallback",
 
 private:
 
+string toCharLit(char c) {
+	switch (c) {
+		case '\0':
+			return "\\0";
+
+		case '\'':
+			return "\\'";
+
+		case '"':
+			return "\\\"";
+
+		case '\\':
+			return "\\\\";
+
+		case '\a':
+			return "\\a";
+
+		case '\b':
+			return "\\b";
+
+		case '\t':
+			return "\\t";
+
+		case '\v':
+			return "\\v";
+
+		case '\f':
+			return "\\f";
+
+		case '\n':
+			return "\\n";
+
+		case '\r':
+			return "\\r";
+
+		default:
+			import std.ascii;
+			if (isPrintable(c)) {
+				return [c];
+			}
+
+			static char toHexChar(ubyte n) {
+				return ((n < 10) ? (n + '0') : (n - 10 + 'a')) & 0xff;
+			}
+
+			static string toHexString(ubyte c) {
+				return [toHexChar(c >> 4), toHexChar(c & 0x0f)];
+			}
+
+			return "\\x" ~ toHexString(c);
+	}
+}
+
 auto stringify(string s) {
-	import std.array;
-	return "`"
-		~ s.replace("`", "` ~ \"`\" ~ `").replace("\0", "` ~ \"\\0\" ~ `")
-		~ "`";
+	import std.algorithm, std.format, std.string;
+	return format!`"%-(%s%)"`(s.representation.map!(c => toCharLit(c)));
 }
 
 auto getLexingCode(string fun, string[] rtArgs, string base) {
-	import std.array;
-	auto args = "!(" ~ stringify(base) ~ ")(" ~ rtArgs.join(", ") ~ ")";
+	import std.format;
+	auto args = format!"!%s(%-(%s, %))"(stringify(base), rtArgs);
 
 	switch (fun[0]) {
 		case '-':
-			return "
-				" ~ fun[1 .. $] ~ args ~ ";
-				continue;";
+			return format!"
+				%s%s;
+				continue;"(fun[1 .. $], args);
 
 		case '?':
 			size_t i = 1;
@@ -578,8 +629,8 @@ auto getLexingCode(string fun, string[] rtArgs, string base) {
 				}";
 
 		default:
-			return "
-				return " ~ fun ~ args ~ ";";
+			return format!"
+				return %s%s;"(fun, args);
 	}
 }
 
@@ -599,58 +650,10 @@ string lexerMixin(string[string] ids, string def, string[] rtArgs,
 		switch(frontChar) {";
 
 	foreach (c, subids; nextLevel) {
-		// TODO: have a real function to handle that.
-		string charLit;
-		switch (c) {
-			case '\0':
-				charLit = "\\0";
-				break;
-
-			case '\'':
-				charLit = "\\'";
-				break;
-
-			case '\t':
-				charLit = "\\t";
-				break;
-
-			case '\v':
-				charLit = "\\v";
-				break;
-
-			case '\f':
-				charLit = "\\f";
-				break;
-
-			case '\n':
-				charLit = "\\n";
-				break;
-
-			case '\r':
-				charLit = "\\r";
-				break;
-
-			default:
-				if (c < 0x80) {
-					charLit = [c];
-					break;
-				}
-
-				static char toHexChar(ubyte n) {
-					return ((n < 10) ? (n + '0') : (n - 10 + 'a')) & 0xff;
-				}
-
-				static string toHexString(ubyte c) {
-					return [toHexChar(c >> 4), toHexChar(c & 0x0f)];
-				}
-
-				charLit = "\\x" ~ toHexString(c);
-				break;
-		}
-
-		ret ~= "
-			case '" ~ charLit ~ "':
-				popChar();";
+		import std.format;
+		ret ~= format!"
+			case '%s':
+				popChar();"(toCharLit(c));
 
 		auto newBase = base ~ c;
 		if (subids.length == 1) {
@@ -664,10 +667,11 @@ string lexerMixin(string[string] ids, string def, string[] rtArgs,
 	}
 
 	if (base == "" || base[$ - 1] < 0x80) {
-		ret ~= "
-			default:" ~ getLexingCode(defaultFun, rtArgs, base) ~ "
+		import std.format;
+		ret ~= format!"
+			default:%s
 		}
-		";
+		"(getLexingCode(defaultFun, rtArgs, base));
 	} else {
 		ret ~= "
 			default:
