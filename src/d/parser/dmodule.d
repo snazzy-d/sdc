@@ -12,8 +12,8 @@ import source.name;
  * This is the regular entry point in the parser
  */
 auto parseModule(ref TokenRange trange) {
-	trange.match(TokenType.Begin);
 	Location location = trange.front.location;
+	trange.match(TokenType.Begin);
 
 	Name name;
 	Name[] packages;

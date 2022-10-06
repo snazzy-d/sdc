@@ -416,61 +416,67 @@ private:
 	/**
 	 * Comments.
 	 */
-	Location popLineComment(uint begin) {
+	Token getComment(string s)(uint begin, uint end) {
+		Token t;
+		t.type = TokenType.Comment;
+		t.name = BuiltinName!s;
+		t.location = base.getWithOffsets(begin, end);
+		return t;
+	}
+
+	uint lexLine() {
 		auto c = frontChar;
 
 		// TODO: check for unicode line break.
-		while (c != 0 && c != '\n' && c != '\r') {
+		while (c != '\0' && c != '\n' && c != '\r') {
 			popChar();
 			c = frontChar;
 		}
 
 		uint end = index;
-
-		if (c != 0) {
-			popChar();
-			if (c == '\r' && frontChar == '\n') {
-				popChar();
-			}
+		if (c == '\0') {
+			// The end of the file is also the end of the line
+			// so no error is needed in this case.
+			return end;
 		}
 
-		return base.getWithOffsets(begin, end);
+		popChar();
+		if (c == '\r' && frontChar == '\n') {
+			popChar();
+		}
+
+		return end;
 	}
 
-	Location popComment(string s : "#")() {
+	Token lexComment(string s)() if (s == "#" || s == "//") {
 		uint l = s.length;
-		return popLineComment(index - l);
+		uint begin = index - l;
+
+		return getComment!s(begin, lexLine());
 	}
 
-	Location popComment(string s : "//")() {
-		uint l = s.length;
-		return popLineComment(index - l);
-	}
-
-	Location popComment(string s : "/*")() {
+	Token lexComment(string s : "/*")() {
 		uint l = s.length;
 		uint begin = index - l;
 
 		auto c = frontChar;
 
-		while (true) {
-			while (c != '*') {
-				popChar();
-				c = frontChar;
-			}
-
-			auto match = c;
+		char pc = '\0';
+		while (c != '\0' && (pc != '*' || c != '/')) {
 			popChar();
+			pc = c;
 			c = frontChar;
-
-			if (c == '/') {
-				popChar();
-				return base.getWithOffsets(begin, index);
-			}
 		}
+
+		if (c == '\0') {
+			return getError(begin, "Unexpected end of file.");
+		}
+
+		popChar();
+		return getComment!s(begin, index);
 	}
 
-	Location popComment(string s : "/+")() {
+	Token lexComment(string s : "/+")() {
 		uint l = s.length;
 		uint begin = index - l;
 
@@ -478,55 +484,41 @@ private:
 
 		uint stack = 0;
 		while (true) {
-			while (c != '+' && c != '/') {
+			char pc = '\0';
+			while (c != '\0' && c != '/') {
 				popChar();
+				pc = c;
 				c = frontChar;
 			}
 
-			auto match = c;
+			if (c == '\0') {
+				return getError(begin, "Unexpected end of file.");
+			}
+
 			popChar();
-			c = frontChar;
+			scope(success) {
+				c = frontChar;
+			}
 
-			switch (match) {
-				case '+':
-					if (c == '/') {
-						popChar();
-						if (!stack) {
-							return base.getWithOffsets(begin, index);
-						}
+			if (pc == '+') {
+				if (!stack) {
+					return getComment!s(begin, index);
+				}
 
-						c = frontChar;
-						stack--;
-					}
+				stack--;
+				continue;
+			}
 
-					break;
-
-				case '/':
-					if (c == '+') {
-						popChar();
-						c = frontChar;
-
-						stack++;
-					}
-
-					break;
-
-				default:
-					assert(0, "Unreachable.");
+			// We have a nested /+ comment.
+			if (frontChar == '+') {
+				stack++;
+				popChar();
 			}
 		}
 	}
 
-	bool skipComment(string s)(Location loc) {
-		return !tokenizeComments;
-	}
-
-	auto lexComment(string s)(Location loc) {
-		Token t;
-		t.type = TokenType.Comment;
-		t.name = BuiltinName!s;
-		t.location = loc;
-		return t;
+	bool skipComment(string s)(Token c) {
+		return c.type == TokenType.Comment && !tokenizeComments;
 	}
 }
 
@@ -620,12 +612,12 @@ auto getLexingCode(string fun, string[] rtArgs, string base) {
 
 		case '?':
 			return format!"
-				auto r = pop%s%s;
-				if (skip%1$s(r)) {
+				auto t = lex%s%s;
+				if (skip%1$s(t)) {
 					continue;
 				}
 
-				return lex%1$s(r);"(getFun(fun[1 .. $], base), args);
+				return t;"(getFun(fun[1 .. $], base), args);
 
 		default:
 			return format!"
