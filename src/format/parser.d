@@ -77,9 +77,7 @@ private:
 public:
 	import source.context;
 	this(Position base, Context context) {
-		this.trange =
-			lex(base, context).withComments().withStringDecoding(false)
-			                  .withPreprocessorDirectives(false);
+		this.trange = lex(base, context).getLookahead().withComments();
 	}
 
 	Chunk[] parse() in(match(TokenType.Begin)) {

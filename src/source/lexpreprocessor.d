@@ -70,7 +70,7 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 			return popPreprocessorDirective(begin);
 		}
 
-		auto lookahead = getLookahead().withStringDecoding();
+		auto lookahead = getLookahead().withLiteralDecoding();
 		scope(exit) {
 			index = lookahead.index;
 		}

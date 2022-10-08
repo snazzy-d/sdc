@@ -50,7 +50,7 @@ mixin template LexStringImpl(Token,
 	}
 
 	Token buildRawString(uint begin, size_t start, size_t stop) {
-		Name value = decodeStrings
+		Name value = decodeLiterals
 			? context.getName(content[start .. stop])
 			: BuiltinName!"";
 		return lexStrignSuffix(begin, value);
@@ -97,7 +97,7 @@ mixin template LexStringImpl(Token,
 				continue;
 			}
 
-			if (!decodeStrings) {
+			if (!decodeLiterals) {
 				popChar();
 
 				c = frontChar;
@@ -141,7 +141,7 @@ mixin template LexStringImpl(Token,
 		popChar();
 
 		Name value;
-		if (decodeStrings) {
+		if (decodeLiterals) {
 			// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
 			if (decoded == "") {
 				decoded = content[start .. end];

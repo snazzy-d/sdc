@@ -17,7 +17,7 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	mixin(bitfields!(
 		// sdfmt off
 		bool, "tokenizeComments", 1,
-		bool, "_skipStrings", 1,
+		bool, "_skipLiterals", 1,
 		bool, "_skipPreprocessorDirectives", 1,
 		uint, "__derived", 29,
 		// sdfmt on
@@ -38,13 +38,13 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	}
 
 	@property
-	bool decodeStrings() const {
-		return !_skipStrings;
+	bool decodeLiterals() const {
+		return !_skipLiterals;
 	}
 
-	auto withStringDecoding(bool sd = true) {
+	auto withLiteralDecoding(bool ld = true) {
 		auto r = this.save;
-		r._skipStrings = !sd;
+		r._skipLiterals = !ld;
 		return r;
 	}
 
@@ -66,7 +66,7 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	 *  - do not try to process line directives.
 	 */
 	auto getLookahead() {
-		return withComments(false).withStringDecoding(false)
+		return withComments(false).withLiteralDecoding(false)
 		                          .withPreprocessorDirectives(false);
 	}
 
