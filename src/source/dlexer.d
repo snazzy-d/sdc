@@ -426,7 +426,10 @@ struct DLexer {
 				break;
 
 			case End:
-				goto End;
+				return getError(
+					t.location,
+					"A positive integer argument is expected after `#line`."
+				);
 
 			default:
 				import std.format;
@@ -460,14 +463,16 @@ struct DLexer {
 		}
 
 		t = getNextPreprocessorToken();
-		if (t.type != TokenType.End) {
-			import std.format;
-			return getError(
-				t.location,
-				format!"`%s` is not a valis line directive suffix."(
-					t.toString(context))
-			);
+		if (t.type == TokenType.End) {
+			goto End;
 		}
+
+		import std.format;
+		return getError(
+			t.location,
+			format!"`%s` is not a valis line directive suffix."(
+				t.toString(context))
+		);
 
 	End:
 		return getPreprocessorComment(begin, t);
