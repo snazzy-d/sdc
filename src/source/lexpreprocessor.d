@@ -14,6 +14,13 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 		return t;
 	}
 
+	Token getPreprocessorComment(uint begin, Token end)
+			in(end.type == TokenType.End) {
+		auto t = getComment!"#"(begin, begin);
+		t.location.spanTo(end.location.start);
+		return t;
+	}
+
 	Token getNextPreprocessorToken() {
 		while (true) {
 			popPreprocessorWhiteSpaces();
@@ -56,9 +63,7 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 					return lt;
 
 				case End:
-					auto t = getComment!"#"(begin, begin);
-					t.location.spanTo(lt.location.start);
-					return t;
+					return getPreprocessorComment(begin, lt);
 
 				default:
 					break;
@@ -74,11 +79,16 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 			return popPreprocessorDirective(begin);
 		}
 
-		auto i = getNextPreprocessorToken();
+		auto lookahead = getLookahead().withStringDecoding();
+		scope(exit) {
+			index = lookahead.index;
+		}
+
+		auto i = lookahead.getNextPreprocessorToken();
 		static foreach (T, fun; TokenHandlers) {
 			if (i.type == T) {
 				import std.format;
-				return mixin(format!"%s(begin, i)"(fun));
+				return mixin(format!"lookahead.%s(begin, i)"(fun));
 			}
 		}
 
@@ -91,7 +101,7 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 			static foreach (I, fun; IdentifierHandlers) {
 				if (i.name == BuiltinName!I) {
 					import std.format;
-					return mixin(format!"%s(begin, i)"(fun));
+					return mixin(format!"lookahead.%s(begin, i)"(fun));
 				}
 			}
 		}

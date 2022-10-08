@@ -415,7 +415,62 @@ struct DLexer {
 	                           ["line" : "processLineDirective"]);
 
 	Token processLineDirective(uint begin, Token i) {
-		return popPreprocessorDirective(begin);
+		auto t = getNextPreprocessorToken();
+		switch (t.type) with (TokenType) {
+			case IntegerLiteral:
+				// TODO.
+				break;
+
+			case __Line__:
+				// TODO.
+				break;
+
+			case End:
+				goto End;
+
+			default:
+				import std.format;
+				return getError(
+					t.location,
+					format!"Expected a line number, not `%s`."(
+						t.toString(context))
+				);
+		}
+
+		t = getNextPreprocessorToken();
+		switch (t.type) with (TokenType) {
+			case StringLiteral:
+				// TODO.
+				break;
+
+			case __File__:
+				// TODO.
+				break;
+
+			case End:
+				goto End;
+
+			default:
+				import std.format;
+				return getError(
+					t.location,
+					format!"Expected a file name as a string, not `%s`."(
+						t.toString(context))
+				);
+		}
+
+		t = getNextPreprocessorToken();
+		if (t.type != TokenType.End) {
+			import std.format;
+			return getError(
+				t.location,
+				format!"`%s` is not a valis line directive suffix."(
+					t.toString(context))
+			);
+		}
+
+	End:
+		return getPreprocessorComment(begin, t);
 	}
 
 	Token processIfDirective(uint begin, Token i) {
