@@ -126,6 +126,15 @@ struct Token {
 	import source.location;
 	Location location;
 
+	static getIdentifier(Location location, Name name) {
+		Token t;
+		t.type = TokenType.Identifier;
+		t.name = name;
+		t.location = location;
+
+		return t;
+	}
+
 	static getKeyword(string kw)(Location location) {
 		enum Type = DLexer.KeywordMap[kw];
 

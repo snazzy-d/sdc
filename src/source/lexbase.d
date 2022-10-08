@@ -389,12 +389,9 @@ private:
 			popIdChars();
 		}
 
-		Token t;
-		t.type = TokenType.Identifier;
-		t.location = base.getWithOffsets(begin, index);
-		t.name = context.getName(content[begin .. index]);
-
-		return t;
+		auto location = base.getWithOffsets(begin, index);
+		return Token
+			.getIdentifier(location, context.getName(content[begin .. index]));
 	}
 
 	/**
@@ -415,21 +412,16 @@ private:
 		uint l = s.length;
 		uint begin = index - l;
 
-		auto idCharCount = popIdChars();
 		auto location = base.getWithOffsets(begin, index);
 
-		if (idCharCount == 0) {
+		if (popIdChars() == 0) {
 			return Token.getKeyword!s(location);
 		}
 
 		// This is an identifier that happened to start
 		// like a keyword.
-		Token t;
-		t.type = TokenType.Identifier;
-		t.name = context.getName(content[begin .. index]);
-		t.location = location;
-
-		return t;
+		return Token
+			.getIdentifier(location, context.getName(content[begin .. index]));
 	}
 
 	/**
