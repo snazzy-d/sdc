@@ -409,30 +409,25 @@ private:
 	/**
 	 * Keywords.
 	 */
+	import source.name;
 	auto lexKeyword(string s)() {
 		enum Type = KeywordMap[s];
 		uint l = s.length;
+		uint begin = index - l;
 
-		return lexKeyword(index - l, Type, BuiltinName!s);
-	}
-
-	import source.name;
-	auto lexKeyword(uint begin, TokenType type, Name keyword) {
 		auto idCharCount = popIdChars();
-
-		Token t;
-		t.type = type;
-		t.name = keyword;
-		t.location = base.getWithOffsets(begin, index);
+		auto location = base.getWithOffsets(begin, index);
 
 		if (idCharCount == 0) {
-			return t;
+			return Token.getKeyword!s(location);
 		}
 
 		// This is an identifier that happened to start
 		// like a keyword.
+		Token t;
 		t.type = TokenType.Identifier;
 		t.name = context.getName(content[begin .. index]);
+		t.location = location;
 
 		return t;
 	}

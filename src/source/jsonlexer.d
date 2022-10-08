@@ -38,21 +38,32 @@ enum TokenType {
 }
 
 struct Token {
-	import source.location;
-	Location location;
-
 	TokenType type;
 
 	import source.name;
 	Name name;
+
+	import source.location;
+	Location location;
+
+	static getKeyword(string kw)(Location location) {
+		enum Type = JsonLexer.KeywordMap[kw];
+
+		Token t;
+		t.type = Type;
+		t.name = BuiltinName!kw;
+		t.location = location;
+
+		return t;
+	}
 
 	static getOperator(string op)(Location location) {
 		enum Type = JsonLexer.OperatorMap[op];
 
 		Token t;
 		t.type = Type;
-		t.location = location;
 		t.name = BuiltinName!op;
+		t.location = location;
 
 		return t;
 	}

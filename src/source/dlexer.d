@@ -118,21 +118,32 @@ enum TokenType {
 }
 
 struct Token {
-	import source.location;
-	Location location;
-
 	TokenType type;
 
 	import source.name;
 	Name name;
+
+	import source.location;
+	Location location;
+
+	static getKeyword(string kw)(Location location) {
+		enum Type = DLexer.KeywordMap[kw];
+
+		Token t;
+		t.type = Type;
+		t.name = BuiltinName!kw;
+		t.location = location;
+
+		return t;
+	}
 
 	static getOperator(string op)(Location location) {
 		enum Type = DLexer.OperatorMap[op];
 
 		Token t;
 		t.type = Type;
-		t.location = location;
 		t.name = BuiltinName!op;
+		t.location = location;
 
 		return t;
 	}
@@ -206,10 +217,11 @@ struct DLexer {
 		return ret;
 	}();
 
+	enum KeywordMap = getKeywordsMap();
 	enum OperatorMap = getOperatorsMap();
 
 	import source.lexbase;
-	mixin LexBaseImpl!(Token, BaseMap, getKeywordsMap(), OperatorMap);
+	mixin LexBaseImpl!(Token, BaseMap, KeywordMap, OperatorMap);
 
 	import source.name;
 	Name popSheBang() {
