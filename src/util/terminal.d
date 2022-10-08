@@ -19,20 +19,20 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 	if (start == content.length) {
 		// Find first non white char.
 		import std.ascii;
-		while (start > 0 && isWhite(content[--start])) {}
+		while (start > 0 && isWhite(content[start])) {
+			start--;
+		}
 	}
 
 	// XXX: We could probably use infos from source manager here.
-	FindStart: while (start > 0) {
-		switch (content[start]) {
-			case '\n':
-			case '\r':
-				start++;
-				break FindStart;
-
-			default:
-				start--;
+	while (start > 0) {
+		auto c = content[start];
+		if (c == '\r' || c == '\n') {
+			start++;
+			break;
 		}
+
+		start--;
 	}
 
 	uint length = loc.length;
@@ -43,15 +43,13 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 		end = cast(uint) content.length;
 	}
 
-	FindEnd: while (end < content.length) {
-		switch (content[end]) {
-			case '\n':
-			case '\r':
-				break FindEnd;
-
-			default:
-				end++;
+	while (end < content.length) {
+		auto c = content[end];
+		if (c == '\r' || c == '\n') {
+			break;
 		}
+
+		end++;
 	}
 
 	auto line = content[start .. end];
