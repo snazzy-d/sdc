@@ -126,6 +126,17 @@ struct Token {
 	import source.name;
 	Name name;
 
+	static getOperator(string op)(Location location) {
+		enum Type = DLexer.OperatorMap[op];
+
+		Token t;
+		t.type = Type;
+		t.location = location;
+		t.name = BuiltinName!op;
+
+		return t;
+	}
+
 	import source.context;
 	string toString(Context context) {
 		return (type >= TokenType.Identifier)
@@ -195,8 +206,10 @@ struct DLexer {
 		return ret;
 	}();
 
+	enum OperatorMap = getOperatorsMap();
+
 	import source.lexbase;
-	mixin LexBaseImpl!(Token, BaseMap, getKeywordsMap(), getOperatorsMap());
+	mixin LexBaseImpl!(Token, BaseMap, getKeywordsMap(), OperatorMap);
 
 	import source.name;
 	Name popSheBang() {

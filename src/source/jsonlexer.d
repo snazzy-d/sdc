@@ -46,6 +46,17 @@ struct Token {
 	import source.name;
 	Name name;
 
+	static getOperator(string op)(Location location) {
+		enum Type = JsonLexer.OperatorMap[op];
+
+		Token t;
+		t.type = Type;
+		t.location = location;
+		t.name = BuiltinName!op;
+
+		return t;
+	}
+
 	import source.context;
 	string toString(Context context) {
 		return (type >= TokenType.Identifier)

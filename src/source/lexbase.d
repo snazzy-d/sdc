@@ -401,15 +401,9 @@ private:
 	 * Operators.
 	 */
 	auto lexOperator(string s)() {
-		enum Type = OperatorMap[s];
 		uint l = s.length;
-
-		Token t;
-		t.type = Type;
-		t.location = base.getWithOffsets(index - l, index);
-		t.name = BuiltinName!s;
-
-		return t;
+		auto loc = base.getWithOffsets(index - l, index);
+		return Token.getOperator!s(loc);
 	}
 
 	/**
