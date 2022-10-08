@@ -8,12 +8,13 @@ version(Windows) {
 	import core.sys.windows.windows;
 }
 
-void outputCaretDiagnostics(FullLocation loc, string fixHint) {
-	uint offset = loc.getStartOffset();
-	uint start = offset;
-
-	auto source = loc.getSource();
+void outputCaretDiagnostics(FullLocation location, string fixHint) {
+	import std.stdio;
+	auto source = location.getSource();
 	auto content = source.getContent();
+
+	const offset = location.getStartOffset();
+	uint start = offset;
 
 	// This is unexpected end of input.
 	if (start == content.length) {
@@ -26,17 +27,17 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 
 	// XXX: We could probably use infos from source manager here.
 	while (start > 0) {
+		start--;
+
 		auto c = content[start];
 		if (c == '\r' || c == '\n') {
 			start++;
 			break;
 		}
-
-		start--;
 	}
 
-	uint length = loc.length;
-	uint end = offset + loc.length;
+	uint length = location.length;
+	uint end = offset + length;
 
 	// This is unexpected end of input.
 	if (end > content.length) {
@@ -45,7 +46,7 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 
 	while (end < content.length) {
 		auto c = content[end];
-		if (c == '\r' || c == '\n') {
+		if (c == '\0' || c == '\r' || c == '\n') {
 			break;
 		}
 
@@ -71,10 +72,10 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 		underline[i] = '~';
 	}
 
-	assert(index == loc.getStartColumn());
+	assert(index == location.getStartColumn());
 
-	stderr.write(loc.isMixin() ? "mixin" : source.getFileName().toString(), ":",
-	             loc.getStartLineNumber(), ":", index, ":");
+	stderr.write(location.isMixin() ? "mixin" : source.getFileName().toString(),
+	             ":", location.getStartLineNumber(), ":", index, ":");
 
 	stderr.writeColouredText(ConsoleColour.Red, " error: ");
 	stderr.writeColouredText(ConsoleColour.White, fixHint, "\n");
@@ -82,12 +83,12 @@ void outputCaretDiagnostics(FullLocation loc, string fixHint) {
 	stderr.writeln(line);
 	stderr.writeColouredText(ConsoleColour.Green, underline, "\n");
 
-	if (loc.isMixin()) {
+	if (location.isMixin()) {
 		outputCaretDiagnostics(source.getImportLocation(), "mixed in at");
 	}
 }
 
-/*
+/**
  * ANSI colour codes per ECMA-48 (minus 30).
  * e.g., Yellow = 3 + 30 = 33.
  */
