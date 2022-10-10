@@ -127,16 +127,31 @@ private:
 	}
 
 	auto getNextToken() {
+		static getMap() {
+			auto ret = getLexerMap();
+
+			foreach (op; WhiteSpaces) {
+				ret[op] = "-skip";
+			}
+
+			return ret;
+		}
+
 		while (true) {
-			// NB: I'm not sure if it is best to generate one giant switch
-			// or if we are better off skipping whitespace and then try to
-			// lex a token.
-			popWhiteSpaces();
+			// Fast track the usual suspects: space and tabs, and \n.
+			auto c = frontChar;
+			while (c == ' ' || c == '\t' || c == '\n') {
+				popChar();
+				c = frontChar;
+			}
 
 			import source.lexbase;
-			// pragma(msg, lexerMixin(getLexerMap()));
-			mixin(lexerMixin(getLexerMap()));
+			// pragma(msg, lexerMixin(getMap()));
+			mixin(lexerMixin(getMap()));
 		}
+
+		// Necessary because of https://issues.dlang.org/show_bug.cgi?id=22688
+		assert(0, "unreachable");
 	}
 
 	Token getError(Location loc, string message) {
