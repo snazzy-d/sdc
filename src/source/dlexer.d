@@ -153,6 +153,15 @@ struct Token {
 		return t;
 	}
 
+	static getStringLiteral(Location location, Name value) {
+		Token t;
+		t.type = TokenType.StringLiteral;
+		t.name = value;
+		t.location = location;
+
+		return t;
+	}
+
 	static getIdentifier(Location location, Name name) {
 		Token t;
 		t.type = TokenType.Identifier;
@@ -337,12 +346,8 @@ struct DLexer {
 	]);
 	// sdfmt on
 
-	auto getStringLiteral(string s)(Location location) {
-		Token t;
-		t.type = TokenType.StringLiteral;
-		t.location = location;
-
-		return t;
+	auto getStringLiteral(string s)(Location location, Name value) {
+		return Token.getStringLiteral(location, value);
 	}
 
 	Token lexDString(string s : `r"`)() {

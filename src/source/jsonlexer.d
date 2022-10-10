@@ -72,6 +72,15 @@ struct Token {
 		return t;
 	}
 
+	static getStringLiteral(Location location, Name value) {
+		Token t;
+		t.type = TokenType.StringLiteral;
+		t.name = value;
+		t.location = location;
+
+		return t;
+	}
+
 	static getIdentifier(Location location, Name name) {
 		Token t;
 		t.type = TokenType.Identifier;

@@ -18,30 +18,20 @@ mixin template LexStringImpl(Token,
 	/**
 	 * String literals.
 	 */
-	auto lexStrignSuffix(uint begin) {
-		return lexLiteralSuffix!StringSuffixes(begin);
+	import source.name;
+	auto lexStrignSuffix(uint begin, Name value) {
+		return lexLiteralSuffix!StringSuffixes(begin, value);
 	}
 
-	auto getStringLiteral(string s : "")(Location location) {
-		Token t;
-		t.type = TokenType.StringLiteral;
-		t.location = location;
-
-		return t;
+	auto getStringLiteral(string s : "")(Location location, Name value) {
+		return Token.getStringLiteral(location, value);
 	}
 
 	Token buildRawString(uint begin, size_t start, size_t stop) {
-		auto t = lexStrignSuffix(begin);
-		if (t.type == TokenType.Invalid) {
-			// Bubble up errors.
-			return t;
-		}
-
-		if (decodeStrings) {
-			t.name = context.getName(content[start .. stop]);
-		}
-
-		return t;
+		Name value = decodeStrings
+			? context.getName(content[start .. stop])
+			: BuiltinName!"";
+		return lexStrignSuffix(begin, value);
 	}
 
 	Token lexRawString(char Delimiter = '`')(uint begin) {
@@ -125,12 +115,7 @@ mixin template LexStringImpl(Token,
 		uint end = index;
 		popChar();
 
-		auto t = lexStrignSuffix(begin);
-		if (t.type == TokenType.Invalid) {
-			// Propagate errors.
-			return t;
-		}
-
+		Name value;
 		if (decodeStrings) {
 			// Workaround for https://issues.dlang.org/show_bug.cgi?id=22271
 			if (decoded == "") {
@@ -139,10 +124,10 @@ mixin template LexStringImpl(Token,
 				decoded ~= content[start .. end];
 			}
 
-			t.name = context.getName(decoded);
+			value = context.getName(decoded);
 		}
 
-		return t;
+		return lexStrignSuffix(begin, value);
 	}
 
 	Token lexString(string s : `"`)() {

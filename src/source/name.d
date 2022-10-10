@@ -45,6 +45,8 @@ template BuiltinName(string name) {
 	enum BuiltinName = Name(id);
 }
 
+static assert(Name.init == BuiltinName!"");
+
 struct FullName {
 private:
 	Name _name;
