@@ -162,6 +162,22 @@ struct Token {
 		return t;
 	}
 
+	static getIntegerLiteral(Location location, ulong value) {
+		Token t;
+		t.type = TokenType.IntegerLiteral;
+		t.location = location;
+
+		return t;
+	}
+
+	static getFloatLiteral(Location location, double value) {
+		Token t;
+		t.type = TokenType.FloatLiteral;
+		t.location = location;
+
+		return t;
+	}
+
 	static getIdentifier(Location location, Name name) {
 		Token t;
 		t.type = TokenType.Identifier;
@@ -313,24 +329,16 @@ struct DLexer {
 	]);
 	// sdfmt on
 
-	auto getIntegerLiteral(string s)(Location location) {
-		Token t;
-		t.type = TokenType.IntegerLiteral;
-		t.location = location;
-
-		return t;
+	auto getIntegerLiteral(string s)(Location location, ulong value) {
+		return Token.getIntegerLiteral(location, value);
 	}
 
-	auto getFloatLiteral(string s)(Location location) {
+	auto getFloatLiteral(string s)(Location location, double value) {
 		if (s == "l") {
 			return getError(location, "Use 'L' suffix instead of 'l'.");
 		}
 
-		Token t;
-		t.type = TokenType.FloatLiteral;
-		t.location = location;
-
-		return t;
+		return Token.getFloatLiteral(location, value);
 	}
 
 	/**

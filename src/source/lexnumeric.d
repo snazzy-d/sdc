@@ -8,28 +8,20 @@ mixin template LexNumericImpl(
 	/**
 	 * Integral and float literals.
 	 */
-	Token lexIntegralSuffix(uint begin) {
-		return lexLiteralSuffix!IntegralSuffixes(begin);
+	Token lexIntegralSuffix(uint begin, ulong value) {
+		return lexLiteralSuffix!IntegralSuffixes(begin, value);
 	}
 
-	Token getIntegerLiteral(string s : "")(Location location) {
-		Token t;
-		t.type = TokenType.IntegerLiteral;
-		t.location = location;
-
-		return t;
+	Token getIntegerLiteral(string s : "")(Location location, ulong value) {
+		return Token.getIntegerLiteral(location, value);
 	}
 
-	Token lexFloatSuffix(uint begin) {
-		return lexLiteralSuffix!FloatSuffixes(begin);
+	Token lexFloatSuffix(uint begin, double value) {
+		return lexLiteralSuffix!FloatSuffixes(begin, value);
 	}
 
-	Token getFloatLiteral(string s : "")(Location location) {
-		Token t;
-		t.type = TokenType.FloatLiteral;
-		t.location = location;
-
-		return t;
+	Token getFloatLiteral(string s : "")(Location location, double value) {
+		return Token.getFloatLiteral(location, value);
 	}
 
 	Token lexFloatLiteral(alias isFun, alias popFun, char E)(uint begin) {
@@ -76,7 +68,7 @@ mixin template LexNumericImpl(
 		}
 
 	LexSuffix:
-		return isFloat ? lexFloatSuffix(begin) : lexIntegralSuffix(begin);
+		return isFloat ? lexFloatSuffix(begin, 0) : lexIntegralSuffix(begin, 0);
 	}
 
 	/**
@@ -110,7 +102,7 @@ mixin template LexNumericImpl(
 		}
 
 		popBinary();
-		return lexIntegralSuffix(begin);
+		return lexIntegralSuffix(begin, 0);
 	}
 
 	/**
