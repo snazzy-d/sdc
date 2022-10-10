@@ -135,6 +135,24 @@ struct Token {
 		return t;
 	}
 
+	static getBegin(Location location, Name name) {
+		Token t;
+		t.type = TokenType.Begin;
+		t.name = name;
+		t.location = location;
+
+		return t;
+	}
+
+	static getEnd(Location location) {
+		Token t;
+		t.type = TokenType.End;
+		t.name = BuiltinName!"\0";
+		t.location = location;
+
+		return t;
+	}
+
 	static getIdentifier(Location location, Name name) {
 		Token t;
 		t.type = TokenType.Identifier;
@@ -177,17 +195,17 @@ struct Token {
 auto lex(Position base, Context context) {
 	auto lexer = TokenRange();
 
-	lexer.content = base.getFullPosition(context).getSource().getContent();
-	lexer.t.type = TokenType.Begin;
-
 	lexer.context = context;
 	lexer.base = base;
 	lexer.previous = base;
+	lexer.content = base.getFullPosition(context).getSource().getContent();
 
 	// Pop #!
-	lexer.t.name = lexer.popSheBang();
+	auto shebang = lexer.popSheBang();
+	auto beginLocation = Location(base, base.getWithOffset(lexer.index));
 
-	lexer.t.location = Location(base, base.getWithOffset(lexer.index));
+	lexer.t = Token.getBegin(beginLocation, shebang);
+
 	return lexer;
 }
 

@@ -36,11 +36,7 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 
 			// Terminate at the end of the line.
 			if (popLineBreak()) {
-				Token t;
-				t.type = TokenType.End;
-				t.location = base.getWithOffsets(begin, index);
-				t.name = BuiltinName!"\0";
-				return t;
+				return Token.getEnd(base.getWithOffsets(begin, index));
 			}
 
 			import source.lexbase;
