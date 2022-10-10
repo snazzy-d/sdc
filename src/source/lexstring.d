@@ -7,12 +7,38 @@ mixin template LexStringImpl(Token,
 	 */
 	Token lexCharacter(string s : `'`)() {
 		uint l = s.length;
-		auto t = lexDecodedString!('\'')(index - l);
-		if (t.type != TokenType.Invalid) {
-			t.type = TokenType.CharacterLiteral;
+		uint begin = index - l;
+
+		char c = frontChar;
+		auto dc = DecodedChar(c);
+
+		if (c < 0x80) {
+			const beginEscape = index;
+			popChar();
+
+			if (c == '\\' && !lexEscapeSequence(dc)) {
+				return getError(beginEscape, "Invalid escape sequence.");
+			}
+		} else {
+			import std.utf;
+			size_t i = index;
+			dc = DecodedChar(content.decode(i));
+			index = cast(uint) i;
 		}
 
-		return t;
+		c = frontChar;
+		if (c != '\'') {
+			return getError(begin, "Expected `\'` to end charatcter literal.");
+		}
+
+		popChar();
+
+		// FIXME: Going forward, just use dc.
+		string str = dc.appendTo("");
+		auto name = context.getName(str);
+
+		auto location = base.getWithOffsets(begin, index);
+		return Token.getCharacterLiteral(location, name, dc);
 	}
 
 	/**
@@ -88,7 +114,6 @@ mixin template LexStringImpl(Token,
 				continue;
 			}
 
-			const beginEscape = index;
 			scope(success) {
 				start = index;
 			}
@@ -100,11 +125,12 @@ mixin template LexStringImpl(Token,
 				decoded ~= content[start .. index];
 			}
 
+			const beginEscape = index;
 			popChar();
 
 			DecodedChar dc;
 			if (!lexEscapeSequence(dc)) {
-				return getError(begin, "Invalid escape sequence.");
+				return getError(beginEscape, "Invalid escape sequence.");
 			}
 
 			decoded = dc.appendTo(decoded);

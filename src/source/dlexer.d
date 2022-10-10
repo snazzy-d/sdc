@@ -162,6 +162,17 @@ struct Token {
 		return t;
 	}
 
+	import source.lexstring;
+	static getCharacterLiteral(Location location, Name name,
+	                           DecodedChar value) {
+		Token t;
+		t.type = TokenType.CharacterLiteral;
+		t.name = name;
+		t.location = location;
+
+		return t;
+	}
+
 	static getIntegerLiteral(Location location, ulong value) {
 		Token t;
 		t.type = TokenType.IntegerLiteral;

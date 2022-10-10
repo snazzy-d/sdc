@@ -1,4 +1,4 @@
 //T error: character_unfinished.d:4:9:
-//T error: Unexpected end of file
+//T error: Expected `'` to end charatcter literal.
 
 char c = '\0

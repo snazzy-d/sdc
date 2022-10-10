@@ -333,13 +333,15 @@ private:
 		char c = frontChar;
 
 		// Make sure we don't stay in place.
-		if (c | 0x80) {
+		if (c < 0x80) {
+			if (c != '\0') {
+				popChar();
+			}
+		} else {
 			import std.utf;
 			size_t i = index;
 			content.decode(i);
 			index = cast(uint) i;
-		} else if (c != '\0') {
-			popChar();
 		}
 
 		return getError(begin, "Unexpected token.");
