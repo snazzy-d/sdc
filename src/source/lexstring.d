@@ -101,10 +101,13 @@ mixin template LexStringImpl(Token,
 			}
 
 			popChar();
-			if (!lexEscapeSequence(decoded)) {
+
+			DecodedChar dc;
+			if (!lexEscapeSequence(dc)) {
 				return getError(begin, "Invalid escape sequence.");
 			}
 
+			decoded = dc.appendTo(decoded);
 			c = frontChar;
 		}
 
@@ -138,16 +141,56 @@ mixin template LexStringImpl(Token,
 	/**
 	 * Escape sequences.
 	 */
-	bool lexEscapeSequence(ref string decoded) {
+	bool decodeNHexCharacters(uint N, T)(ref T result)
+			if (N <= 8 && N <= 2 * T.sizeof) {
+		if (index + N >= content.length) {
+			return false;
+		}
+
+		result = 0;
+
+		bool hasError = false;
+		foreach (i; 0 .. N) {
+			char c = frontChar;
+			popChar();
+
+			uint d = c - '0';
+			uint h = ((c | 0x20) - 'a') & 0xff;
+			uint n = (d < 10) ? d : (h + 10);
+
+			hasError |= n >= 16;
+			result |= n << (4 * (N - i - 1));
+		}
+
+		return !hasError;
+	}
+
+	bool lexUnicodeEscapeSequence(char C)(ref DecodedChar decoded)
+			if (C == 'u' || C == 'U') {
+		enum S = 4 * (C == 'U') + 4;
+
+		popChar();
+
+		dchar v;
+		if (!decodeNHexCharacters!S(v)) {
+			return false;
+		}
+
+		import std.utf;
+		if (!isValidDchar(v)) {
+			return false;
+		}
+
+		decoded = DecodedChar(v);
+		return true;
+	}
+
+	bool lexEscapeSequence(ref DecodedChar decoded) {
 		char c = frontChar;
 
 		switch (c) {
-			case '\'', '"', '\\':
-				// Noop.
+			case '\'', '"', '\\', '?':
 				break;
-
-			case '?':
-				assert(0, "WTF is \\?");
 
 			case '0':
 				c = '\0';
@@ -181,34 +224,20 @@ mixin template LexStringImpl(Token,
 				c = '\v';
 				break;
 
-			case 'u', 'U':
+			case 'x':
 				popChar();
-
-				uint v = 0;
-
-				auto length = 4 * (c == 'U') + 4;
-				foreach (i; 0 .. length) {
-					c = frontChar;
-
-					uint d = c - '0';
-					uint h = ((c | 0x20) - 'a') & 0xff;
-					uint n = (d < 10) ? d : (h + 10);
-
-					if (n >= 16) {
-						return false;
-					}
-
-					v |= n << (4 * (length - i - 1));
-					popChar();
+				if (!decodeNHexCharacters!2(c)) {
+					return false;
 				}
 
-				char[4] buf;
-
-				import std.utf;
-				auto i = encode(buf, v);
-
-				decoded ~= buf[0 .. i];
+				decoded = DecodedChar(c);
 				return true;
+
+			case 'u':
+				return lexUnicodeEscapeSequence!'u'(decoded);
+
+			case 'U':
+				return lexUnicodeEscapeSequence!'U'(decoded);
 
 			case '&':
 				assert(0, "HTML5 named character references not implemented");
@@ -218,7 +247,37 @@ mixin template LexStringImpl(Token,
 		}
 
 		popChar();
-		decoded ~= c;
+		decoded = DecodedChar(c);
 		return true;
+	}
+}
+
+struct DecodedChar {
+private:
+	ulong content;
+
+public:
+	import std.utf;
+	this(dchar c) in(isValidDchar(c)) {
+		content = c;
+	}
+
+	this(char c) {
+		content = 0x7fffff00 | c;
+	}
+
+	string appendTo(string s) {
+		if ((content | 0x7fffff00) == content) {
+			s ~= char(content & 0xff);
+			return s;
+		}
+
+		char[4] buf;
+
+		import std.utf;
+		auto i = encode(buf, cast(dchar) content);
+		s ~= buf[0 .. i];
+
+		return s;
 	}
 }

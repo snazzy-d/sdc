@@ -15,7 +15,6 @@ enum TokenType {
 
 	// Literals
 	StringLiteral,
-	CharacterLiteral = StringLiteral,
 	IntegerLiteral,
 	FloatLiteral,
 
@@ -307,7 +306,6 @@ unittest {
 		lex.match(TokenType.Begin);
 
 		auto t = lex.front;
-
 		assert(t.type == TokenType.StringLiteral);
 		assert(t.name.toString(context) == "🂽Γαῖα🨁🙈🙉🙊🜚");
 		lex.popFront();
@@ -337,5 +335,18 @@ unittest {
 		auto lex = testlexer(`"\u03@3"`);
 		lex.match(TokenType.Begin);
 		assert(lex.front.type == TokenType.Invalid);
+	}
+
+	// Check other escaped characters.
+	{
+		auto lex = testlexer(`"\xfa\xff\x20\x00\xAA\xf0\xa0"`);
+		lex.match(TokenType.Begin);
+
+		auto t = lex.front;
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.name.toString(context) == "\xfa\xff\x20\x00\xAA\xf0\xa0");
+		lex.popFront();
+
+		assert(lex.front.type == TokenType.End);
 	}
 }
