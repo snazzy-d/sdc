@@ -140,11 +140,7 @@ private:
 	}
 
 	Token getError(Location loc, string message) {
-		Token t;
-		t.type = TokenType.Invalid;
-		t.name = context.getName(message);
-		t.location = loc;
-		return t;
+		return Token.getError(loc, context.getName(message));
 	}
 
 	Token getError(uint begin, string message) {

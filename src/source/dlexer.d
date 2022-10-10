@@ -126,6 +126,15 @@ struct Token {
 	import source.location;
 	Location location;
 
+	static getError(Location location, Name message) {
+		Token t;
+		t.type = TokenType.Invalid;
+		t.name = message;
+		t.location = location;
+
+		return t;
+	}
+
 	static getIdentifier(Location location, Name name) {
 		Token t;
 		t.type = TokenType.Identifier;
