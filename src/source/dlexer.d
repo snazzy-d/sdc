@@ -280,33 +280,48 @@ struct DLexer {
 	// sdfmt off
 	import source.lexnumeric;
 	mixin LexNumericImpl!(Token, [
-		"" : TokenType.IntegerLiteral,
-		"u": TokenType.IntegerLiteral,
-		"U": TokenType.IntegerLiteral,
-		"ul": TokenType.IntegerLiteral,
-		"uL": TokenType.IntegerLiteral,
-		"Ul": TokenType.IntegerLiteral,
-		"UL": TokenType.IntegerLiteral,
-		"l": TokenType.IntegerLiteral,
-		"L": TokenType.IntegerLiteral,
-		"lu": TokenType.IntegerLiteral,
-		"lU": TokenType.IntegerLiteral,
-		"Lu": TokenType.IntegerLiteral,
-		"LU": TokenType.IntegerLiteral,
-		"f": TokenType.FloatLiteral,
-		"F": TokenType.FloatLiteral,
+		"" : "getIntegerLiteral",
+		"u": "getIntegerLiteral",
+		"U": "getIntegerLiteral",
+		"ul": "getIntegerLiteral",
+		"uL": "getIntegerLiteral",
+		"Ul": "getIntegerLiteral",
+		"UL": "getIntegerLiteral",
+		"l": "getIntegerLiteral",
+		"L": "getIntegerLiteral",
+		"lu": "getIntegerLiteral",
+		"lU": "getIntegerLiteral",
+		"Lu": "getIntegerLiteral",
+		"LU": "getIntegerLiteral",
+		"f": "getFloatLiteral",
+		"F": "getFloatLiteral",
 	], [
-		"" : TokenType.FloatLiteral,
-		"f": TokenType.FloatLiteral,
-		"F": TokenType.FloatLiteral,
-		"L": TokenType.FloatLiteral,
-	], null, [
-		"l": "lexFloatSuffixError",
+		"" : "getFloatLiteral",
+		"f": "getFloatLiteral",
+		"F": "getFloatLiteral",
+		"L": "getFloatLiteral",
+		"l": "getFloatLiteral",
 	]);
 	// sdfmt on
 
-	auto lexFloatSuffixError(string s : "l")(uint begin, uint prefixStart) {
-		return getError(begin, "Use 'L' suffix instead of 'l'.");
+	auto getIntegerLiteral(string s)(Location location) {
+		Token t;
+		t.type = TokenType.IntegerLiteral;
+		t.location = location;
+
+		return t;
+	}
+
+	auto getFloatLiteral(string s)(Location location) {
+		if (s == "l") {
+			return getError(location, "Use 'L' suffix instead of 'l'.");
+		}
+
+		Token t;
+		t.type = TokenType.FloatLiteral;
+		t.location = location;
+
+		return t;
 	}
 
 	/**
@@ -315,12 +330,20 @@ struct DLexer {
 	// sdfmt off
 	import source.lexstring;
 	mixin LexStringImpl!(Token, [
-		"" : TokenType.StringLiteral,
-		"c" : TokenType.StringLiteral,
-		"w" : TokenType.StringLiteral,
-		"d" : TokenType.StringLiteral,
+		"" : "getStringLiteral",
+		"c" : "getStringLiteral",
+		"w" : "getStringLiteral",
+		"d" : "getStringLiteral",
 	]);
 	// sdfmt on
+
+	auto getStringLiteral(string s)(Location location) {
+		Token t;
+		t.type = TokenType.StringLiteral;
+		t.location = location;
+
+		return t;
+	}
 
 	Token lexDString(string s : `r"`)() {
 		uint l = s.length;

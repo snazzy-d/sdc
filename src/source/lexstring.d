@@ -1,7 +1,7 @@
 module source.lexstring;
 
-mixin template LexStringImpl(Token, alias StringSuffixes,
-                             alias CustomStringSuffixes = null) {
+mixin template LexStringImpl(Token,
+                             alias StringSuffixes = ["" : "getStringLiteral"]) {
 	/**
 	 * Character literals.
 	 */
@@ -19,7 +19,15 @@ mixin template LexStringImpl(Token, alias StringSuffixes,
 	 * String literals.
 	 */
 	auto lexStrignSuffix(uint begin) {
-		return lexLiteralSuffix!(StringSuffixes, CustomStringSuffixes)(begin);
+		return lexLiteralSuffix!StringSuffixes(begin);
+	}
+
+	auto getStringLiteral(string s : "")(Location location) {
+		Token t;
+		t.type = TokenType.StringLiteral;
+		t.location = location;
+
+		return t;
 	}
 
 	Token buildRawString(uint begin, size_t start, size_t stop) {

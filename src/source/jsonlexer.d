@@ -180,11 +180,10 @@ struct JsonLexer {
 	mixin LexBaseImpl!(Token, BaseMap, KeywordMap, OperatorMap);
 
 	import source.lexnumeric;
-	mixin LexNumericImpl!(Token, ["" : TokenType.IntegerLiteral],
-	                      ["" : TokenType.FloatLiteral]);
+	mixin LexNumericImpl!Token;
 
 	import source.lexstring;
-	mixin LexStringImpl!(Token, ["" : TokenType.StringLiteral]);
+	mixin LexStringImpl!Token;
 }
 
 unittest {

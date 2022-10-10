@@ -423,13 +423,12 @@ private:
 	/**
 	 * Utilities to handle literals suffixes.
 	 */
-	auto lexLiteralSuffix(alias Suffixes,
-	                      alias CustomSuffixes = null)(uint begin) {
+	Token lexLiteralSuffix(alias Suffixes, T...)(uint begin, T args) {
 		const prefixStart = index;
 		alias fun = lexLiteralSuffixTpl!Suffixes.fun;
 
 		static getLexerMap() {
-			string[string] ret = CustomSuffixes;
+			string[string] ret;
 
 			foreach (op, _; Suffixes) {
 				ret[op] = "fun";
@@ -440,28 +439,27 @@ private:
 
 		while (true) {
 			import source.lexbase;
-			mixin(lexerMixin(getLexerMap(), "fun", ["begin", "prefixStart"]));
+			mixin(lexerMixin(getLexerMap(), "fun",
+			                 ["begin", "prefixStart", "args"]));
 		}
 	}
 
 	template lexLiteralSuffixTpl(alias Suffixes) {
-		auto fun(string s)(uint begin, uint prefixStart) {
-			enum Kind = Suffixes[s];
-			auto idCharCount = popIdChars();
-
-			if (idCharCount != 0) {
+		Token fun(string s, T...)(uint begin, uint prefixStart, T args) {
+			if (popIdChars() != 0) {
 				// We have something else.
+				import std.format;
 				return getError(
 					prefixStart,
-					"Invalid suffix: " ~ content[prefixStart .. index]
+					format!"Invalid suffix: `%s`."(
+						content[prefixStart .. index]),
 				);
 			}
 
-			Token t;
-			t.type = Kind;
-			t.location = base.getWithOffsets(begin, index);
+			auto location = base.getWithOffsets(begin, index);
 
-			return t;
+			import std.format;
+			return mixin(format!"%s!s(location, args)"(Suffixes[s]));
 		}
 	}
 

@@ -2,21 +2,34 @@ module source.lexnumeric;
 
 mixin template LexNumericImpl(
 	Token,
-	alias IntegralSuffixes,
-	alias FloatSuffixes,
-	alias CustomIntegralSuffixes = null,
-	alias CustomFloatSuffixes = null,
+	alias IntegralSuffixes = ["" : "getIntegerLiteral"],
+	alias FloatSuffixes = ["" : "getFloatLiteral"]
 ) {
 	/**
 	 * Integral and float literals.
 	 */
 	Token lexIntegralSuffix(uint begin) {
-		return
-			lexLiteralSuffix!(IntegralSuffixes, CustomIntegralSuffixes)(begin);
+		return lexLiteralSuffix!IntegralSuffixes(begin);
+	}
+
+	Token getIntegerLiteral(string s : "")(Location location) {
+		Token t;
+		t.type = TokenType.IntegerLiteral;
+		t.location = location;
+
+		return t;
 	}
 
 	Token lexFloatSuffix(uint begin) {
-		return lexLiteralSuffix!(FloatSuffixes, CustomFloatSuffixes)(begin);
+		return lexLiteralSuffix!FloatSuffixes(begin);
+	}
+
+	Token getFloatLiteral(string s : "")(Location location) {
+		Token t;
+		t.type = TokenType.FloatLiteral;
+		t.location = location;
+
+		return t;
 	}
 
 	Token lexFloatLiteral(alias isFun, alias popFun, char E)(uint begin) {
