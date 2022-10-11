@@ -303,39 +303,39 @@ unittest {
 	assert(getMin(BuiltinType.Long) == -9223372036854775808UL);
 }
 
-dchar getCharInit(BuiltinType t) in {
-	assert(isChar(t), "getCharInit only applys to character types");
-} do {
+auto getCharInit(BuiltinType t)
+		in(isChar(t), "getCharInit only applys to character types") {
+	import source.lexstring;
 	switch (t) with (BuiltinType) {
 		case Char:
-			return '\xff';
+			return DecodedChar('\xff');
 
 		case Wchar, Dchar:
-			return cast(dchar) 0xffff;
+			return DecodedChar(0xffff);
 
 		default:
-			assert(0, "getCharInit only applys to character types");
+			assert(0, "getCharInit only applies to character types");
 	}
 }
 
 unittest {
-	assert(getCharInit(BuiltinType.Char) == '\xff');
-	assert(getCharInit(BuiltinType.Wchar) == 0xffff);
-	assert(getCharInit(BuiltinType.Dchar) == 0xffff);
+	assert(getCharInit(BuiltinType.Char).asChar == '\xff');
+	assert(getCharInit(BuiltinType.Wchar).asIntegral == 0xffff);
+	assert(getCharInit(BuiltinType.Dchar).asIntegral == 0xffff);
 }
 
-dchar getCharMax(BuiltinType t) in {
-	assert(isChar(t), "getCharMax only applys to character types");
-} do {
+auto getCharMax(BuiltinType t)
+		in(isChar(t), "getCharMax only applys to character types") {
+	import source.lexstring;
 	switch (t) with (BuiltinType) {
 		case Char:
-			return '\xff';
+			return DecodedChar('\xff');
 
 		case Wchar:
-			return cast(dchar) 0xffff;
+			return DecodedChar(0xffff);
 
 		case Dchar:
-			return cast(dchar) 0x10ffff;
+			return DecodedChar(0x10ffff);
 
 		default:
 			assert(0, "getCharMax only applys to character types");
@@ -343,7 +343,7 @@ dchar getCharMax(BuiltinType t) in {
 }
 
 unittest {
-	assert(getCharMax(BuiltinType.Char) == '\xff');
-	assert(getCharMax(BuiltinType.Wchar) == 0xffff);
-	assert(getCharMax(BuiltinType.Dchar) == 0x10ffff);
+	assert(getCharMax(BuiltinType.Char).asChar == '\xff');
+	assert(getCharMax(BuiltinType.Wchar).asIntegral == 0xffff);
+	assert(getCharMax(BuiltinType.Dchar).asIntegral == 0x10ffff);
 }

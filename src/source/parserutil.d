@@ -2,12 +2,12 @@ module source.parserutil;
 
 import source.dlexer;
 
-void match(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
+auto match(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
 	auto token = lexer.front;
 
 	if (token.type == type) {
 		lexer.popFront();
-		return;
+		return token;
 	}
 
 	import std.conv, std.string;

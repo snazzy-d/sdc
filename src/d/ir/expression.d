@@ -402,9 +402,7 @@ class BooleanLiteral : CompileTimeExpression {
 class IntegerLiteral : CompileTimeExpression {
 	ulong value;
 
-	this(Location location, ulong value, BuiltinType t) in {
-		assert(isIntegral(t));
-	} do {
+	this(Location location, ulong value, BuiltinType t) in(isIntegral(t)) {
 		super(location, Type.get(t));
 
 		this.value = value;
@@ -424,9 +422,7 @@ class IntegerLiteral : CompileTimeExpression {
 class FloatLiteral : CompileTimeExpression {
 	double value;
 
-	this(Location location, double value, BuiltinType t) in {
-		assert(isFloat(t));
-	} do {
+	this(Location location, double value, BuiltinType t) in(isFloat(t)) {
 		super(location, Type.get(t));
 
 		this.value = value;
@@ -442,14 +438,21 @@ class FloatLiteral : CompileTimeExpression {
  * Character literal
  */
 class CharacterLiteral : CompileTimeExpression {
-	dchar value;
+	import source.lexstring;
+	DecodedChar value;
 
-	this(Location location, dchar value, BuiltinType t) in {
-		assert(isChar(t));
-	} do {
+	this(Location location, DecodedChar value, BuiltinType t) in(isChar(t)) {
 		super(location, Type.get(t));
 
 		this.value = value;
+	}
+
+	this(Location location, char value, BuiltinType t) in(isChar(t)) {
+		this(location, DecodedChar(value), t);
+	}
+
+	this(Location location, dchar value, BuiltinType t) in(isChar(t)) {
+		this(location, DecodedChar(value), t);
 	}
 
 	override string toString(const Context) const {

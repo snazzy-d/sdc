@@ -121,8 +121,13 @@ struct Token {
 private:
 	TokenType _type;
 
-	import source.name;
-	Name _name;
+	union {
+		import source.name;
+		Name _name;
+
+		import source.lexstring;
+		DecodedChar _decodedChar;
+	}
 
 	import source.location;
 	Location _location;
@@ -140,8 +145,13 @@ public:
 	}
 
 	@property
-	Name name() const {
+	Name name() const in(type != TokenType.CharacterLiteral) {
 		return _name;
+	}
+
+	@property
+	DecodedChar decodedChar() const in(type == TokenType.CharacterLiteral) {
+		return _decodedChar;
 	}
 
 	import source.context;
@@ -197,12 +207,10 @@ public:
 		return t;
 	}
 
-	import source.lexstring;
-	static getCharacterLiteral(Location location, Name name,
-	                           DecodedChar value) {
+	static getCharacterLiteral(Location location, DecodedChar value) {
 		Token t;
 		t._type = TokenType.CharacterLiteral;
-		t._name = name;
+		t._decodedChar = value;
 		t._location = location;
 
 		return t;

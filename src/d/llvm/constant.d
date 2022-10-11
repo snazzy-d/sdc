@@ -55,7 +55,8 @@ struct ConstantGen {
 	// XXX: character types in backend ?
 	LLVMValueRef visit(CharacterLiteral cl) {
 		import d.llvm.type;
-		return LLVMConstInt(TypeGen(pass).visit(cl.type), cl.value, false);
+		return LLVMConstInt(TypeGen(pass).visit(cl.type), cl.value.asIntegral,
+		                    false);
 	}
 
 	LLVMValueRef visit(NullLiteral nl) {

@@ -1008,23 +1008,10 @@ IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
  * Parse character literals
  */
 CharacterLiteral parseCharacterLiteral(ref TokenRange trange) {
-	Location location = trange.front.location;
-	auto str = trange.front.name.toString(trange.context);
-
-	trange.match(TokenType.CharacterLiteral);
-
-	size_t i = 0;
-
-	import std.utf;
-	dchar c = str.decode(i);
-
-	if (i != str.length) {
-		import source.exception;
-		throw new CompileException(location, "Invalid character literal");
-	}
+	auto t = trange.match(TokenType.CharacterLiteral);
 
 	import d.common.builtintype : BuiltinType;
-	return new CharacterLiteral(location, c, BuiltinType.Char);
+	return new CharacterLiteral(t.location, t.decodedChar, BuiltinType.Char);
 }
 
 /**

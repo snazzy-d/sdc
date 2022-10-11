@@ -33,12 +33,8 @@ mixin template LexStringImpl(Token,
 
 		popChar();
 
-		// FIXME: Going forward, just use dc.
-		string str = dc.appendTo("");
-		auto name = context.getName(str);
-
 		auto location = base.getWithOffsets(begin, index);
-		return Token.getCharacterLiteral(location, name, dc);
+		return Token.getCharacterLiteral(location, dc);
 	}
 
 	/**
@@ -280,7 +276,7 @@ mixin template LexStringImpl(Token,
 
 struct DecodedChar {
 private:
-	ulong content;
+	uint content;
 
 public:
 	import std.utf;
@@ -292,16 +288,41 @@ public:
 		content = 0x7fffff00 | c;
 	}
 
+	@property
+	bool isRaw() const {
+		return (content | 0x7fffff00) == content;
+	}
+
+	@property
+	bool isChar() const {
+		return isRaw || content < 0x80;
+	}
+
+	@property
+	char asChar() const in(isChar) {
+		return char(content & 0xff);
+	}
+
+	@property
+	dchar asDchar() const in(!isRaw) {
+		return cast(dchar) content;
+	}
+
+	@property
+	uint asIntegral() const {
+		return isRaw ? asChar : content;
+	}
+
 	string appendTo(string s) {
-		if ((content | 0x7fffff00) == content) {
-			s ~= char(content & 0xff);
+		if (isChar) {
+			s ~= asChar;
 			return s;
 		}
 
 		char[4] buf;
 
 		import std.utf;
-		auto i = encode(buf, cast(dchar) content);
+		auto i = encode(buf, asDchar);
 		s ~= buf[0 .. i];
 
 		return s;
