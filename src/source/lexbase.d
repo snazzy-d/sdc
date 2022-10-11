@@ -113,7 +113,7 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 
 private:
 	static getLexerMap() {
-		auto ret = BaseMap;
+		string[string] ret;
 
 		foreach (kw, _; KeywordMap) {
 			ret[kw] = "lexKeyword";
@@ -121,6 +121,10 @@ private:
 
 		foreach (op, _; OperatorMap) {
 			ret[op] = "lexOperator";
+		}
+
+		foreach (op, fun; BaseMap) {
+			ret[op] = fun;
 		}
 
 		return ret;

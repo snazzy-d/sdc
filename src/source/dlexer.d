@@ -669,6 +669,7 @@ auto getOperatorsMap() {
 		"~="   : TildeEqual,
 		"@"    : At,
 		"=>"   : EqualMore,
+		"#"    : Hash,
 		"\0"   : End,
 		// sdfmt on
 	];

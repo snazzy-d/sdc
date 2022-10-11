@@ -6,14 +6,6 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 		popHorizontalWhiteSpaces();
 	}
 
-	Token getHashOperator(uint begin) {
-		Token t;
-		t.type = TokenType.Hash;
-		t.location = base.getWithOffsets(begin, begin + 1);
-		t.name = BuiltinName!"#";
-		return t;
-	}
-
 	Token getPreprocessorComment(uint begin, Token end)
 			in(end.type == TokenType.End) {
 		auto t = getComment!"#"(begin, begin);
@@ -22,26 +14,28 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 	}
 
 	Token getNextPreprocessorToken() {
-		while (true) {
-			popPreprocessorWhiteSpaces();
-
-			uint begin = index;
+		static getMap() {
+			auto ret = getLexerMap();
 
 			// Generate a # operator so we don't
 			// preprocess while we preprocess.
-			if (frontChar == '#') {
-				popChar();
-				return getHashOperator(begin);
-			}
+			ret["#"] = "lexOperator";
+
+			return ret;
+		}
+
+		while (true) {
+			popPreprocessorWhiteSpaces();
 
 			// Terminate at the end of the line.
+			const begin = index;
 			if (popLineBreak()) {
 				return Token.getEnd(base.getWithOffsets(begin, index));
 			}
 
 			import source.lexbase;
-			// pragma(msg, lexerMixin(getLexerMap()));
-			mixin(lexerMixin(getLexerMap()));
+			// pragma(msg, lexerMixin(getMap()));
+			mixin(lexerMixin(getMap()));
 		}
 	}
 
@@ -90,7 +84,7 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 
 		// If this is a # alone, then we got a hash operator.
 		if (i.type == TokenType.End) {
-			return getHashOperator(begin);
+			return lexOperator!"#"();
 		}
 
 		if (i.type == TokenType.Identifier) {
