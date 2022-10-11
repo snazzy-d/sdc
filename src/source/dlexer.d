@@ -118,55 +118,81 @@ enum TokenType {
 }
 
 struct Token {
-	TokenType type;
+private:
+	TokenType _type;
 
 	import source.name;
-	Name name;
+	Name _name;
 
 	import source.location;
-	Location location;
+	Location _location;
 
+public:
+
+	@property
+	TokenType type() const {
+		return _type;
+	}
+
+	@property
+	Location location() const {
+		return _location;
+	}
+
+	@property
+	Name name() const {
+		return _name;
+	}
+
+	import source.context;
+	string toString(Context context) {
+		return (type >= TokenType.Identifier)
+			? name.toString(context)
+			: location.getFullLocation(context).getSlice();
+	}
+
+public:
 	static getError(Location location, Name message) {
 		Token t;
-		t.type = TokenType.Invalid;
-		t.name = message;
-		t.location = location;
+		t._type = TokenType.Invalid;
+		t._name = message;
+		t._location = location;
 
 		return t;
 	}
 
 	static getBegin(Location location, Name name) {
 		Token t;
-		t.type = TokenType.Begin;
-		t.name = name;
-		t.location = location;
+		t._type = TokenType.Begin;
+		t._name = name;
+		t._location = location;
 
 		return t;
 	}
 
 	static getEnd(Location location) {
 		Token t;
-		t.type = TokenType.End;
-		t.name = BuiltinName!"\0";
-		t.location = location;
+		t._type = TokenType.End;
+		t._name = BuiltinName!"\0";
+		t._location = location;
 
 		return t;
 	}
 
 	static getComment(string s)(Location location) {
 		Token t;
-		t.type = TokenType.Comment;
-		t.name = BuiltinName!s;
-		t.location = location;
+		t._type = TokenType.Comment;
+		t._name = BuiltinName!s;
+		t._location = location;
 
 		return t;
 	}
 
 	static getStringLiteral(Location location, Name value) {
 		Token t;
-		t.type = TokenType.StringLiteral;
-		t.name = value;
-		t.location = location;
+		t._type = TokenType.StringLiteral;
+		t._name = value;
+		t._location = location;
 
 		return t;
 	}
@@ -175,34 +201,34 @@ struct Token {
 	static getCharacterLiteral(Location location, Name name,
 	                           DecodedChar value) {
 		Token t;
-		t.type = TokenType.CharacterLiteral;
-		t.name = name;
-		t.location = location;
+		t._type = TokenType.CharacterLiteral;
+		t._name = name;
+		t._location = location;
 
 		return t;
 	}
 
 	static getIntegerLiteral(Location location, ulong value) {
 		Token t;
-		t.type = TokenType.IntegerLiteral;
-		t.location = location;
+		t._type = TokenType.IntegerLiteral;
+		t._location = location;
 
 		return t;
 	}
 
 	static getFloatLiteral(Location location, double value) {
 		Token t;
-		t.type = TokenType.FloatLiteral;
-		t.location = location;
+		t._type = TokenType.FloatLiteral;
+		t._location = location;
 
 		return t;
 	}
 
 	static getIdentifier(Location location, Name name) {
 		Token t;
-		t.type = TokenType.Identifier;
-		t.name = name;
-		t.location = location;
+		t._type = TokenType.Identifier;
+		t._name = name;
+		t._location = location;
 
 		return t;
 	}
@@ -211,9 +237,9 @@ struct Token {
 		enum Type = DLexer.KeywordMap[kw];
 
 		Token t;
-		t.type = Type;
-		t.name = BuiltinName!kw;
-		t.location = location;
+		t._type = Type;
+		t._name = BuiltinName!kw;
+		t._location = location;
 
 		return t;
 	}
@@ -222,18 +248,11 @@ struct Token {
 		enum Type = DLexer.OperatorMap[op];
 
 		Token t;
-		t.type = Type;
-		t.name = BuiltinName!op;
-		t.location = location;
+		t._type = Type;
+		t._name = BuiltinName!op;
+		t._location = location;
 
 		return t;
-	}
-
-	import source.context;
-	string toString(Context context) {
-		return (type >= TokenType.Identifier)
-			? name.toString(context)
-			: location.getFullLocation(context).getSlice();
 	}
 }
 

@@ -8,9 +8,10 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 
 	Token getPreprocessorComment(uint begin, Token end)
 			in(end.type == TokenType.End) {
-		auto t = getComment!"#"(begin, begin);
-		t.location.spanTo(end.location.start);
-		return t;
+		auto location = base.getWithOffsets(begin, begin);
+		location.spanTo(end.location.start);
+
+		return Token.getComment!"#"(location);
 	}
 
 	Token getNextPreprocessorToken() {
