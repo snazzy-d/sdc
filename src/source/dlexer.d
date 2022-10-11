@@ -153,6 +153,15 @@ struct Token {
 		return t;
 	}
 
+	static getComment(string s)(Location location) {
+		Token t;
+		t.type = TokenType.Comment;
+		t.name = BuiltinName!s;
+		t.location = location;
+
+		return t;
+	}
+
 	static getStringLiteral(Location location, Name value) {
 		Token t;
 		t.type = TokenType.StringLiteral;

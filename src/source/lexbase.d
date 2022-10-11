@@ -484,11 +484,8 @@ private:
 	 * Comments.
 	 */
 	Token getComment(string s)(uint begin, uint end) {
-		Token t;
-		t.type = TokenType.Comment;
-		t.name = BuiltinName!s;
-		t.location = base.getWithOffsets(begin, end);
-		return t;
+		auto location = base.getWithOffsets(begin, end);
+		return Token.getComment!s(location);
 	}
 
 	uint lexLine() {
