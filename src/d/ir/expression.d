@@ -438,21 +438,20 @@ class FloatLiteral : CompileTimeExpression {
  * Character literal
  */
 class CharacterLiteral : CompileTimeExpression {
-	import source.lexstring;
-	DecodedChar value;
+	uint value;
 
-	this(Location location, DecodedChar value, BuiltinType t) in(isChar(t)) {
+	this(Location location, uint value, BuiltinType t) in(isChar(t)) {
 		super(location, Type.get(t));
 
 		this.value = value;
 	}
 
-	this(Location location, char value, BuiltinType t) in(isChar(t)) {
-		this(location, DecodedChar(value), t);
+	this(Location location, char value) {
+		this(location, value, BuiltinType.Char);
 	}
 
-	this(Location location, dchar value, BuiltinType t) in(isChar(t)) {
-		this(location, DecodedChar(value), t);
+	this(Location location, dchar value) {
+		this(location, value, BuiltinType.Dchar);
 	}
 
 	override string toString(const Context) const {

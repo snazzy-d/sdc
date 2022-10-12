@@ -1010,8 +1010,10 @@ IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
 CharacterLiteral parseCharacterLiteral(ref TokenRange trange) {
 	auto t = trange.match(TokenType.CharacterLiteral);
 
-	import d.common.builtintype : BuiltinType;
-	return new CharacterLiteral(t.location, t.decodedChar, BuiltinType.Char);
+	auto dc = t.decodedChar;
+	return dc.isChar
+		? new CharacterLiteral(t.location, dc.asChar)
+		: new CharacterLiteral(t.location, dc.asDchar);
 }
 
 /**
