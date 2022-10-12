@@ -949,15 +949,13 @@ AstExpression[] parseArguments(ref TokenRange trange) {
  * Parse integer literals
  */
 IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
-	Location location = trange.front.location;
+	auto t = trange.match(TokenType.IntegerLiteral);
 
 	// Consider computing the value in the lexer and make it a Name.
 	// This would avoid the duplication with code here and probably
 	// would be faster as well.
-	auto strVal = trange.front.toString(trange.context);
+	auto strVal = t.toString(trange.context);
 	assert(strVal.length > 0);
-
-	trange.match(TokenType.IntegerLiteral);
 
 	bool isUnsigned, isLong;
 	if (strVal.length > 1) {
@@ -1001,7 +999,7 @@ IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
 		? ((isLong || value > uint.max) ? BuiltinType.Ulong : BuiltinType.Uint)
 		: ((isLong || value > int.max) ? BuiltinType.Long : BuiltinType.Int);
 
-	return new IntegerLiteral(location, value, type);
+	return new IntegerLiteral(t.location, value, type);
 }
 
 /**
@@ -1020,41 +1018,40 @@ CharacterLiteral parseCharacterLiteral(ref TokenRange trange) {
  * Parse string literals
  */
 StringLiteral parseStringLiteral(ref TokenRange trange) {
-	Location location = trange.front.location;
-	auto name = trange.front.name;
-
-	trange.match(TokenType.StringLiteral);
-
-	return new StringLiteral(location, name.toString(trange.context));
+	auto t = trange.match(TokenType.StringLiteral);
+	return new StringLiteral(t.location, t.name.toString(trange.context));
 }
 
 /**
  * Parse floating point literals
  */
 FloatLiteral parseFloatLiteral(ref TokenRange trange) {
-	const location = trange.front.location;
-	auto litString = trange.front.toString(trange.context);
+	auto t = trange.match(TokenType.FloatLiteral);
 
-	trange.match(TokenType.FloatLiteral);
-	import d.common.builtintype : BuiltinType;
+	auto litString = t.toString(trange.context);
 
+	// https://dlang.org/spec/lex.html#FloatSuffix
 	assert(litString.length > 1);
-	// Look for a suffix
 	switch (litString[$ - 1]) {
-			// https://dlang.org/spec/lex.html#FloatSuffix
-			import std.conv : to;
-		case 'f':
-		case 'F':
+		case 'f', 'F':
+			import std.conv;
 			const float f = litString[0 .. $ - 1].to!float;
-			return new FloatLiteral(location, f, BuiltinType.Float);
+
+			import d.common.builtintype;
+			return new FloatLiteral(t.location, f, BuiltinType.Float);
+
 		case 'L':
 			import source.exception;
 			throw new CompileException(
-				location, "SDC does not support real literals yet");
+				t.location, "SDC does not support real literals yet");
+
 		default:
 			// Lexed correctly but no suffix, it's a double
+			import std.conv;
 			const double d = litString[0 .. $].to!double;
-			return new FloatLiteral(location, d, BuiltinType.Double);
+
+			import d.common.builtintype;
+			return new FloatLiteral(t.location, d, BuiltinType.Double);
 	}
 }
 
