@@ -92,9 +92,8 @@ bool isChar(BuiltinType t) {
 	return (t >= BuiltinType.Char) && (t <= BuiltinType.Dchar);
 }
 
-BuiltinType integralOfChar(BuiltinType t) in {
-	assert(isChar(t), "integralOfChar only applys to character types");
-} do {
+BuiltinType integralOfChar(BuiltinType t)
+		in(isChar(t), "integralOfChar only applys to character types") {
 	return cast(BuiltinType) ((t * 2) | 0x01);
 }
 
@@ -112,9 +111,8 @@ bool canConvertToIntegral(BuiltinType t) {
 	return (t >= BuiltinType.Bool) && (t <= BuiltinType.Ucent);
 }
 
-bool isSigned(BuiltinType t) in {
-	assert(isIntegral(t), "isSigned only applys to integral types");
-} do {
+bool isSigned(BuiltinType t)
+		in(isIntegral(t), "isSigned only applys to integral types") {
 	return (t & 0x01) == 0;
 }
 
@@ -132,9 +130,8 @@ unittest {
 	assert(!isSigned(BuiltinType.Ucent));
 }
 
-BuiltinType unsigned(BuiltinType t) in {
-	assert(isIntegral(t), "unsigned only applys to integral types");
-} do {
+BuiltinType unsigned(BuiltinType t)
+		in(isIntegral(t), "unsigned only applys to integral types") {
 	return cast(BuiltinType) (t | 0x01);
 }
 
@@ -155,9 +152,8 @@ unittest {
 	assert(unsigned(BuiltinType.Ucent) == BuiltinType.Ucent);
 }
 
-BuiltinType signed(BuiltinType t) in {
-	assert(isIntegral(t), "signed only applys to integral types");
-} do {
+BuiltinType signed(BuiltinType t)
+		in(isIntegral(t), "signed only applys to integral types") {
 	return cast(BuiltinType) (t & ~0x01);
 }
 
@@ -182,9 +178,8 @@ bool isFloat(BuiltinType t) {
 	return (t >= BuiltinType.Float) && (t <= BuiltinType.Real);
 }
 
-uint getIntegralSize(BuiltinType t) in {
-	assert(isIntegral(t), "getIntegralSize only apply to integral types");
-} do {
+uint getIntegralSize(BuiltinType t)
+		in(isIntegral(t), "getIntegralSize only apply to integral types") {
 	return 1 << ((t / 2) - 3);
 }
 
@@ -263,9 +258,8 @@ unittest {
 	assert(getBits(BuiltinType.Ucent) == 128);
 }
 
-ulong getMax(BuiltinType t) in {
-	assert(isIntegral(t), "getMax only applys to integral types");
-} do {
+ulong getMax(BuiltinType t)
+		in(isIntegral(t), "getMax only applys to integral types") {
 	auto base = 1UL << (8 - isSigned(t));
 	return (base << (getIntegralSize(t) - 1) * 8) - 1;
 }
@@ -284,9 +278,8 @@ unittest {
 	assert(getMax(BuiltinType.Ulong) == 18446744073709551615UL);
 }
 
-ulong getMin(BuiltinType t) in {
-	assert(isIntegral(t), "getMin only applys to integral types");
-} do {
+ulong getMin(BuiltinType t)
+		in(isIntegral(t), "getMin only applys to integral types") {
 	return isSigned(t) ? -(1UL << getIntegralSize(t) * 8 - 1) : 0;
 }
 

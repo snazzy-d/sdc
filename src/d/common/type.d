@@ -34,9 +34,8 @@ private:
 		return (raw_desc & (-1L << Desc.DataSize)) == 0;
 	}
 
-	auto getConstructedMixin(this T)(K k, TypeQualifier q) in {
-		assert(raw_desc != 0, "You can't construct type on None.");
-	} do {
+	auto getConstructedMixin(this T)(K k, TypeQualifier q)
+			in(raw_desc != 0, "You can't construct type on None.") {
 		// XXX: Consider caching in context, and stick in payload
 		// instead of heap if it fit.
 		return isPackable()
@@ -233,9 +232,7 @@ private:
 		}
 
 		@property
-		auto get(Tag E)() inout in {
-			assert(tag == E);
-		} do {
+		auto get(Tag E)() inout in(tag == E) {
 			static if (E == U.length) {
 				alias R = inout(PackedType!(T, TagTuple));
 				return R(desc, payload).getType();
@@ -315,9 +312,8 @@ private:
 			return T(Desc(K.Function, q, d), p);
 		}
 
-		FunctionType getDelegate(ulong contextCount = 1) in {
-			assert(contextCount <= paramCount + ctxCount);
-		} do {
+		FunctionType getDelegate(ulong contextCount = 1)
+				in(contextCount <= paramCount + ctxCount) {
 			auto t = this;
 			t.ctxCount = contextCount;
 			t.paramCount = paramCount + ctxCount - contextCount;
@@ -376,9 +372,7 @@ public:
 		return getPackedBitfield!ParamTuple(kind);
 	}
 
-	auto asFunctionType() inout in {
-		assert(kind == K.Function, "Not a function.");
-	} do {
+	auto asFunctionType() inout in(kind == K.Function, "Not a function.") {
 		return inout(FunctionType)(desc, payload.params);
 	}
 }
@@ -401,9 +395,7 @@ mixin template TypeAccessorMixin(K) {
 	}
 
 	@property
-	BuiltinType builtin() inout in {
-		assert(kind == K.Builtin);
-	} do {
+	BuiltinType builtin() inout in(kind == K.Builtin) {
 		return cast(BuiltinType) desc.data;
 	}
 }
