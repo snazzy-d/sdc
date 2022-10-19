@@ -119,7 +119,17 @@ enum TokenType {
 
 struct Token {
 private:
-	TokenType _type;
+	import util.bitfields;
+	enum TypeSize = EnumSize!TokenType;
+	enum ExtraBits = 8 * uint.sizeof - TypeSize;
+
+	import std.bitmanip;
+	mixin(bitfields!(
+		// sdfmt off
+		TokenType, "_type", TypeSize,
+		uint, "_extra", ExtraBits,
+		// sdfmt on
+	));
 
 	union {
 		import source.name;
@@ -127,10 +137,14 @@ private:
 
 		import source.lexstring;
 		DecodedChar _decodedChar;
+
+		uint _base;
 	}
 
 	import source.location;
 	Location _location;
+
+	static assert(Token.sizeof == 4 * uint.sizeof);
 
 public:
 
@@ -162,6 +176,13 @@ public:
 	@property
 	Name decodedString() const in(type == TokenType.StringLiteral) {
 		return _name;
+	}
+
+	import source.packedint;
+	alias PackedInt = source.packedint.PackedInt!ExtraBits;
+
+	PackedInt packedInt() const in(type == TokenType.IntegerLiteral) {
+		return PackedInt.recompose(_base, _extra);
 	}
 
 	import source.context;
@@ -226,10 +247,13 @@ public:
 		return t;
 	}
 
-	static getIntegerLiteral(Location location, ulong value) {
+	static getIntegerLiteral(Location location, PackedInt value) {
 		Token t;
 		t._type = TokenType.IntegerLiteral;
 		t._location = location;
+
+		t._base = value.base;
+		t._extra = value.extra;
 
 		return t;
 	}
@@ -387,7 +411,8 @@ struct DLexer {
 	// sdfmt on
 
 	auto getIntegerLiteral(string s)(Location location, ulong value) {
-		return Token.getIntegerLiteral(location, value);
+		return Token
+			.getIntegerLiteral(location, Token.PackedInt.get(context, value));
 	}
 
 	auto getFloatLiteral(string s)(Location location, double value) {

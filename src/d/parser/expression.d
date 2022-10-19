@@ -991,8 +991,7 @@ IntegerLiteral parseIntegerLiteral(ref TokenRange trange) {
 		}
 	}
 
-	import source.strtoint;
-	ulong value = strToInt(strVal);
+	ulong value = t.packedInt.toInt(trange.context);
 
 	import d.common.builtintype;
 	auto type = isUnsigned

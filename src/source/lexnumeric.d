@@ -68,7 +68,17 @@ mixin template LexNumericImpl(
 		}
 
 	LexSuffix:
-		return isFloat ? lexFloatSuffix(begin, 0) : lexIntegralSuffix(begin, 0);
+		if (isFloat) {
+			return lexFloatSuffix(begin, 0);
+		}
+
+		ulong value = 0;
+		if (decodeLiterals) {
+			import source.strtoint;
+			value = strToInt(content[begin .. index]);
+		}
+
+		return lexIntegralSuffix(begin, value);
 	}
 
 	/**
@@ -102,7 +112,14 @@ mixin template LexNumericImpl(
 		}
 
 		popBinary();
-		return lexIntegralSuffix(begin, 0);
+
+		ulong value = 0;
+		if (decodeLiterals) {
+			import source.strtoint;
+			value = strToBinInt(content[begin + 2 .. index]);
+		}
+
+		return lexIntegralSuffix(begin, value);
 	}
 
 	/**
