@@ -45,6 +45,11 @@ struct Token {
 	import source.location;
 	Location location;
 
+	@property
+	Name error() const {
+		return name;
+	}
+
 	static getError(Location location, Name message) {
 		Token t;
 		t.type = TokenType.Invalid;

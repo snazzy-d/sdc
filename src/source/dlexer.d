@@ -145,8 +145,12 @@ public:
 	}
 
 	@property
-	Name name() const
-			in(type >= TokenType.Identifier || type == TokenType.Invalid) {
+	Name name() const in(type >= TokenType.Identifier) {
+		return _name;
+	}
+
+	@property
+	Name error() const in(type == TokenType.Invalid) {
 		return _name;
 	}
 

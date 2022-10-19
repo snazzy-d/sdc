@@ -12,7 +12,7 @@ auto match(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
 
 	import std.conv, std.string;
 	auto error = token.type == TokenType.Invalid
-		? token.name.toString(lexer.context)
+		? token.error.toString(lexer.context)
 		: format!"expected '%s', got '%s'."(to!string(type),
 		                                    to!string(token.type));
 
