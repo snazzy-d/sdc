@@ -145,13 +145,19 @@ public:
 	}
 
 	@property
-	Name name() const in(type != TokenType.CharacterLiteral) {
+	Name name() const
+			in(type >= TokenType.Identifier || type == TokenType.Invalid) {
 		return _name;
 	}
 
 	@property
 	DecodedChar decodedChar() const in(type == TokenType.CharacterLiteral) {
 		return _decodedChar;
+	}
+
+	@property
+	Name decodedString() const in(type == TokenType.StringLiteral) {
+		return _name;
 	}
 
 	import source.context;
@@ -1189,7 +1195,7 @@ unittest {
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == `(")`);
+		assert(t.decodedString.toString(context) == `(")`);
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
@@ -1202,7 +1208,7 @@ unittest {
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == "");
+		assert(t.decodedString.toString(context) == "");
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
@@ -1215,7 +1221,7 @@ unittest {
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == "<");
+		assert(t.decodedString.toString(context) == "<");
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
@@ -1228,7 +1234,7 @@ unittest {
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == `"`);
+		assert(t.decodedString.toString(context) == `"`);
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
@@ -1241,7 +1247,7 @@ unittest {
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == "{foo}");
+		assert(t.decodedString.toString(context) == "{foo}");
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
@@ -1255,7 +1261,7 @@ EOF"`);
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == "");
+		assert(t.decodedString.toString(context) == "");
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
@@ -1270,7 +1276,7 @@ EOF"`);
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == "\n");
+		assert(t.decodedString.toString(context) == "\n");
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
@@ -1285,7 +1291,7 @@ MONKEYS"`);
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == "🙈🙉🙊\n");
+		assert(t.decodedString.toString(context) == "🙈🙉🙊\n");
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
@@ -1300,7 +1306,9 @@ I_LOVE_PYTHON"`);
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == `"""python comment!"""` ~ '\n');
+		assert(
+			t.decodedString.toString(context) == `"""python comment!"""` ~ '\n'
+		);
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
@@ -1313,7 +1321,7 @@ I_LOVE_PYTHON"`);
 		auto t = lex.front;
 
 		assert(t.type == TokenType.StringLiteral);
-		assert(t.name.toString(context) == "\\r");
+		assert(t.decodedString.toString(context) == "\\r");
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);

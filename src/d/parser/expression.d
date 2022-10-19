@@ -1019,7 +1019,8 @@ CharacterLiteral parseCharacterLiteral(ref TokenRange trange) {
  */
 StringLiteral parseStringLiteral(ref TokenRange trange) {
 	auto t = trange.match(TokenType.StringLiteral);
-	return new StringLiteral(t.location, t.name.toString(trange.context));
+	return
+		new StringLiteral(t.location, t.decodedString.toString(trange.context));
 }
 
 /**
