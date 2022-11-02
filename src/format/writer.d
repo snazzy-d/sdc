@@ -626,8 +626,8 @@ struct SolveState {
 			return 0;
 		}
 
-		// Avoid line break that make the next lien starts past the previous line.
-		if (column >= length && c.kind != ChunkKind.Block) {
+		// Avoid line break that make the next line starts past the previous line.
+		if (column >= length && !c.naturalBreak) {
 			return 1;
 		}
 

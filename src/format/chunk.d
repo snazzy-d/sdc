@@ -25,6 +25,10 @@ private:
 		// Consider this chunk as a continuation of the previous one.
 		// New lines won't be considered as split.
 		bool, "_continuation", 1,
+		// Consider this chunk a natural break.
+		// No penality is imposed when the line started here
+		// starts past the previous line.
+		bool, "_naturalBreak", 1,
 		// What is the base indentation level for this chunk.
 		// This becomes irrelevent when the chunk is glued.
 		uint, "_indentation", 10,
@@ -83,6 +87,11 @@ public:
 
 	bool canSplit() const {
 		return !glued && !continuation;
+	}
+
+	@property
+	bool naturalBreak() const {
+		return _naturalBreak;
 	}
 
 	@property
@@ -260,7 +269,8 @@ public:
 		pendingSeparator = Separator.None;
 	}
 
-	void split(bool glued = false, bool continuation = false) {
+	void split(bool glued = false, bool continuation = false,
+	           bool naturalBreak = false) {
 		import std.stdio;
 
 		// writeln("split!", glued ? " glued" : "", continuation ? " continuation" : "");
@@ -269,6 +279,7 @@ public:
 			chunk._span = spanStack;
 			chunk._glued = glued;
 			chunk._continuation = continuation;
+			chunk._naturalBreak = naturalBreak;
 
 			emitPendingSeparator();
 		}
@@ -451,7 +462,7 @@ public:
 		emitPendingSeparator();
 
 		// We delegate indentation to the block itself.
-		split(true, true);
+		split(true, true, true);
 
 		static struct Guard {
 			~this() {

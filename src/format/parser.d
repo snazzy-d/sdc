@@ -152,9 +152,10 @@ private:
 		builder.clearSeparator();
 	}
 
-	void split(bool glued = false, bool continuation = false) {
+	void split(bool glued = false, bool continuation = false,
+	           bool naturalBreak = false) {
 		emitRawContent();
-		builder.split(glued || skipFormatting(), continuation);
+		builder.split(glued || skipFormatting(), continuation, naturalBreak);
 	}
 
 	auto wrappedGuard(alias buildGuard, T...)(T args) {
@@ -3110,7 +3111,7 @@ private:
 				newline(1);
 			}
 
-			split();
+			split(false, false, i == 0);
 			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
