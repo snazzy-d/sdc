@@ -2263,23 +2263,33 @@ private:
 		auto modeGuard = changeMode(Mode.Parameter);
 		nextToken();
 		runOnType!(TokenType.OpenParen, nextToken)();
-		parseList!parseIsElement(TokenType.CloseParen);
+		parseList!parseIsExpressionElement(TokenType.CloseParen, false, false);
 	}
 
-	void parseIsElement(size_t i) {
-		if (i == 0) {
-			parseIsSpecialization();
-		} else {
-			parseStructuralElement();
-		}
-	}
-
-	void parseIsSpecialization() {
+	void parseIsExpressionElement() {
 		parseType();
 		if (match(TokenType.Identifier)) {
 			space();
 			nextToken();
 		}
+
+		if (!match(TokenType.EqualEqual) && !match(TokenType.Colon)) {
+			return;
+		}
+
+		auto sGuard = span!ListSpan();
+		space();
+		split();
+		sGuard.registerFix(function(ListSpan s, size_t i) {
+			s.registerHeaderSplit(i);
+		});
+
+		nextToken();
+		space();
+		split(true);
+		sGuard.registerFix(function(ListSpan s, size_t i) {
+			s.registerElement(i);
+		});
 
 		static bool isTypeSpecialization(TokenType t) {
 			return t == TokenType.Struct || t == TokenType.Union
@@ -2291,21 +2301,24 @@ private:
 				|| t == TokenType.Package;
 		}
 
-		while (match(TokenType.EqualEqual) || match(TokenType.Colon)) {
-			auto specGuard = span();
+		if (isTypeSpecialization(token.type)) {
+			nextToken();
+		} else {
+			parseType();
+		}
 
-			space();
-			split();
+		clearSeparator();
+
+		while (match(TokenType.Comma)) {
 			nextToken();
 			space();
+			split();
 
-			if (isTypeSpecialization(token.type)) {
-				nextToken();
-			} else {
-				parseType();
-			}
+			sGuard.registerFix(function(ListSpan s, size_t i) {
+				s.registerElement(i);
+			});
 
-			clearSeparator();
+			parseStructuralElement();
 		}
 	}
 
@@ -3085,38 +3098,31 @@ private:
 	/**
 	 * Parsing utilities
 	 */
-	void parseListAdapter(alias fun)(size_t i) {
-		fun();
-	}
-
-	void parseList(alias fun)(TokenType closingTokenType,
-	                          bool addNewLines = false) {
+	void parseList(alias fun)(
+		TokenType closingTokenType,
+		bool addNewLines = false,
+		bool addNaturalbreak = true
+	) {
 		if (match(closingTokenType)) {
 			auto guard = builder.virtualSpan();
 			nextToken();
 			return;
 		}
 
-		static if (is(typeof(fun(0)))) {
-			alias afun = fun;
-		} else {
-			alias afun = parseListAdapter!fun;
-		}
-
 		auto guard = span!ListSpan();
 
-		size_t i = 0;
+		uint i = 0;
 		while (!match(closingTokenType)) {
 			if (addNewLines) {
 				newline(1);
 			}
 
-			split(false, false, i == 0);
+			split(false, false, i++ == 0 && addNaturalbreak);
 			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
 
-			afun(i++);
+			fun();
 
 			if (!match(TokenType.Comma)) {
 				break;

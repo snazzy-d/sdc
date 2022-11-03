@@ -15,35 +15,19 @@ is(Foo bar == const T);
 is(Foo bar == const T, U, V);
 
 is(ParameterT : Tpl!(Arg1, Arg2, Arg3),
-   Arg1, Arg2, Arg3);
+                Arg1, Arg2, Arg3);
 is(ParameterT == Tpl!(Arg1, Arg2, Arg3),
-   Arg1, Arg2, Arg3);
+                 Arg1, Arg2, Arg3);
 
-is(
-	immutable ParameterT
-		: immutable Tpl!Element,
-	Element
-);
-is(
-	immutable ParameterT
-		== immutable Tpl!Element,
-	Element
-);
+is(immutable ParameterT
+	: immutable Tpl!Element, Element);
+is(immutable ParameterT
+	== immutable Tpl!Element, Element);
 
-is(
-	immutable ParameterT
-		: immutable Tpl!(
-			Element1,
-			Element2,
-			Element3
-		),
-	Element1, Element2, Element3);
+is(immutable ParameterT
+	: immutable Tpl!(Element1, Element2, Element3),
+	  Element1, Element2, Element3);
 
-is(
-	immutable ParameterT
-		== immutable Tpl!(
-			Element1,
-			Element2,
-			Element3
-		),
-	Element1, Element2, Element3);
+is(immutable ParameterT
+	== immutable Tpl!(Element1, Element2, Element3),
+	   Element1, Element2, Element3);
