@@ -1517,7 +1517,7 @@ private:
 			space();
 		}
 
-		split();
+		split(false, false, true);
 		parseStructuralElement();
 		return false;
 	}
