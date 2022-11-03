@@ -45,7 +45,7 @@ class Span {
 	}
 
 protected:
-	bool matchLevel(const Span s) const {
+	bool matchLevel(const Span s, size_t i) const {
 		return false;
 	}
 
@@ -91,16 +91,16 @@ bool contains(const Span span, const Span s) {
 	return span.parent.contains(s);
 }
 
-bool isSameLevel(const Span a, const Span b) {
+bool isSameLevel(const Span a, const Span b, size_t i) {
 	if (a is b) {
 		return true;
 	}
 
-	if (a !is null && a.matchLevel(b)) {
+	if (a !is null && a.matchLevel(b, i)) {
 		return true;
 	}
 
-	if (b !is null && b.matchLevel(a)) {
+	if (b !is null && b.matchLevel(a, i)) {
 		return true;
 	}
 
@@ -363,6 +363,26 @@ final class ListSpan : Span {
 		}
 	}
 
+	override bool matchLevel(const Span s, size_t i) const {
+		if (i < trailingSplit) {
+			return false;
+		}
+
+		static bool walkParents(const Span p, const Span s, size_t i) {
+			if (p is null) {
+				return false;
+			}
+
+			if (cast(const(ListSpan)) p) {
+				return p.isSameLevel(s, i);
+			}
+
+			return walkParents(p.parent, s, i);
+		}
+
+		return walkParents(parent, s, i);
+	}
+
 	bool mustExplode(const ref SolveState s) const {
 		return getState(s) == -1;
 	}
@@ -561,7 +581,7 @@ final class StorageClassSpan : Span {
 		return 0;
 	}
 
-	override bool matchLevel(const Span s) const {
-		return parent.isSameLevel(s);
+	override bool matchLevel(const Span s, size_t i) const {
+		return parent.isSameLevel(s, i);
 	}
 }

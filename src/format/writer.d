@@ -530,8 +530,8 @@ struct SolveState {
 				// Try to avoid subsequent line to have the same indentation
 				// level if they belong to a different span.
 				uint penality =
-					computeNewLinePenality(c, column, length, previousColumn,
-					                       previousSpan);
+					computeNewLinePenality(line, i, column, length,
+					                       previousColumn, previousSpan);
 
 				// End the previous line if there is one.
 				endLine(line, i, length, pageWidth, penality);
@@ -614,17 +614,20 @@ struct SolveState {
 		}
 	}
 
-	uint computeNewLinePenality(
-		const ref Chunk c,
+	static uint computeNewLinePenality(
+		const Chunk[] line,
+		size_t i,
 		uint column,
 		uint length,
 		uint previousColumn,
 		const(Span) previousSpan,
-	) const {
+	) {
 		// No penality for top level.
 		if (column == 0) {
 			return 0;
 		}
+
+		auto c = line[i];
 
 		// Avoid line break that make the next line starts past the previous line.
 		if (column >= length && !c.naturalBreak) {
@@ -643,7 +646,7 @@ struct SolveState {
 
 		// If both spans are expected to be on the same level,
 		// then it's all good.
-		if (previousSpan.isSameLevel(c.span)) {
+		if (previousSpan.isSameLevel(c.span, i)) {
 			return 0;
 		}
 
