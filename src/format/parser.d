@@ -3111,13 +3111,12 @@ private:
 
 		auto guard = span!ListSpan();
 
-		uint i = 0;
 		while (!match(closingTokenType)) {
 			if (addNewLines) {
 				newline(1);
 			}
 
-			split(false, false, i++ == 0 && addNaturalbreak);
+			split(false, false, addNaturalbreak);
 			guard.registerFix(function(ListSpan s, size_t i) {
 				s.registerElement(i);
 			});
