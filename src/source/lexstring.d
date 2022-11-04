@@ -207,6 +207,51 @@ mixin template LexStringImpl(Token,
 		return true;
 	}
 
+	bool lexHtmlEntity(ref DecodedChar decoded) {
+		static getMap() {
+			string[string] ret;
+
+			import source.htmlentities;
+			foreach (ent, _; HtmlEntities) {
+				ret[ent ~ ";"] = "singleEntity";
+			}
+
+			foreach (ent, _; DoubleHtmlEntities) {
+				ret[ent ~ ";"] = "doubleEntity";
+			}
+
+			return ret;
+		}
+
+		static singleEntity(string E)(ref DecodedChar decoded) {
+			import source.htmlentities;
+			enum C = HtmlEntities[E[0 .. $ - 1]];
+
+			decoded = DecodedChar(C);
+			return true;
+		}
+
+		static doubleEntity(string E)(ref DecodedChar decoded) {
+			import source.htmlentities;
+			enum S = DoubleHtmlEntities[E[0 .. $ - 1]];
+
+			// FIXME: How do we return a string from there?
+			return false;
+		}
+
+		static fallback(string E)(ref DecodedChar decoded) {
+			// FIXME: Lex an identifier and generate a good error.
+			return false;
+		}
+
+		popChar();
+		uint begin = index;
+
+		import source.lexbase;
+		// pragma(msg, lexerMixin(getMap(), "fallback", ["decoded"]));
+		mixin(lexerMixin(getMap(), "fallback", ["decoded"]));
+	}
+
 	bool lexEscapeSequence(ref DecodedChar decoded) {
 		char c = frontChar;
 
@@ -262,7 +307,7 @@ mixin template LexStringImpl(Token,
 				return lexUnicodeEscapeSequence!'U'(decoded);
 
 			case '&':
-				assert(0, "HTML5 named character references not implemented");
+				return lexHtmlEntity(decoded);
 
 			default:
 				return false;

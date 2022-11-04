@@ -1,1 +1,0 @@
-module d.gc.ring;

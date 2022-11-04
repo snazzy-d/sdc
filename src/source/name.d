@@ -184,17 +184,7 @@ enum Prefill = [
 ];
 
 auto getNames() {
-	import source.dlexer;
-
-	auto identifiers = [""];
-	foreach (k, _; getOperatorsMap()) {
-		identifiers ~= k;
-	}
-
-	foreach (k, _; getKeywordsMap()) {
-		identifiers ~= k;
-	}
-
+	auto identifiers = ["", "null", "true", "false", "(", ")", "[", "]", "{", "}", ",", ":", "\0"];
 	return identifiers ~ Reserved ~ Prefill;
 }
 
