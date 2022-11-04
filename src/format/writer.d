@@ -89,6 +89,10 @@ struct Writer {
 	}
 
 	FormatResult write() {
+		if (chunks.length == 0) {
+			return FormatResult(0, 0, "");
+		}
+
 		cost = 0;
 		overflow = 0;
 
@@ -151,9 +155,8 @@ struct LineWriter {
 
 	Chunk[] line;
 
-	this(Writer* writer, Chunk[] line) in {
-		assert(line.length > 0, "line must not be empty");
-	} do {
+	this(Writer* writer, Chunk[] line)
+			in(line.length > 0, "line must not be empty") {
 		this.writer = writer;
 		this.line = line;
 	}
