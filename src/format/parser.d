@@ -2789,7 +2789,8 @@ private:
 
 				case At:
 					parseAttributes();
-					if (!isPostfix && !foundStorageClass && !match(Colon)) {
+					if (!isPostfix && !foundStorageClass
+						    && mode != Mode.Parameter && !match(Colon)) {
 						newline(1);
 					}
 

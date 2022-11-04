@@ -14,12 +14,8 @@ bool fun() {
 		delegate {
 			return true;
 		},
-		(
-			@UDAType("E")
-			A a) => B(a),
-		(
-			@(33)
-			int) => 0,
+		(@UDAType("E") A a) => B(a),
+		(@(33) int) => 0,
 	);
 
 	return (() @trusted =>
