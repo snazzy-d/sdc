@@ -303,8 +303,9 @@ public:
 		}
 
 		if (chunk.kind == ChunkKind.Text) {
-			import std.uni, std.range;
-			chunk._length = cast(uint) chunk.text.byGrapheme.walkLength();
+			import std.uni, std.utf, std.range;
+			chunk._length =
+				cast(uint) chunk.text.byDchar.byGrapheme.walkLength();
 		}
 
 		source ~= chunk;
