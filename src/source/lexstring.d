@@ -10,20 +10,26 @@ mixin template LexStringImpl(Token,
 		uint begin = index - l;
 
 		char c = frontChar;
+		const start = index;
 		auto dc = DecodedChar(c);
 
 		if (c < 0x80) {
-			const beginEscape = index;
 			popChar();
 
 			if (c == '\\' && !lexEscapeSequence(dc)) {
-				return getError(beginEscape, "Invalid escape sequence.");
+				return getError(start, "Invalid escape sequence.");
 			}
 		} else {
-			import std.utf;
-			size_t i = index;
-			dc = DecodedChar(content.decode(i));
-			index = cast(uint) i;
+			dchar d;
+
+			import source.util.utf8;
+			if (!decode(content, index, d)) {
+				// FIXME: The squiggly lines in the error message,
+				// aren't always where one would expect.
+				return getError(start, "Invalid UTF-8 sequence.");
+			}
+
+			dc = DecodedChar(d);
 		}
 
 		c = frontChar;
