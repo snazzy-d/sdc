@@ -52,7 +52,9 @@ bool decode(string s, ref size_t index, ref dchar decoded) {
 	uint state = States[type];
 	uint codepoint = c & (0xff >> type);
 
-	for (index = index + 1; (state > 12) && (index < s.length); index++) {
+	index += state == 12;
+
+	while ((state > 12) && (++index < s.length)) {
 		c = s[index];
 		codepoint = (c & 0x3f) | (codepoint << 6);
 		type = Types[c];
@@ -60,6 +62,7 @@ bool decode(string s, ref size_t index, ref dchar decoded) {
 	}
 
 	decoded = cast(dchar) codepoint;
+	index += state == 0;
 	return state == 0;
 }
 
@@ -115,6 +118,13 @@ unittest {
 	             "\xED\xB0\x80", "\xED\xBE\x80", "\xED\xBF\xBF"]) {
 		size_t index = 0;
 		assert(!decode(s, index, decoded));
+	}
+
+	// Do not eat into the next sequence when dealign with invalid sequences.
+	foreach (s; ["\xE4\0", "\xE4x", "\xE4😞"]) {
+		size_t index = 0;
+		assert(!decode(s, index, decoded));
+		assert(index == 1);
 	}
 }
 

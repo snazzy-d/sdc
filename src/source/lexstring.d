@@ -24,8 +24,6 @@ mixin template LexStringImpl(Token,
 
 			import source.util.utf8;
 			if (!decode(content, index, d)) {
-				// FIXME: The squiggly lines in the error message,
-				// aren't always where one would expect.
 				return getError(start, "Invalid UTF-8 sequence.");
 			}
 
