@@ -135,7 +135,7 @@ private:
 		import source.name;
 		Name _name;
 
-		import source.lexstring;
+		import source.decodedchar;
 		DecodedChar _decodedChar;
 
 		uint _base;
