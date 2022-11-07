@@ -342,10 +342,12 @@ private:
 				popChar();
 			}
 		} else {
-			import std.utf;
-			size_t i = index;
-			content.decode(i);
-			index = cast(uint) i;
+			dchar d;
+
+			import source.util.utf8;
+			if (!decode(content, index, d)) {
+				return getError(begin, "Invalid UTF-8 sequence.");
+			}
 		}
 
 		return getError(begin, "Unexpected token.");
@@ -374,18 +376,20 @@ private:
 				break;
 			}
 
-			// This needs to be a size_t.
-			size_t i = index;
+			uint i = index;
+			dchar u;
 
-			import std.utf;
-			auto u = content.decode(i);
+			import source.util.utf8;
+			if (!decode(content, i, u)) {
+				break;
+			}
 
 			import std.uni : isAlpha;
 			if (!isAlpha(u)) {
 				break;
 			}
 
-			index = cast(uint) i;
+			index = i;
 		}
 
 		return begin - index;
