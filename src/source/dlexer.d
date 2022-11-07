@@ -556,6 +556,7 @@ struct DLexer {
 		}
 
 		while (true) {
+		ScanString:
 			while (c != '\0' && c != '"') {
 				popChar();
 				c = frontChar;
@@ -567,15 +568,16 @@ struct DLexer {
 
 			scope(success) {
 				popChar();
+				c = frontChar;
 			}
 
 			if (content[index - id.length - 1] != '\n') {
 				continue;
 			}
 
-			for (size_t i = 0; c != '\0' && i < id.length; i++) {
+			for (size_t i = 0; i < id.length; i++) {
 				if (content[index - id.length + i] != id[i]) {
-					continue;
+					goto ScanString;
 				}
 			}
 
@@ -1362,6 +1364,15 @@ I_LOVE_PYTHON"`);
 		);
 		lex.popFront();
 
+		assert(lex.front.type == TokenType.End);
+	}
+
+	{
+		auto lex = testlexer(`q"FOO
+FOO
+"`);
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.Invalid);
 		assert(lex.front.type == TokenType.End);
 	}
 
