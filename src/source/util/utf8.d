@@ -8,6 +8,37 @@ import std.system;
  * It uses a state machine as decribed by Björn Höhrmann in
  * http://bjoern.hoehrmann.de/utf-8/decoder/dfa/
  * Archive: https://archive.ph/LVY0U
+ * 
+ * Some notes on the types:
+ *  - [c0 .. c1] maps character on the ASCII range on two bytes.
+ *    It is therefore banned using type 8, which always triggers
+ *    and invalid sequence.
+ *  - Similarly, [f5 .. ff] maps to invalid sequences and also
+ *    has type 8.
+ *  - e0 (type 10) only allows continuations in the
+ *    [a0 .. bf] range (type 7).
+ *    Continuations in the [80 .. 9f] range (type 1 and 9)
+ *    would lead to codepoints which can be encoded using
+ *    2 bytes and are therefore banned.
+ *  - ed (type 4) only allows continuations in the
+ *    [80 .. 9f] range (Type 1 and 9).
+ *    Continuation in the [a0 .. bf] range (type 7) would
+ *    lead to codepoint in the [d800 .. dfff] range, which
+ *    is reserved for surrogate pairs for utf-16.
+ *  - f0 (type 11) only allows continuations in the
+ *    [90 .. af] range (Type 7 and 9).
+ *    Continuations in the [80 .. 8f] range (type 1)
+ *    would lead to codepoints which can be encoded using
+ *    3 bytes and are therefore banned.
+ *  - f4 (type 5) only allows continuations in the
+ *    [80 .. 8f] range (Type 1).
+ *    Continuations in the [90 .. bf] range (type 7 and 9)
+ *    would lead to codepoints past 0x10FFFF, the highest
+ *    possible codepoint.
+ * 
+ * In addition, the exact value of the type is chosen in
+ * such a way that it can be used to mask prefix bits in
+ * leading encoding character.
  */
 private immutable ubyte[256 + 108] DecorderTable = [
 	// sdfmt off
@@ -102,26 +133,91 @@ unittest {
 		assert(index == s.length);
 	}
 
-	// Check we don't go past the end of the string.
-	foreach (s; ["\xE2\x89", "\xC0\x8A", "\xE0\x80\x8A", "\xF0\x80\x80\x8A",
-	             "\xF8\x80\x80\x80\x8A", "\xFC\x80\x80\x80\x80\x8A"]) {
+	// Check we reject invalid sequences
+	foreach (s; ["\xff\x88\xff", "\x80\xbf\xab", "\xbf\x80\xab", "\xc0\xc1\xc0",
+	             "\xef\xcf\x7f", "\xc2\xd1\xe0"]) {
 		size_t index = 0;
 		assert(!decode(s, index, decoded));
+		assert(index == 1);
 
 		index = 1;
 		assert(!decode(s, index, decoded));
 		assert(index == 2);
 	}
 
-	// Invalid UTF-8 sequences.
-	foreach (s; ["\xED\xA0\x80", "\xED\xAD\xBF", "\xED\xAE\x80", "\xED\xAF\xBF",
-	             "\xED\xB0\x80", "\xED\xBE\x80", "\xED\xBF\xBF"]) {
+	// Check we don't go past the end of the string.
+	foreach (s; ["\xc2", "\xe2\x89", "\xf1\x89\xab"]) {
 		size_t index = 0;
 		assert(!decode(s, index, decoded));
+		assert(index == s.length);
 	}
 
-	// Do not eat into the next sequence when dealign with invalid sequences.
-	foreach (s; ["\xE4\0", "\xE4x", "\xE4😞"]) {
+	// Do not eat into the next sequence when
+	// dealing with invalid sequences.
+	foreach (s; ["\xe4\0", "\xe4x", "\xe4😞"]) {
+		size_t index = 0;
+		assert(!decode(s, index, decoded));
+		assert(index == 1);
+	}
+
+	// Check ranges of accepted codepoints.
+	foreach (s; [
+		// 1 byte encoding.
+		"\x00",
+		"\x42", "\x7f",
+		// 2 bytes encoding.
+		"\xc2\x80",
+		"\xd0\xb0",
+		"\xdf\xbf",
+		// 3 bytes encoding, before surrogate pairs
+		"\xe0\xa0\x80",
+		"\xe2\xaa\xbb",
+		"\xed\x9f\xbf",
+		// 3 bytes encoding, after surrogate pairs
+		"\xee\x80\x80",
+		"\xee\x99\x88",
+		"\xef\xbf\xbf",
+		// 4 bytes encoding.
+		"\xf0\x90\x80\x80",
+		"\xf2\x8f\x9f\xaf",
+		"\xf4\x8f\xbf\xbf",
+	]) {
+		size_t index = 0;
+		assert(decode(s, index, decoded));
+		assert(index == s.length);
+	}
+
+	// Reject valid looking, but actually invalid sequences.
+	foreach (s; [
+		// Redundant with 1 byte encoding.
+		"\xc0\x80",
+		"\xc0\xbb", "\xc1\xbf",
+		// Redundant with 2 bytes encoding.
+		"\xe0\x80\x80",
+		"\xe0\x9a\x8b",
+		"\xe0\x9f\xbf",
+		// Redundant with surrogates pairs.
+		"\xed\xa0\x80",
+		"\xed\xaf\xba",
+		"\xed\xbf\xbf",
+		// Redundant with 3 bytes encoding.
+		"\xf0\x80\x80\x80",
+		"\xf0\x88\x99\x88",
+		"\xf0\x8f\xbf\xbf",
+		// Encode characters past U+10ffff
+		"\xf4\x90\x80\x80",
+		"\xf4\xbf\xbf\xbf",
+		"\xf5\x80\x80\x80",
+		"\xf7\xbf\xbf\xbf",
+		// 5 bytes encoding is disallowed.
+		"\xf8\xaa\x80\x80\x80",
+		// 6 bytes encoding is disallowed.
+		"\xfc\xaa\x80\x80\x80\x80",
+		// 7 bytes encoding is disallowed.
+		"\xfe\xaa\x80\x80\x80\x80\x80",
+		// 8 bytes encoding (?) is disallowed.
+		"\xff\xaa\x80\x80\x80\x80\x80\x80",
+	]) {
 		size_t index = 0;
 		assert(!decode(s, index, decoded));
 		assert(index == 1);
