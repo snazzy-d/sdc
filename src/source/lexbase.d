@@ -594,15 +594,6 @@ private:
 	}
 }
 
-@property
-char front(string s) {
-	return s[0];
-}
-
-void popFront(ref string s) {
-	s = s[1 .. $];
-}
-
 string lexerMixin(string[string] ids, string def = "lexDefaultFallback",
                   string[] rtArgs = []) {
 	return lexerMixin(ids, def, rtArgs, "");
