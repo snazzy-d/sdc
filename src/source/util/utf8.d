@@ -79,12 +79,17 @@ private enum States = DecoderTable.ptr + 256;
 
 bool decode(string s, ref size_t index, ref dchar decoded) {
 	char c = s[index];
+	if (c < 0xc2 || c > 0xf4) {
+		decoded = c;
+		index++;
+		return c < 0x80;
+	}
+
 	uint type = Types[c];
 	uint state = States[type];
+	assert(state > 12);
+
 	uint codepoint = c & (0xff >> type);
-
-	index += state == 12;
-
 	while ((state > 12) && (++index < s.length)) {
 		c = s[index];
 		codepoint = (c & 0x3f) | (codepoint << 6);
