@@ -331,7 +331,7 @@ final class ListSpan : Span {
 	}
 
 	void registerElement(size_t i) in {
-		assert(elements.length == 0 || elements[$ - 1] < i);
+		assert(elements.length == 0 || elements[$ - 1] <= i);
 		assert(!hasTrailingSplit);
 	} do {
 		import std.algorithm;
@@ -347,7 +347,7 @@ final class ListSpan : Span {
 
 	void registerTrailingSplit(size_t i) in {
 		assert(elements.length > 0);
-		assert(elements[$ - 1] < i);
+		assert(elements[$ - 1] <= i);
 		assert(!hasTrailingSplit);
 	} do {
 		trailingSplit = i;
