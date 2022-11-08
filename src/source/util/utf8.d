@@ -40,7 +40,7 @@ import std.system;
  * such a way that it can be used to mask prefix bits in
  * leading encoding character.
  */
-private immutable ubyte[256 + 108] DecorderTable = [
+private immutable ubyte[256 + 108] DecoderTable = [
 	// sdfmt off
 	// The first part of the table maps bytes to character classes.
 	 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 00 .. 0f ^
@@ -74,8 +74,8 @@ private immutable ubyte[256 + 108] DecorderTable = [
 	// sdfmt on
 ];
 
-private enum Types = DecorderTable.ptr;
-private enum States = DecorderTable.ptr + 256;
+private enum Types = DecoderTable.ptr;
+private enum States = DecoderTable.ptr + 256;
 
 bool decode(string s, ref size_t index, ref dchar decoded) {
 	char c = s[index];
