@@ -195,12 +195,12 @@ public:
 			// Bucket brigade.
 			previousTop = top;
 
-			size_t indexinLine = i - start;
+			size_t indexInLine = i - start;
 
 			scope(success) {
 				// Run fixups that the parser may have registered.
 				while (fi < fixups.length && fixups[fi].index == i) {
-					fixups[fi++].fix(c, i - start, indexinLine);
+					fixups[fi++].fix(c, i - start, indexInLine);
 				}
 			}
 
@@ -226,6 +226,12 @@ public:
 			// This is a line break with no span in common.
 			c._startsUnwrappedLine = true;
 			start = i;
+		}
+
+		// Make sure we process any stragglers.
+		size_t indexInLine = source.length - start;
+		while (fi < fixups.length && fixups[fi].index == source.length) {
+			fixups[fi++].fix(chunk, indexInLine, indexInLine);
 		}
 
 		return source;
