@@ -166,12 +166,12 @@ private:
 		return getError(base.getWithOffsets(begin, index), message);
 	}
 
-	void popChar() in(index < content.length) {
-		index++;
+	uint popChar() in(index < content.length) {
+		return index++;
 	}
 
-	void unpopChar() in(index > 1) {
-		index--;
+	uint unpopChar() in(index > 1) {
+		return index--;
 	}
 
 	@property

@@ -73,9 +73,7 @@ mixin template LexStringImpl(Token,
 			return getError(begin, "Unexpected end of file.");
 		}
 
-		uint end = index;
-		popChar();
-
+		uint end = popChar();
 		return buildRawString(begin, start, end);
 	}
 
@@ -141,8 +139,7 @@ mixin template LexStringImpl(Token,
 			return getError(begin, "Unexpected end of file.");
 		}
 
-		uint end = index;
-		popChar();
+		uint end = popChar();
 
 		Name value;
 		if (decodeLiterals) {
