@@ -34,7 +34,7 @@ mixin template LexPreprocessorImpl(Token, alias TokenHandlers,
 				return Token.getEnd(base.getWithOffsets(begin, index));
 			}
 
-			import source.lexbase;
+			import source.lexermixin;
 			// pragma(msg, lexerMixin(getMap()));
 			mixin(lexerMixin(getMap()));
 		}
