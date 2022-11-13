@@ -855,7 +855,6 @@ auto getKeywordsMap() {
 		"ushort"          : Ushort,
 		"version"         : Version,
 		"void"            : Void,
-		"volatile"        : Volatile,
 		"wchar"           : Wchar,
 		"while"           : While,
 		"with"            : With,
