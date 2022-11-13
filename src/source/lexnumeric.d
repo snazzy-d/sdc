@@ -29,32 +29,33 @@ mixin template LexNumericImpl(
 
 		bool isFloat = false;
 		if (frontChar == '.') {
-			auto savePoint = index;
+			auto dotSavePoint = index;
 
 			popChar();
 			if (frontChar == '.') {
-				index = savePoint;
-				goto LexSuffix;
+				index = dotSavePoint;
+				goto LexIntegral;
 			}
-
-			auto floatSavePoint = index;
-
-			popWhiteSpaces();
-
-			if (wantIdentifier(frontChar)) {
-				index = savePoint;
-				goto LexSuffix;
-			}
-
-			index = floatSavePoint;
-			isFloat = true;
 
 			if (isFun(frontChar)) {
 				popChar();
 				popFun();
+				isFloat = true;
+				goto LexExponent;
 			}
+
+			auto floatSavePoint = index;
+			popWhiteSpaces();
+			if (wantIdentifier(frontChar)) {
+				index = dotSavePoint;
+				goto LexIntegral;
+			}
+
+			index = floatSavePoint;
+			goto LexFloat;
 		}
 
+	LexExponent:
 		if ((frontChar | 0x20) == E) {
 			isFloat = true;
 			popChar();
@@ -67,11 +68,12 @@ mixin template LexNumericImpl(
 			popDecimal();
 		}
 
-	LexSuffix:
 		if (isFloat) {
+		LexFloat:
 			return lexFloatSuffix(begin, 0);
 		}
 
+	LexIntegral:
 		ulong value = 0;
 		if (decodeLiterals) {
 			import source.strtoint;

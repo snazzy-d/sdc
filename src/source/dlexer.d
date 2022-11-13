@@ -1058,6 +1058,13 @@ unittest {
 	}
 
 	{
+		auto lex = testlexer("1.0e10");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+
+	{
 		auto lex = testlexer("1. 0");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
@@ -1238,6 +1245,20 @@ unittest {
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.FloatLiteral);
 		lex.match(TokenType.Identifier);
+		assert(lex.front.type == TokenType.End);
+	}
+
+	{
+		auto lex = testlexer("0x1.921fb54442d1846ap+1L");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+
+	{
+		auto lex = testlexer("0x1.a934f0979a3715fcp+1L");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
 		assert(lex.front.type == TokenType.End);
 	}
 
