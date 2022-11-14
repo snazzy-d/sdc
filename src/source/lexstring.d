@@ -275,3 +275,52 @@ mixin template LexStringImpl(Token,
 		return true;
 	}
 }
+
+unittest {
+	import source.context, source.dlexer;
+	auto context = new Context();
+
+	auto makeTestLexer(string s) {
+		import source.location, source.name;
+		auto base = context.registerMixin(Location.init, s ~ '\0');
+		return lex(base, context);
+	}
+
+	auto checkLexString(string s, string expected) {
+		auto lex = makeTestLexer(s);
+
+		import source.parserutil;
+		lex.match(TokenType.Begin);
+
+		auto t = lex.match(TokenType.StringLiteral);
+		assert(t.decodedString.toString(context) == expected);
+
+		assert(lex.front.type == TokenType.End);
+	}
+
+	auto checkLexInvalid(string s, string error) {
+		auto lex = makeTestLexer(s);
+
+		import source.parserutil;
+		lex.match(TokenType.Begin);
+
+		auto t = lex.match(TokenType.Invalid);
+		assert(t.error.toString(context) == error);
+	}
+
+	checkLexString(`""`, "");
+
+	// Check unicode support
+	checkLexString(`"\U0001F0BD\u0393α\u1FD6\u03B1\U0001FA01🙈🙉🙊\U0001F71A"`,
+	               "🂽Γαῖα🨁🙈🙉🙊🜚");
+
+	checkLexInvalid(`"\U0001F0B"`, "Invalid escape sequence.");
+	checkLexInvalid(`"\u039"`, "Invalid escape sequence.");
+	checkLexInvalid(`"\u039G"`, "Invalid escape sequence.");
+	checkLexInvalid(`"\u03@3"`, "Invalid escape sequence.");
+
+	// Check other escaped characters.
+	checkLexString(`"\0\a\b\f\r\n\t\v"`, "\0\a\b\f\r\n\t\v");
+	checkLexString(`"\xfa\xff\x20\x00\xAA\xf0\xa0"`,
+	               "\xfa\xff\x20\x00\xAA\xf0\xa0");
+}
