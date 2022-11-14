@@ -16,8 +16,13 @@ mixin template LexStringImpl(Token,
 		if (c < 0x80) {
 			popChar();
 
-			if (c == '\\' && !lexEscapeSequence(dc)) {
-				return getError(start, "Invalid escape sequence.");
+			if (c == '\\') {
+				auto es = lexEscapeSequence(start);
+				if (es.type == SequenceType.Invalid) {
+					return getError(es.location, es.error);
+				}
+
+				dc = es.decodedChar;
 			}
 		} else {
 			dchar d;
@@ -126,12 +131,12 @@ mixin template LexStringImpl(Token,
 			const beginEscape = index;
 			popChar();
 
-			DecodedChar dc;
-			if (!lexEscapeSequence(dc)) {
-				return getError(beginEscape, "Invalid escape sequence.");
+			auto es = lexEscapeSequence(beginEscape);
+			if (es.type == SequenceType.Invalid) {
+				return getError(es.location, es.error);
 			}
 
-			decoded = dc.appendTo(decoded);
+			decoded = es.appendTo(decoded);
 			c = frontChar;
 		}
 
@@ -164,14 +169,15 @@ mixin template LexStringImpl(Token,
 	/**
 	 * Escape sequences.
 	 */
-	bool lexOctalEscapeSequence(ref DecodedChar decoded) {
-		auto c = frontChar;
-		if (c < '0' || c > '7') {
-			return false;
-		}
+	auto getEscapeSequenceError(uint begin, string error) {
+		return EscapeSequence.fromError(base.getWithOffsets(begin, index),
+		                                context.getName(error));
+	}
 
+	EscapeSequence lexOctalEscapeSequence(uint begin) {
 		uint r = 0;
 		foreach (i; 0 .. 3) {
+			auto c = frontChar;
 			if (c < '0' || c > '7') {
 				break;
 			}
@@ -181,13 +187,15 @@ mixin template LexStringImpl(Token,
 			c = frontChar;
 		}
 
-		if (r > 0xff) {
-			// TODO: error: escape octal sequence \NNN is larger than \377
-			return false;
+		if (r <= 0xff) {
+			return EscapeSequence(char(r & 0xff));
 		}
 
-		decoded = DecodedChar(char(r & 0xff));
-		return true;
+		import std.format;
+		return getEscapeSequenceError(
+			begin,
+			format!"Escape octal sequence \\%03o is larger than \\377."(r),
+		);
 	}
 
 	bool decodeNHexCharacters(uint N, T)(ref T result)
@@ -215,7 +223,7 @@ mixin template LexStringImpl(Token,
 	}
 
 	import source.decodedchar;
-	bool lexUnicodeEscapeSequence(char C)(ref DecodedChar decoded)
+	EscapeSequence lexUnicodeEscapeSequence(char C)(uint begin)
 			if (C == 'u' || C == 'U') {
 		enum S = 4 * (C == 'U') + 4;
 
@@ -223,21 +231,25 @@ mixin template LexStringImpl(Token,
 
 		dchar v;
 		if (!decodeNHexCharacters!S(v)) {
-			return false;
+			goto Error;
 		}
 
 		import std.utf;
-		if (!isValidDchar(v)) {
-			return false;
+		if (isValidDchar(v)) {
+			return EscapeSequence(v);
 		}
 
-		decoded = DecodedChar(v);
-		return true;
+	Error:
+		import std.format;
+		return getEscapeSequenceError(
+			begin,
+			format!"%s is not a valid unicode character."(
+				content[begin .. index]),
+		);
 	}
 
-	bool lexEscapeSequence(ref DecodedChar decoded) {
+	EscapeSequence lexEscapeSequence(uint begin) {
 		char c = frontChar;
-
 		switch (c) {
 			case '\'', '"', '\\', '?':
 				break;
@@ -247,7 +259,7 @@ mixin template LexStringImpl(Token,
 				break;
 
 			case '1': .. case '7':
-				return lexOctalEscapeSequence(decoded);
+				return lexOctalEscapeSequence(begin);
 
 			case 'a':
 				c = '\a';
@@ -279,31 +291,112 @@ mixin template LexStringImpl(Token,
 
 			case 'x':
 				popChar();
-				if (!decodeNHexCharacters!2(c)) {
-					return false;
+				if (decodeNHexCharacters!2(c)) {
+					return EscapeSequence(c);
 				}
 
-				decoded = DecodedChar(c);
-				return true;
+				import std.format;
+				return getEscapeSequenceError(
+					begin,
+					format!"%s is not a valid hexadecimal sequence."(
+						content[begin .. index])
+				);
 
 			case 'u':
-				return lexUnicodeEscapeSequence!'u'(decoded);
+				return lexUnicodeEscapeSequence!'u'(begin);
 
 			case 'U':
-				return lexUnicodeEscapeSequence!'U'(decoded);
+				return lexUnicodeEscapeSequence!'U'(begin);
 
 			case '&':
 				assert(0, "HTML5 named character references not implemented");
 
 			default:
-				return false;
+				return
+					getEscapeSequenceError(begin, "Invalid escape sequence.");
 		}
 
 		popChar();
-		decoded = DecodedChar(c);
-		return true;
+		return EscapeSequence(c);
 	}
 }
+
+enum SequenceType {
+	Invalid,
+	Character,
+}
+
+struct EscapeSequence {
+private:
+	import util.bitfields;
+	enum TypeSize = EnumSize!SequenceType;
+	enum ExtraBits = 8 * uint.sizeof - TypeSize;
+
+	import std.bitmanip;
+	mixin(bitfields!(
+		// sdfmt off
+		SequenceType, "_type", TypeSize,
+		uint, "_extra", ExtraBits,
+		// sdfmt on
+	));
+
+	import source.name;
+	Name _name;
+
+	union {
+		import source.decodedchar;
+		DecodedChar _decodedChar;
+
+		import source.location;
+		Location _location;
+	}
+
+public:
+	this(char c) {
+		_type = SequenceType.Character;
+		_decodedChar = DecodedChar(c);
+	}
+
+	this(dchar d) {
+		_type = SequenceType.Character;
+		_decodedChar = DecodedChar(d);
+	}
+
+	static fromError(Location location, Name error) {
+		EscapeSequence r;
+		r._type = SequenceType.Invalid;
+		r._name = error;
+		r._location = location;
+
+		return r;
+	}
+
+	@property
+	auto type() const {
+		return _type;
+	}
+
+	@property
+	auto location() const in(type == SequenceType.Invalid) {
+		return _location;
+	}
+
+	@property
+	auto error() const in(type == SequenceType.Invalid) {
+		return _name;
+	}
+
+	@property
+	auto decodedChar() const in(type == SequenceType.Character) {
+		return _decodedChar;
+	}
+
+	string appendTo(string s) const in(type != SequenceType.Invalid) {
+		return decodedChar.appendTo(s);
+	}
+}
+
+static assert(EscapeSequence.sizeof == 16);
 
 unittest {
 	import source.context, source.dlexer;
@@ -343,17 +436,24 @@ unittest {
 	checkLexString(`"\U0001F0BD\u0393α\u1FD6\u03B1\U0001FA01🙈🙉🙊\U0001F71A"`,
 	               "🂽Γαῖα🨁🙈🙉🙊🜚");
 
-	checkLexInvalid(`"\U0001F0B"`, "Invalid escape sequence.");
-	checkLexInvalid(`"\u039"`, "Invalid escape sequence.");
-	checkLexInvalid(`"\u039G"`, "Invalid escape sequence.");
-	checkLexInvalid(`"\u03@3"`, "Invalid escape sequence.");
+	checkLexInvalid(`"\U0001F0B"`,
+	                `\U0001F0B" is not a valid unicode character.`);
+	checkLexInvalid(`"\u039"`, `\u039" is not a valid unicode character.`);
+	checkLexInvalid(`"\u039G"`, `\u039G is not a valid unicode character.`);
+	checkLexInvalid(`"\u03@3"`, `\u03@3 is not a valid unicode character.`);
 
 	// Check other escaped characters.
 	checkLexString(`"\0\a\b\f\r\n\t\v"`, "\0\a\b\f\r\n\t\v");
+	checkLexInvalid(`"\c"`, `Invalid escape sequence.`);
+
+	// Check hexadecimal escape sequences.
 	checkLexString(`"\xfa\xff\x20\x00\xAA\xf0\xa0"`,
 	               "\xfa\xff\x20\x00\xAA\xf0\xa0");
+	checkLexInvalid(`"\xgg"`, `\xgg is not a valid hexadecimal sequence.`);
+
+	// Check Octal escape sequences.
 	checkLexString(`"\0\1\11\44\77\111\377"`, "\0\x01\x09\x24\x3f\x49\xff");
 	checkLexString(`"\1111\378"`, "\x491\x1f8");
-
-	checkLexInvalid(`"\400"`, "Invalid escape sequence.");
+	checkLexInvalid(`"\400"`,
+	                `Escape octal sequence \400 is larger than \377.`);
 }

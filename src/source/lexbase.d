@@ -158,8 +158,12 @@ private:
 		assert(0, "unreachable");
 	}
 
+	Token getError(Location loc, Name message) {
+		return Token.getError(loc, message);
+	}
+
 	Token getError(Location loc, string message) {
-		return Token.getError(loc, context.getName(message));
+		return getError(loc, context.getName(message));
 	}
 
 	Token getError(uint begin, string message) {

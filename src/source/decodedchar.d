@@ -39,7 +39,7 @@ public:
 		return isRaw ? asChar : content;
 	}
 
-	string appendTo(string s) {
+	string appendTo(string s) const {
 		if (isChar) {
 			s ~= asChar;
 			return s;
