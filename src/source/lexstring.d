@@ -164,6 +164,32 @@ mixin template LexStringImpl(Token,
 	/**
 	 * Escape sequences.
 	 */
+	bool lexOctalEscapeSequence(ref DecodedChar decoded) {
+		auto c = frontChar;
+		if (c < '0' || c > '7') {
+			return false;
+		}
+
+		uint r = 0;
+		foreach (i; 0 .. 3) {
+			if (c < '0' || c > '7') {
+				break;
+			}
+
+			popChar();
+			r = (r * 8) | (c - '0');
+			c = frontChar;
+		}
+
+		if (r > 0xff) {
+			// TODO: error: escape octal sequence \NNN is larger than \377
+			return false;
+		}
+
+		decoded = DecodedChar(char(r & 0xff));
+		return true;
+	}
+
 	bool decodeNHexCharacters(uint N, T)(ref T result)
 			if (N <= 8 && N <= 2 * T.sizeof) {
 		if (index + N >= content.length) {
@@ -219,6 +245,9 @@ mixin template LexStringImpl(Token,
 			case '0':
 				c = '\0';
 				break;
+
+			case '1': .. case '7':
+				return lexOctalEscapeSequence(decoded);
 
 			case 'a':
 				c = '\a';
@@ -323,4 +352,8 @@ unittest {
 	checkLexString(`"\0\a\b\f\r\n\t\v"`, "\0\a\b\f\r\n\t\v");
 	checkLexString(`"\xfa\xff\x20\x00\xAA\xf0\xa0"`,
 	               "\xfa\xff\x20\x00\xAA\xf0\xa0");
+	checkLexString(`"\0\1\11\44\77\111\377"`, "\0\x01\x09\x24\x3f\x49\xff");
+	checkLexString(`"\1111\378"`, "\x491\x1f8");
+
+	checkLexInvalid(`"\400"`, "Invalid escape sequence.");
 }
