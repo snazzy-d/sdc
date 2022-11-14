@@ -13,17 +13,28 @@ mixin template LexStringImpl(Token,
 		const start = index;
 		auto dc = DecodedChar(c);
 
-		if (c < 0x80) {
+		if (c == '\0') {
+			return getError(begin, "Unexpected end of file.");
+		}
+
+		if (c == '\'') {
+			popChar();
+			return getError(begin, "Character literals cannot be empty.");
+		}
+
+		if (c == '\\') {
 			popChar();
 
-			if (c == '\\') {
-				auto es = lexEscapeSequence(start);
-				if (es.type == SequenceType.Invalid) {
-					return getError(es.location, es.error);
+			auto es = lexEscapeSequence(start);
+			if (es.type == SequenceType.Invalid) {
+				if (frontChar == '\'') {
+					popChar();
 				}
 
-				dc = es.decodedChar;
+				return getError(es.location, es.error);
 			}
+
+			dc = es.decodedChar;
 		} else {
 			dchar d;
 
@@ -37,7 +48,12 @@ mixin template LexStringImpl(Token,
 
 		c = frontChar;
 		if (c != '\'') {
-			return getError(begin, "Expected `\'` to end charatcter literal.");
+			import std.format;
+			return getError(
+				begin,
+				format!"Expected `\'` to end charatcter literal, not %(%s%)."(
+					(&c)[0 .. 1]),
+			);
 		}
 
 		popChar();
@@ -332,6 +348,18 @@ unittest {
 		return lex(base, context);
 	}
 
+	auto checkLexChar(string s, uint expected) {
+		auto lex = makeTestLexer(s);
+
+		import source.parserutil;
+		lex.match(TokenType.Begin);
+
+		auto t = lex.match(TokenType.CharacterLiteral);
+		assert(t.decodedChar.asIntegral == expected);
+
+		assert(lex.front.type == TokenType.End);
+	}
+
 	auto checkLexString(string s, string expected) {
 		auto lex = makeTestLexer(s);
 
@@ -354,11 +382,33 @@ unittest {
 		assert(t.error.toString(context) == error);
 	}
 
+	// Check for plain old ASCII.
 	checkLexString(`""`, "");
+	checkLexString(`"foobar"`, "foobar");
 
-	// Check unicode support
+	checkLexChar("'a'", 0x61);
+	checkLexInvalid(`''`, "Character literals cannot be empty.");
+	checkLexInvalid(`'aa'`, "Expected `'` to end charatcter literal, not 'a'.");
+	checkLexInvalid("'\xc0'", "Invalid UTF-8 sequence.");
+
+	// Invalid strings and characters.
+	checkLexInvalid(`"`, "Unexpected end of file.");
+	checkLexInvalid(`'`, "Unexpected end of file.");
+
+	// Check unicode support.
 	checkLexString(`"\U0001F0BD\u0393α\u1FD6\u03B1\U0001FA01🙈🙉🙊\U0001F71A"`,
 	               "🂽Γαῖα🨁🙈🙉🙊🜚");
+
+	checkLexChar(`'\U0001F0BD'`, 0x1F0BD);
+	checkLexChar(`'\u0393'`, 0x393);
+	checkLexChar(`'α'`, 0x3B1);
+	checkLexChar(`'\u1FD6'`, 0x1FD6);
+	checkLexChar(`'\u03B1'`, 0x3B1);
+	checkLexChar(`'\U0001FA01'`, 0x1FA01);
+	checkLexChar(`'🙈'`, 0x1F648);
+	checkLexChar(`'🙉'`, 0x1F649);
+	checkLexChar(`'🙊'`, 0x1F64a);
+	checkLexChar(`'\U0001FA01'`, 0x1FA01);
 
 	checkLexInvalid(`"\U0001F0B"`,
 	                `\U0001F0B" is not a valid unicode character.`);
@@ -367,17 +417,54 @@ unittest {
 	checkLexInvalid(`"\u03@3"`, `\u03@3 is not a valid unicode character.`);
 
 	// Check other escaped characters.
-	checkLexString(`"\0\a\b\f\r\n\t\v"`, "\0\a\b\f\r\n\t\v");
-	checkLexInvalid(`"\c"`, `Invalid escape sequence.`);
+	checkLexString(`"\'\"\?\0\a\b\f\r\n\t\v"`, "\'\"\?\0\a\b\f\r\n\t\v");
+	checkLexInvalid(`"\c"`, "Invalid escape sequence.");
+
+	checkLexChar(`'\"'`, 0x22);
+	checkLexChar(`'\''`, 0x27);
+	checkLexChar(`'\?'`, 0x3f);
+
+	checkLexChar(`'\0'`, 0);
+	checkLexChar(`'\a'`, 7);
+	checkLexChar(`'\b'`, 8);
+	checkLexChar(`'\t'`, 9);
+	checkLexChar(`'\n'`, 10);
+	checkLexChar(`'\v'`, 11);
+	checkLexChar(`'\f'`, 12);
+	checkLexChar(`'\r'`, 13);
+	checkLexInvalid(`'\c'`, "Invalid escape sequence.");
 
 	// Check hexadecimal escape sequences.
 	checkLexString(`"\xfa\xff\x20\x00\xAA\xf0\xa0"`,
 	               "\xfa\xff\x20\x00\xAA\xf0\xa0");
 	checkLexInvalid(`"\xgg"`, `\xgg is not a valid hexadecimal sequence.`);
 
-	// Check Octal escape sequences.
+	checkLexChar(`'\xfa'`, 0xfa);
+	checkLexChar(`'\xff'`, 0xff);
+	checkLexChar(`'\x20'`, 0x20);
+	checkLexChar(`'\x00'`, 0x00);
+	checkLexChar(`'\xAA'`, 0xAA);
+	checkLexChar(`'\xf0'`, 0xf0);
+	checkLexChar(`'\xa0'`, 0xa0);
+	checkLexInvalid(`'\xgg'`, `\xgg is not a valid hexadecimal sequence.`);
+
+	// Check octal escape sequences.
 	checkLexString(`"\0\1\11\44\77\111\377"`, "\0\x01\x09\x24\x3f\x49\xff");
 	checkLexString(`"\1111\378"`, "\x491\x1f8");
 	checkLexInvalid(`"\400"`,
+	                `Escape octal sequence \400 is larger than \377.`);
+
+	checkLexChar(`'\0'`, 0);
+	checkLexChar(`'\1'`, 0x01);
+	checkLexChar(`'\11'`, 0x09);
+	checkLexChar(`'\44'`, 0x24);
+	checkLexChar(`'\77'`, 0x3f);
+	checkLexChar(`'\111'`, 0x49);
+	checkLexChar(`'\377'`, 0xff);
+	checkLexInvalid(`'\1111'`,
+	                "Expected `'` to end charatcter literal, not '1'.");
+	checkLexInvalid(`'\378'`,
+	                "Expected `'` to end charatcter literal, not '8'.");
+	checkLexInvalid(`'\400'`,
 	                `Escape octal sequence \400 is larger than \377.`);
 }
