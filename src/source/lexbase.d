@@ -424,7 +424,8 @@ private:
 	 */
 	auto lexOperator(string s)() {
 		uint l = s.length;
-		auto loc = base.getWithOffsets(index - l, index);
+		uint begin = index - l;
+		auto loc = base.getWithOffsets(begin, index);
 		return Token.getOperator!s(loc);
 	}
 

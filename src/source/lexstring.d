@@ -368,6 +368,7 @@ unittest {
 		assert(t.decodedChar.asIntegral == expected);
 
 		assert(lex.front.type == TokenType.End);
+		assert(lex.index == s.length + 1);
 	}
 
 	auto checkLexString(string s, string expected) {
@@ -380,6 +381,7 @@ unittest {
 		assert(t.decodedString.toString(context) == expected);
 
 		assert(lex.front.type == TokenType.End);
+		assert(lex.index == s.length + 1);
 	}
 
 	auto checkLexInvalid(string s, string error) {
@@ -403,6 +405,7 @@ unittest {
 		}
 
 		assert(lex.front.type == TokenType.End);
+		assert(lex.index == s.length + 1);
 	}
 
 	// Check for plain old ASCII.
