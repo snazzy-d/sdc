@@ -218,12 +218,13 @@ mixin template LexStringImpl(Token,
 	bool decodeNHexCharacters(uint N, T)(ref T result)
 			if (N <= 8 && N <= 2 * T.sizeof) {
 		if (index + N >= content.length) {
+			index = (content.length - 1) & uint.max;
 			return false;
 		}
 
 		result = 0;
 
-		bool hasError = false;
+		uint errorCount = 0;
 		foreach (i; 0 .. N) {
 			char c = frontChar;
 			popChar();
@@ -232,11 +233,12 @@ mixin template LexStringImpl(Token,
 			uint h = ((c | 0x20) - 'a') & 0xff;
 			uint n = (d < 10) ? d : (h + 10);
 
-			hasError |= n >= 16;
+			errorCount += (n >= 16) | (errorCount > 0);
 			result |= n << (4 * (N - i - 1));
 		}
 
-		return !hasError;
+		index -= errorCount;
+		return errorCount == 0;
 	}
 
 	import source.decodedchar;
@@ -410,11 +412,13 @@ unittest {
 	checkLexChar(`'🙊'`, 0x1F64a);
 	checkLexChar(`'\U0001FA01'`, 0x1FA01);
 
+	checkLexInvalid(`"\U0001F0B`,
+	                `\U0001F0B is not a valid unicode character.`);
 	checkLexInvalid(`"\U0001F0B"`,
-	                `\U0001F0B" is not a valid unicode character.`);
-	checkLexInvalid(`"\u039"`, `\u039" is not a valid unicode character.`);
-	checkLexInvalid(`"\u039G"`, `\u039G is not a valid unicode character.`);
-	checkLexInvalid(`"\u03@3"`, `\u03@3 is not a valid unicode character.`);
+	                `\U0001F0B is not a valid unicode character.`);
+	checkLexInvalid(`"\u039"`, `\u039 is not a valid unicode character.`);
+	checkLexInvalid(`"\u039G"`, `\u039 is not a valid unicode character.`);
+	checkLexInvalid(`"\u03@3"`, `\u03 is not a valid unicode character.`);
 
 	// Check other escaped characters.
 	checkLexString(`"\'\"\?\0\a\b\f\r\n\t\v"`, "\'\"\?\0\a\b\f\r\n\t\v");
@@ -437,7 +441,7 @@ unittest {
 	// Check hexadecimal escape sequences.
 	checkLexString(`"\xfa\xff\x20\x00\xAA\xf0\xa0"`,
 	               "\xfa\xff\x20\x00\xAA\xf0\xa0");
-	checkLexInvalid(`"\xgg"`, `\xgg is not a valid hexadecimal sequence.`);
+	checkLexInvalid(`"\xgg"`, `\x is not a valid hexadecimal sequence.`);
 
 	checkLexChar(`'\xfa'`, 0xfa);
 	checkLexChar(`'\xff'`, 0xff);
@@ -446,7 +450,7 @@ unittest {
 	checkLexChar(`'\xAA'`, 0xAA);
 	checkLexChar(`'\xf0'`, 0xf0);
 	checkLexChar(`'\xa0'`, 0xa0);
-	checkLexInvalid(`'\xgg'`, `\xgg is not a valid hexadecimal sequence.`);
+	checkLexInvalid(`'\xgg'`, `\x is not a valid hexadecimal sequence.`);
 
 	// Check octal escape sequences.
 	checkLexString(`"\0\1\11\44\77\111\377"`, "\0\x01\x09\x24\x3f\x49\xff");
