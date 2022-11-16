@@ -481,7 +481,7 @@ private:
 				import std.format;
 				return getError(
 					prefixStart,
-					format!"Invalid suffix: `%s`."(
+					format!"`%s` is not a valid suffix."(
 						content[prefixStart .. index]),
 				);
 			}

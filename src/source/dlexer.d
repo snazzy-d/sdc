@@ -1029,65 +1029,6 @@ unittest {
 	}
 
 	{
-		auto lex = testlexer("0");
-		lex.match(TokenType.Begin);
-		lex.match(TokenType.IntegerLiteral);
-		assert(lex.front.type == TokenType.End);
-	}
-
-	{
-		auto lex = testlexer("1");
-		lex.match(TokenType.Begin);
-		lex.match(TokenType.IntegerLiteral);
-		assert(lex.front.type == TokenType.End);
-	}
-
-	{
-		auto lex = testlexer("1.");
-		lex.match(TokenType.Begin);
-		lex.match(TokenType.FloatLiteral);
-		assert(lex.front.type == TokenType.End);
-	}
-
-	{
-		auto lex = testlexer("1.0");
-		lex.match(TokenType.Begin);
-		lex.match(TokenType.FloatLiteral);
-		assert(lex.front.type == TokenType.End);
-	}
-
-	{
-		auto lex = testlexer("1.0e10");
-		lex.match(TokenType.Begin);
-		lex.match(TokenType.FloatLiteral);
-		assert(lex.front.type == TokenType.End);
-	}
-
-	{
-		auto lex = testlexer("1. 0");
-		lex.match(TokenType.Begin);
-		lex.match(TokenType.FloatLiteral);
-		lex.match(TokenType.IntegerLiteral);
-		assert(lex.front.type == TokenType.End);
-	}
-
-	{
-		auto lex = testlexer("1..");
-		lex.match(TokenType.Begin);
-		lex.match(TokenType.IntegerLiteral);
-		lex.match(TokenType.DotDot);
-		assert(lex.front.type == TokenType.End);
-	}
-
-	{
-		auto lex = testlexer("1 .");
-		lex.match(TokenType.Begin);
-		lex.match(TokenType.IntegerLiteral);
-		lex.match(TokenType.Dot);
-		assert(lex.front.type == TokenType.End);
-	}
-
-	{
 		auto lex = testlexer("1u");
 		lex.match(TokenType.Begin);
 		lex.match(TokenType.IntegerLiteral);

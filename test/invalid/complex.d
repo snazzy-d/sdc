@@ -1,5 +1,5 @@
 //T error: complex.d:6:20:
-//T error: Invalid suffix: `i`.
+//T error: `i` is not a valid suffix.
 // sdfmt off
 
 void foo() {
