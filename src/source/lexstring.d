@@ -331,8 +331,16 @@ mixin template LexStringImpl(Token,
 				assert(0, "HTML5 named character references not implemented");
 
 			default:
-				return
-					getEscapeSequenceError(begin, "Invalid escape sequence.");
+				dchar d;
+
+				import source.util.utf8, std.format;
+				return getEscapeSequenceError(
+					begin,
+					decode(content, index, d)
+						? format!"%(%s%) is not a valid escape sequence."(
+							(&d)[0 .. 1])
+						: "Invalid UTF-8 sequence."
+				);
 		}
 
 		popChar();
@@ -384,14 +392,40 @@ unittest {
 		assert(t.error.toString(context) == error);
 	}
 
+	auto checkTokenSequence(string s, TokenType[] tokenTypes) {
+		auto lex = makeTestLexer(s);
+
+		import source.parserutil;
+		lex.match(TokenType.Begin);
+
+		foreach (t; tokenTypes) {
+			lex.match(t);
+		}
+
+		assert(lex.front.type == TokenType.End);
+	}
+
 	// Check for plain old ASCII.
 	checkLexString(`""`, "");
 	checkLexString(`"foobar"`, "foobar");
+
+	checkTokenSequence(`''""`, [TokenType.Invalid, TokenType.StringLiteral]);
+	checkTokenSequence(`'a'""`,
+	                   [TokenType.CharacterLiteral, TokenType.StringLiteral]);
+	checkTokenSequence(`'\'""`, [TokenType.Invalid, TokenType.StringLiteral]);
 
 	checkLexChar("'a'", 0x61);
 	checkLexInvalid(`''`, "Character literals cannot be empty.");
 	checkLexInvalid(`'aa'`, "Expected `'` to end charatcter literal, not 'a'.");
 	checkLexInvalid("'\xc0'", "Invalid UTF-8 sequence.");
+
+	checkTokenSequence(
+		`'aa'""`,
+		[TokenType.Invalid, TokenType.Identifier, TokenType.Invalid,
+		 TokenType.Invalid]
+	);
+	checkTokenSequence("'\\\xc0'``",
+	                   [TokenType.Invalid, TokenType.StringLiteral]);
 
 	// Invalid strings and characters.
 	checkLexInvalid(`"`, "Unexpected end of file.");
@@ -420,9 +454,20 @@ unittest {
 	checkLexInvalid(`"\u039G"`, `\u039 is not a valid unicode character.`);
 	checkLexInvalid(`"\u03@3"`, `\u03 is not a valid unicode character.`);
 
+	checkTokenSequence(`'\U0001F0B'""`,
+	                   [TokenType.Invalid, TokenType.StringLiteral]);
+	checkTokenSequence(`'\U0001F0BD'""`,
+	                   [TokenType.CharacterLiteral, TokenType.StringLiteral]);
+	checkTokenSequence(
+		`'\u03@3'""`,
+		[TokenType.Invalid, TokenType.At, TokenType.IntegerLiteral,
+		 TokenType.Invalid, TokenType.Invalid]
+	);
+
 	// Check other escaped characters.
 	checkLexString(`"\'\"\?\0\a\b\f\r\n\t\v"`, "\'\"\?\0\a\b\f\r\n\t\v");
-	checkLexInvalid(`"\c"`, "Invalid escape sequence.");
+	checkLexInvalid(`"\c"`, "'c' is not a valid escape sequence.");
+	checkLexInvalid(`"\α"`, "'α' is not a valid escape sequence.");
 
 	checkLexChar(`'\"'`, 0x22);
 	checkLexChar(`'\''`, 0x27);
@@ -436,7 +481,14 @@ unittest {
 	checkLexChar(`'\v'`, 11);
 	checkLexChar(`'\f'`, 12);
 	checkLexChar(`'\r'`, 13);
-	checkLexInvalid(`'\c'`, "Invalid escape sequence.");
+	checkLexInvalid(`'\c'`, "'c' is not a valid escape sequence.");
+	checkLexInvalid(`'\α'`, "'α' is not a valid escape sequence.");
+
+	checkTokenSequence(`'\0'"\0"`,
+	                   [TokenType.CharacterLiteral, TokenType.StringLiteral]);
+
+	checkTokenSequence(`'\c'""`, [TokenType.Invalid, TokenType.StringLiteral]);
+	checkTokenSequence(`'\α'""`, [TokenType.Invalid, TokenType.StringLiteral]);
 
 	// Check hexadecimal escape sequences.
 	checkLexString(`"\xfa\xff\x20\x00\xAA\xf0\xa0"`,
@@ -451,6 +503,15 @@ unittest {
 	checkLexChar(`'\xf0'`, 0xf0);
 	checkLexChar(`'\xa0'`, 0xa0);
 	checkLexInvalid(`'\xgg'`, `\x is not a valid hexadecimal sequence.`);
+
+	checkTokenSequence(`'\x'""`, [TokenType.Invalid, TokenType.StringLiteral]);
+	checkTokenSequence(`'\xf'""`, [TokenType.Invalid, TokenType.StringLiteral]);
+	checkTokenSequence(`'\xff'""`,
+	                   [TokenType.CharacterLiteral, TokenType.StringLiteral]);
+	checkTokenSequence(
+		`'\xgg""`,
+		[TokenType.Invalid, TokenType.Identifier, TokenType.StringLiteral]
+	);
 
 	// Check octal escape sequences.
 	checkLexString(`"\0\1\11\44\77\111\377"`, "\0\x01\x09\x24\x3f\x49\xff");
@@ -471,4 +532,12 @@ unittest {
 	                "Expected `'` to end charatcter literal, not '8'.");
 	checkLexInvalid(`'\400'`,
 	                `Escape octal sequence \400 is larger than \377.`);
+
+	checkTokenSequence(`'\400'""`,
+	                   [TokenType.Invalid, TokenType.StringLiteral]);
+	checkTokenSequence(
+		`'\378'""`,
+		[TokenType.Invalid, TokenType.IntegerLiteral, TokenType.Invalid,
+		 TokenType.Invalid]
+	);
 }
