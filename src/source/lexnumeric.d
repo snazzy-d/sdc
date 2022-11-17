@@ -186,7 +186,7 @@ mixin template LexNumericImpl(
 
 		auto c = frontChar;
 		if (isHexadecimal(c) || (c == '.' && isHexadecimal(nextChar))) {
-			return lexFloatLiteral!('p')(begin);
+			return lexFloatLiteral!'p'(begin);
 		}
 
 		import std.format;
@@ -224,7 +224,7 @@ mixin template LexNumericImpl(
 	}
 
 	auto lexDecimal(uint begin) {
-		return lexFloatLiteral!('e')(begin);
+		return lexFloatLiteral!'e'(begin);
 	}
 }
 
