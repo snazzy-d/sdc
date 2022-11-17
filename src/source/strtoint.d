@@ -1,7 +1,7 @@
 module source.strtoint;
 
-ulong strToInt(string s) in(s.length > 0, "s must not be empty") {
-	if (s[0] != '0' || s.length < 3) {
+ulong strToInt(string s) {
+	if (s.length < 3 || s[0] != '0') {
 		goto ParseDec;
 	}
 
@@ -22,6 +22,7 @@ ParseDec:
 }
 
 unittest {
+	assert(strToInt("") == 0);
 	assert(strToInt("0") == 0);
 	assert(strToInt("42") == 42);
 	assert(strToInt("123") == 123);
@@ -30,25 +31,25 @@ unittest {
 	assert(strToInt("0b101") == 5);
 }
 
-ulong strToDecInt(string s) in(s.length > 0, "s must not be empty") {
-	ulong ret = 0;
+ulong strToDecInt(string s) {
+	ulong result = 0;
 
-	for (uint i = 0; i < s.length; i++) {
+	foreach (i; 0 .. s.length) {
 		if (s[i] == '_') {
 			continue;
 		}
 
-		ret *= 10;
-
 		auto d = s[i] - '0';
-		assert(d < 10, "Only digits are expected here");
-		ret += d;
+
+		assert(d < 10, "Only digits are expected here.");
+		result = 10 * result + d;
 	}
 
-	return ret;
+	return result;
 }
 
 unittest {
+	assert(strToDecInt("") == 0);
 	assert(strToDecInt("0") == 0);
 	assert(strToDecInt("42") == 42);
 	assert(strToDecInt("1234567890") == 1234567890);
@@ -56,24 +57,25 @@ unittest {
 	assert(strToDecInt("34_56") == 3456);
 }
 
-ulong strToBinInt(string s) in(s.length > 0, "s must not be empty") {
-	ulong ret = 0;
+ulong strToBinInt(string s) {
+	ulong result = 0;
 
-	for (uint i = 0; i < s.length; i++) {
+	foreach (i; 0 .. s.length) {
 		if (s[i] == '_') {
 			continue;
 		}
 
-		ret <<= 1;
 		auto d = s[i] - '0';
-		assert(d < 2, "Only 0 and 1 are expected here");
-		ret |= d;
+
+		assert(d < 2, "Only 0 and 1 are expected here.");
+		result = (result << 1) | d;
 	}
 
-	return ret;
+	return result;
 }
 
 unittest {
+	assert(strToBinInt("") == 0);
 	assert(strToBinInt("0") == 0);
 	assert(strToBinInt("1010") == 10);
 	assert(strToBinInt("0101010") == 42);
@@ -83,34 +85,28 @@ unittest {
 	assert(strToBinInt("11_101_00") == 116);
 }
 
-ulong strToHexInt(string s) in(s.length > 0, "s must not be empty") {
-	ulong ret = 0;
+ulong strToHexInt(string s) {
+	ulong result = 0;
 
-	for (uint i = 0; i < s.length; i++) {
-		// TODO: Filter these out at lexing.
+	foreach (i; 0 .. s.length) {
 		if (s[i] == '_') {
 			continue;
 		}
 
-		// XXX: This would allow to reduce data dependacy here by using
-		// the string length and shifting the whole amount at once.
-		ret *= 16;
+		char c = s[i];
+		uint d = c - '0';
+		uint h = ((c | 0x20) - 'a') & 0xff;
+		uint n = (d < 10) ? d : (h + 10);
 
-		auto d = s[i] - '0';
-		if (d < 10) {
-			ret += d;
-			continue;
-		}
-
-		auto h = (s[i] | 0x20) - 'a' + 10;
-		assert(h - 10 < 6, "Only hex digits are expected here");
-		ret += h;
+		assert(n < 16, "Only hex digits are expected here.");
+		result = (result << 4) | n;
 	}
 
-	return ret;
+	return result;
 }
 
 unittest {
+	assert(strToHexInt("") == 0);
 	assert(strToHexInt("0") == 0);
 	assert(strToHexInt("A") == 10);
 	assert(strToHexInt("a") == 10);

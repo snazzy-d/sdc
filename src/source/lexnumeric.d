@@ -25,10 +25,12 @@ mixin template LexNumericImpl(
 	}
 
 	Token lexFloatLiteral(char E)(uint begin) {
-		static if (E == 'e') {
+		enum IsDec = E == 'e';
+		enum IsHex = E == 'p';
+		static if (IsDec) {
 			alias isFun = isDecimal;
 			alias popFun = popDecimal;
-		} else static if (E == 'p') {
+		} else static if (IsHex) {
 			alias isFun = isHexadecimal;
 			alias popFun = popHexadecimal;
 		} else {
@@ -93,7 +95,7 @@ mixin template LexNumericImpl(
 		if (isFloat) {
 		LexFloat:
 			// Exponent is mandatory for hex floats.
-			if (E == 'p' && !hasExponent) {
+			if (IsHex && !hasExponent) {
 				return getError(
 					begin, "An exponent is mandatory for hexadecimal floats.");
 			}
@@ -105,7 +107,9 @@ mixin template LexNumericImpl(
 		ulong value = 0;
 		if (decodeLiterals) {
 			import source.strtoint;
-			value = strToInt(content[begin .. index]);
+			value = IsDec
+				? strToDecInt(content[begin .. index])
+				: strToHexInt(content[begin + 2 .. index]);
 		}
 
 		return lexIntegralSuffix(begin, value);
