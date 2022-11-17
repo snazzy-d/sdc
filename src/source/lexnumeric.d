@@ -213,11 +213,18 @@ mixin template LexNumericImpl(
 	}
 
 	auto lexNumeric(string s)() if (s.length == 1 && isDecimal(s[0])) {
-		return lexNumeric(s[0]);
+		uint l = s.length;
+		return lexDecimal(index - l);
 	}
 
-	auto lexNumeric(char c) in(isDecimal(c)) {
-		return lexFloatLiteral!('e')(index - 1);
+	auto lexNumeric(string s)()
+			if (s.length == 2 && s[0] == '.' && isDecimal(s[1])) {
+		index -= s.length;
+		return lexDecimal(index);
+	}
+
+	auto lexDecimal(uint begin) {
+		return lexFloatLiteral!('e')(begin);
 	}
 }
 
@@ -226,6 +233,7 @@ auto registerNumericPrefixes(string[string] lexerMap) {
 		import std.conv;
 		auto s = to!string(i);
 		lexerMap[s] = "lexNumeric";
+		lexerMap["." ~ s] = "lexNumeric";
 	}
 
 	return lexerMap;
@@ -454,13 +462,12 @@ unittest {
 	checkLexFloat("1.5e+1", 15);
 	checkLexFloat("1.5e-1", 0.15);
 
-	// FIXME: This isn't working.
-	// checkLexFloat(".0", 0);
-	// checkLexFloat(".5", 0.5);
-	// checkLexFloat(".6e0", 0.6);
-	// checkLexFloat(".7e1", 7);
-	// checkLexFloat(".8e+1", 8);
-	// checkLexFloat(".9e-1", 0.09);
+	checkLexFloat(".0", 0);
+	checkLexFloat(".5", 0.5);
+	checkLexFloat(".6e0", 0.6);
+	checkLexFloat(".7e1", 7);
+	checkLexFloat(".8e+1", 8);
+	checkLexFloat(".9e-1", 0.09);
 
 	checkLexFloat("1234567.89", 1234567.89);
 	checkLexFloat("12.3456789", 12.3456789);
@@ -479,11 +486,8 @@ unittest {
 	checkLexFloat("1_234_567_.89", 1234567.89);
 	checkLexFloat("1_234_567.89_", 1234567.89);
 
-	// FIXME: This should be [identifier, float]
-	checkTokenSequence(
-		"_1_234_567.89",
-		[TokenType.Identifier, TokenType.Dot, TokenType.IntegerLiteral]
-	);
+	checkTokenSequence("_1_234_567.89",
+	                   [TokenType.Identifier, TokenType.FloatLiteral]);
 	checkTokenSequence(
 		"1_234_567._89",
 		[TokenType.IntegerLiteral, TokenType.Dot, TokenType.Identifier]
@@ -509,11 +513,8 @@ unittest {
 	// Space within decimal floats.
 	checkTokenSequence("1. 0",
 	                   [TokenType.FloatLiteral, TokenType.IntegerLiteral]);
-	// FIXME: This should be [identifier, float]
-	checkTokenSequence(
-		"1 .0",
-		[TokenType.IntegerLiteral, TokenType.Dot, TokenType.IntegerLiteral]
-	);
+	checkTokenSequence("1 .0",
+	                   [TokenType.IntegerLiteral, TokenType.FloatLiteral]);
 	checkTokenSequence(
 		"1 . 0",
 		[TokenType.IntegerLiteral, TokenType.Dot, TokenType.IntegerLiteral]
@@ -523,10 +524,8 @@ unittest {
 		[TokenType.IntegerLiteral, TokenType.DotDot, TokenType.IntegerLiteral]
 	);
 
-	checkTokenSequence(
-		"1. .0",
-		[TokenType.FloatLiteral, TokenType.Dot, TokenType.IntegerLiteral]
-	);
+	checkTokenSequence("1. .0",
+	                   [TokenType.FloatLiteral, TokenType.FloatLiteral]);
 	checkTokenSequence("1e 0", [TokenType.Invalid, TokenType.IntegerLiteral]);
 	checkTokenSequence("1 e0",
 	                   [TokenType.IntegerLiteral, TokenType.Identifier]);
