@@ -179,8 +179,13 @@ private:
 	}
 
 	@property
-	char frontChar() const {
-		return content[index];
+	char frontChar() const in(index < content.length) {
+		return content.ptr[index];
+	}
+
+	@property
+	char nextChar() const in(frontChar != '\0') {
+		return content.ptr[index + 1];
 	}
 
 	auto skip(string s)() {

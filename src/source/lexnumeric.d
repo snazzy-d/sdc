@@ -184,16 +184,17 @@ mixin template LexNumericImpl(
 			popChar();
 		}
 
-		if (!isHexadecimal(frontChar)) {
-			import std.format;
-			return getError(
-				begin,
-				format!"%s is not a valid hexmadecimal literal."(
-					content[begin .. index])
-			);
+		auto c = frontChar;
+		if (isHexadecimal(c) || (c == '.' && isHexadecimal(nextChar))) {
+			return lexFloatLiteral!('p')(begin);
 		}
 
-		return lexFloatLiteral!('p')(begin);
+		import std.format;
+		return getError(
+			begin,
+			format!"%s is not a valid hexmadecimal literal."(
+				content[begin .. index])
+		);
 	}
 
 	/**
@@ -218,6 +219,16 @@ mixin template LexNumericImpl(
 	auto lexNumeric(char c) in(isDecimal(c)) {
 		return lexFloatLiteral!('e')(index - 1);
 	}
+}
+
+auto registerNumericPrefixes(string[string] lexerMap) {
+	foreach (i; 0 .. 10) {
+		import std.conv;
+		auto s = to!string(i);
+		lexerMap[s] = "lexNumeric";
+	}
+
+	return lexerMap;
 }
 
 unittest {
@@ -611,29 +622,45 @@ unittest {
 		[TokenType.IntegerLiteral, TokenType.Dot, TokenType.Identifier]
 	);
 
-	// FIXME: This isn't working.
-	// checkLexFloat("0x.ap0", 0.625);
+	checkLexFloat("0x.ap0", 0.625);
+	checkLexFloat("0x.ap1", 1.25);
+	checkLexFloat("0x.ap+1", 1.25);
+	checkLexFloat("0x.ap-1", 0.3125);
+
+	checkLexFloat("0x_.ap0", 0.625);
+	checkLexFloat("0x.a_p0", 0.625);
+	checkLexFloat("0x.ap_0", 0.625);
+	checkLexFloat("0x.ap0_", 0.625);
+	checkLexFloat("0x.ap+_1", 1.25);
+	checkLexFloat("0x.ap+1_", 1.25);
+
+	checkLexInvalid("0x.ap_+1", "Float literal is missing exponent.");
+	checkLexInvalid("0x.ap_-1", "Float literal is missing exponent.");
+
+	checkTokenSequence(
+		"0x._ap0", [TokenType.Invalid, TokenType.Dot, TokenType.Identifier]);
+	checkTokenSequence(
+		"0x.ap_+1",
+		[TokenType.Invalid, TokenType.Plus, TokenType.IntegerLiteral]
+	);
+	checkTokenSequence(
+		"0x.ap_-1",
+		[TokenType.Invalid, TokenType.Minus, TokenType.IntegerLiteral]
+	);
 
 	// Exponent is mandatory for hexadecimal floats.
 	checkLexInvalid("0x1.0",
 	                "An exponent is mandatory for hexadecimal floats.");
-	// checkLexInvalid("0x.a", "An exponent is mandatory for hexadecimal floats.");
+	checkLexInvalid("0x.a", "An exponent is mandatory for hexadecimal floats.");
 
 	// Spaces within hexadecimal floats.
 	checkTokenSequence("0x ap0", [TokenType.Invalid, TokenType.Identifier]);
 	checkTokenSequence("0xap 0", [TokenType.Invalid, TokenType.IntegerLiteral]);
 	checkTokenSequence(
 		"0x. ap0", [TokenType.Invalid, TokenType.Dot, TokenType.Identifier]);
-	checkTokenSequence(
-		"0x.a p0",
-		[TokenType.Invalid, TokenType.Dot, TokenType.Identifier,
-		 TokenType.Identifier]
-	);
-	checkTokenSequence(
-		"0x.ap 0",
-		[TokenType.Invalid, TokenType.Dot, TokenType.Identifier,
-		 TokenType.IntegerLiteral]
-	);
+	checkTokenSequence("0x.a p0", [TokenType.Invalid, TokenType.Identifier]);
+	checkTokenSequence("0x.ap 0",
+	                   [TokenType.Invalid, TokenType.IntegerLiteral]);
 	checkTokenSequence(
 		"0x a.ap0",
 		[TokenType.Invalid, TokenType.Identifier, TokenType.Dot,

@@ -351,12 +351,7 @@ struct DLexer {
 			// sdfmt on
 		];
 
-		foreach (i; 0 .. 10) {
-			import std.conv;
-			ret[to!string(i)] = "lexNumeric";
-		}
-
-		return ret;
+		return registerNumericPrefixes(ret);
 	}();
 
 	enum KeywordMap = getKeywordsMap();
