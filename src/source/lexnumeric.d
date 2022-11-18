@@ -93,14 +93,7 @@ mixin template LexNumericImpl(
 		}
 
 		if (isFloat) {
-		LexFloat:
-			// Exponent is mandatory for hex floats.
-			if (IsHex && !hasExponent) {
-				return getError(
-					begin, "An exponent is mandatory for hexadecimal floats.");
-			}
-
-			return lexFloatSuffix(begin, 0);
+			goto LexFloat;
 		}
 
 	LexIntegral:
@@ -113,6 +106,15 @@ mixin template LexNumericImpl(
 		}
 
 		return lexIntegralSuffix(begin, value);
+
+	LexFloat:
+		// Exponent is mandatory for hex floats.
+		if (IsHex && !hasExponent) {
+			return getError(begin,
+			                "An exponent is mandatory for hexadecimal floats.");
+		}
+
+		return lexFloatSuffix(begin, 0);
 	}
 
 	/**
