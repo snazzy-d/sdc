@@ -12,8 +12,9 @@ mixin template LexNumericImpl(
 		return lexLiteralSuffix!IntegralSuffixes(begin, value);
 	}
 
-	Token getIntegerLiteral(string s : "")(Location location, ulong value) {
-		return Token.getIntegerLiteral(location, value);
+	Token getIntegerLiteral(string s)(Location location, ulong value) {
+		return Token
+			.getIntegerLiteral(location, Token.PackedInt.get(context, value));
 	}
 
 	Token lexFloatSuffix(uint begin, double value) {

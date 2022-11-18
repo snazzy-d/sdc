@@ -73,13 +73,11 @@ Value parseJsonValue(ref JsonLexer lexer) {
 
 		case StringLiteral:
 			lexer.popFront();
-			return Value(t.name.toString(lexer.context));
+			return Value(t.decodedString.toString(lexer.context));
 
 		case IntegerLiteral:
 			lexer.popFront();
-
-			import source.strtoint;
-			return Value(strToInt(t.toString(lexer.context)));
+			return Value(t.packedInt.toInt(lexer.context));
 
 		case FloatLiteral:
 			assert(0, "Not implemented");
@@ -117,8 +115,9 @@ Value parseJsonObject(ref JsonLexer lexer) {
 
 	Value[string] values;
 	while (lexer.front.type != TokenType.CloseBrace) {
-		auto location = lexer.front.location;
-		auto type = lexer.front.type;
+		auto t = lexer.front;
+		auto location = t.location;
+		auto type = t.type;
 
 		if (type != TokenType.Identifier && type != TokenType.StringLiteral) {
 			import source.exception;
@@ -126,7 +125,7 @@ Value parseJsonObject(ref JsonLexer lexer) {
 			                           "Expected an identifier or a string");
 		}
 
-		auto name = lexer.front.name;
+		auto name = type == TokenType.Identifier ? t.name : t.decodedString;
 		auto key = name.toString(lexer.context);
 
 		lexer.popFront();

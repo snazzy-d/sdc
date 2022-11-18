@@ -147,7 +147,6 @@ private:
 	static assert(Token.sizeof == 4 * uint.sizeof);
 
 public:
-
 	@property
 	TokenType type() const {
 		return _type;
@@ -404,11 +403,6 @@ struct DLexer {
 		"l": "getFloatLiteral",
 	]);
 	// sdfmt on
-
-	auto getIntegerLiteral(string s)(Location location, ulong value) {
-		return Token
-			.getIntegerLiteral(location, Token.PackedInt.get(context, value));
-	}
 
 	auto getFloatLiteral(string s)(Location location, double value) {
 		if (s == "l") {

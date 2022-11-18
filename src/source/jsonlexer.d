@@ -37,84 +37,140 @@ enum TokenType {
 }
 
 struct Token {
-	TokenType type;
+private:
+	import util.bitfields;
+	enum TypeSize = EnumSize!TokenType;
+	enum ExtraBits = 8 * uint.sizeof - TypeSize;
 
-	import source.name;
-	Name name;
+	import std.bitmanip;
+	mixin(bitfields!(
+		// sdfmt off
+		TokenType, "_type", TypeSize,
+		uint, "_extra", ExtraBits,
+		// sdfmt on
+	));
 
-	import source.location;
-	Location location;
+	union {
+		import source.name;
+		Name _name;
 
-	@property
-	Name error() const {
-		return name;
+		uint _base;
 	}
 
+	import source.location;
+	Location _location;
+
+	static assert(Token.sizeof == 4 * uint.sizeof);
+
+public:
+	@property
+	TokenType type() const {
+		return _type;
+	}
+
+	@property
+	Location location() const {
+		return _location;
+	}
+
+	@property
+	Name name() const in(type >= TokenType.Identifier) {
+		return _name;
+	}
+
+	@property
+	Name error() const in(type == TokenType.Invalid) {
+		return _name;
+	}
+
+	@property
+	Name decodedString() const in(type == TokenType.StringLiteral) {
+		return _name;
+	}
+
+	import source.packedint;
+	alias PackedInt = source.packedint.PackedInt!ExtraBits;
+
+	PackedInt packedInt() const in(type == TokenType.IntegerLiteral) {
+		return PackedInt.recompose(_base, _extra);
+	}
+
+	import source.context;
+	string toString(Context context) {
+		return (type >= TokenType.Identifier)
+			? name.toString(context)
+			: location.getFullLocation(context).getSlice();
+	}
+
+public:
 	static getError(Location location, Name message) {
 		Token t;
-		t.type = TokenType.Invalid;
-		t.name = message;
-		t.location = location;
+		t._type = TokenType.Invalid;
+		t._name = message;
+		t._location = location;
 
 		return t;
 	}
 
 	static getBegin(Location location) {
 		Token t;
-		t.type = TokenType.Begin;
-		t.location = location;
+		t._type = TokenType.Begin;
+		t._location = location;
 
 		return t;
 	}
 
 	static getEnd(Location location) {
 		Token t;
-		t.type = TokenType.End;
-		t.name = BuiltinName!"\0";
-		t.location = location;
+		t._type = TokenType.End;
+		t._name = BuiltinName!"\0";
+		t._location = location;
 
 		return t;
 	}
 
 	static getComment(string s)(Location location) {
 		Token t;
-		t.type = TokenType.Comment;
-		t.name = BuiltinName!s;
-		t.location = location;
+		t._type = TokenType.Comment;
+		t._name = BuiltinName!s;
+		t._location = location;
 
 		return t;
 	}
 
 	static getStringLiteral(Location location, Name value) {
 		Token t;
-		t.type = TokenType.StringLiteral;
-		t.name = value;
-		t.location = location;
+		t._type = TokenType.StringLiteral;
+		t._name = value;
+		t._location = location;
 
 		return t;
 	}
 
-	static getIntegerLiteral(Location location, ulong value) {
+	static getIntegerLiteral(Location location, PackedInt value) {
 		Token t;
-		t.type = TokenType.IntegerLiteral;
-		t.location = location;
+		t._type = TokenType.IntegerLiteral;
+		t._location = location;
+
+		t._base = value.base;
+		t._extra = value.extra;
 
 		return t;
 	}
 
 	static getFloatLiteral(Location location, double value) {
 		Token t;
-		t.type = TokenType.FloatLiteral;
-		t.location = location;
+		t._type = TokenType.FloatLiteral;
+		t._location = location;
 
 		return t;
 	}
 
 	static getIdentifier(Location location, Name name) {
 		Token t;
-		t.type = TokenType.Identifier;
-		t.name = name;
-		t.location = location;
+		t._type = TokenType.Identifier;
+		t._name = name;
+		t._location = location;
 
 		return t;
 	}
@@ -123,9 +179,9 @@ struct Token {
 		enum Type = JsonLexer.KeywordMap[kw];
 
 		Token t;
-		t.type = Type;
-		t.name = BuiltinName!kw;
-		t.location = location;
+		t._type = Type;
+		t._name = BuiltinName!kw;
+		t._location = location;
 
 		return t;
 	}
@@ -134,18 +190,11 @@ struct Token {
 		enum Type = JsonLexer.OperatorMap[op];
 
 		Token t;
-		t.type = Type;
-		t.name = BuiltinName!op;
-		t.location = location;
+		t._type = Type;
+		t._name = BuiltinName!op;
+		t._location = location;
 
 		return t;
-	}
-
-	import source.context;
-	string toString(Context context) {
-		return (type >= TokenType.Identifier)
-			? name.toString(context)
-			: location.getFullLocation(context).getSlice();
 	}
 }
 
