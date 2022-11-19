@@ -1,4 +1,4 @@
-LIBSOURCE_SRC = $(wildcard src/source/*.d) $(wildcard src/source/util/*.d)
+LIBSOURCE_SRC = $(wildcard src/source/*.d) $(wildcard src/source/swar/*.d) $(wildcard src/source/util/*.d)
 
 LIBSOURCE = lib/libsource.a
 

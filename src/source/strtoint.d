@@ -60,15 +60,23 @@ unittest {
 ulong strToBinInt(string s) {
 	ulong result = 0;
 
+Start:
+	import source.swar.bin;
+	while (startsWithBinDigits!8(s)) {
+		result <<= 8;
+		result |= parseBinDigits!ubyte(s);
+		s = s[8 .. $];
+	}
+
 	foreach (i; 0 .. s.length) {
-		if (s[i] == '_') {
-			continue;
+		auto c = s[i];
+		if (c == '_') {
+			s = s[i + 1 .. $];
+			goto Start;
 		}
 
-		auto d = s[i] - '0';
-
-		assert(d < 2, "Only 0 and 1 are expected here.");
-		result = (result << 1) | d;
+		assert(c == '0' || c == '1', "Only 0 and 1 are accepted here.");
+		result = (result << 1) | (c & 0x01);
 	}
 
 	return result;
@@ -80,8 +88,20 @@ unittest {
 	assert(strToBinInt("1010") == 10);
 	assert(strToBinInt("0101010") == 42);
 	assert(strToBinInt(
+		"0101010101010101010101010101010101010101010101010101010101010101",
+	) == 0x5555555555555555);
+	assert(strToBinInt(
+		"0110011001100110011001100110011001100110011001100110011001100110",
+	) == 0x6666666666666666);
+	assert(strToBinInt(
+		"1001100110011001100110011001100110011001100110011001100110011001",
+	) == 0x9999999999999999);
+	assert(strToBinInt(
+		"1010101010101010101010101010101010101010101010101010101010101010",
+	) == 0xaaaaaaaaaaaaaaaa);
+	assert(strToBinInt(
 		"1111111111111111111111111111111111111111111111111111111111111111",
-	) == 18446744073709551615UL);
+	) == 0xffffffffffffffff);
 	assert(strToBinInt("11_101_00") == 116);
 }
 
