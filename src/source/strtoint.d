@@ -108,17 +108,25 @@ unittest {
 ulong strToHexInt(string s) {
 	ulong result = 0;
 
+Start:
+	import source.swar.hex;
+	while (startsWithHexDigits!8(s)) {
+		result <<= 32;
+		result |= parseHexDigits!uint(s);
+		s = s[8 .. $];
+	}
+
 	foreach (i; 0 .. s.length) {
-		if (s[i] == '_') {
-			continue;
+		auto c = s[i];
+		if (c == '_') {
+			s = s[i + 1 .. $];
+			goto Start;
 		}
 
-		char c = s[i];
-		uint d = c - '0';
-		uint h = ((c | 0x20) - 'a') & 0xff;
-		uint n = (d < 10) ? d : (h + 10);
+		import std.ascii;
+		assert(isHexDigit(c), "Only hex digits are accepted here.");
 
-		assert(n < 16, "Only hex digits are expected here.");
+		auto n = (c & 0x0f) + 9 * (c >> 6);
 		result = (result << 4) | n;
 	}
 
@@ -135,6 +143,6 @@ unittest {
 	assert(strToHexInt("42") == 66);
 	assert(strToHexInt("AbCdEf0") == 180150000);
 	assert(strToHexInt("12345aBcDeF") == 1251004370415);
-	assert(strToHexInt("FFFFFFFFFFFFFFFF") == 18446744073709551615UL);
+	assert(strToHexInt("FFFFFFFFFFFFFFFF") == 18446744073709551615);
 	assert(strToHexInt("a_B_c") == 2748);
 }
