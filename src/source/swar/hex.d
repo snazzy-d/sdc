@@ -215,15 +215,17 @@ uint parseHexDigits(T : uint)(string s) in(s.length >= 8) {
 
 	// v = [ba, dc, fe, hg]
 	v |= v << 12;
-	v &= 0xff00ff00ff00ff00;
 
-	// v = [dcba, hgfe]
-	v |= v >> 24;
-	v &= 0x0000ffff0000ffff;
+	// a = [fe00ba, fe]
+	auto a = (v >> 24) & 0x000000ff000000ff;
+	a |= a << 48;
+
+	// b = [hg00dc00, hg00]
+	auto b = v & 0x0000ff000000ff00;
+	b |= b << 48;
 
 	// hgfedcba
-	v |= v << 48;
-	return v >> 32;
+	return (a | b) >> 32;
 }
 
 unittest {
