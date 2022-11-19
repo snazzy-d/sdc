@@ -50,7 +50,7 @@ Start:
 		}
 
 		assert('0' <= c && c <= '9', "Only digits are accepted here.");
-		result = (10 * result) + (c - '0');
+		result = (10 * result) + (c & 0x0f);
 	}
 
 	return result;
@@ -124,6 +124,12 @@ Start:
 		s = s[8 .. $];
 	}
 
+	if (startsWithHexDigits!4(s)) {
+		result <<= 16;
+		result |= parseHexDigits!ushort(s);
+		s = s[4 .. $];
+	}
+
 	foreach (i; 0 .. s.length) {
 		auto c = s[i];
 		if (c == '_') {
@@ -151,6 +157,8 @@ unittest {
 	assert(strToHexInt("42") == 66);
 	assert(strToHexInt("AbCdEf0") == 180150000);
 	assert(strToHexInt("12345aBcDeF") == 1251004370415);
+	assert(strToHexInt("12345aBcDeF0") == 20016069926640);
 	assert(strToHexInt("FFFFFFFFFFFFFFFF") == 18446744073709551615);
+	assert(strToHexInt("123456789abcdef") == 81985529216486895);
 	assert(strToHexInt("a_B_c") == 2748);
 }

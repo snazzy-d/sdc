@@ -215,50 +215,44 @@ mixin template LexStringImpl(Token,
 		);
 	}
 
-	bool decodeNHexCharacters(uint N, T)(ref T result)
-			if (N <= 8 && N <= 2 * T.sizeof) {
-		if (index + N >= content.length) {
-			index = (content.length - 1) & uint.max;
-			return false;
+	bool decodeNHexCharacters(T)(ref T result) {
+		enum N = 2 * T.sizeof;
+		auto rc = remainingContent;
+
+		import source.swar.hex;
+		if (rc.length >= N && startsWithHexDigits!N(rc)) {
+			import std.meta;
+			alias I = AliasSeq!(ubyte, ushort, uint)[T.sizeof / 2];
+
+			result = parseHexDigits!I(rc);
+			index += N;
+			return true;
 		}
 
-		result = 0;
-
-		uint errorCount = 0;
-		foreach (i; 0 .. N) {
-			char c = frontChar;
+		import std.ascii;
+		for (size_t i = 0; i < N && isHexDigit(frontChar); i++) {
 			popChar();
-
-			uint d = c - '0';
-			uint h = ((c | 0x20) - 'a') & 0xff;
-			uint n = (d < 10) ? d : (h + 10);
-
-			errorCount += (n >= 16) | (errorCount > 0);
-			result |= n << (4 * (N - i - 1));
 		}
 
-		index -= errorCount;
-		return errorCount == 0;
+		return false;
 	}
 
 	import source.decodedchar;
 	EscapeSequence lexUnicodeEscapeSequence(char C)(uint begin)
 			if (C == 'u' || C == 'U') {
-		enum S = 4 * (C == 'U') + 4;
+		import std.meta;
+		alias T = AliasSeq!(wchar, dchar)[C == 'U'];
 
 		popChar();
 
-		dchar v;
-		if (!decodeNHexCharacters!S(v)) {
-			goto Error;
+		T v;
+		if (decodeNHexCharacters(v)) {
+			import std.utf;
+			if (C == 'u' || isValidDchar(v)) {
+				return EscapeSequence(v);
+			}
 		}
 
-		import std.utf;
-		if (isValidDchar(v)) {
-			return EscapeSequence(v);
-		}
-
-	Error:
 		import std.format;
 		return getEscapeSequenceError(
 			begin,
@@ -310,7 +304,7 @@ mixin template LexStringImpl(Token,
 
 			case 'x':
 				popChar();
-				if (decodeNHexCharacters!2(c)) {
+				if (decodeNHexCharacters(c)) {
 					return EscapeSequence(c);
 				}
 

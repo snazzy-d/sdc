@@ -188,6 +188,11 @@ private:
 		return content.ptr[index + 1];
 	}
 
+	@property
+	string remainingContent() in(index < content.length) {
+		return content.ptr[index .. content.length];
+	}
+
 	auto skip(string s)() {
 		// Just skip over whitespace.
 	}
