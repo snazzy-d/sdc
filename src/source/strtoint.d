@@ -34,15 +34,23 @@ unittest {
 ulong strToDecInt(string s) {
 	ulong result = 0;
 
+Start:
+	import source.swar.dec;
+	while (startsWithDecDigits!8(s)) {
+		result *= 100000000;
+		result += parseDecDigits!uint(s);
+		s = s[8 .. $];
+	}
+
 	foreach (i; 0 .. s.length) {
-		if (s[i] == '_') {
-			continue;
+		auto c = s[i];
+		if (c == '_') {
+			s = s[i + 1 .. $];
+			goto Start;
 		}
 
-		auto d = s[i] - '0';
-
-		assert(d < 10, "Only digits are expected here.");
-		result = 10 * result + d;
+		assert('0' <= c && c <= '9', "Only digits are accepted here.");
+		result = (10 * result) + (c - '0');
 	}
 
 	return result;
@@ -53,7 +61,7 @@ unittest {
 	assert(strToDecInt("0") == 0);
 	assert(strToDecInt("42") == 42);
 	assert(strToDecInt("1234567890") == 1234567890);
-	assert(strToDecInt("18446744073709551615") == 18446744073709551615UL);
+	assert(strToDecInt("18446744073709551615") == 18446744073709551615);
 	assert(strToDecInt("34_56") == 3456);
 }
 
