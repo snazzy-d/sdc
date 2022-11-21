@@ -193,6 +193,10 @@ private:
 		return content.ptr[index .. content.length];
 	}
 
+	bool reachedEOF() const {
+		return index >= content.length - 1;
+	}
+
 	auto skip(string s)() {
 		// Just skip over whitespace.
 	}
@@ -546,17 +550,27 @@ private:
 		uint l = s.length;
 		uint begin = index - l;
 
-		auto c = frontChar;
+		uint state = 0;
+		uint pstate = 0;
 
-		char pc = '\0';
-		while (c != '\0' && (pc != '*' || c != '/')) {
+		import source.swar.comment;
+		while (remainingContent.length > 8
+			       && canSkipOverComment!8(remainingContent, state)) {
+			pstate = state;
+			index += 8;
+		}
+
+		auto c = frontChar;
+		auto pc = getPreviousCharFromState(pstate);
+
+		while (pc != '*' || c != '/') {
+			if (reachedEOF()) {
+				return getError(begin, "Comment must end with `*/`.");
+			}
+
 			popChar();
 			pc = c;
 			c = frontChar;
-		}
-
-		if (c == '\0') {
-			return getError(begin, "Unexpected end of file.");
 		}
 
 		popChar();
@@ -607,4 +621,90 @@ private:
 	bool skipComment(string s)(Token c) {
 		return c.type == TokenType.Comment && !tokenizeComments;
 	}
+}
+
+unittest {
+	import source.context, source.dlexer;
+	auto context = new Context();
+
+	auto makeTestLexer(string s) {
+		import source.location, source.name;
+		auto base = context.registerMixin(Location.init, s ~ '\0');
+		return lex(base, context).withComments(true);
+	}
+
+	auto checkLexComment(string s, string expected) {
+		auto lex = makeTestLexer(s);
+
+		import source.parserutil;
+		lex.match(TokenType.Begin);
+
+		auto t = lex.match(TokenType.Comment);
+		assert(t.toString(context) == expected);
+
+		assert(lex.front.type == TokenType.End);
+		assert(lex.index == s.length + 1);
+	}
+
+	auto checkLexInvalid(string s, string error) {
+		auto lex = makeTestLexer(s);
+
+		import source.parserutil;
+		lex.match(TokenType.Begin);
+
+		auto t = lex.match(TokenType.Invalid);
+		assert(t.error.toString(context) == error);
+	}
+
+	auto checkTokenSequence(string s, TokenType[] tokenTypes) {
+		auto lex = makeTestLexer(s);
+
+		import source.parserutil;
+		lex.match(TokenType.Begin);
+
+		foreach (t; tokenTypes) {
+			lex.match(t);
+		}
+
+		assert(lex.front.type == TokenType.End);
+		assert(lex.index == s.length + 1);
+	}
+
+	checkLexComment("/**/", "/**/");
+	checkLexComment("  /**/", "/**/");
+	checkLexComment("/**/  ", "/**/");
+	checkLexComment("  /**/  ", "/**/");
+
+	checkLexComment("/*/*/", "/*/*/");
+	checkLexComment("/*/**/", "/*/**/");
+
+	auto spaces = "";
+	auto newlines = "";
+	auto slashes = "";
+	auto stars = "";
+	auto zeros = "";
+	foreach (i; 0 .. 256) {
+		spaces ~= ' ';
+		auto s = "/*" ~ spaces ~ "*/";
+		checkLexComment(s, s);
+
+		newlines ~= '\n';
+		s = "/*" ~ newlines ~ "*/";
+		checkLexComment(s, s);
+
+		slashes ~= '/';
+		s = "/*" ~ slashes ~ "*/";
+		checkLexComment(s, s);
+
+		stars ~= '*';
+		s = "/*" ~ stars ~ "*/";
+		checkLexComment(s, s);
+
+		zeros ~= '\0';
+		s = "/*" ~ zeros ~ "*/";
+		checkLexComment(s, s);
+	}
+
+	checkLexInvalid("/*", "Comment must end with `*/`.");
+	checkLexInvalid("/*/", "Comment must end with `*/`.");
 }
