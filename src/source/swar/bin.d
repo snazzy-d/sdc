@@ -4,25 +4,21 @@ module source.swar.bin;
  * Check we have enough digits in front of us to use SWAR.
  */
 bool startsWithBinDigits(uint N)(string s) {
+	import std.format;
+	static assert(
+		N == 2 || N == 4 || N == 8,
+		format!"startsWithBinDigits only supports size 2, 4 and 8, not %d."(N)
+	);
+
 	if (s.length < N) {
 		return false;
 	}
 
-	static if (N == 8) {
-		alias T = ulong;
-	} else static if (N == 4) {
-		alias T = uint;
-	} else static if (N == 2) {
-		alias T = ushort;
-	} else {
-		import std.format;
-		static assert(
-			0,
-			format!"startsWithBinDigits supports size 2, 4 and 8, not %d."(N)
-		);
-	}
+	import std.meta;
+	alias T = AliasSeq!(ushort, uint, ulong)[N / 4];
 
-	auto v = *(cast(T*) s.ptr);
+	import source.swar.util;
+	auto v = read!T(s);
 
 	// If the input is valid, make it all '1's.
 	auto allOnes = v | cast(T) 0x0101010101010101;
