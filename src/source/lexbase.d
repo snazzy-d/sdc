@@ -1,5 +1,34 @@
 module source.lexbase;
 
+enum HorizontalWhiteSpace = [
+	// sdfmt off
+	" ", "\t",
+	"\v", // ??
+	"\f", // ??
+
+	// Unicode chapter 6.2, Table 6.2
+	"\u00a0", // No break space.
+	"\u1680", // Ogham space mark.
+
+	// A bag of spaces of different sizes.
+	"\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005",
+	"\u2006", "\u2007", "\u2008", "\u2009", "\u200a",
+
+	"\u202f", // Narrow non breaking space.
+	"\u205f", // Medium mathematical space.
+	"\u3000", // Ideographic space.
+	// sdfmt on
+];
+
+enum LineBreaks = [
+	// sdfmt off
+	"\r", "\n", "\r\n",
+	"\u0085", // Next Line.
+	"\u2028", // Line Separator.
+	"\u2029", // Paragraph Separator.
+	// sdfmt on
+];
+
 mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
                            alias OperatorMap) {
 	// TODO: We shouldn't let consumer play with the internal state of the lexer.
@@ -199,26 +228,6 @@ private:
 	/**
 	 * Whietspaces.
 	 */
-	enum HorizontalWhiteSpace = [
-		// sdfmt off
-		" ", "\t",
-		"\v", // ??
-		"\f", // ??
-
-		// Unicode chapter 6.2, Table 6.2
-		"\u00a0", // No break space.
-		"\u1680", // Ogham space mark.
-
-		// A bag of spaces of different sizes.
-		"\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005",
-		"\u2006", "\u2007", "\u2008", "\u2009", "\u200a",
-
-		"\u202f", // Narrow non breaking space.
-		"\u205f", // Medium mathematical space.
-		"\u3000", // Ideographic space.
-		// sdfmt on
-	];
-
 	void popHorizontalWhiteSpaces() {
 		static getMap() {
 			string[string] ret;
@@ -244,19 +253,10 @@ private:
 		}
 	}
 
-	enum LineBreaks = [
-		// sdfmt off
-		"\r", "\n", "\r\n",
-		"\u0085", // Next Line.
-		"\u2028", // Line Separator.
-		"\u2029", // Paragraph Separator.
-		// sdfmt on
-	];
-
 	bool popLineBreak() {
 		// Special case the end of file:
 		// it counts as a line break, but we don't pop it.
-		if (frontChar == '\0') {
+		if (reachedEOF()) {
 			return true;
 		}
 
@@ -510,35 +510,46 @@ private:
 		return Token.getComment!s(location);
 	}
 
-	uint lexLine() {
-		auto c = frontChar;
+	uint popLine() {
+		while (true) {
+			import source.swar.newline;
+			while (remainingContent.length > 8
+				       && canSkipOverLine!8(remainingContent)) {
+				index += 8;
+			}
 
-		// TODO: check for unicode line break.
-		while (c != '\0' && c != '\n' && c != '\r') {
-			popChar();
-			c = frontChar;
+			// canSkipOverLine has false positives, such as '\f' and '\v',
+			// so we limit ourselves to 8 characters at most.
+			foreach (i; 0 .. 8) {
+				// The end of the file is defintively the end of the line.
+				if (reachedEOF()) {
+					return index;
+				}
+
+				// Skip over non line break cheaply.
+				char c = frontChar;
+				if ((c < '\n' || '\r' < c) && ((c | 0x20) != 0xe2)) {
+					popChar();
+					continue;
+				}
+
+				uint end = index;
+				if (popLineBreak()) {
+					return end;
+				}
+
+				// A flase positive, get back to the fast track.
+				popChar();
+				break;
+			}
 		}
-
-		uint end = index;
-		if (c == '\0') {
-			// The end of the file is also the end of the line
-			// so no error is needed in this case.
-			return end;
-		}
-
-		popChar();
-		if (c == '\r' && frontChar == '\n') {
-			popChar();
-		}
-
-		return end;
 	}
 
 	Token lexComment(string s)() if (s == "#" || s == "//") {
 		uint l = s.length;
 		uint begin = index - l;
 
-		return getComment!s(begin, lexLine());
+		return getComment!s(begin, popLine());
 	}
 
 	Token lexComment(string s : "/*")() {
@@ -671,6 +682,17 @@ unittest {
 		assert(lex.index == s.length + 1);
 	}
 
+	checkLexComment("//", "//");
+	checkLexComment("  //", "//");
+	checkLexComment("//  ", "//  ");
+	checkLexComment("// foo\n", "// foo");
+	checkLexComment("// foo\u0085", "// foo");
+	checkLexComment("// foo\u2028", "// foo");
+	checkLexComment("// foo\u2029", "// foo");
+	checkLexComment("//\0foo\r", "//\0foo");
+	checkLexComment("//\xc2foo\r\n", "//\xc2foo");
+	checkLexComment("//\xc2foo\xc2\u0085", "//\xc2foo\xc2");
+
 	checkLexComment("/**/", "/**/");
 	checkLexComment("/*/*/", "/*/*/");
 	checkLexComment("/*/**/", "/*/**/");
@@ -695,10 +717,10 @@ unittest {
 
 	auto spaces = "";
 	auto newlines = "";
-	auto slashes = "";
 	auto stars = "";
 	auto plus = "";
 	auto zeros = "";
+	auto slashes = "";
 	foreach (i; 0 .. 256) {
 		void checkPadComment(string pad) {
 			auto s = "/*" ~ pad ~ "*/";
@@ -714,12 +736,6 @@ unittest {
 		newlines ~= '\n';
 		checkPadComment(newlines);
 
-		slashes ~= '/';
-		auto s = "/*" ~ slashes ~ "*/";
-		checkLexComment(s, s);
-		s = "/+" ~ slashes ~ "++/+/";
-		checkLexComment(s, s);
-
 		stars ~= '*';
 		checkPadComment(stars);
 
@@ -728,5 +744,17 @@ unittest {
 
 		zeros ~= '\0';
 		checkPadComment(zeros);
+
+		slashes ~= '/';
+		auto s = "/*" ~ slashes ~ "*/";
+		checkLexComment(s, s);
+		s = "/+" ~ slashes ~ "++/+/";
+		checkLexComment(s, s);
+
+		s = "//" ~ slashes;
+		checkLexComment(s, s);
+		foreach (nl; LineBreaks) {
+			checkLexComment(s ~ nl, s);
+		}
 	}
 }
