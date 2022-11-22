@@ -581,40 +581,46 @@ private:
 		uint l = s.length;
 		uint begin = index - l;
 
-		auto c = frontChar;
-
 		uint stack = 0;
 		while (true) {
-			char pc = '\0';
-			while (c != '\0' && c != '/') {
+			uint state1 = 0, state2 = 0;
+			uint pstate1 = 0, pstate2 = 0;
+
+			import source.swar.comment;
+			while (remainingContent.length > 8
+				       && canSkipOverNestedComment!8(remainingContent, state1,
+				                                     state2)) {
+				pstate1 = state1;
+				pstate2 = state2;
+				index += 8;
+			}
+
+			auto c = frontChar;
+			auto pc = getPreviousCharFromNestedState(pstate1, pstate2);
+
+			while ((pc != '+' || c != '/') && (pc != '/' || c != '+')) {
+				if (reachedEOF()) {
+					return getError(begin, "Comment must end with `+/`.");
+				}
+
 				popChar();
 				pc = c;
 				c = frontChar;
 			}
 
-			if (c == '\0') {
-				return getError(begin, "Unexpected end of file.");
-			}
-
 			popChar();
-			scope(success) {
-				c = frontChar;
+			if (c == '+') {
+				stack++;
+				continue;
 			}
 
-			if (pc == '+') {
-				if (!stack) {
-					return getComment!s(begin, index);
-				}
-
+			assert(c == '/');
+			if (stack > 0) {
 				stack--;
 				continue;
 			}
 
-			// We have a nested /+ comment.
-			if (frontChar == '+') {
-				stack++;
-				popChar();
-			}
+			return getComment!s(begin, index);
 		}
 	}
 
@@ -671,40 +677,61 @@ unittest {
 	}
 
 	checkLexComment("/**/", "/**/");
+	checkLexComment("/*/*/", "/*/*/");
+	checkLexComment("/*/**/", "/*/**/");
+	checkLexInvalid("/*", "Comment must end with `*/`.");
+	checkLexInvalid("/*/", "Comment must end with `*/`.");
+
+	checkLexComment("/++/", "/++/");
+	checkLexComment("/+/++/+/", "/+/++/+/");
+	checkLexComment("/+/++/+/", "/+/++/+/");
+	checkLexComment("/+/++/++/", "/+/++/++/");
+	checkLexInvalid("/+", "Comment must end with `+/`.");
+	checkLexInvalid("/+/", "Comment must end with `+/`.");
+	checkLexInvalid("/+/+", "Comment must end with `+/`.");
+	checkLexInvalid("/+/++/", "Comment must end with `+/`.");
+
 	checkLexComment("  /**/", "/**/");
 	checkLexComment("/**/  ", "/**/");
 	checkLexComment("  /**/  ", "/**/");
-
-	checkLexComment("/*/*/", "/*/*/");
-	checkLexComment("/*/**/", "/*/**/");
+	checkLexComment("  /++/", "/++/");
+	checkLexComment("/++/  ", "/++/");
+	checkLexComment("  /++/  ", "/++/");
 
 	auto spaces = "";
 	auto newlines = "";
 	auto slashes = "";
 	auto stars = "";
+	auto plus = "";
 	auto zeros = "";
 	foreach (i; 0 .. 256) {
+		void checkPadComment(string pad) {
+			auto s = "/*" ~ pad ~ "*/";
+			checkLexComment(s, s);
+
+			s = "/+" ~ pad ~ "+/";
+			checkLexComment(s, s);
+		}
+
 		spaces ~= ' ';
-		auto s = "/*" ~ spaces ~ "*/";
-		checkLexComment(s, s);
+		checkPadComment(spaces);
 
 		newlines ~= '\n';
-		s = "/*" ~ newlines ~ "*/";
-		checkLexComment(s, s);
+		checkPadComment(newlines);
 
 		slashes ~= '/';
-		s = "/*" ~ slashes ~ "*/";
+		auto s = "/*" ~ slashes ~ "*/";
+		checkLexComment(s, s);
+		s = "/+" ~ slashes ~ "++/+/";
 		checkLexComment(s, s);
 
 		stars ~= '*';
-		s = "/*" ~ stars ~ "*/";
-		checkLexComment(s, s);
+		checkPadComment(stars);
+
+		plus ~= '+';
+		checkPadComment(plus);
 
 		zeros ~= '\0';
-		s = "/*" ~ zeros ~ "*/";
-		checkLexComment(s, s);
+		checkPadComment(zeros);
 	}
-
-	checkLexInvalid("/*", "Comment must end with `*/`.");
-	checkLexInvalid("/*/", "Comment must end with `*/`.");
 }
