@@ -340,32 +340,38 @@ private:
 	}
 }
 
-// XXX: This need to be vectorized
-immutable(uint)[] getLines(string content) {
-	immutable(uint)[] ret = [];
+immutable(uint)[] getLines(string content) in(content.length < uint.max) {
+	static struct LineBreakLexer {
+		string content;
+		uint index;
 
-	uint p = 0;
-	uint i = 0;
-	char c = content[i];
-	while (true) {
-		while (c != '\n' && c != '\r' && c != '\0') {
-			c = content[++i];
+		this(string content) {
+			this.content = content;
 		}
 
-		if (c == '\0') {
+		import source.lexbase;
+		mixin LexBaseUtils;
+
+		import source.lexwhitespace;
+		mixin LexWhiteSpaceImpl;
+
+		auto computeLineSplits() {
+			immutable(uint)[] ret = [];
+
+			// FIXME: We should simply mark the line breaks
+			// as returned by popLine instead of this.
+			uint p = 0;
+			while (!reachedEOF()) {
+				popLine();
+
+				ret ~= p;
+				p = index;
+			}
+
 			ret ~= p;
 			return ret;
 		}
-
-		auto match = c;
-		c = content[++i];
-
-		// \r\n is a special case
-		if (match == '\r' && c == '\n') {
-			c = content[++i];
-		}
-
-		ret ~= p;
-		p = i;
 	}
+
+	return LineBreakLexer(content).computeLineSplits();
 }
