@@ -1,5 +1,38 @@
 module source.lexbase;
 
+mixin template LexBaseUtils() {
+	uint popChar() in(index < content.length) {
+		return index++;
+	}
+
+	uint unpopChar() in(index > 1) {
+		return index--;
+	}
+
+	@property
+	char frontChar() const in(index < content.length) {
+		return content.ptr[index];
+	}
+
+	@property
+	char nextChar() const in(frontChar != '\0') {
+		return content.ptr[index + 1];
+	}
+
+	@property
+	string remainingContent() in(index < content.length) {
+		return content.ptr[index .. content.length];
+	}
+
+	bool reachedEOF() const {
+		return index >= content.length - 1;
+	}
+
+	auto skip(string s)() {
+		// Just skip over whitespaces.
+	}
+}
+
 mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
                            alias OperatorMap) {
 	// TODO: We shouldn't let consumer play with the internal state of the lexer.
@@ -107,6 +140,17 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	}
 
 private:
+	/**
+	 * Basic utilities.
+	 */
+	mixin LexBaseUtils;
+
+	/**
+	 * White spaces.
+	 */
+	import source.lexwhitespace;
+	mixin LexWhiteSpaceImpl;
+
 	static getLexerMap() {
 		string[string] ret;
 
@@ -164,43 +208,6 @@ private:
 	Token getError(uint begin, string message) {
 		return getError(base.getWithOffsets(begin, index), message);
 	}
-
-	uint popChar() in(index < content.length) {
-		return index++;
-	}
-
-	uint unpopChar() in(index > 1) {
-		return index--;
-	}
-
-	@property
-	char frontChar() const in(index < content.length) {
-		return content.ptr[index];
-	}
-
-	@property
-	char nextChar() const in(frontChar != '\0') {
-		return content.ptr[index + 1];
-	}
-
-	@property
-	string remainingContent() in(index < content.length) {
-		return content.ptr[index .. content.length];
-	}
-
-	bool reachedEOF() const {
-		return index >= content.length - 1;
-	}
-
-	auto skip(string s)() {
-		// Just skip over whitespace.
-	}
-
-	/**
-	 * White spaces.
-	 */
-	import source.lexwhitespace;
-	mixin LexWhiteSpaceImpl;
 
 	/**
 	 * Fallback for invalid prefixes.
