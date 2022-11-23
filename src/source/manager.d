@@ -356,19 +356,13 @@ immutable(uint)[] getLines(string content) in(content.length < uint.max) {
 		mixin LexWhiteSpaceImpl;
 
 		auto computeLineSplits() {
-			immutable(uint)[] ret = [];
+			immutable(uint)[] ret = [0];
 
-			// FIXME: We should simply mark the line breaks
-			// as returned by popLine instead of this.
-			uint p = 0;
 			while (!reachedEOF()) {
 				popLine();
-
-				ret ~= p;
-				p = index;
+				ret ~= index;
 			}
 
-			ret ~= p;
 			return ret;
 		}
 	}
