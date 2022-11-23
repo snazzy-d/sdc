@@ -32,7 +32,7 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	alias TokenType = typeof(Token.init.type);
 
 	auto withComments(bool wc = true) {
-		auto r = this.save;
+		auto r = this;
 		r.tokenizeComments = wc;
 		return r;
 	}
@@ -43,7 +43,7 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	}
 
 	auto withLiteralDecoding(bool ld = true) {
-		auto r = this.save;
+		auto r = this;
 		r._skipLiterals = !ld;
 		return r;
 	}
@@ -54,7 +54,7 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	}
 
 	auto withPreprocessorDirectives(bool ppd = true) {
-		auto r = this.save;
+		auto r = this;
 		r._skipPreprocessorDirectives = !ppd;
 		return r;
 	}
@@ -99,11 +99,6 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	} do {
 		index = fr.index;
 		t = fr.t;
-	}
-
-	@property
-	auto save() inout {
-		return this;
 	}
 
 	@property
