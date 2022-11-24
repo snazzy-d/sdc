@@ -87,30 +87,96 @@ unittest {
 	}
 }
 
-struct Value {
-	enum Kind : byte {
-		Null,
-		Boolean,
-		Integer,
-		Floating,
-		String,
-		Array,
-		Object,
-		Map,
-	}
+enum Kind {
+	Null,
+	Boolean,
+	Integer,
+	Float,
+	String,
+	Array,
+	Object,
+	Map,
+}
 
+struct Value {
 private:
 	Kind _kind;
 
 	union {
-		bool _boolean;
-		long _integer;
-		double _floating;
 		string _str;
 		Value[] _array;
 		Value[string] _obj;
 		Value[Value] _map;
 	}
+
+	/**
+	 * We use NaN boxing to pack all kind of values into a 64 bits payload.
+	 * 
+	 * NaN have a lot of bits we can play with in their payload. However,
+	 * the range over which NaNs occuirs does not allow to store pointers
+	 * 'as this'. this is a problem as the GC would then be unable to
+	 * recognize them and might end up freeing live memory.
+	 * 
+	 * In order to work around that limitation, the whole range is
+	 * shifted by FloatOffset so that the 0x0000 prefix overlap
+	 * with pointers.
+	 * 
+	 * The value of the floating point number can be retrieved by
+	 * subtracting FloatOffset from the payload's value.
+	 * 
+	 * The layout goes as follow:
+	 * +--------+------------------------------------------------+
+	 * | 0x0000 | true, false, null as well as pointers to heap. |
+	 * +--------+------------------------------------------------+
+	 * | 0x0001 |                                                |
+	 * |  ....  | Positive floating point numbers.               |
+	 * | 0x7ff0 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0x7ff1 |                                                |
+	 * |  ....  | Infinity, signaling NaN.                       |
+	 * | 0x7ff8 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0x7ff9 |                                                |
+	 * |  ....  | Quiet NaN. Unused.                             |
+	 * | 0x8000 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0x8001 |                                                |
+	 * |  ....  | Negative floating point numbers.               |
+	 * | 0xfff0 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0xfff1 |                                                |
+	 * |  ....  | -Infinity, signaling -NaN.                     |
+	 * | 0xfff8 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0xfff9 |                                                |
+	 * |  ....  | Quiet -NaN. Unused.                            |
+	 * | 0xfffe |                                                |
+	 * +--------+--------+ --------------------------------------+
+	 * | 0xffff | 0x0000 | 32 bits integers.                     |
+	 * +--------+--------+---------------------------------------+
+	 */
+	ulong payload;
+
+	// We want the pointer values to be stored 'as this' so they can
+	// be scanned by the GC. However, we also want to use the NaN
+	// range in the double to store the pointers.
+	// Because theses ranges overlap, we offset the values of the
+	// double by a constant such as they do.
+	enum FloatOffset = 0x0001000000000000;
+
+	// If some of the bits in the mask are set, then this is a number.
+	// If all the bits are set, then this is an integer.
+	enum NumberMask = 0xffff000000000000;
+
+	// A series of flags that allow for quick checks.
+	enum OtherFlag = 0x02;
+	enum BoolFlag = 0x04;
+
+	// Values for constants.
+	enum TrueValue = OtherFlag | BoolFlag | true;
+	enum FalseValue = OtherFlag | BoolFlag | false;
+	enum NullValue = OtherFlag;
+	enum UndefinedValue = 0x00;
 
 public:
 	this(T)(T t) {
@@ -118,64 +184,105 @@ public:
 	}
 
 	@property
-	Kind kind() const nothrow {
+	Kind kind() const {
+		if (isNull()) {
+			return Kind.Null;
+		}
+
+		if (isBoolean()) {
+			return Kind.Boolean;
+		}
+
+		if (isInteger()) {
+			return Kind.Integer;
+		}
+
+		if (isFloat()) {
+			return Kind.Float;
+		}
+
 		return _kind;
 	}
 
-	@property
-	bool boolean() const nothrow in {
-		assert(kind == Kind.Boolean);
-	} do {
-		return _boolean;
+	bool isUndefined() const {
+		return payload == UndefinedValue;
+	}
+
+	bool isNull() const {
+		return payload == NullValue;
+	}
+
+	bool isBoolean() const {
+		return (payload | 0x01) == TrueValue;
 	}
 
 	@property
-	long integer() const nothrow in {
-		assert(kind == Kind.Integer);
-	} do {
-		return _integer;
+	bool boolean() const nothrow in(isBoolean()) {
+		return payload & 0x01;
+	}
+
+	bool isNumber() const {
+		return (payload & NumberMask) != 0;
+	}
+
+	bool isInteger() const {
+		return (payload & NumberMask) == NumberMask;
 	}
 
 	@property
-	double floating() const nothrow in {
-		assert(kind == Kind.Floating);
-	} do {
-		return _floating;
+	int integer() const nothrow in(isInteger()) {
+		uint i = payload & uint.max;
+		return i;
+	}
+
+	bool isFloat() const {
+		return isNumber() && !isInteger();
 	}
 
 	@property
-	string str() const nothrow in {
-		assert(kind == Kind.String);
-	} do {
+	double floating() const nothrow in(isFloat()) {
+		auto x = payload - FloatOffset;
+		return *(cast(double*) &x);
+	}
+
+	bool isString() const {
+		return kind == Kind.String;
+	}
+
+	@property
+	string str() const nothrow in(isString()) {
 		return _str;
 	}
 
+	bool isArray() const {
+		return kind == Kind.Array;
+	}
+
 	@property
-	inout(Value)[] array() inout nothrow in {
-		assert(kind == Kind.Array);
-	} do {
+	inout(Value)[] array() inout nothrow in(isArray()) {
 		return _array;
 	}
 
-	@property
-	inout(Value[string]) obj() inout nothrow in {
-		assert(kind == Kind.Object);
-	} do {
-		return _obj;
+	bool isObject() const {
+		return kind == Kind.Object;
 	}
 
 	@property
-	inout(Value[Value]) map() inout nothrow in {
-		assert(kind == Kind.Map);
-	} do {
+	inout(Value[string]) obj() inout nothrow in(isObject()) {
+		return _obj;
+	}
+
+	bool isMap() const {
+		return kind == Kind.Map;
+	}
+
+	@property
+	inout(Value[Value]) map() inout nothrow in(isMap()) {
 		return _map;
 	}
 
 	@property
-	size_t length() const nothrow in {
-		assert(kind == Kind.String || kind == Kind.Array || kind == Kind.Object
-			|| kind == Kind.Map);
-	} do {
+	size_t length() const in(isString() || isArray() || isObject() || isMap()) {
 		switch (kind) with (Kind) {
 			case String:
 				return str.length;
@@ -193,10 +300,9 @@ public:
 	/**
 	 * Map and Object features
 	 */
-	inout(Value)* opBinaryRight(string op : "in")(string key) inout in {
-		assert(kind == Kind.Object || kind == Kind.Map);
-	} do {
-		return kind == Kind.Map ? Value(key) in map : key in obj;
+	inout(Value)* opBinaryRight(string op : "in")(string key) inout
+			in(isObject() || isMap()) {
+		return isMap() ? Value(key) in map : key in obj;
 	}
 
 	/**
@@ -221,7 +327,7 @@ public:
 	}
 
 	@trusted
-	size_t toHash() const nothrow {
+	size_t toHash() const {
 		return
 			this.visit!(x => is(typeof(x) : typeof(null)) ? -1 : hashOf(x))();
 	}
@@ -230,26 +336,25 @@ public:
 	 * Assignement
 	 */
 	Value opAssign()(typeof(null) nothing) {
-		_kind = Kind.Null;
-		_str = null;
+		payload = NullValue;
 		return this;
 	}
 
 	Value opAssign(B : bool)(B b) {
-		_kind = Kind.Boolean;
-		_boolean = b;
+		payload = OtherFlag | BoolFlag | b;
 		return this;
 	}
 
-	Value opAssign(I : long)(I i) {
-		_kind = Kind.Integer;
-		_integer = i;
+	// FIXME: Promote to float for large ints.
+	Value opAssign(I : long)(I i) in((i & uint.max) == i) {
+		payload = i | NumberMask;
 		return this;
 	}
 
 	Value opAssign(F : double)(F f) {
-		_kind = Kind.Floating;
-		_floating = f;
+		double d = f;
+		ulong x = *(cast(ulong*) &d);
+		payload = x + FloatOffset;
 		return this;
 	}
 
@@ -301,19 +406,19 @@ public:
 	}
 
 	bool opEquals(T : typeof(null))(T t) const {
-		return kind == Kind.Null;
+		return isNull();
 	}
 
 	bool opEquals(B : bool)(B b) const {
-		return kind == Kind.Boolean && boolean == b;
+		return isBoolean() && boolean == b;
 	}
 
 	bool opEquals(I : long)(I i) const {
-		return kind == Kind.Integer && integer == i;
+		return isInteger() && integer == i;
 	}
 
 	bool opEquals(F : double)(F f) const {
-		return kind == Kind.Floating && floating == f;
+		return isFloat() && floating == f;
 	}
 
 	bool opEquals(S : string)(S s) const {
@@ -386,7 +491,7 @@ public:
 }
 
 auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
-	final switch (v.kind) with (Value.Kind) {
+	final switch (v.kind) with (Kind) {
 		case Null:
 			return fun(null, args);
 
@@ -396,7 +501,7 @@ auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
 		case Integer:
 			return fun(v.integer, args);
 
-		case Floating:
+		case Float:
 			return fun(v.floating, args);
 
 		case String:
@@ -417,6 +522,7 @@ auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
 unittest {
 	import std.meta;
 	alias Cases = AliasSeq!(
+		// sdfmt off
 		null,
 		true,
 		false,
@@ -425,6 +531,7 @@ unittest {
 		42,
 		0.,
 		3.141592,
+		// float.nan,
 		float.infinity,
 		-float.infinity,
 		"",
@@ -437,9 +544,10 @@ unittest {
 		["fizz" : "buzz"],
 		["first" : [1, 2], "second" : [3, 4]],
 		[["a", "b"] : [1, 2], ["c", "d"] : [3, 4]]
+		// sdfmt on
 	);
 
-	static testAllValues(E)(Value v, E expected, Value.Kind k) {
+	static testAllValues(E)(Value v, E expected, Kind k) {
 		assert(v.kind == k);
 
 		bool found = false;
@@ -454,37 +562,40 @@ unittest {
 			}
 		}
 
-		assert(found);
+		assert(found, v.toString());
 	}
 
 	Value initVar;
-	testAllValues(initVar, null, Value.Kind.Null);
+	assert(initVar.isUndefined());
 
-	static testValue(E)(E expected, Value.Kind k) {
+	// testAllValues(initVar, null, Kind.Null);
+
+	static testValue(E)(E expected, Kind k) {
 		Value v = expected;
 		testAllValues(v, expected, k);
 	}
 
-	testValue(null, Value.Kind.Null);
-	testValue(true, Value.Kind.Boolean);
-	testValue(false, Value.Kind.Boolean);
-	testValue(0, Value.Kind.Integer);
-	testValue(1, Value.Kind.Integer);
-	testValue(42, Value.Kind.Integer);
-	testValue(0., Value.Kind.Floating);
-	testValue(3.141592, Value.Kind.Floating);
-	testValue(float.infinity, Value.Kind.Floating);
-	testValue(-float.infinity, Value.Kind.Floating);
-	testValue("", Value.Kind.String);
-	testValue("foobar", Value.Kind.String);
-	testValue([1, 2, 3], Value.Kind.Array);
-	testValue([1, 2, 3, 4], Value.Kind.Array);
-	testValue(["y" : true, "n" : false], Value.Kind.Object);
-	testValue(["x" : 3, "y" : 5], Value.Kind.Object);
-	testValue(["foo" : "bar"], Value.Kind.Object);
-	testValue(["fizz" : "buzz"], Value.Kind.Object);
-	testValue(["first" : [1, 2], "second" : [3, 4]], Value.Kind.Object);
-	testValue([["a", "b"] : [1, 2], ["c", "d"] : [3, 4]], Value.Kind.Map);
+	testValue(null, Kind.Null);
+	testValue(true, Kind.Boolean);
+	testValue(false, Kind.Boolean);
+	testValue(0, Kind.Integer);
+	testValue(1, Kind.Integer);
+	testValue(42, Kind.Integer);
+	testValue(0., Kind.Float);
+	testValue(3.141592, Kind.Float);
+	// testValue(float.nan, Kind.Float);
+	testValue(float.infinity, Kind.Float);
+	testValue(-float.infinity, Kind.Float);
+	testValue("", Kind.String);
+	testValue("foobar", Kind.String);
+	testValue([1, 2, 3], Kind.Array);
+	testValue([1, 2, 3, 4], Kind.Array);
+	testValue(["y" : true, "n" : false], Kind.Object);
+	testValue(["x" : 3, "y" : 5], Kind.Object);
+	testValue(["foo" : "bar"], Kind.Object);
+	testValue(["fizz" : "buzz"], Kind.Object);
+	testValue(["first" : [1, 2], "second" : [3, 4]], Kind.Object);
+	testValue([["a", "b"] : [1, 2], ["c", "d"] : [3, 4]], Kind.Map);
 }
 
 // length
