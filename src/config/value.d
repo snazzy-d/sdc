@@ -87,7 +87,7 @@ unittest {
 	}
 }
 
-enum Kind {
+enum Kind : ubyte {
 	Null,
 	Boolean,
 	Integer,
@@ -104,7 +104,6 @@ private:
 
 	union {
 		ulong _dummy;
-		Value[] _array;
 		Value[string] _obj;
 		Value[Value] _map;
 	}
@@ -209,6 +208,10 @@ public:
 			return Kind.String;
 		}
 
+		if (isArray()) {
+			return Kind.Array;
+		}
+
 		return _kind;
 	}
 
@@ -277,12 +280,12 @@ public:
 	}
 
 	bool isArray() const {
-		return kind == Kind.Array;
+		return isHeapObject() && tag.isArray();
 	}
 
 	@property
-	inout(Value)[] array() inout nothrow in(isArray()) {
-		return _array;
+	inout(Value)[] array() inout in(isArray()) {
+		return (cast(inout Array*) payload).toArray();
 	}
 
 	bool isObject() const {
@@ -386,15 +389,7 @@ public:
 	}
 
 	Value opAssign(A)(A a) if (isArrayValue!A) {
-		_kind = Kind.Array;
-		_array = [];
-		_array.reserve(a.length);
-
-		foreach (ref e; a) {
-			_array ~= Value(e);
-		}
-
-		payload = 0;
+		payload = cast(ulong) Array.allocate(a);
 		return this;
 	}
 
@@ -545,6 +540,8 @@ auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
 struct TagDescriptor {
 private:
 	ubyte refCount;
+	Kind kind;
+
 	uint length;
 
 	static assert(TagDescriptor.sizeof == 8,
@@ -552,7 +549,11 @@ private:
 
 public:
 	bool isString() const {
-		return true;
+		return kind == Kind.String;
+	}
+
+	bool isArray() const {
+		return kind == Kind.Array;
 	}
 }
 
@@ -567,12 +568,39 @@ struct String {
 	static allocate(string s) in(s.length < uint.max) {
 		import core.memory;
 		auto ptr = cast(String*) GC
-			.malloc(s.length + String.sizeof,
+			.malloc(String.sizeof + s.length,
 			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
 
-		import core.stdc.string;
+		ptr.tag.kind = Kind.String;
 		ptr.tag.length = s.length & uint.max;
+
+		import core.stdc.string;
 		memcpy(ptr + 1, s.ptr, s.length);
+
+		return ptr;
+	}
+}
+
+struct Array {
+	TagDescriptor tag;
+
+	inout(Value)[] toArray() inout {
+		auto ptr = cast(inout Value*) (&this + 1);
+		return ptr[0 .. tag.length];
+	}
+
+	static allocate(T)(T[] a) in(a.length < uint.max) {
+		import core.memory;
+		auto ptr = cast(Array*) GC
+			.malloc(Array.sizeof + Value.sizeof * a.length,
+			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
+
+		ptr.tag.kind = Kind.Array;
+		ptr.tag.length = a.length & uint.max;
+
+		foreach (i, ref e; ptr.toArray()) {
+			e = Value(a[i]);
+		}
 
 		return ptr;
 	}
