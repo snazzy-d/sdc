@@ -103,7 +103,7 @@ private:
 	Kind _kind;
 
 	union {
-		string _str;
+		ulong _dummy;
 		Value[] _array;
 		Value[string] _obj;
 		Value[Value] _map;
@@ -166,7 +166,11 @@ private:
 
 	// If some of the bits in the mask are set, then this is a number.
 	// If all the bits are set, then this is an integer.
-	enum NumberMask = 0xffff000000000000;
+	enum RangeMask = 0xffff000000000000;
+
+	// For convenience, we provide prefixes
+	enum HeapPrefix = 0x0000000000000000;
+	enum IntegerPrefix = 0xffff000000000000;
 
 	// A series of flags that allow for quick checks.
 	enum OtherFlag = 0x02;
@@ -201,6 +205,10 @@ public:
 			return Kind.Float;
 		}
 
+		if (isString()) {
+			return Kind.String;
+		}
+
 		return _kind;
 	}
 
@@ -221,18 +229,18 @@ public:
 		return payload & 0x01;
 	}
 
-	bool isNumber() const {
-		return (payload & NumberMask) != 0;
-	}
-
 	bool isInteger() const {
-		return (payload & NumberMask) == NumberMask;
+		return (payload & RangeMask) == IntegerPrefix;
 	}
 
 	@property
 	int integer() const nothrow in(isInteger()) {
 		uint i = payload & uint.max;
 		return i;
+	}
+
+	bool isNumber() const {
+		return (payload & RangeMask) != 0;
 	}
 
 	bool isFloat() const {
@@ -245,13 +253,27 @@ public:
 		return *(cast(double*) &x);
 	}
 
-	bool isString() const {
-		return kind == Kind.String;
+	bool isHeapObject() const {
+		// FIXME: This shouldn't be necessary once everythig is NaN boxed.
+		if (payload == 0) {
+			return false;
+		}
+
+		return (payload & (RangeMask | OtherFlag)) == HeapPrefix;
 	}
 
 	@property
-	string str() const nothrow in(isString()) {
-		return _str;
+	TagDescriptor tag() const in(isHeapObject() && !isUndefined()) {
+		return *(cast(TagDescriptor*) payload);
+	}
+
+	bool isString() const {
+		return isHeapObject() && tag.isString();
+	}
+
+	@property
+	string str() const in(isString()) {
+		return (cast(String*) payload).toString();
 	}
 
 	bool isArray() const {
@@ -347,7 +369,7 @@ public:
 
 	// FIXME: Promote to float for large ints.
 	Value opAssign(I : long)(I i) in((i & uint.max) == i) {
-		payload = i | NumberMask;
+		payload = i | IntegerPrefix;
 		return this;
 	}
 
@@ -359,8 +381,7 @@ public:
 	}
 
 	Value opAssign(S : string)(S s) {
-		_kind = Kind.String;
-		_str = s;
+		payload = cast(ulong) String.allocate(s);
 		return this;
 	}
 
@@ -373,6 +394,7 @@ public:
 			_array ~= Value(e);
 		}
 
+		payload = 0;
 		return this;
 	}
 
@@ -384,6 +406,7 @@ public:
 			_obj[k] = Value(e);
 		}
 
+		payload = 0;
 		return this;
 	}
 
@@ -395,6 +418,7 @@ public:
 			_map[Value(k)] = Value(e);
 		}
 
+		payload = 0;
 		return this;
 	}
 
@@ -422,7 +446,7 @@ public:
 	}
 
 	bool opEquals(S : string)(S s) const {
-		return kind == Kind.String && str == s;
+		return isString() && str == s;
 	}
 
 	bool opEquals(A)(A a) const if (isArrayValue!A) {
@@ -515,6 +539,42 @@ auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
 
 		case Map:
 			return fun(v.map, args);
+	}
+}
+
+struct TagDescriptor {
+private:
+	ubyte refCount;
+	uint length;
+
+	static assert(TagDescriptor.sizeof == 8,
+	              "Tag descriptor are expected to be 64 bits.");
+
+public:
+	bool isString() const {
+		return true;
+	}
+}
+
+struct String {
+	TagDescriptor tag;
+
+	string toString() const {
+		auto ptr = cast(immutable char*) (&this + 1);
+		return ptr[0 .. tag.length];
+	}
+
+	static allocate(string s) in(s.length < uint.max) {
+		import core.memory;
+		auto ptr = cast(String*) GC
+			.malloc(s.length + String.sizeof,
+			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
+
+		import core.stdc.string;
+		ptr.tag.length = s.length & uint.max;
+		memcpy(ptr + 1, s.ptr, s.length);
+
+		return ptr;
 	}
 }
 
