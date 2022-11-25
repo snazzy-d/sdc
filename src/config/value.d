@@ -1,5 +1,6 @@
 module config.value;
 
+import config.map : Object;
 import config.traits;
 
 enum Kind : ubyte {
@@ -127,6 +128,10 @@ public:
 			return Kind.Array;
 		}
 
+		if (isObject()) {
+			return Kind.Object;
+		}
+
 		return _kind;
 	}
 
@@ -204,9 +209,10 @@ public:
 	}
 
 	bool isObject() const {
-		return kind == Kind.Object;
+		return isHeapObject() && tag.isObject();
 	}
 
+	// FIXME: Return an Object from here as soon as it reached feature parity.
 	@property
 	inout(Value[string]) object() inout nothrow in(isObject()) {
 		return _object;
@@ -223,18 +229,11 @@ public:
 
 	@property
 	size_t length() const in(isString() || isArray() || isObject() || isMap()) {
-		switch (kind) with (Kind) {
-			case String:
-				return str.length;
-			case Array:
-				return array.length;
-			case Object:
-				return object.length;
-			case Map:
-				return map.length;
-			default:
-				assert(0);
+		if (isMap()) {
+			return map.length;
 		}
+
+		return tag.length;
 	}
 
 	/**
@@ -307,14 +306,14 @@ public:
 	}
 
 	Value opAssign(O)(O o) if (isObjectValue!O) {
-		_kind = Kind.Object;
+		// FIXME: Remove once Object has reached feature parity.
 		_object = null;
 
 		foreach (k, ref e; o) {
 			_object[k] = Value(e);
 		}
 
-		payload = 0;
+		payload = Object(o).toPayload();
 		return this;
 	}
 
@@ -379,7 +378,7 @@ public:
 
 	bool opEquals(O)(O o) const if (isObjectValue!O) {
 		// Wrong type.
-		if (kind != Kind.Object) {
+		if (!isObject()) {
 			return false;
 		}
 
@@ -473,7 +472,7 @@ struct Double {
 }
 
 struct Descriptor {
-private:
+package:
 	ubyte refCount;
 	Kind kind;
 
@@ -490,6 +489,10 @@ public:
 	bool isArray() const {
 		return kind == Kind.Array;
 	}
+
+	bool isObject() const {
+		return kind == Kind.Object;
+	}
 }
 
 struct String {
@@ -505,7 +508,7 @@ private:
 		this(cast(StringImpl*) payload);
 	}
 
-	this(StringImpl* impl) {
+	this(inout StringImpl* impl) inout {
 		this.impl = impl;
 	}
 
