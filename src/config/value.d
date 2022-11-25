@@ -534,6 +534,12 @@ public:
 		auto ptr = cast(immutable char*) (impl + 1);
 		return ptr[0 .. tag.length];
 	}
+
+	string dump() const {
+		import std.format;
+		auto s = toString();
+		return format!"%(%s%)"((&s)[0 .. 1]);
+	}
 }
 
 struct Array {

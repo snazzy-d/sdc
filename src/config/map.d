@@ -247,6 +247,11 @@ unittest {
 struct Entry {
 	String key;
 	Value value;
+
+	string toString() const {
+		import std.format;
+		return format!"%s: %s"(key.dump(), value);
+	}
 }
 
 bool isPow2(uint i) {
@@ -302,6 +307,11 @@ public:
 	@property
 	uint capacity() const {
 		return 12 << lgBucketCount;
+	}
+
+	string toString() const {
+		import std.conv;
+		return to!string(entries);
 	}
 
 	uint find(string key) inout {
