@@ -33,7 +33,8 @@ bool startsWithHexDigits(uint N)(string s) {
 	auto c = (lessThan0 | moreThan9) & (lessThanA | moreThanF);
 
 	// Check that none of the high bits are set.
-	return (c & cast(T) 0x8080808080808080) == 0;
+	enum T Mask = 0x8080808080808080 & T.max;
+	return (c & Mask) == 0;
 }
 
 unittest {

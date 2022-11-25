@@ -22,7 +22,6 @@ bool canSkipOverLine(uint N)(string s) {
 	auto v = read!T(s);
 
 	enum T Mask = 0x8080808080808080 & T.max;
-	enum S1 = 8 * (N - 1);
 
 	// Clear the high bits so we can avoid spill over.
 	auto ascii = (v ^ Mask) & Mask;

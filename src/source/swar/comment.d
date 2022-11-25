@@ -22,7 +22,6 @@ bool canSkipOverComment(uint N)(string s, ref uint state) {
 	auto v = read!T(s);
 
 	enum T Mask = 0x8080808080808080 & T.max;
-	enum S1 = 8 * (N - 1);
 
 	// Clear the high bits so we can avoid spill over.
 	auto ascii = (v ^ Mask) & Mask;
@@ -39,6 +38,7 @@ bool canSkipOverComment(uint N)(string s, ref uint state) {
 	auto combinedStar = lessThanStar & moreThanStar & ascii;
 	auto shiftedStar = (combinedStar << 8) | state;
 
+	enum S1 = 8 * (N - 1);
 	state = combinedStar >> S1;
 	return (combinedSlash & shiftedStar) == 0;
 }
@@ -181,7 +181,6 @@ bool canSkipOverNestedComment(uint N)(string s, ref uint state1,
 	auto v = read!T(s);
 
 	enum T Mask = 0x8080808080808080 & T.max;
-	enum S1 = 8 * (N - 1);
 
 	// Clear the high bits so we can avoid spill over.
 	auto ascii = (v ^ Mask) & Mask;
@@ -199,6 +198,7 @@ bool canSkipOverNestedComment(uint N)(string s, ref uint state1,
 	auto combinedPlus = lessThanPlus & moreThanPlus & ascii;
 	auto shiftedPlus = (combinedPlus << 8) | state2;
 
+	enum S1 = 8 * (N - 1);
 	state1 = combinedSlash >> S1;
 	state2 = combinedPlus >> S1;
 	return ((combinedSlash & shiftedPlus) | (combinedPlus & shiftedSlash)) == 0;
