@@ -266,8 +266,8 @@ public:
 	}
 
 	@property
-	TagDescriptor tag() const in(isHeapObject() && !isUndefined()) {
-		return *(cast(TagDescriptor*) payload);
+	Descriptor tag() const in(isHeapObject() && !isUndefined()) {
+		return *(cast(Descriptor*) payload);
 	}
 
 	bool isString() const {
@@ -276,7 +276,7 @@ public:
 
 	@property
 	string str() const in(isString()) {
-		return (cast(String*) payload).toString();
+		return String(payload).toString();
 	}
 
 	bool isArray() const {
@@ -285,7 +285,8 @@ public:
 
 	@property
 	inout(Value)[] array() inout in(isArray()) {
-		return (cast(inout Array*) payload).toArray();
+		auto a = inout(Array)(payload);
+		return a.toArray();
 	}
 
 	bool isObject() const {
@@ -384,12 +385,12 @@ public:
 	}
 
 	Value opAssign(S : string)(S s) {
-		payload = cast(ulong) String.allocate(s);
+		payload = String(s).toPayload();
 		return this;
 	}
 
 	Value opAssign(A)(A a) if (isArrayValue!A) {
-		payload = cast(ulong) Array.allocate(a);
+		payload = Array(a).toPayload();
 		return this;
 	}
 
@@ -537,15 +538,15 @@ auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
 	}
 }
 
-struct TagDescriptor {
+struct Descriptor {
 private:
 	ubyte refCount;
 	Kind kind;
 
 	uint length;
 
-	static assert(TagDescriptor.sizeof == 8,
-	              "Tag descriptor are expected to be 64 bits.");
+	static assert(Descriptor.sizeof == 8,
+	              "Descriptors are expected to be 64 bits.");
 
 public:
 	bool isString() const {
@@ -558,51 +559,85 @@ public:
 }
 
 struct String {
-	TagDescriptor tag;
-
-	string toString() const {
-		auto ptr = cast(immutable char*) (&this + 1);
-		return ptr[0 .. tag.length];
+private:
+	struct StringImpl {
+		Descriptor tag;
 	}
 
-	static allocate(string s) in(s.length < uint.max) {
+	StringImpl* impl;
+	alias impl this;
+
+	this(ulong payload) {
+		this(cast(StringImpl*) payload);
+	}
+
+	this(StringImpl* impl) {
+		this.impl = impl;
+	}
+
+public:
+	this(string s) in(s.length < uint.max) {
 		import core.memory;
-		auto ptr = cast(String*) GC
-			.malloc(String.sizeof + s.length,
+		impl = cast(StringImpl*) GC
+			.malloc(StringImpl.sizeof + s.length,
 			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
 
-		ptr.tag.kind = Kind.String;
-		ptr.tag.length = s.length & uint.max;
+		tag.kind = Kind.String;
+		tag.length = s.length & uint.max;
 
 		import core.stdc.string;
-		memcpy(ptr + 1, s.ptr, s.length);
+		memcpy(impl + 1, s.ptr, s.length);
+	}
 
-		return ptr;
+	ulong toPayload() const {
+		return cast(ulong) impl;
+	}
+
+	string toString() const {
+		auto ptr = cast(immutable char*) (impl + 1);
+		return ptr[0 .. tag.length];
 	}
 }
 
 struct Array {
-	TagDescriptor tag;
-
-	inout(Value)[] toArray() inout {
-		auto ptr = cast(inout Value*) (&this + 1);
-		return ptr[0 .. tag.length];
+private:
+	struct ArrayImpl {
+		Descriptor tag;
 	}
 
-	static allocate(T)(T[] a) in(a.length < uint.max) {
+	ArrayImpl* impl;
+	alias impl this;
+
+	this(ulong payload) inout {
+		this(cast(inout ArrayImpl*) payload);
+	}
+
+	this(inout ArrayImpl* impl) inout {
+		this.impl = impl;
+	}
+
+public:
+	this(A)(A a) if (isArrayValue!A) in(a.length < uint.max) {
 		import core.memory;
-		auto ptr = cast(Array*) GC
-			.malloc(Array.sizeof + Value.sizeof * a.length,
+		impl = cast(ArrayImpl*) GC
+			.malloc(ArrayImpl.sizeof + Value.sizeof * a.length,
 			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
 
-		ptr.tag.kind = Kind.Array;
-		ptr.tag.length = a.length & uint.max;
+		tag.kind = Kind.Array;
+		tag.length = a.length & uint.max;
 
-		foreach (i, ref e; ptr.toArray()) {
+		foreach (i, ref e; toArray()) {
 			e = Value(a[i]);
 		}
+	}
 
-		return ptr;
+	ulong toPayload() const {
+		return cast(ulong) impl;
+	}
+
+	inout(Value)[] toArray() inout {
+		auto ptr = cast(inout Value*) (impl + 1);
+		return ptr[0 .. tag.length];
 	}
 }
 
