@@ -251,9 +251,8 @@ public:
 	}
 
 	@property
-	double floating() const nothrow in(isFloat()) {
-		auto x = payload - FloatOffset;
-		return *(cast(double*) &x);
+	double floating() const in(isFloat()) {
+		return Double(payload).toFloat();
 	}
 
 	bool isHeapObject() const {
@@ -378,9 +377,7 @@ public:
 	}
 
 	Value opAssign(F : double)(F f) {
-		double d = f;
-		ulong x = *(cast(ulong*) &d);
-		payload = x + FloatOffset;
+		payload = Double(f).toPayload();
 		return this;
 	}
 
@@ -535,6 +532,28 @@ auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
 
 		case Map:
 			return fun(v.map, args);
+	}
+}
+
+struct Double {
+	double value;
+
+	this(double value) {
+		this.value = value;
+	}
+
+	this(ulong payload) {
+		auto x = payload - Value.FloatOffset;
+		this(*(cast(double*) &x));
+	}
+
+	double toFloat() const {
+		return value;
+	}
+
+	ulong toPayload() const {
+		auto x = *(cast(ulong*) &value);
+		return x + Value.FloatOffset;
 	}
 }
 
