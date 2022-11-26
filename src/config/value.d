@@ -104,7 +104,7 @@ private:
 
 	union {
 		ulong _dummy;
-		Value[string] _obj;
+		Value[string] _object;
 		Value[Value] _map;
 	}
 
@@ -293,8 +293,8 @@ public:
 	}
 
 	@property
-	inout(Value[string]) obj() inout nothrow in(isObject()) {
-		return _obj;
+	inout(Value[string]) object() inout nothrow in(isObject()) {
+		return _object;
 	}
 
 	bool isMap() const {
@@ -314,7 +314,7 @@ public:
 			case Array:
 				return array.length;
 			case Object:
-				return obj.length;
+				return object.length;
 			case Map:
 				return map.length;
 			default:
@@ -327,7 +327,7 @@ public:
 	 */
 	inout(Value)* opBinaryRight(string op : "in")(string key) inout
 			in(isObject() || isMap()) {
-		return isMap() ? Value(key) in map : key in obj;
+		return isMap() ? Value(key) in map : key in object;
 	}
 
 	/**
@@ -393,10 +393,10 @@ public:
 
 	Value opAssign(O)(O o) if (isObjectValue!O) {
 		_kind = Kind.Object;
-		_obj = null;
+		_object = null;
 
 		foreach (k, ref e; o) {
-			_obj[k] = Value(e);
+			_object[k] = Value(e);
 		}
 
 		payload = 0;
@@ -469,13 +469,13 @@ public:
 		}
 
 		// Wrong length.
-		if (obj.length != o.length) {
+		if (object.length != o.length) {
 			return false;
 		}
 
 		// Compare all the values.
 		foreach (k, ref v; o) {
-			auto vPtr = k in obj;
+			auto vPtr = k in object;
 			if (vPtr is null || *vPtr != v) {
 				return false;
 			}
@@ -528,7 +528,7 @@ auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
 			return fun(v.array, args);
 
 		case Object:
-			return fun(v.obj, args);
+			return fun(v.object, args);
 
 		case Map:
 			return fun(v.map, args);
