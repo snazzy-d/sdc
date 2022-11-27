@@ -2,6 +2,37 @@ module d.gc.sizeclass;
 
 import d.gc.spec;
 
+/**
+ * Designing a good allocator require to balance external
+ * and internal fragmentation. Allocating exactly the amount
+ * of memory requested by the user would ensure internal
+ * fragmentation remains at zero - not space would be wasted
+ * over allocating - but there would be too many allocations
+ * with a unique size, which cases external fragmentation.
+ * On the other hand, over allocating too much, for instance
+ * by allocating the next power of 2 bytes, causes internal
+ * fragmentation.
+ * 
+ * We want to keep fragmentation at a minimum so that we can
+ * minimize the amount of memory that is wasted, which in turn
+ * translates into better performances as teh pressure caches
+ * and TLB is reduced.
+ * 
+ * As a compromise, the GC rounds up the requested allocation
+ * to the closest size of the form `(4 + delta) << shift`
+ * where delta is in the [0 .. 4) range. Each allocation is
+ * then associated with a bin based oe the required allocation
+ * size. This binning is a good compromise between internal
+ * and external fragmentation in typical workloads.
+ * 
+ * The smallest possible delta is bounded by the Quantum.
+ * This ensures that any allocation is Quantum aligned.
+ * 
+ * Size classes bellow 4 * Quantum are know as Tiny. Tiny
+ * classes are special cased so finer granularity can be
+ * provided at that level.
+ */
+
 enum ClassCount {
 	Tiny = getTinyClassCount(),
 	Small = getSmallClassCount(),
@@ -34,7 +65,7 @@ size_t getAllocSize(size_t size) {
 
 unittest getAllocSize {
 	size_t[] boundaries = [1 << LgTiny, 1 << LgQuantum, 32, 48, 64, 80, 96, 112,
-	                       128, 160, 192, 224, 256];
+	                       128, 160, 192, 224, 256, 320];
 
 	size_t s = 0;
 	foreach (b; boundaries) {
@@ -55,9 +86,8 @@ ubyte getBinID(size_t size) {
 		import d.gc.util;
 		auto ret = log2floor(pow2ceil(size) >> LgTiny);
 
-		// TODO: out contract.
 		assert(ret < ubyte.max);
-		return cast(ubyte) ret;
+		return ret & 0xff;
 	}
 
 	// Faster way to compute x = log2floor(pow2ceil(size));
@@ -66,16 +96,15 @@ ubyte getBinID(size_t size) {
 		(size < (1UL << (LgQuantum + 2))) ? LgQuantum : log2floor(size - 1) - 2;
 
 	auto mod = (size - 1) >> shift;
-	auto ret = (shift - LgQuantum) * 4 + mod + ClassCount.Tiny;
+	auto ret = 4 * (shift - LgQuantum) + mod + ClassCount.Tiny;
 
-	// TODO: out contract.
 	assert(ret < ubyte.max);
-	return cast(ubyte) ret;
+	return ret & 0xff;
 }
 
 unittest getBinID {
 	size_t[] boundaries = [1 << LgTiny, 1 << LgQuantum, 32, 48, 64, 80, 96, 112,
-	                       128, 160, 192, 224, 256];
+	                       128, 160, 192, 224, 256, 320];
 
 	uint bid = 0;
 	size_t s = 0;
@@ -118,7 +147,7 @@ size_t getSizeFromBinID(uint binID) {
 
 unittest getSizeFromBinID {
 	size_t[] boundaries = [1 << LgTiny, 1 << LgQuantum, 32, 48, 64, 80, 96, 112,
-	                       128, 160, 192, 224, 256];
+	                       128, 160, 192, 224, 256, 320];
 
 	uint bid = 0;
 	size_t s = 0;
@@ -203,10 +232,6 @@ void binInfoComputer(void* binsPtr, uint id, uint grp, uint delta,
 	bins[id] = BinInfo(itemSize, shift, needPages, slots);
 }
 
-// 64 bits tiny, 128 bits quantum.
-enum LgTiny = 3;
-enum LgQuantum = 4;
-
 auto getTotalClassCount() {
 	uint count = 0;
 
@@ -281,7 +306,7 @@ void computeSizeClass(
 	}
 
 	// Most size classes falls here.
-	foreach (grp; LgQuantum + 2 .. SizeofPtr * 8) {
+	foreach (uint grp; LgQuantum + 2 .. 8 * size_t.sizeof) {
 		foreach (i; 0 .. 4) {
 			fun(id++, grp, grp - 2, i);
 		}
@@ -299,8 +324,9 @@ void printfAlloc(size_t s) {
 void main() {
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
 		import core.stdc.stdio;
-		printf("%d\t%d\t%d\t%d\t0x%lx\n", id, grp, delta, ndelta,
-		       (1UL << grp) + ndelta * (1UL << delta));
+		printf(
+			"size class id: %d\tgroup: %d\tdelta: %d\tndelta: %d\tmax size: 0x%lx\n",
+			id, grp, delta, ndelta, (1UL << grp) + ndelta * (1UL << delta));
 	});
 
 	import core.stdc.stdio;

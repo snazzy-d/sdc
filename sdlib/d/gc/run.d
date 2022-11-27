@@ -36,7 +36,7 @@ struct RunDesc {
 	@property
 	auto chunk() {
 		import d.gc.chunk, d.gc.spec;
-		return cast(Chunk*) ((cast(size_t) &this) & ~AlignMask);
+		return cast(Chunk*) ((cast(size_t) &this) & ~ChunkAlignMask);
 	}
 
 	@property
@@ -122,7 +122,7 @@ struct SmallRunMisc {
 		// If we are GCing, mark the new allocation as live.
 		if (bitmapIndex != 0) {
 			import d.gc.chunk, d.gc.spec;
-			auto chunk = cast(Chunk*) ((cast(size_t) &this) & ~AlignMask);
+			auto chunk = cast(Chunk*) ((cast(size_t) &this) & ~ChunkAlignMask);
 
 			assert(chunk.header.bitmap !is null);
 			auto bPtr = chunk.header.bitmap + bitmapIndex + hindex;

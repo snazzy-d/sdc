@@ -647,7 +647,7 @@ private:
 
 Chunk* findChunk(const void* ptr) {
 	import d.gc.spec;
-	auto c = cast(Chunk*) ((cast(size_t) ptr) & ~AlignMask);
+	auto c = cast(Chunk*) ((cast(size_t) ptr) & ~ChunkAlignMask);
 
 	// XXX: type promotion is fucked.
 	auto vc = cast(void*) c;

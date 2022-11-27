@@ -439,7 +439,7 @@ private:
 	Extent* extractHugeExtent(void* ptr) {
 		// XXX: in contracts
 		import d.gc.spec;
-		assert(((cast(size_t) ptr) & AlignMask) == 0);
+		assert(((cast(size_t) ptr) & ChunkAlignMask) == 0);
 
 		Extent test;
 		test.addr = ptr;

@@ -37,8 +37,8 @@ struct BinInfo {
 }
 
 // FIXME: For some reason, this is crashing.
-// enum MaxShiftMask = cast(uint) ((size_t.sizeof * 8) - 1);
-enum MaxShiftMask = 63;
+// enum uint MaxShiftMask = (8 * size_t.sizeof) - 1;
+enum uint MaxShiftMask = 63;
 
 /**
  * This is a bunch of magic values used to avoid requiring

@@ -5,7 +5,7 @@ void* map_chunks(size_t count) {
 	auto size = count * ChunkSize;
 	auto ret = pages_map(null, size);
 
-	auto offset = (cast(size_t) ret) & AlignMask;
+	auto offset = (cast(size_t) ret) & ChunkAlignMask;
 	if (offset != 0) {
 		pages_unmap(ret, size);
 		ret = map_chunks_slow(count);
@@ -61,7 +61,7 @@ void* map_chunks_slow(size_t count) {
 		}
 
 		auto ipages = cast(size_t) pages;
-		auto lead_size = ((ipages + ChunkSize - 1) & ~AlignMask) - ipages;
+		auto lead_size = ((ipages + ChunkSize - 1) & ~ChunkAlignMask) - ipages;
 
 		ret = pages_trim(pages, alloc_size, lead_size, size);
 	} while (ret is null);
