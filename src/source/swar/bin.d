@@ -109,15 +109,9 @@ ubyte parseBinDigits(T : ubyte)(string s) in(s.length >= 8) {
 }
 
 unittest {
-	foreach (s, v; [
-		"00000000" : 0x00,
-		"01001001" : 0x49,
-		"01010101" : 0x55,
-		"10101010" : 0xaa,
-		"11000000" : 0xc0,
-		"11011011" : 0xdb,
-		"11111111" : 0xff,
-	]) {
+	foreach (s, v;
+		["00000000": 0x00, "01001001": 0x49, "01010101": 0x55, "10101010": 0xaa,
+		 "11000000": 0xc0, "11011011": 0xdb, "11111111": 0xff]) {
 		assert(startsWithBinDigits!8(s), s);
 		assert(parseBinDigits!ubyte(s) == v, s);
 	}

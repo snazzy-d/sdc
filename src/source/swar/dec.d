@@ -133,8 +133,8 @@ ubyte parseDecDigits(T : ubyte)(string s) in(s.length >= 2) {
 }
 
 unittest {
-	foreach (s, v; ["00" : 0, "09" : 9, "10" : 10, "28" : 28, "42" : 42,
-	                "56" : 56, "73" : 73, "99" : 99]) {
+	foreach (s, v; ["00": 0, "09": 9, "10": 10, "28": 28, "42": 42, "56": 56,
+	                "73": 73, "99": 99]) {
 		assert(startsWithDecDigits!2(s), s);
 		assert(parseDecDigits!ubyte(s) == v, s);
 	}
@@ -154,8 +154,8 @@ ushort parseDecDigits(T : ushort)(string s) in(s.length >= 4) {
 }
 
 unittest {
-	foreach (s, v; ["0000" : 0, "0123" : 123, "4567" : 4567, "5040" : 5040,
-	                "8901" : 8901, "9999" : 9999]) {
+	foreach (s, v; ["0000": 0, "0123": 123, "4567": 4567, "5040": 5040,
+	                "8901": 8901, "9999": 9999]) {
 		assert(startsWithDecDigits!4(s), s);
 		assert(parseDecDigits!ushort(s) == v, s);
 	}
@@ -182,8 +182,8 @@ uint parseDecDigits(T : uint)(string s) in(s.length >= 8) {
 
 unittest {
 	foreach (s, v;
-		["00000000" : 0, "01234567" : 1234567, "10000019" : 10000019,
-		 "34567890" : 34567890, "52350178" : 52350178, "99999999" : 99999999]) {
+		["00000000": 0, "01234567": 1234567, "10000019": 10000019,
+		 "34567890": 34567890, "52350178": 52350178, "99999999": 99999999]) {
 		assert(startsWithDecDigits!8(s), s);
 		assert(parseDecDigits!uint(s) == v, s);
 	}

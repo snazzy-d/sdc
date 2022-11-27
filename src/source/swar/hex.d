@@ -153,20 +153,20 @@ ubyte parseHexDigits(T : ubyte)(string s) in(s.length >= 2) {
 
 unittest {
 	foreach (s, v; [
-		"00" : 0x00,
-		"99" : 0x99,
-		"aa" : 0xaa,
-		"ff" : 0xff,
-		"AA" : 0xaa,
-		"FF" : 0xff,
-		"42" : 0x42,
-		"3a" : 0x3a,
-		"a0" : 0xa0,
-		"cd" : 0xcd,
-		"7F" : 0xc0,
-		"7F" : 0x7f,
-		"aB" : 0xab,
-		"fE" : 0xfe
+		"00": 0x00,
+		"99": 0x99,
+		"aa": 0xaa,
+		"ff": 0xff,
+		"AA": 0xaa,
+		"FF": 0xff,
+		"42": 0x42,
+		"3a": 0x3a,
+		"a0": 0xa0,
+		"cd": 0xcd,
+		"7F": 0xc0,
+		"7F": 0x7f,
+		"aB": 0xab,
+		"fE": 0xfe,
 	]) {
 		assert(startsWithHexDigits!2(s), s);
 		assert(parseHexDigits!ubyte(s) == v, s);
@@ -188,18 +188,18 @@ ushort parseHexDigits(T : ushort)(string s) in(s.length >= 4) {
 
 unittest {
 	foreach (s, v; [
-		"0000" : 0x0000,
-		"9999" : 0x9999,
-		"aaaa" : 0xaaaa,
-		"ffff" : 0xffff,
-		"AAAA" : 0xaaaa,
-		"FFFF" : 0xffff,
-		"1234" : 0x1234,
-		"abcd" : 0xabcd,
-		"f00d" : 0xf00d,
-		"beef" : 0xbeef,
-		"C0DE" : 0xc0de,
-		"F1ac" : 0xf1ac,
+		"0000": 0x0000,
+		"9999": 0x9999,
+		"aaaa": 0xaaaa,
+		"ffff": 0xffff,
+		"AAAA": 0xaaaa,
+		"FFFF": 0xffff,
+		"1234": 0x1234,
+		"abcd": 0xabcd,
+		"f00d": 0xf00d,
+		"beef": 0xbeef,
+		"C0DE": 0xc0de,
+		"F1ac": 0xf1ac,
 	]) {
 		assert(startsWithHexDigits!4(s), s);
 		assert(parseHexDigits!ushort(s) == v, s);
@@ -227,18 +227,18 @@ uint parseHexDigits(T : uint)(string s) in(s.length >= 8) {
 
 unittest {
 	foreach (s, v; [
-		"00000000" : 0x00000000,
-		"99999999" : 0x99999999,
-		"aaaaaaaa" : 0xaaaaaaaa,
-		"ffffffff" : 0xffffffff,
-		"AAAAAAAA" : 0xaaaaaaaa,
-		"FFFFFFFF" : 0xffffffff,
-		"12345678" : 0x12345678,
-		"abcdef09" : 0xabcdef09,
-		"DeadC0de" : 0xdeadc0de,
-		"BAAAAAAD" : 0xbaaaaaad,
-		"feedf00d" : 0xfeedf00d,
-		"0D15EA5E" : 0x0d15ea5e,
+		"00000000": 0x00000000,
+		"99999999": 0x99999999,
+		"aaaaaaaa": 0xaaaaaaaa,
+		"ffffffff": 0xffffffff,
+		"AAAAAAAA": 0xaaaaaaaa,
+		"FFFFFFFF": 0xffffffff,
+		"12345678": 0x12345678,
+		"abcdef09": 0xabcdef09,
+		"DeadC0de": 0xdeadc0de,
+		"BAAAAAAD": 0xbaaaaaad,
+		"feedf00d": 0xfeedf00d,
+		"0D15EA5E": 0x0d15ea5e,
 	]) {
 		assert(startsWithHexDigits!8(s), s);
 		assert(parseHexDigits!uint(s) == v, s);

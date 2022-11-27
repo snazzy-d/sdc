@@ -1,7 +1,7 @@
 module source.lexstring;
 
 mixin template LexStringImpl(Token,
-                             alias StringSuffixes = ["" : "getStringLiteral"]) {
+                             alias StringSuffixes = ["": "getStringLiteral"]) {
 	/**
 	 * Character literals.
 	 */

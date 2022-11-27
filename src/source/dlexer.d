@@ -581,8 +581,8 @@ struct DLexer {
 	 * Preprocessor.
 	 */
 	import source.lexpreprocessor;
-	mixin LexPreprocessorImpl!(Token, [TokenType.If : "processIfDirective"],
-	                           ["line" : "processLineDirective"]);
+	mixin LexPreprocessorImpl!(Token, [TokenType.If: "processIfDirective"],
+	                           ["line": "processLineDirective"]);
 
 	Token processLineDirective(uint begin, Token i) {
 		if (base.isMixin()) {

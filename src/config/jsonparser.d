@@ -49,10 +49,9 @@ unittest {
 	assert(testJSON(`["Dave", null]`) == [Value("Dave"), Value(null)]);
 	assert(testJSON(`{}`) == emptyObject);
 
-	assert(
-		testJSON(`{foo: true, bar: false}`) == ["foo" : true, "bar" : false]);
+	assert(testJSON(`{foo: true, bar: false}`) == ["foo": true, "bar": false]);
 	assert(testJSON(`{x: true, "y": false, 'z': null}`)
-		== ["x" : Value(true), "y" : Value(false), "z" : Value(null)]);
+		== ["x": Value(true), "y": Value(false), "z": Value(null)]);
 }
 
 Value parseJsonValue(ref JsonLexer lexer) {

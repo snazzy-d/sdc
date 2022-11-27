@@ -2,8 +2,8 @@ module source.lexnumeric;
 
 mixin template LexNumericImpl(
 	Token,
-	alias IntegralSuffixes = ["" : "getIntegerLiteral"],
-	alias FloatSuffixes = ["" : "getFloatLiteral"]
+	alias IntegralSuffixes = ["": "getIntegerLiteral"],
+	alias FloatSuffixes = ["": "getFloatLiteral"]
 ) {
 	/**
 	 * Integral and float literals.

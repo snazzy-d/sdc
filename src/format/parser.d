@@ -2236,7 +2236,6 @@ private:
 		switch (token.type) with (TokenType) {
 			case Colon: {
 				auto guard = spliceSpan();
-				space();
 				nextToken();
 				space();
 				split();

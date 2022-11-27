@@ -663,12 +663,12 @@ unittest {
 	testValue("foobar", Kind.String);
 	testValue([1, 2, 3], Kind.Array);
 	testValue([1, 2, 3, 4], Kind.Array);
-	testValue(["y" : true, "n" : false], Kind.Object);
-	testValue(["x" : 3, "y" : 5], Kind.Object);
-	testValue(["foo" : "bar"], Kind.Object);
-	testValue(["fizz" : "buzz"], Kind.Object);
-	testValue(["first" : [1, 2], "second" : [3, 4]], Kind.Object);
-	testValue([["a", "b"] : [1, 2], ["c", "d"] : [3, 4]], Kind.Map);
+	testValue(["y": true, "n": false], Kind.Object);
+	testValue(["x": 3, "y": 5], Kind.Object);
+	testValue(["foo": "bar"], Kind.Object);
+	testValue(["fizz": "buzz"], Kind.Object);
+	testValue(["first": [1, 2], "second": [3, 4]], Kind.Object);
+	testValue([["a", "b"]: [1, 2], ["c", "d"]: [3, 4]], Kind.Map);
 }
 
 // length
@@ -679,7 +679,7 @@ unittest {
 	assert(Value([1, 2, 3, 4, 5]).length == 5);
 	assert(Value(["foo", "bar"]).length == 2);
 	assert(Value([3.2, 37.5]).length == 2);
-	assert(Value([3.2 : "a", 37.5 : "b", 1.1 : "c"]).length == 3);
+	assert(Value([3.2: "a", 37.5: "b", 1.1: "c"]).length == 3);
 }
 
 // toString
@@ -703,8 +703,7 @@ unittest {
 
 	assert(Value([1, 2, 3]).toString() == "[1, 2, 3]");
 	assert(
-		Value(["y" : true, "n" : false]).toString() == `["y": true, "n": false]`
-	);
-	assert(Value([["a", "b"] : [1, 2], ["c", "d"] : [3, 4]]).toString()
+		Value(["y": true, "n": false]).toString() == `["y": true, "n": false]`);
+	assert(Value([["a", "b"]: [1, 2], ["c", "d"]: [3, 4]]).toString()
 		== `[["a", "b"]:[1, 2], ["c", "d"]:[3, 4]]`);
 }
