@@ -27,7 +27,7 @@ size_t getAllocSize(size_t size) {
 
 	import d.gc.util;
 	auto shift =
-		(size < (1UL << LgQuantum + 2)) ? LgQuantum : lg2floor(size - 1) - 2;
+		(size < (1UL << LgQuantum + 2)) ? LgQuantum : log2floor(size - 1) - 2;
 
 	return (((size - 1) >> shift) + 1) << shift;
 }
@@ -36,17 +36,17 @@ ubyte getBinID(size_t size) {
 	if (LgTiny < LgQuantum && size < (1UL << LgQuantum)) {
 		// Not the fastest way to handle this.
 		import d.gc.util;
-		auto ret = lg2floor(pow2ceil(size) >> LgTiny);
+		auto ret = log2floor(pow2ceil(size) >> LgTiny);
 
 		// TODO: out contract.
 		assert(ret < ubyte.max);
 		return cast(ubyte) ret;
 	}
 
-	// Faster way to compute x = lg2floor(pow2ceil(size));
+	// Faster way to compute x = log2floor(pow2ceil(size));
 	import d.gc.util;
 	auto shift =
-		(size < (1UL << (LgQuantum + 2))) ? LgQuantum : lg2floor(size - 1) - 2;
+		(size < (1UL << (LgQuantum + 2))) ? LgQuantum : log2floor(size - 1) - 2;
 
 	auto mod = (size - 1) >> shift;
 	auto ret = (shift - LgQuantum) * 4 + mod + ClassCount.Tiny;

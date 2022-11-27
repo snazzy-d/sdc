@@ -80,7 +80,7 @@ public:
 		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
 		// But a branch can be at most 2* longer than the shortest one.
 		import d.gc.util;
-		Path[16 * size_t.sizeof - lg2floor(N.sizeof)] path = void;
+		Path[16 * size_t.sizeof - log2floor(N.sizeof)] path = void;
 		auto stackp = &path[0]; // TODO: use .ptr when available.
 
 		// Let's make sure this is a child node.
@@ -192,7 +192,7 @@ public:
 		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
 		// But a branch can be at most 2* longer than the shortest one.
 		import d.gc.util;
-		Path[16 * size_t.sizeof - lg2floor(N.sizeof)] path = void;
+		Path[16 * size_t.sizeof - log2floor(N.sizeof)] path = void;
 		auto stackp = &path[0]; // TODO: use .ptr when available.
 
 		// Root is always black.

@@ -69,3 +69,21 @@ obj/x64/%.o: sdlib/sys/x64/%.asm $(LIBSDRT_X64_SRC) $(SDLIB_DEPS)
 $(LIBSDRT): $(LIBSDRT_DEPS)
 	@mkdir -p lib
 	ar rcs $(LIBSDRT) $^
+
+CHECK_LIBSDRT_GC = $(LIBSDRT_GC_SRC:sdlib/d/gc/%.d=check-sdlib-gc-%)
+CHECK_LIBSDRT_STDC = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=check-sdlib-stdc-%)
+CHECK_LIBSDRT_RT = $(LIBSDRT_RT_SRC:sdlib/d/rt/%.d=check-sdlib-rt-%)
+
+check-sdlib-gc-%: sdlib/d/gc/%.d $(SDUNIT)
+	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
+check-sdlib-stdc-%: sdlib/core/stdc/%.d $(SDUNIT)
+	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
+check-sdlib-rt-%: sdlib/d/rt/%.d $(SDUNIT)
+	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
+check-sdlib: $(CHECK_LIBSDRT_GC) $(CHECK_LIBSDRT_STDC) $(CHECK_LIBSDRT_RT)
+
+check: check-sdlib
+.PHONY: check-sdlib check-sdlib-gc
