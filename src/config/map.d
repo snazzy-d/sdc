@@ -304,7 +304,7 @@ public:
 		return 12 << lgBucketCount;
 	}
 
-	inout(Value) opIndex(string key) inout {
+	uint find(string key) inout {
 		auto h = rehash(hashOf(key));
 		auto p = Probe(h, bucketCount);
 		auto i = p.current;
@@ -319,7 +319,7 @@ public:
 				auto index = buckets[i].indices[n];
 
 				if (entries[index].key.toString() == key) {
-					return entries[index].value;
+					return index;
 				}
 			}
 
@@ -328,8 +328,31 @@ public:
 			}
 		}
 
-		// Return `Undefined` to signal we didn't find anything.
-		return Value();
+		// Return a sentinel to indicate absence.
+		return -1;
+	}
+
+	inout(Value) opIndex(uint index) inout {
+		if (index >= capacity) {
+			// Return `Undefined` to signal we didn't find anything.
+			return Value();
+		}
+
+		return entries[index].value;
+	}
+
+	inout(Value) opIndex(string key) inout {
+		return this[find(key)];
+	}
+
+	inout(Value)* opBinaryRight(string op : "in")(string key) inout {
+		auto index = find(key);
+		if (index >= capacity) {
+			// If it not in the map, then return null.
+			return null;
+		}
+
+		return &entries[index].value;
 	}
 
 private:
@@ -398,7 +421,13 @@ unittest {
 
 		foreach (k, v; content) {
 			assert(o[k] == v, k);
+
+			assert(k in o);
+			assert(*(k in o) == v);
 		}
+
+		assert(("not in the map" in o) == null);
+		assert(o["not in the map"].isUndefined());
 	}
 
 	Value[string] o;
