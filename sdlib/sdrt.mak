@@ -83,7 +83,11 @@ check-sdlib-stdc-%: sdlib/core/stdc/%.d $(SDUNIT)
 check-sdlib-rt-%: sdlib/d/rt/%.d $(SDUNIT)
 	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
-check-sdlib: $(CHECK_LIBSDRT_GC) $(CHECK_LIBSDRT_STDC) $(CHECK_LIBSDRT_RT)
+check-sdlib-gc: $(CHECK_LIBSDRT_GC)
+check-sdlib-stdc: $(CHECK_LIBSDRT_STDC)
+check-sdlib-rt: $(CHECK_LIBSDRT_RT)
+
+check-sdlib: check-sdlib-gc check-sdlib-stdc check-sdlib-rt
 
 check: check-sdlib
-.PHONY: check-sdlib check-sdlib-gc
+.PHONY: check-sdlib check-sdlib-gc check-sdlib-stdc check-sdlib-rt
