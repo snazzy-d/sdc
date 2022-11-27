@@ -212,10 +212,9 @@ public:
 		return isHeapObject() && tag.isObject();
 	}
 
-	// FIXME: Return an Object from here as soon as it reached feature parity.
 	@property
-	inout(Value[string]) object() inout nothrow in(isObject()) {
-		return _object;
+	auto object() inout in(isObject()) {
+		return inout(Object)(payload);
 	}
 
 	bool isMap() const {
@@ -376,6 +375,15 @@ public:
 		return true;
 	}
 
+	bool opEquals(const ref Object rhs) const {
+		// Wrong type.
+		if (!isObject()) {
+			return false;
+		}
+
+		return object == rhs;
+	}
+
 	bool opEquals(O)(O o) const if (isObjectValue!O) {
 		// Wrong type.
 		if (!isObject()) {
@@ -383,14 +391,13 @@ public:
 		}
 
 		// Wrong length.
-		if (object.length != o.length) {
+		if (length != o.length) {
 			return false;
 		}
 
 		// Compare all the values.
 		foreach (k, ref v; o) {
-			auto vPtr = k in object;
-			if (vPtr is null || *vPtr != v) {
+			if (object[k] != v) {
 				return false;
 			}
 		}
@@ -696,7 +703,8 @@ unittest {
 
 	assert(Value([1, 2, 3]).toString() == "[1, 2, 3]");
 	assert(
-		Value(["y" : true, "n" : false]).toString() == `["y":true, "n":false]`);
+		Value(["y" : true, "n" : false]).toString() == `["y": true, "n": false]`
+	);
 	assert(Value([["a", "b"] : [1, 2], ["c", "d"] : [3, 4]]).toString()
 		== `[["a", "b"]:[1, 2], ["c", "d"]:[3, 4]]`);
 }
