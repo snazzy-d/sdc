@@ -20,16 +20,27 @@ import config.value;
 hash_t rehash(hash_t h) {
 	// Make sure the bits are well distributed.
 	enum K = 0xc4ceb9fe1a85ec53;
-	/*
+
 	// I have not figured out how to do this in a sensible way.
 	// See: https://forum.dlang.org/post/zsaghidvbsdwqthadphx@forum.dlang.org
-	auto hi = mulhi(h, k);
-	/*/
-	auto hi = h >> 28;
-	// */
+	static ulong mulhi(ulong a, ulong b) {
+		version(LDC) {
+			import ldc.llvmasm;
+			return __ir!(`
+				%a = zext i64 %0 to i128
+				%b = zext i64 %1 to i128
+				%r = mul i128 %a, %b
+				%r2 = lshr i128 %r, 64
+				%r3 = trunc i128 %r2 to i64
+				ret i64 %r3`, ulong)(a, b);
+		} else {
+			return h >> 28;
+		}
+	}
+
+	auto hi = mulhi(h, K);
 	auto lo = h * K;
-	h = hi ^ lo;
-	return h * K;
+	return (hi ^ lo) * K;
 }
 
 ubyte HTag(hash_t h) {
