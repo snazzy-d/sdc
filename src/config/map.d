@@ -378,23 +378,27 @@ public:
 
 private:
 	static allocateWithLength(uint length) {
-		// We can do that much better with intrinsics,
-		// but I don't think we have them :/
-		static pow2Ceil(uint x) {
-			x |= x >> 1;
-			x |= x >> 2;
-			x |= x >> 4;
-			x |= x >> 8;
-			x |= x >> 16;
-			return x + 1;
+		static uint countLeadingZeros(ulong x) {
+			version(LDC) {
+				import ldc.intrinsics;
+				return llvm_ctlz(x, false) & uint.max;
+			} else {
+				foreach (uint i; 0 .. 8 * ulong.sizeof) {
+					if (x & (long.min >> i)) {
+						return i;
+					}
+				}
+
+				return 8 * ulong.sizeof;
+			}
 		}
 
-		auto lg2Floor(uint x) in(x > 0) {
-			import core.bitop;
-			return bsr(x);
+		static uint lg2Ceil(ulong x) in(x > 1) {
+			enum uint S = 8 * ulong.sizeof;
+			return S - countLeadingZeros(x - 1);
 		}
 
-		uint lgC = (length > 0) ? lg2Floor(pow2Ceil((length - 1) / 12)) : 0;
+		uint lgC = (length <= 12) ? 0 : lg2Ceil(((length - 1) / 12) + 1);
 
 		import core.memory;
 		auto ptr = cast(ObjectImpl*) GC.malloc(
