@@ -32,6 +32,23 @@ size_t getAllocSize(size_t size) {
 	return (((size - 1) >> shift) + 1) << shift;
 }
 
+unittest getAllocSize {
+	size_t[] boundaries = [1 << LgTiny, 1 << LgQuantum, 32, 48, 64, 80, 96, 112,
+	                       128, 160, 192, 224, 256];
+
+	size_t s = 0;
+	foreach (b; boundaries) {
+		if (b <= s) {
+			continue;
+		}
+
+		while (s <= b) {
+			assert(getAllocSize(s) == b);
+			s++;
+		}
+	}
+}
+
 ubyte getBinID(size_t size) {
 	if (LgTiny < LgQuantum && size < (1UL << LgQuantum)) {
 		// Not the fastest way to handle this.
@@ -57,48 +74,22 @@ ubyte getBinID(size_t size) {
 }
 
 unittest getBinID {
-	foreach (i; 0 .. 1 << LgTiny) {
-		assert(getBinID(i) == 0);
-	}
+	size_t[] boundaries = [1 << LgTiny, 1 << LgQuantum, 32, 48, 64, 80, 96, 112,
+	                       128, 160, 192, 224, 256];
 
-	foreach (i; 9 .. 17) {
-		assert(getBinID(i) == 1);
-	}
+	uint bid = 0;
+	size_t s = 0;
+	foreach (b; boundaries) {
+		if (b <= s) {
+			continue;
+		}
 
-	foreach (i; 17 .. 33) {
-		assert(getBinID(i) == 2);
-	}
+		while (s <= b) {
+			assert(getBinID(s) == bid);
+			s++;
+		}
 
-	foreach (i; 33 .. 49) {
-		assert(getBinID(i) == 3);
-	}
-
-	foreach (i; 49 .. 65) {
-		assert(getBinID(i) == 4);
-	}
-
-	foreach (i; 65 .. 81) {
-		assert(getBinID(i) == 5);
-	}
-
-	foreach (i; 81 .. 97) {
-		assert(getBinID(i) == 6);
-	}
-
-	foreach (i; 97 .. 113) {
-		assert(getBinID(i) == 7);
-	}
-
-	foreach (i; 113 .. 129) {
-		assert(getBinID(i) == 8);
-	}
-
-	foreach (i; 129 .. 161) {
-		assert(getBinID(i) == 9);
-	}
-
-	foreach (i; 161 .. 193) {
-		assert(getBinID(i) == 10);
+		bid++;
 	}
 }
 
@@ -123,6 +114,26 @@ size_t getSizeFromBinID(uint binID) {
 	assert(binID == getBinID(ret));
 	assert(ret == getAllocSize(ret));
 	return ret;
+}
+
+unittest getSizeFromBinID {
+	size_t[] boundaries = [1 << LgTiny, 1 << LgQuantum, 32, 48, 64, 80, 96, 112,
+	                       128, 160, 192, 224, 256];
+
+	uint bid = 0;
+	size_t s = 0;
+	foreach (b; boundaries) {
+		if (b <= s) {
+			continue;
+		}
+
+		while (s <= b) {
+			assert(getSizeFromBinID(bid) == b);
+			s++;
+		}
+
+		bid++;
+	}
 }
 
 auto getBinInfos() {
