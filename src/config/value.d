@@ -1,6 +1,6 @@
 module config.value;
 
-import config.map : Object;
+import config.map;
 import config.traits;
 
 enum Kind : ubyte {
@@ -71,7 +71,7 @@ private:
 	 */
 	union {
 		ulong payload;
-		Descriptor* heapObject;
+		HeapObject heapObject;
 	}
 
 	// We want the pointer values to be stored 'as this' so they can
@@ -186,37 +186,32 @@ public:
 		return (payload & (RangeMask | OtherFlag)) == HeapPrefix;
 	}
 
-	@property
-	Descriptor tag() const in(isHeapObject()) {
-		return *(cast(Descriptor*) payload);
-	}
-
 	bool isString() const {
-		return isHeapObject() && tag.isString();
+		return isHeapObject() && heapObject.isString();
 	}
 
 	@property
 	string str() const in(isString()) {
-		return String(heapObject).toString();
+		return VString(heapObject).toString();
 	}
 
 	bool isArray() const {
-		return isHeapObject() && tag.isArray();
+		return isHeapObject() && heapObject.isArray();
 	}
 
 	@property
 	inout(Value)[] array() inout in(isArray()) {
-		auto a = inout(Array)(heapObject);
+		auto a = inout(VArray)(heapObject);
 		return a.toArray();
 	}
 
 	bool isObject() const {
-		return isHeapObject() && tag.isObject();
+		return isHeapObject() && heapObject.isObject();
 	}
 
 	@property
 	auto object() inout in(isObject()) {
-		return inout(Object)(heapObject);
+		return inout(VObject)(heapObject);
 	}
 
 	bool isMap() const {
@@ -234,7 +229,7 @@ public:
 			return map.length;
 		}
 
-		return tag.length;
+		return heapObject.length;
 	}
 
 	/**
@@ -297,17 +292,17 @@ public:
 	}
 
 	Value opAssign(S : string)(S s) {
-		heapObject = String(s).toHeapObject();
+		heapObject = VString(s).toHeapObject();
 		return this;
 	}
 
 	Value opAssign(A)(A a) if (isArrayValue!A) {
-		heapObject = Array(a).toHeapObject();
+		heapObject = VArray(a).toHeapObject();
 		return this;
 	}
 
 	Value opAssign(O)(O o) if (isObjectValue!O) {
-		heapObject = Object(o).toHeapObject();
+		heapObject = VObject(o).toHeapObject();
 		return this;
 	}
 
@@ -370,7 +365,7 @@ public:
 		return true;
 	}
 
-	bool opEquals(const ref Object rhs) const {
+	bool opEquals(const ref VObject rhs) const {
 		// Wrong type.
 		if (!isObject()) {
 			return false;
@@ -497,32 +492,42 @@ public:
 	}
 }
 
-struct String {
+struct HeapObject {
+package:
+	Descriptor* tag;
+	alias tag this;
+
+	this(inout(Descriptor)* tag) inout {
+		this.tag = tag;
+	}
+}
+
+struct VString {
 private:
-	struct StringImpl {
+	struct Impl {
 		Descriptor tag;
 	}
 
-	StringImpl* impl;
+	Impl* impl;
 	alias impl this;
 
 	this(const(Descriptor)* tag) in(tag.kind == Kind.String) {
-		this(cast(StringImpl*) tag);
+		this(cast(Impl*) tag);
 	}
 
-	this(inout StringImpl* impl) inout {
+	this(inout Impl* impl) inout {
 		this.impl = impl;
 	}
 
-	inout(Descriptor)* toHeapObject() inout {
-		return &tag;
+	inout(HeapObject) toHeapObject() inout {
+		return inout(HeapObject)(&tag);
 	}
 
 public:
 	this(string s) in(s.length < uint.max) {
 		import core.memory;
-		impl = cast(StringImpl*) GC
-			.malloc(StringImpl.sizeof + s.length,
+		impl = cast(Impl*) GC
+			.malloc(Impl.sizeof + s.length,
 			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
 
 		tag.kind = Kind.String;
@@ -544,32 +549,32 @@ public:
 	}
 }
 
-struct Array {
+struct VArray {
 private:
-	struct ArrayImpl {
+	struct Impl {
 		Descriptor tag;
 	}
 
-	ArrayImpl* impl;
+	Impl* impl;
 	alias impl this;
 
 	this(inout Descriptor* tag) inout in(tag.kind == Kind.Array) {
-		this(cast(inout ArrayImpl*) tag);
+		this(cast(inout Impl*) tag);
 	}
 
-	this(inout ArrayImpl* impl) inout {
+	this(inout Impl* impl) inout {
 		this.impl = impl;
 	}
 
-	inout(Descriptor)* toHeapObject() inout {
-		return &tag;
+	inout(HeapObject) toHeapObject() inout {
+		return inout(HeapObject)(&tag);
 	}
 
 public:
 	this(A)(A a) if (isArrayValue!A) in(a.length < uint.max) {
 		import core.memory;
-		impl = cast(ArrayImpl*) GC
-			.malloc(ArrayImpl.sizeof + Value.sizeof * a.length,
+		impl = cast(Impl*) GC
+			.malloc(Impl.sizeof + Value.sizeof * a.length,
 			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
 
 		tag.kind = Kind.Array;

@@ -260,7 +260,7 @@ unittest {
 }
 
 struct Entry {
-	String key;
+	VString key;
 	Value value;
 
 	string toString() const {
@@ -269,27 +269,27 @@ struct Entry {
 	}
 }
 
-struct Object {
+struct VObject {
 private:
-	struct ObjectImpl {
+	struct Impl {
 		Descriptor tag;
 		uint lgBucketCount;
 	}
 
-	ObjectImpl* impl;
+	Impl* impl;
 	alias impl this;
 
 	this(inout Descriptor* tag) inout in(tag.kind == Kind.Object) {
-		this(cast(inout ObjectImpl*) tag);
+		this(cast(inout Impl*) tag);
 	}
 
-	this(inout ObjectImpl* impl) inout {
+	this(inout Impl* impl) inout {
 		this.impl = impl;
 	}
 
 package:
-	inout(Descriptor)* toHeapObject() inout {
-		return &tag;
+	inout(HeapObject) toHeapObject() inout {
+		return inout(HeapObject)(&tag);
 	}
 
 public:
@@ -303,7 +303,7 @@ public:
 
 		uint i = 0;
 		foreach (ref k, ref v; o) {
-			entries[i].key = String(k);
+			entries[i].key = VString(k);
 			entries[i].value = Value(v);
 			_insert(k, i++);
 		}
@@ -397,9 +397,8 @@ private:
 		uint lgC = (length <= 12) ? 0 : lg2Ceil(((length - 1) / 12) + 1);
 
 		import core.memory;
-		auto ptr = cast(ObjectImpl*) GC.malloc(
-			ObjectImpl.sizeof
-				+ ((Bucket.sizeof + 2 * 14 * Value.sizeof) << lgC),
+		auto ptr = cast(Impl*) GC.malloc(
+			Impl.sizeof + ((Bucket.sizeof + 2 * 14 * Value.sizeof) << lgC),
 			GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE
 		);
 
@@ -433,8 +432,8 @@ private:
 }
 
 unittest {
-	static testObject(O : E[string], E)(O content) {
-		auto o = Object(content);
+	static testVObject(O : E[string], E)(O content) {
+		auto o = VObject(content);
 
 		assert(o.tag.length == content.length);
 		assert(o.capacity >= content.length);
@@ -451,24 +450,24 @@ unittest {
 	}
 
 	Value[string] o;
-	testObject(o);
+	testVObject(o);
 
-	testObject(["foo": "bar"]);
-	testObject(["foo": "bar", "fizz": "buzz"]);
+	testVObject(["foo": "bar"]);
+	testVObject(["foo": "bar", "fizz": "buzz"]);
 
 	uint[string] numbers =
 		["zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
 		 "six": 6, "seven": 7, "eight": 8, "nine": 9];
-	testObject(numbers);
+	testVObject(numbers);
 
 	numbers["ten"] = 10;
-	testObject(numbers);
+	testVObject(numbers);
 	numbers["eleven"] = 11;
-	testObject(numbers);
+	testVObject(numbers);
 	numbers["twelve"] = 12;
-	testObject(numbers);
+	testVObject(numbers);
 	numbers["thriteen"] = 13;
-	testObject(numbers);
+	testVObject(numbers);
 	numbers["fourteen"] = 14;
-	testObject(numbers);
+	testVObject(numbers);
 }
