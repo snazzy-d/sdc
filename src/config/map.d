@@ -325,7 +325,7 @@ public:
 			auto r = b.match(h);
 			foreach (n; r) {
 				auto index = b.indices[n];
-				if (entries[index].key.toString() == key) {
+				if (entries[index].key == key) {
 					return index;
 				}
 			}
@@ -350,12 +350,12 @@ public:
 		return entries[index].value;
 	}
 
-	inout(Value) opIndex(const ref VString key) inout {
-		return this[key.toString()];
-	}
-
 	inout(Value) opIndex(string key) inout {
 		return this[find(key)];
+	}
+
+	inout(Value) opIndex(const ref VString key) inout {
+		return this[key.toString()];
 	}
 
 	inout(Value) opIndex(const ref Value key) inout {

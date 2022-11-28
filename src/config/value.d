@@ -344,6 +344,10 @@ public:
 		return isString() && str == s;
 	}
 
+	bool opEquals(const ref VString rhs) const {
+		return isString() && str == rhs;
+	}
+
 	bool opEquals(A)(A a) const if (isArrayValue!A) {
 		// Wrong type.
 		if (kind != Kind.Array) {
@@ -516,6 +520,14 @@ public:
 
 		import core.stdc.string;
 		memcpy(impl + 1, s.ptr, s.length);
+	}
+
+	bool opEquals(string s) const {
+		return toString() == s;
+	}
+
+	bool opEquals(const ref VString rhs) const {
+		return this == rhs.toString();
 	}
 
 	string toString() const {
