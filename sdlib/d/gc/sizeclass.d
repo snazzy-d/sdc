@@ -101,7 +101,8 @@ ubyte getBinID(size_t size) {
 }
 
 unittest getBinID {
-	assert(getBinID(0) == 0xff);
+	import d.gc.bin;
+	assert(getBinID(0) == InvalidBinID);
 
 	size_t[] boundaries = [Quantum, 2 * Quantum, 3 * Quantum, 32, 40, 48, 56,
 	                       64, 80, 96, 112, 128, 160, 192, 224, 256, 320];

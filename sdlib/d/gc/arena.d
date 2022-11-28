@@ -171,23 +171,13 @@ private:
 		// XXX: in contract.
 		assert(binID < ClassCount.Small);
 
-		auto run = bins[binID].current;
-		if (run !is null && run.small.freeSlots != 0) {
+		auto run = bins[binID].getRun();
+		if (run !is null) {
 			return run;
 		}
 
-		// This will allow to keep track if metadata are allocated in that bin.
-		bins[binID].current = null;
-
-		// XXX: use extract or something.
-		run = bins[binID].runTree.bestfit(null);
-		if (run is null) {
-			// We don't have any run that fit, allocate a new one.
-			return allocateSmallRun(binID);
-		}
-
-		bins[binID].runTree.remove(run);
-		return bins[binID].current = run;
+		// We don't have any run that fit, allocate a new one.
+		return allocateSmallRun(binID);
 	}
 
 	RunDesc* allocateSmallRun(ubyte binID) {
