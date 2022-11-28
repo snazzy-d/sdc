@@ -34,6 +34,7 @@ hash_t rehash(hash_t h) {
 				%r3 = trunc i128 %r2 to i64
 				ret i64 %r3`, ulong)(a, b);
 		} else {
+			// Not mulhi at all, but will do for now.
 			return h >> 28;
 		}
 	}
@@ -279,8 +280,8 @@ private:
 	ObjectImpl* impl;
 	alias impl this;
 
-	this(ulong payload) inout {
-		this(cast(inout ObjectImpl*) payload);
+	this(inout Descriptor* tag) inout in(tag.kind == Kind.Object) {
+		this(cast(inout ObjectImpl*) tag);
 	}
 
 	this(inout ObjectImpl* impl) inout {
@@ -288,9 +289,8 @@ private:
 	}
 
 package:
-
-	ulong toPayload() const {
-		return cast(ulong) impl;
+	inout(Descriptor)* toHeapObject() inout {
+		return &tag;
 	}
 
 public:

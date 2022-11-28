@@ -20,7 +20,6 @@ private:
 
 	union {
 		ulong _dummy;
-		Value[string] _object;
 		Value[Value] _map;
 	}
 
@@ -70,7 +69,10 @@ private:
 	 * | 0xffff | 0x0000 | 32 bits integers.                     |
 	 * +--------+--------+---------------------------------------+
 	 */
-	ulong payload;
+	union {
+		ulong payload;
+		Descriptor* heapObject;
+	}
 
 	// We want the pointer values to be stored 'as this' so they can
 	// be scanned by the GC. However, we also want to use the NaN
@@ -176,8 +178,8 @@ public:
 	}
 
 	bool isHeapObject() const {
-		// FIXME: This shouldn't be necessary once everythig is NaN boxed.
-		if (payload == 0) {
+		// FIXME: This shouldn't be necessary once everything is NaN boxed.
+		if (heapObject is null) {
 			return false;
 		}
 
@@ -185,7 +187,7 @@ public:
 	}
 
 	@property
-	Descriptor tag() const in(isHeapObject() && !isUndefined()) {
+	Descriptor tag() const in(isHeapObject()) {
 		return *(cast(Descriptor*) payload);
 	}
 
@@ -195,7 +197,7 @@ public:
 
 	@property
 	string str() const in(isString()) {
-		return String(payload).toString();
+		return String(heapObject).toString();
 	}
 
 	bool isArray() const {
@@ -204,7 +206,7 @@ public:
 
 	@property
 	inout(Value)[] array() inout in(isArray()) {
-		auto a = inout(Array)(payload);
+		auto a = inout(Array)(heapObject);
 		return a.toArray();
 	}
 
@@ -214,7 +216,7 @@ public:
 
 	@property
 	auto object() inout in(isObject()) {
-		return inout(Object)(payload);
+		return inout(Object)(heapObject);
 	}
 
 	bool isMap() const {
@@ -295,24 +297,17 @@ public:
 	}
 
 	Value opAssign(S : string)(S s) {
-		payload = String(s).toPayload();
+		heapObject = String(s).toHeapObject();
 		return this;
 	}
 
 	Value opAssign(A)(A a) if (isArrayValue!A) {
-		payload = Array(a).toPayload();
+		heapObject = Array(a).toHeapObject();
 		return this;
 	}
 
 	Value opAssign(O)(O o) if (isObjectValue!O) {
-		// FIXME: Remove once Object has reached feature parity.
-		_object = null;
-
-		foreach (k, ref e; o) {
-			_object[k] = Value(e);
-		}
-
-		payload = Object(o).toPayload();
+		heapObject = Object(o).toHeapObject();
 		return this;
 	}
 
@@ -511,12 +506,16 @@ private:
 	StringImpl* impl;
 	alias impl this;
 
-	this(ulong payload) {
-		this(cast(StringImpl*) payload);
+	this(const(Descriptor)* tag) in(tag.kind == Kind.String) {
+		this(cast(StringImpl*) tag);
 	}
 
 	this(inout StringImpl* impl) inout {
 		this.impl = impl;
+	}
+
+	inout(Descriptor)* toHeapObject() inout {
+		return &tag;
 	}
 
 public:
@@ -531,10 +530,6 @@ public:
 
 		import core.stdc.string;
 		memcpy(impl + 1, s.ptr, s.length);
-	}
-
-	ulong toPayload() const {
-		return cast(ulong) impl;
 	}
 
 	string toString() const {
@@ -558,12 +553,16 @@ private:
 	ArrayImpl* impl;
 	alias impl this;
 
-	this(ulong payload) inout {
-		this(cast(inout ArrayImpl*) payload);
+	this(inout Descriptor* tag) inout in(tag.kind == Kind.Array) {
+		this(cast(inout ArrayImpl*) tag);
 	}
 
 	this(inout ArrayImpl* impl) inout {
 		this.impl = impl;
+	}
+
+	inout(Descriptor)* toHeapObject() inout {
+		return &tag;
 	}
 
 public:
@@ -579,10 +578,6 @@ public:
 		foreach (i, ref e; toArray()) {
 			e = Value(a[i]);
 		}
-	}
-
-	ulong toPayload() const {
-		return cast(ulong) impl;
 	}
 
 	inout(Value)[] toArray() inout {
