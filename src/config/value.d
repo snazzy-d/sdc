@@ -365,33 +365,11 @@ public:
 	}
 
 	bool opEquals(const ref VObject rhs) const {
-		// Wrong type.
-		if (!isObject()) {
-			return false;
-		}
-
-		return object == rhs;
+		return isObject() && object == rhs;
 	}
 
 	bool opEquals(O)(O o) const if (isObjectValue!O) {
-		// Wrong type.
-		if (!isObject()) {
-			return false;
-		}
-
-		// Wrong length.
-		if (length != o.length) {
-			return false;
-		}
-
-		// Compare all the values.
-		foreach (k, ref v; o) {
-			if (object[k] != v) {
-				return false;
-			}
-		}
-
-		return true;
+		return isObject() && object == o;
 	}
 
 	bool opEquals(M)(M m) const if (isMapValue!M) {

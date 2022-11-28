@@ -350,8 +350,20 @@ public:
 		return entries[index].value;
 	}
 
+	inout(Value) opIndex(const ref VString key) inout {
+		return this[key.toString()];
+	}
+
 	inout(Value) opIndex(string key) inout {
 		return this[find(key)];
+	}
+
+	inout(Value) opIndex(const ref Value key) inout {
+		if (!key.isString()) {
+			return Value();
+		}
+
+		return this[key.toString()];
 	}
 
 	inout(Value)* opBinaryRight(string op : "in")(string key) inout {
@@ -362,6 +374,38 @@ public:
 		}
 
 		return &entries[index].value;
+	}
+
+	bool opEquals(const ref VObject rhs) const {
+		// Wrong length.
+		if (tag.length != rhs.tag.length) {
+			return false;
+		}
+
+		// Compare all the values.
+		foreach (ref e; rhs.entries) {
+			if (this[e.key] != e.value) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool opEquals(O)(O o) const if (isObjectValue!O) {
+		// Wrong length.
+		if (tag.length != o.length) {
+			return false;
+		}
+
+		// Compare all the values.
+		foreach (k, ref v; o) {
+			if (this[k] != v) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 private:
