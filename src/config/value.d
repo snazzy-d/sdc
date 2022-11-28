@@ -192,7 +192,7 @@ public:
 
 	@property
 	string str() const in(isString()) {
-		return VString(heapObject).toString();
+		return heapObject.toString().toString();
 	}
 
 	bool isArray() const {
@@ -201,8 +201,7 @@ public:
 
 	@property
 	inout(Value)[] array() inout in(isArray()) {
-		auto a = inout(VArray)(heapObject);
-		return a.toArray();
+		return heapObject.toArray().toArray();
 	}
 
 	bool isObject() const {
@@ -210,8 +209,8 @@ public:
 	}
 
 	@property
-	auto object() inout in(isObject()) {
-		return inout(VObject)(heapObject);
+	ref object() inout in(isObject()) {
+		return heapObject.toObject();
 	}
 
 	bool isMap() const {
@@ -500,6 +499,18 @@ package:
 	this(inout(Descriptor)* tag) inout {
 		this.tag = tag;
 	}
+
+	ref inout(VString) toString() inout in(isString()) {
+		return *(cast(inout(VString)*) &this);
+	}
+
+	ref inout(VArray) toArray() inout in(isArray()) {
+		return *(cast(inout(VArray)*) &this);
+	}
+
+	ref inout(VObject) toObject() inout in(isObject()) {
+		return *(cast(inout(VObject)*) &this);
+	}
 }
 
 struct VString {
@@ -510,14 +521,6 @@ private:
 
 	Impl* impl;
 	alias impl this;
-
-	this(const(Descriptor)* tag) in(tag.kind == Kind.String) {
-		this(cast(Impl*) tag);
-	}
-
-	this(inout Impl* impl) inout {
-		this.impl = impl;
-	}
 
 	inout(HeapObject) toHeapObject() inout {
 		return inout(HeapObject)(&tag);
@@ -557,14 +560,6 @@ private:
 
 	Impl* impl;
 	alias impl this;
-
-	this(inout Descriptor* tag) inout in(tag.kind == Kind.Array) {
-		this(cast(inout Impl*) tag);
-	}
-
-	this(inout Impl* impl) inout {
-		this.impl = impl;
-	}
 
 	inout(HeapObject) toHeapObject() inout {
 		return inout(HeapObject)(&tag);
@@ -640,8 +635,6 @@ unittest {
 
 	Value initVar;
 	assert(initVar.isUndefined());
-
-	// testAllValues(initVar, null, Kind.Null);
 
 	static testValue(E)(E expected, Kind k) {
 		Value v = expected;

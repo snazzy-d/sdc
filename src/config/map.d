@@ -279,14 +279,6 @@ private:
 	Impl* impl;
 	alias impl this;
 
-	this(inout Descriptor* tag) inout in(tag.kind == Kind.Object) {
-		this(cast(inout Impl*) tag);
-	}
-
-	this(inout Impl* impl) inout {
-		this.impl = impl;
-	}
-
 package:
 	inout(HeapObject) toHeapObject() inout {
 		return inout(HeapObject)(&tag);
