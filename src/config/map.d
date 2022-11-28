@@ -341,7 +341,7 @@ public:
 		return -1;
 	}
 
-	inout(Value) opIndex(uint index) inout {
+	inout(Value) opIndex(size_t index) inout {
 		if (index >= capacity) {
 			// Return `Undefined` to signal we didn't find anything.
 			return Value();

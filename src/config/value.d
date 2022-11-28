@@ -340,32 +340,20 @@ public:
 		return isFloat() && floating == f;
 	}
 
-	bool opEquals(S : string)(S s) const {
-		return isString() && str == s;
-	}
-
 	bool opEquals(const ref VString rhs) const {
 		return isString() && str == rhs;
 	}
 
+	bool opEquals(S : string)(S s) const {
+		return isString() && str == s;
+	}
+
+	bool opEquals(const ref VArray rhs) const {
+		return isArray() && array == rhs;
+	}
+
 	bool opEquals(A)(A a) const if (isArrayValue!A) {
-		// Wrong type.
-		if (kind != Kind.Array) {
-			return false;
-		}
-
-		// Wrong length.
-		if (array.length != a.length) {
-			return false;
-		}
-
-		foreach (i, ref _; a) {
-			if (array[i] != a[i]) {
-				return false;
-			}
-		}
-
-		return true;
+		return isArray() && array == a;
 	}
 
 	bool opEquals(const ref VObject rhs) const {
@@ -568,6 +556,33 @@ public:
 		foreach (i, ref e; toArray()) {
 			e = Value(a[i]);
 		}
+	}
+
+	inout(Value) opIndex(size_t index) inout {
+		if (index >= tag.length) {
+			return inout(Value)();
+		}
+
+		return toArray()[index];
+	}
+
+	bool opEquals(const ref VArray rhs) const {
+		return toArray() == rhs.toArray();
+	}
+
+	bool opEquals(A)(A a) const if (isArrayValue!A) {
+		// Wrong length.
+		if (tag.length != a.length) {
+			return false;
+		}
+
+		foreach (i, ref _; a) {
+			if (this[i] != a[i]) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	inout(Value)[] toArray() inout {
