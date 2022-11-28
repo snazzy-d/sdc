@@ -42,32 +42,35 @@ enum ClassCount {
 }
 
 enum SizeClass {
+	Tiny = getSizeFromBinID(ClassCount.Tiny - 1),
 	Small = getSizeFromBinID(ClassCount.Small - 1),
 	Large = getSizeFromBinID(ClassCount.Large - 1),
 }
 
-size_t getAllocSize(size_t size) {
-	if (LgTiny < LgQuantum && size < (1UL << LgQuantum)) {
-		// Not the fastest way to handle this.
-		import d.gc.util;
-		auto s = pow2ceil(size);
+// We want to 64-bits align allocations.
+enum LgQuantum = 3;
+enum Quantum = 1 << LgQuantum;
+enum QuantumMask = Quantum - 1;
+enum MaxTinySize = 4 * Quantum;
 
-		enum T = 1UL << LgTiny;
-		return (s < T) ? T : s;
+size_t getAllocSize(size_t size) {
+	if (size < MaxTinySize) {
+		return (size + QuantumMask) & ~QuantumMask;
 	}
 
 	import d.gc.util;
-	auto shift =
-		(size < (1UL << LgQuantum + 2)) ? LgQuantum : log2floor(size - 1) - 2;
+	auto shift = log2floor(size - 1) - 2;
 
 	return (((size - 1) >> shift) + 1) << shift;
 }
 
 unittest getAllocSize {
-	size_t[] boundaries = [1 << LgTiny, 1 << LgQuantum, 32, 48, 64, 80, 96, 112,
-	                       128, 160, 192, 224, 256, 320];
+	assert(getAllocSize(0) == 0);
 
-	size_t s = 0;
+	size_t[] boundaries = [Quantum, 2 * Quantum, 3 * Quantum, 32, 40, 48, 56,
+	                       64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+
+	size_t s = 1;
 	foreach (b; boundaries) {
 		if (b <= s) {
 			continue;
@@ -81,33 +84,30 @@ unittest getAllocSize {
 }
 
 ubyte getBinID(size_t size) {
-	if (LgTiny < LgQuantum && size < (1UL << LgQuantum)) {
-		// Not the fastest way to handle this.
-		import d.gc.util;
-		auto ret = log2floor(pow2ceil(size) >> LgTiny);
+	if (size < MaxTinySize) {
+		auto ret = ((size + QuantumMask) >> LgQuantum) - 1;
 
-		assert(ret < ubyte.max);
+		assert(size == 0 || ret < ubyte.max);
 		return ret & 0xff;
 	}
 
-	// Faster way to compute x = log2floor(pow2ceil(size));
 	import d.gc.util;
-	auto shift =
-		(size < (1UL << (LgQuantum + 2))) ? LgQuantum : log2floor(size - 1) - 2;
-
+	auto shift = log2floor(size - 1) - 2;
 	auto mod = (size - 1) >> shift;
-	auto ret = 4 * (shift - LgQuantum) + mod + ClassCount.Tiny;
+	auto ret = 4 * (shift - LgQuantum) + mod;
 
 	assert(ret < ubyte.max);
 	return ret & 0xff;
 }
 
 unittest getBinID {
-	size_t[] boundaries = [1 << LgTiny, 1 << LgQuantum, 32, 48, 64, 80, 96, 112,
-	                       128, 160, 192, 224, 256, 320];
+	assert(getBinID(0) == 0xff);
+
+	size_t[] boundaries = [Quantum, 2 * Quantum, 3 * Quantum, 32, 40, 48, 56,
+	                       64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
 
 	uint bid = 0;
-	size_t s = 0;
+	size_t s = 1;
 	foreach (b; boundaries) {
 		if (b <= s) {
 			continue;
@@ -115,6 +115,7 @@ unittest getBinID {
 
 		while (s <= b) {
 			assert(getBinID(s) == bid);
+			assert(getAllocSize(s) == getSizeFromBinID(bid));
 			s++;
 		}
 
@@ -123,21 +124,17 @@ unittest getBinID {
 }
 
 size_t getSizeFromBinID(uint binID) {
+	size_t ret;
 	if (binID < ClassCount.Small) {
 		import d.gc.bin;
-		auto ret = binInfos[binID].itemSize;
+		ret = binInfos[binID].itemSize;
+	} else {
+		auto largeBinID = binID - ClassCount.Small;
+		auto shift = largeBinID / 4 + LgPageSize;
+		size_t bits = (largeBinID % 4) | 0x04;
 
-		// XXX: out contract
-		assert(binID == getBinID(ret));
-		assert(ret == getAllocSize(ret));
-		return ret;
+		ret = bits << shift;
 	}
-
-	auto largeBinID = binID - ClassCount.Small;
-	auto shift = largeBinID / 4 + LgPageSize;
-	size_t bits = (largeBinID % 4) | 0x04;
-
-	auto ret = bits << shift;
 
 	// XXX: out contract
 	assert(binID == getBinID(ret));
@@ -146,22 +143,12 @@ size_t getSizeFromBinID(uint binID) {
 }
 
 unittest getSizeFromBinID {
-	size_t[] boundaries = [1 << LgTiny, 1 << LgQuantum, 32, 48, 64, 80, 96, 112,
-	                       128, 160, 192, 224, 256, 320];
+	size_t[] boundaries = [Quantum, 2 * Quantum, 3 * Quantum, 32, 40, 48, 56,
+	                       64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
 
 	uint bid = 0;
-	size_t s = 0;
 	foreach (b; boundaries) {
-		if (b <= s) {
-			continue;
-		}
-
-		while (s <= b) {
-			assert(getSizeFromBinID(bid) == b);
-			s++;
-		}
-
-		bid++;
+		assert(getSizeFromBinID(bid++) == b);
 	}
 }
 
@@ -207,26 +194,20 @@ void binInfoComputer(void* binsPtr, uint id, uint grp, uint delta,
 	}
 
 	assert(s < ushort.max);
-	auto itemSize = cast(ushort) s;
+	ushort itemSize = s & ushort.max;
 
-	ubyte[4] npLookup;
+	ubyte[4] npLookup = [(((s - 1) >> LgPageSize) + 1) & 0xff, 5, 3, 7];
 
-	// XXX: use array initializer.
-	npLookup[0] = cast(ubyte) (((s - 1) >> LgPageSize) + 1);
-	npLookup[1] = 5;
-	npLookup[2] = 3;
-	npLookup[3] = 7;
-
-	auto shift = cast(ubyte) delta;
+	ubyte shift = delta & 0xff;
 	if (grp == delta) {
 		auto tag = (ndelta + 1) / 2;
-		shift = cast(ubyte) (delta + tag - 2);
+		shift = (delta + tag - 2) & 0xff;
 	}
 
 	auto needPages = npLookup[(itemSize >> shift) % 4];
 
 	uint p = needPages;
-	auto slots = cast(ushort) ((p << LgPageSize) / s);
+	ushort slots = ((p << LgPageSize) / s) & ushort.max;
 
 	assert(id < ClassCount.Small);
 	bins[id] = BinInfo(itemSize, shift, needPages, slots);
@@ -246,7 +227,7 @@ auto getTinyClassCount() {
 	uint count = 0;
 
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
-		if (grp < LgQuantum) {
+		if (grp <= LgQuantum) {
 			count++;
 		}
 	});
@@ -296,11 +277,6 @@ void computeSizeClass(
 	uint id = 0;
 
 	// Tiny sizes.
-	foreach (grp; LgTiny .. LgQuantum) {
-		fun(id++, grp, grp, 0);
-	}
-
-	// First group is kind of special.
 	foreach (i; 0 .. 3) {
 		fun(id++, LgQuantum, LgQuantum, i);
 	}

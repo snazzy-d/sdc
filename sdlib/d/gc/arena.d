@@ -146,6 +146,9 @@ private:
 	void* allocSmall(size_t size) {
 		// TODO: in contracts
 		assert(size <= SizeClass.Small);
+		if (size == 0) {
+			return null;
+		}
 
 		auto binID = getBinID(size);
 		assert(binID < ClassCount.Small);

@@ -10,7 +10,3 @@ enum ChunkPageCount = 1UL << LgChunkPageCount;
 enum LgChunkSize = LgPageSize + LgChunkPageCount;
 enum ChunkSize = 1UL << LgChunkSize;
 enum ChunkAlignMask = ChunkSize - 1;
-
-// 64 bits tiny, 128 bits quantum.
-enum LgTiny = 3;
-enum LgQuantum = 4;
