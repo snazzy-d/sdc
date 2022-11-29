@@ -1,5 +1,6 @@
 module config.value;
 
+import config.heap;
 import config.map;
 import config.traits;
 
@@ -71,7 +72,7 @@ private:
 	 */
 	union {
 		ulong payload;
-		HeapObject heapObject;
+		HeapValue heapValue;
 	}
 
 	// We want the pointer values to be stored 'as this' so they can
@@ -177,9 +178,9 @@ public:
 		return Double(payload).toFloat();
 	}
 
-	bool isHeapObject() const {
+	bool isHeapValue() const {
 		// FIXME: This shouldn't be necessary once everything is NaN boxed.
-		if (heapObject is null) {
+		if (heapValue is null) {
 			return false;
 		}
 
@@ -187,30 +188,30 @@ public:
 	}
 
 	bool isString() const {
-		return isHeapObject() && heapObject.isString();
+		return isHeapValue() && heapValue.isString();
 	}
 
 	@property
 	ref str() const in(isString()) {
-		return heapObject.toString();
+		return heapValue.toString();
 	}
 
 	bool isArray() const {
-		return isHeapObject() && heapObject.isArray();
+		return isHeapValue() && heapValue.isArray();
 	}
 
 	@property
 	inout(Value)[] array() inout in(isArray()) {
-		return heapObject.toArray().toArray();
+		return heapValue.toArray().toArray();
 	}
 
 	bool isObject() const {
-		return isHeapObject() && heapObject.isObject();
+		return isHeapValue() && heapValue.isObject();
 	}
 
 	@property
 	ref object() inout in(isObject()) {
-		return heapObject.toObject();
+		return heapValue.toObject();
 	}
 
 	bool isMap() const {
@@ -228,7 +229,7 @@ public:
 			return map.length;
 		}
 
-		return heapObject.length;
+		return heapValue.length;
 	}
 
 	/**
@@ -289,17 +290,17 @@ public:
 	}
 
 	Value opAssign(S : string)(S s) {
-		heapObject = VString(s).toHeapObject();
+		heapValue = VString(s);
 		return this;
 	}
 
 	Value opAssign(A)(A a) if (isArrayValue!A) {
-		heapObject = VArray(a).toHeapObject();
+		heapValue = VArray(a);
 		return this;
 	}
 
 	Value opAssign(O)(O o) if (isObjectValue!O) {
-		heapObject = VObject(o).toHeapObject();
+		heapValue = VObject(o);
 		return this;
 	}
 
@@ -432,168 +433,6 @@ struct Double {
 	ulong toPayload() const {
 		auto x = *(cast(ulong*) &value);
 		return x + Value.FloatOffset;
-	}
-}
-
-struct Descriptor {
-package:
-	ubyte refCount;
-	Kind kind;
-
-	uint length;
-
-	static assert(Descriptor.sizeof == 8,
-	              "Descriptors are expected to be 64 bits.");
-
-public:
-	bool isString() const {
-		return kind == Kind.String;
-	}
-
-	bool isArray() const {
-		return kind == Kind.Array;
-	}
-
-	bool isObject() const {
-		return kind == Kind.Object;
-	}
-}
-
-struct HeapObject {
-package:
-	Descriptor* tag;
-	alias tag this;
-
-	this(inout(Descriptor)* tag) inout {
-		this.tag = tag;
-	}
-
-	ref inout(VString) toString() inout in(isString()) {
-		return *(cast(inout(VString)*) &this);
-	}
-
-	ref inout(VArray) toArray() inout in(isArray()) {
-		return *(cast(inout(VArray)*) &this);
-	}
-
-	ref inout(VObject) toObject() inout in(isObject()) {
-		return *(cast(inout(VObject)*) &this);
-	}
-}
-
-struct VString {
-private:
-	struct Impl {
-		Descriptor tag;
-	}
-
-	Impl* impl;
-	alias impl this;
-
-	inout(HeapObject) toHeapObject() inout {
-		return inout(HeapObject)(&tag);
-	}
-
-public:
-	this(string s) in(s.length < uint.max) {
-		import core.memory;
-		impl = cast(Impl*) GC
-			.malloc(Impl.sizeof + s.length,
-			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
-
-		tag.kind = Kind.String;
-		tag.length = s.length & uint.max;
-
-		import core.stdc.string;
-		memcpy(impl + 1, s.ptr, s.length);
-	}
-
-	bool opEquals(string s) const {
-		return toString() == s;
-	}
-
-	bool opEquals(const ref VString rhs) const {
-		return this == rhs.toString();
-	}
-
-	hash_t toHash() const {
-		return hashOf(toString());
-	}
-
-	string toString() const {
-		auto ptr = cast(immutable char*) (impl + 1);
-		return ptr[0 .. tag.length];
-	}
-
-	string dump() const {
-		import std.format;
-		auto s = toString();
-		return format!"%(%s%)"((&s)[0 .. 1]);
-	}
-}
-
-struct VArray {
-private:
-	struct Impl {
-		Descriptor tag;
-	}
-
-	Impl* impl;
-	alias impl this;
-
-	inout(HeapObject) toHeapObject() inout {
-		return inout(HeapObject)(&tag);
-	}
-
-public:
-	this(A)(A a) if (isArrayValue!A) in(a.length < uint.max) {
-		import core.memory;
-		impl = cast(Impl*) GC
-			.malloc(Impl.sizeof + Value.sizeof * a.length,
-			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
-
-		tag.kind = Kind.Array;
-		tag.length = a.length & uint.max;
-
-		foreach (i, ref e; toArray()) {
-			e = Value(a[i]);
-		}
-	}
-
-	inout(Value) opIndex(size_t index) inout {
-		if (index >= tag.length) {
-			return inout(Value)();
-		}
-
-		return toArray()[index];
-	}
-
-	bool opEquals(const ref VArray rhs) const {
-		return toArray() == rhs.toArray();
-	}
-
-	bool opEquals(A)(A a) const if (isArrayValue!A) {
-		// Wrong length.
-		if (tag.length != a.length) {
-			return false;
-		}
-
-		foreach (i, ref _; a) {
-			if (this[i] != a[i]) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	hash_t toHash() const {
-		return hashOf(toArray());
-	}
-
-	inout(Value)[] toArray() inout {
-		auto ptr = cast(inout Value*) (impl + 1);
-		return ptr[0 .. tag.length];
 	}
 }
 

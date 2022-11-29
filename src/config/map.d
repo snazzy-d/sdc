@@ -1,5 +1,6 @@
 module config.map;
 
+import config.heap;
 import config.traits;
 import config.util;
 import config.value;
@@ -270,7 +271,7 @@ struct Entry {
 }
 
 struct VObject {
-private:
+package:
 	struct Impl {
 		Descriptor tag;
 		uint lgBucketCount;
@@ -278,11 +279,6 @@ private:
 
 	Impl* impl;
 	alias impl this;
-
-package:
-	inout(HeapObject) toHeapObject() inout {
-		return inout(HeapObject)(&tag);
-	}
 
 public:
 	this(O)(O o) if (isObjectValue!O) in(o.length <= int.max) {
