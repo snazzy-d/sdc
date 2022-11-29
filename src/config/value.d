@@ -191,8 +191,8 @@ public:
 	}
 
 	@property
-	string str() const in(isString()) {
-		return heapObject.toString().toString();
+	ref str() const in(isString()) {
+		return heapObject.toString();
 	}
 
 	bool isArray() const {
@@ -249,10 +249,8 @@ public:
 				return "null";
 			} else static if (is(T == bool)) {
 				return v ? "true" : "false";
-			} else static if (is(T == string)) {
-				// This is retarded, but I can't find another way to do it.
-				import std.format;
-				return format!"%(%s%)"((&v)[0 .. 1]);
+			} else static if (is(T : const VString)) {
+				return v.dump();
 			} else {
 				import std.conv;
 				return to!string(v);
@@ -261,7 +259,7 @@ public:
 	}
 
 	@trusted
-	size_t toHash() const {
+	hash_t toHash() const {
 		return
 			this.visit!(x => is(typeof(x) : typeof(null)) ? -1 : hashOf(x))();
 	}
@@ -518,6 +516,10 @@ public:
 		return this == rhs.toString();
 	}
 
+	hash_t toHash() const {
+		return hashOf(toString());
+	}
+
 	string toString() const {
 		auto ptr = cast(immutable char*) (impl + 1);
 		return ptr[0 .. tag.length];
@@ -585,6 +587,10 @@ public:
 		return true;
 	}
 
+	hash_t toHash() const {
+		return hashOf(toArray());
+	}
+
 	inout(Value)[] toArray() inout {
 		auto ptr = cast(inout Value*) (impl + 1);
 		return ptr[0 .. tag.length];
@@ -627,7 +633,7 @@ unittest {
 		foreach (I; Cases) {
 			static if (!is(E == typeof(I))) {
 				assert(v != I);
-			} else if (expected == I) {
+			} else if (I == expected) {
 				found = true;
 				assert(v == I);
 			} else {
