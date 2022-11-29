@@ -251,8 +251,8 @@ public:
 				return v ? "true" : "false";
 			} else static if (is(T == string)) {
 				// This is retarded, but I can't find another way to do it.
-				import std.conv;
-				return to!string([v])[1 .. $ - 1];
+				import std.format;
+				return format!"%(%s%)"((&v)[0 .. 1]);
 			} else {
 				import std.conv;
 				return to!string(v);
