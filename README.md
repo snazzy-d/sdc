@@ -1,82 +1,90 @@
-SDC - The Snazzy D Compiler
-===========================
-This is the home of a [D](http://dlang.org/) compiler.
-SDC is at the moment, particularly stupid; it is a work in progress. Feel free to poke around, but don't expect it to compile your code.
+# SDC - The Snazzy D Compiler
 
-This compiler is based on [libd](https://github.com/snazzy-d/SDC/tree/master/src/d) for D code analysis. It uses [LLVM](http://llvm.org/) and [libd-llvm](https://github.com/snazzy-d/SDC/tree/master/src/d/llvm) for codegen and JIT CTFE. It uses [libsdrt](https://github.com/snazzy-d/SDC/tree/master/sdlib) to support various runtime facilities required by programs compiled by SDC.
+This is the home of a [D][0] compiler. SDC is at the moment, particularly
+stupid; it is a work in progress. Feel free to poke around, but don't expect it
+to compile your code.
 
-The code is released under the MIT license (see the LICENCE file for more details).
-Contact me at deadalnix@gmail.com
+The project currently provides a collection of tools:
 
-SDC requires DMD release `2.094` to compile.
+- [sdc][1], the D compiler.
+- [sduint][2], an utility to runt he unit tests in D modules.
+- [sdfmt][3], a code formatter for D.
 
-Goals
-=====
-Right now, SDC is a work in progress and unusable for any production work. Its intent is to provide a D compiler as a library (libd) in order to improve the overall D toolchain by enabling the possibility of developing new tools.
+This compiler is based on [libd][4] for D code analysis. It uses [LLVM][5] and
+[libd-llvm][6] for codegen and JIT CTFE. It uses [libsdrt][7] to support various
+runtime facilities required by programs compiled by SDC.
 
-SDC now supports many very advanced features (static ifs, string mixins, CTFE) of D, but not many basic ones. This is a development choice to allow the architecturing of the compiler around the hardest features of the language. As a consequence, SDC has a solid base to build upon.
+The code is released under the MIT license (see the LICENCE file for more
+details). Contact me at deadalnix@gmail.com.
 
-What Can It Compile?
-====================
-See the tests directory for a sample of what is/should-be working.
-phobos/object.d contains the current (temporary) object.d file for SDC.
+SDC requires latest DMD release to compile.
 
-Roadmap
-=======
-This just me thinking outloud about what features I want, when.
+[0]: http://dlang.org/
+[1]: https://github.com/snazzy-d/sdc/blob/master/src/driver/sdc.d
+[2]: https://github.com/snazzy-d/sdc/blob/master/src/driver/sdunit.d
+[3]: https://github.com/snazzy-d/sdc/blob/master/src/driver/sdfmt.d
+[4]: https://github.com/snazzy-d/sdc/tree/master/src/d
+[5]: http://llvm.org/
+[6]: https://github.com/snazzy-d/sdc/tree/master/src/d/llvm
+[7]: https://github.com/snazzy-d/sdc/tree/master/sdlib
 
-0.1
----
-* Compile D style (writeln) hello world.
+# Goals
 
-0.2
----
-* Compile itself, which imply compile most of D.
+Right now, SDC is a work in progress and unusable for any production work. Its
+intent is to provide a D compiler as a library (libd) in order to improve the
+overall D toolchain by enabling the possibility of developing new tools.
 
-1.0
----
-* Propose a stable API for 3rd party.
+SDC now supports many very advanced features (static ifs, string mixins, CTFE)
+of D, but not many basic ones. This is a development choice to allow the
+architecturing of the compiler around the hardest features of the language. As a
+consequence, SDC has a solid base to build upon.
 
-2.0
----
-* extern (C++)
+# What Can It Compile?
 
+See the [tests directory][20] for a sample of what is/should-be working. You can
+also build [SDC's runtime library][21], that is compiled using SDC.
 
-Compiling SDC on Linux
-=======
-You'll need `make` and the latest DMD installed.
-Install LLVM 3.9.
+[20]: https://github.com/snazzy-d/sdc/tree/master/test
+[21]: https://github.com/snazzy-d/sdc/tree/master/sdlib
+
+# Compiling SDC on Linux
+
+You'll need `make` and the latest DMD installed and a recent version of LLVM.
 
 Run `make`.
 
-Then you can compile `runner.d` with `dmd` and run it to run the test suites. There should be no regressions.
-SDC contains a lot of hardcoded PATH right now, so it's hard to integrate properly with the system. It expects object.d to be in ../libs/object.d
+Then you can runt he test suite using `make check`. There should be no
+regressions.
 
-SDC requires LLVM 3.9 . If the default llvm-config on your system is an older version, you can specify a newer version via `LLVM_CONFIG`. For instance, on a debian system, you want to use `make LLVM_CONFIG=llvm-config-3.9` .
+SDC requires a recent version of LLVM. If the default llvm-config on your system
+is too old, you can specify a newer version via `LLVM_CONFIG`. For instance, on
+a debian system, you want to use `LLVM_CONFIG=llvm-config-11 make` .
 
-For detailed installing instructions please refer the [Dockerfile](https://github.com/lindt/docker-sdc/blob/master/Dockerfile).
+# Compiling SDC on Mac OS X
 
-Compiling SDC on Mac OS X
-=======
-You'll need `make` and the latest DMD installed. You'll also need llvm38 if you don't already have it. One way to install llvm that's been tested is to use [Homebrew](http://brew.sh/), a package manager for OS X. After installing it by following instructions from the web page, run the command  `brew install llvm39`, followed by `make LLVM_CONFIG=llvm-config-3.9` . If you are using [MacPorts](http://www.macports.org) instead, you can run `sudo port install llvm-3.9`, followed by `make LLVM_CONFIG=llvm-config-mp-3.9` .
-You'll also need a recent version of `nasm`; if `nasm` does not recognise the `macho64` output format, try updating `nasm`.
+You'll need `make` and the latest DMD installed. You'll also need a recent
+version of LLVM if you don't already have it. One way to install llvm that's
+been tested is to use [Homebrew][40], a package manager for OS X. After
+installing it by following instructions from the web page, run the command
+`brew install llvm11`, followed by `LLVM_CONFIG=llvm-config-11 make` . If you
+are using [MacPorts][41] instead, you can run `sudo port install llvm-11`,
+followed by `LLVM_CONFIG=llvm-config-mp-11 make` . You'll also need a recent
+version of `nasm`; if `nasm` does not recognise the `macho64` output format, try
+upgrading `nasm` to a newer version.
 
-Usage as Docker Image
-=======
-If you do not want to compile SDC on your own, you can use the [automatic generated Docker Image](https://hub.docker.com/r/dlanguage/sdc/).
-Assume you have a `test.d` file in your local directory, you can compile it using the Docker image with this command:
-`docker run -ti -v $(pwd):/src dlanguage/sdc test.d`
+[40]: http://brew.sh/
+[41]: http://www.macports.org
 
-Building SDC as a Nix package
-=======
-On Linux, you can also use the [Nix package manager](https://nixos.org) to automatically fetch dependencies and build SDC for you.
-You may need to use the unstable nix channel, to have a new enough `dmd` to build SDC. Clone or download this repository.
+# Building SDC as a Nix package
 
-To build the executable, run `nix-build -E "(import <nixpkgs> {}).callPackage ./. {}"` or
-`nix-build -E "(import <nixpkgs> {}).callPackage ./. {dflags=\"-O -release\";}"` from the project root directory.
+On Linux, you can also use the [Nix package manager][50] to automatically fetch
+dependencies and build SDC for you. You may need to use the unstable nix
+channel, to have a new enough `dmd` to build SDC. Clone or download this
+repository.
 
-### Setup
-Extract the LLVM DLL binary archive to the SDC repository, then build with `make -f Makefile.windows`.
-When running SDC, make sure `gcc`, `llc` and `opt` are available in your PATH.
+To build the executable, run
+`nix-build -E "(import <nixpkgs> {}).callPackage ./. {}"` or
+`nix-build -E "(import <nixpkgs> {}).callPackage ./. {dflags=\"-O -release\";}"`
+from the project root directory.
 
-To run the tests, execute `dmd runner.d` to build the test-runner application found in `tests/`, then run it with `runner`.
+[50]: https://nixos.org

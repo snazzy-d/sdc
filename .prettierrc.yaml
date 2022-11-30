@@ -1,0 +1,11 @@
+---
+tabWidth: 4
+arrowParens: avoid
+overrides:
+    - files: "*.md"
+      options:
+          parser: markdown
+          # I had to set this to 2 instead of 4 because of
+          # https://github.com/prettier/prettier/issues/11718
+          tabWidth: 2
+          proseWrap: always
