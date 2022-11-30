@@ -14,14 +14,14 @@ struct Config {
 
 		if (auto ip = "includePaths" in add) {
 			import std.algorithm, std.range;
-			includePaths = ip.array.map!(i => i.str.toString())
+			includePaths = ip.array.toArray().map!(i => i.str.toString())
 			                 .chain(includePaths).array();
 		}
 
 		if (auto lp = "libPaths" in add) {
 			import std.algorithm, std.range;
-			linkerPaths =
-				lp.array.map!(i => i.str.toString()).chain(linkerPaths).array();
+			linkerPaths = lp.array.toArray().map!(i => i.str.toString())
+			                .chain(linkerPaths).array();
 		}
 	}
 }

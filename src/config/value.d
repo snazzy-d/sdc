@@ -201,8 +201,8 @@ public:
 	}
 
 	@property
-	inout(Value)[] array() inout in(isArray()) {
-		return heapValue.toArray().toArray();
+	ref array() inout in(isArray()) {
+		return heapValue.toArray();
 	}
 
 	bool isObject() const {

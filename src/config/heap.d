@@ -183,6 +183,12 @@ public:
 		return hashOf(toArray());
 	}
 
+	string toString() const {
+		import std.format;
+		auto a = toArray();
+		return format!"%(%s%)"((&a)[0 .. 1]);
+	}
+
 	inout(Value)[] toArray() inout {
 		auto ptr = cast(inout Value*) (impl + 1);
 		return ptr[0 .. tag.length];
