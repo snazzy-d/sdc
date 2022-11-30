@@ -37,7 +37,7 @@ package:
 	const(Descriptor)* tag;
 	alias tag this;
 
-	this(const Descriptor* tag)  {
+	this(const Descriptor* tag) {
 		this.tag = tag;
 	}
 
