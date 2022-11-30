@@ -18,6 +18,6 @@ ulong mulhi(ulong a, ulong b) {
 				ret i64 %r3`, ulong)(a, b);
 	} else {
 		// Not mulhi at all, but will do for now.
-		return h >> 28;
+		return (a * b) >> 28;
 	}
 }

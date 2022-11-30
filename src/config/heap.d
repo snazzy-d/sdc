@@ -37,10 +37,11 @@ package:
 	const(Descriptor)* tag;
 	alias tag this;
 
-	this(inout(Descriptor)* tag) inout {
+	this(const Descriptor* tag)  {
 		this.tag = tag;
 	}
 
+package:
 	ref inout(VString) toString() inout in(isString()) {
 		return *(cast(inout(VString)*) &this);
 	}
@@ -57,6 +58,9 @@ package:
 		return *(cast(inout(VMap)*) &this);
 	}
 
+	/**
+	 * Assignement.
+	 */
 	HeapValue opAssign(const VString s) {
 		tag = &s.tag;
 		return this;
@@ -75,6 +79,69 @@ package:
 	HeapValue opAssign(const VMap m) {
 		tag = &m.tag;
 		return this;
+	}
+
+	HeapValue opAssign(S)(S s) if (isStringValue!S) {
+		this = VString(s);
+		return this;
+	}
+
+	HeapValue opAssign(A)(A a) if (isArrayValue!A) {
+		this = VArray(a);
+		return this;
+	}
+
+	HeapValue opAssign(O)(O o) if (isObjectValue!O) {
+		this = VObject(o);
+		return this;
+	}
+
+	HeapValue opAssign(M)(M m) if (isMapValue!M) {
+		this = VMap(m);
+		return this;
+	}
+
+	/**
+	 * Equality check.
+	 */
+	bool opEquals(S)(S s) const if (isStringValue!S) {
+		return isString() && toString() == s;
+	}
+
+	bool opEquals(A)(A a) const if (isArrayValue!A) {
+		return isArray() && toArray() == a;
+	}
+
+	bool opEquals(O)(O o) const if (isObjectValue!O) {
+		if (isObject()) {
+			return toObject() == o;
+		}
+
+		if (isMap()) {
+			return toMap() == o;
+		}
+
+		return false;
+	}
+
+	bool opEquals(M)(M m) const if (isMapValue!M) {
+		return isMap() && toMap() == m;
+	}
+
+	/**
+	 * Object/Map features.
+	 */
+	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
+			if (isValue!K) {
+		if (isObject()) {
+			return key in toObject();
+		}
+
+		if (isMap()) {
+			return key in toMap();
+		}
+
+		return null;
 	}
 }
 

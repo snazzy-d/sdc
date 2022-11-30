@@ -228,9 +228,9 @@ public:
 	/**
 	 * Map and Object features
 	 */
-	inout(Value)* opBinaryRight(string op : "in")(string key) inout
-			in(isObject() || isMap()) {
-		return isMap() ? key in heapValue.toMap() : key in object;
+	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
+			if (isValue!K) {
+		return isHeapValue() ? key in heapValue : null;
 	}
 
 	/**
@@ -287,23 +287,8 @@ public:
 		return this;
 	}
 
-	Value opAssign(S : string)(S s) {
-		heapValue = VString(s);
-		return this;
-	}
-
-	Value opAssign(A)(A a) if (isArrayValue!A) {
-		heapValue = VArray(a);
-		return this;
-	}
-
-	Value opAssign(O)(O o) if (isObjectValue!O) {
-		heapValue = VObject(o);
-		return this;
-	}
-
-	Value opAssign(M)(M m) if (isMapValue!M) {
-		heapValue = VMap(m);
+	Value opAssign(V)(V v) if (.isHeapValue!V) {
+		heapValue = v;
 		return this;
 	}
 
@@ -330,32 +315,8 @@ public:
 		return isFloat() && floating == f;
 	}
 
-	bool opEquals(const ref VString rhs) const {
-		return isString() && str == rhs;
-	}
-
-	bool opEquals(S : string)(S s) const {
-		return isString() && str == s;
-	}
-
-	bool opEquals(const ref VArray rhs) const {
-		return isArray() && array == rhs;
-	}
-
-	bool opEquals(A)(A a) const if (isArrayValue!A) {
-		return isArray() && array == a;
-	}
-
-	bool opEquals(const ref VObject rhs) const {
-		return isObject() && object == rhs;
-	}
-
-	bool opEquals(O)(O o) const if (isObjectValue!O) {
-		return isObject() && object == o;
-	}
-
-	bool opEquals(M)(M m) const if (isMapValue!M) {
-		return isMap() && map == m;
+	bool opEquals(V)(V v) const if (.isHeapValue!V) {
+		return isHeapValue() && heapValue == v;
 	}
 }
 

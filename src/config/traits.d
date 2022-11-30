@@ -6,10 +6,12 @@ import config.value;
 
 import std.traits;
 
+enum isValue(T) = is(T : const(Value)) || isPrimitiveValue!T || isHeapValue!T;
+
 enum isPrimitiveValue(T) =
 	is(T : typeof(null)) || is(T : bool) || isIntegral!T || isFloatingPoint!T;
 
-enum isValue(T) = is(T : const(Value)) || isPrimitiveValue!T || isStringValue!T
+enum isHeapValue(T) = is(T : const(HeapValue)) || isStringValue!T
 	|| isArrayValue!T || isObjectValue!T || isMapValue!T;
 
 enum isStringValue(T) =
@@ -35,6 +37,7 @@ unittest {
 	foreach (T; PrimitiveTypes) {
 		assert(isValue!T);
 		assert(isPrimitiveValue!T);
+		assert(!isHeapValue!T);
 		assert(!isStringValue!T, T.stringof);
 		assert(!isArrayValue!T);
 		assert(!isObjectValue!T);
@@ -43,6 +46,7 @@ unittest {
 		alias A = T[];
 		assert(isValue!A);
 		assert(!isPrimitiveValue!A);
+		assert(isHeapValue!A);
 		assert(!isStringValue!A);
 		assert(isArrayValue!A);
 		assert(!isObjectValue!A);
@@ -51,6 +55,7 @@ unittest {
 		alias O = T[string];
 		assert(isValue!O);
 		assert(!isPrimitiveValue!O);
+		assert(isHeapValue!O);
 		assert(!isStringValue!O);
 		assert(!isArrayValue!O);
 		assert(isObjectValue!O);
@@ -59,6 +64,7 @@ unittest {
 		alias M = T[O];
 		assert(isValue!M);
 		assert(!isPrimitiveValue!M);
+		assert(isHeapValue!M);
 		assert(!isStringValue!M);
 		assert(!isArrayValue!M);
 		assert(!isObjectValue!M);
@@ -67,6 +73,7 @@ unittest {
 		alias MM = M[M];
 		assert(isValue!MM);
 		assert(!isPrimitiveValue!MM);
+		assert(isHeapValue!MM);
 		assert(!isStringValue!MM);
 		assert(!isArrayValue!MM);
 		assert(!isObjectValue!MM);
@@ -75,6 +82,7 @@ unittest {
 		alias AA = A[];
 		assert(isValue!AA);
 		assert(!isPrimitiveValue!AA);
+		assert(isHeapValue!AA);
 		assert(!isStringValue!AA);
 		assert(isArrayValue!AA);
 		assert(!isObjectValue!AA);
@@ -83,6 +91,7 @@ unittest {
 		alias AO = A[string];
 		assert(isValue!AO);
 		assert(!isPrimitiveValue!AO);
+		assert(isHeapValue!AO);
 		assert(!isStringValue!AO);
 		assert(!isArrayValue!AO);
 		assert(isObjectValue!AO);
@@ -91,6 +100,7 @@ unittest {
 		alias OA = O[];
 		assert(isValue!OA);
 		assert(!isPrimitiveValue!OA);
+		assert(isHeapValue!OA);
 		assert(!isStringValue!OA);
 		assert(isArrayValue!OA);
 		assert(!isObjectValue!OA);
@@ -99,6 +109,85 @@ unittest {
 		alias OO = O[string];
 		assert(isValue!OO);
 		assert(!isPrimitiveValue!OO);
+		assert(isHeapValue!OO);
+		assert(!isStringValue!OO);
+		assert(!isArrayValue!OO);
+		assert(isObjectValue!OO);
+		assert(!isMapValue!OO);
+	}
+
+	alias ComplexTypes = AliasSeq!(Value, HeapValue, VString, VObject, VMap);
+	foreach (T; ComplexTypes) {
+		assert(isValue!T);
+		assert(!isPrimitiveValue!T);
+
+		alias A = T[];
+		assert(isValue!A);
+		assert(!isPrimitiveValue!A);
+		assert(isHeapValue!A);
+		assert(!isStringValue!A);
+		assert(isArrayValue!A);
+		assert(!isObjectValue!A);
+		assert(!isMapValue!A);
+
+		alias O = T[string];
+		assert(isValue!O);
+		assert(!isPrimitiveValue!O);
+		assert(isHeapValue!O);
+		assert(!isStringValue!O);
+		assert(!isArrayValue!O);
+		assert(isObjectValue!O);
+		assert(!isMapValue!O);
+
+		alias M = T[O];
+		assert(isValue!M);
+		assert(!isPrimitiveValue!M);
+		assert(isHeapValue!M);
+		assert(!isStringValue!M);
+		assert(!isArrayValue!M);
+		assert(!isObjectValue!M);
+		assert(isMapValue!M);
+
+		alias MM = M[M];
+		assert(isValue!MM);
+		assert(!isPrimitiveValue!MM);
+		assert(isHeapValue!MM);
+		assert(!isStringValue!MM);
+		assert(!isArrayValue!MM);
+		assert(!isObjectValue!MM);
+		assert(isMapValue!MM);
+
+		alias AA = A[];
+		assert(isValue!AA);
+		assert(!isPrimitiveValue!AA);
+		assert(isHeapValue!AA);
+		assert(!isStringValue!AA);
+		assert(isArrayValue!AA);
+		assert(!isObjectValue!AA);
+		assert(!isMapValue!AA);
+
+		alias AO = A[string];
+		assert(isValue!AO);
+		assert(!isPrimitiveValue!AO);
+		assert(isHeapValue!AO);
+		assert(!isStringValue!AO);
+		assert(!isArrayValue!AO);
+		assert(isObjectValue!AO);
+		assert(!isMapValue!AO);
+
+		alias OA = O[];
+		assert(isValue!OA);
+		assert(!isPrimitiveValue!OA);
+		assert(isHeapValue!OA);
+		assert(!isStringValue!OA);
+		assert(isArrayValue!OA);
+		assert(!isObjectValue!OA);
+		assert(!isMapValue!OA);
+
+		alias OO = O[string];
+		assert(isValue!OO);
+		assert(!isPrimitiveValue!OO);
+		assert(isHeapValue!OO);
 		assert(!isStringValue!OO);
 		assert(!isArrayValue!OO);
 		assert(isObjectValue!OO);
