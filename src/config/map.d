@@ -260,17 +260,15 @@ unittest {
 	assert(b.overflow == 2);
 }
 
-struct Entry {
-	VString key;
-	Value value;
-
-	string toString() const {
-		import std.format;
-		return format!"%s: %s"(key.dump(), value);
-	}
+enum MapKind {
+	Object,
+	Map,
 }
 
-struct VObject {
+alias VObject = VMapLike!(MapKind.Object);
+alias VMap = VMapLike!(MapKind.Map);
+
+struct VMapLike(MapKind T) {
 package:
 	struct Impl {
 		Descriptor tag;
@@ -280,21 +278,48 @@ package:
 	Impl* impl;
 	alias impl this;
 
+	static if (T == MapKind.Object) {
+		alias K = VString;
+		alias Tag = Kind.Object;
+		alias isKeyLike = isStringValue;
+		alias isSimilarTo = isObjectValue;
+	} else static if (T == MapKind.Map) {
+		alias K = Value;
+		alias Tag = Kind.Map;
+		alias isKeyLike = isValue;
+		enum isSimilarTo(T) = isObjectValue!T || isMapValue!T;
+	}
+
+	struct Entry {
+		K key;
+		Value value;
+
+		string toString() const {
+			import std.format;
+			return format!"%s: %s"(key.dump(), value);
+		}
+	}
+
 public:
-	this(O)(O o) if (isObjectValue!O) in(o.length <= int.max) {
+	this(T)(T t) if (isSimilarTo!T) in(t.length <= int.max) {
 		import core.memory;
-		impl = allocateWithLength(o.length & uint.max);
+		impl = allocateWithLength(t.length & uint.max);
 
 		foreach (ref b; buckets) {
 			b.clear();
 		}
 
 		uint i = 0;
-		foreach (ref k, ref v; o) {
-			entries[i].key = VString(k);
+		foreach (ref k, ref v; t) {
+			entries[i].key = K(k);
 			entries[i].value = Value(v);
 			_insert(k, i++);
 		}
+	}
+
+	@property
+		length() const {
+		return tag.length;
 	}
 
 	@property
@@ -312,7 +337,104 @@ public:
 		return to!string(entries);
 	}
 
-	uint find(string key) inout {
+	uint find(K)(K key) const if (isKeyLike!K) {
+		return _find(key);
+	}
+
+	inout(Value) at(size_t index) inout {
+		if (index >= capacity) {
+			// Return `Undefined` to signal we didn't find anything.
+			return Value();
+		}
+
+		return entries[index].value;
+	}
+
+	inout(Value) opIndex(K)(K key) inout if (isKeyLike!K) {
+		return at(find(key));
+	}
+
+	inout(Value) opIndex(const ref Value key) inout {
+		if (key.isString()) {
+			return this[key.toString()];
+		}
+
+		return Value();
+	}
+
+	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
+			if (isKeyLike!K) {
+		auto index = find(key);
+		if (index >= capacity) {
+			// If it not in the map, then return null.
+			return null;
+		}
+
+		return &entries[index].value;
+	}
+
+	bool opEquals(T)(T t) const if (isSimilarTo!T) {
+		// Wrong length.
+		if (tag.length != t.length) {
+			return false;
+		}
+
+		// Compare all the values.
+		foreach (ref k, ref v; t) {
+			if (this[k] != v) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool opEquals(const ref VObject rhs) const {
+		// Wrong length.
+		if (length != rhs.length) {
+			return false;
+		}
+
+		// Compare all the values.
+		foreach (ref e; entries) {
+			if (rhs[e.key] != e.value) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool opEquals(const ref VMap rhs) const {
+		// Wrong length.
+		if (length != rhs.length) {
+			return false;
+		}
+
+		// Compare all the values.
+		foreach (ref e; entries) {
+			if (rhs[e.key] != e.value) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+private:
+	@property
+	inout(Bucket)[] buckets() inout {
+		auto ptr = cast(inout Bucket*) (impl + 1);
+		return ptr[0 .. bucketCount];
+	}
+
+	@property
+	inout(Entry)[] entries() inout {
+		auto ptr = cast(inout Entry*) (buckets.ptr + bucketCount);
+		return ptr[0 .. tag.length];
+	}
+
+	uint _find(K)(K key) const {
 		auto h = rehash(hashOf(key));
 		auto p = Probe(h, bucketCount);
 
@@ -337,74 +459,15 @@ public:
 		return -1;
 	}
 
-	inout(Value) at(size_t index) inout {
-		if (index >= capacity) {
-			// Return `Undefined` to signal we didn't find anything.
-			return Value();
-		}
+	void _insert(K)(K key, uint index) {
+		auto h = rehash(hashOf(key));
+		auto p = Probe(h, bucketCount);
 
-		return entries[index].value;
+		while (!buckets[p.current].insert(h, index)) {
+			p.next();
+		}
 	}
 
-	inout(Value) opIndex(string key) inout {
-		return at(find(key));
-	}
-
-	inout(Value) opIndex(const ref VString key) inout {
-		return this[key.toString()];
-	}
-
-	inout(Value) opIndex(const ref Value key) inout {
-		if (!key.isString()) {
-			return Value();
-		}
-
-		return this[key.toString()];
-	}
-
-	inout(Value)* opBinaryRight(string op : "in")(string key) inout {
-		auto index = find(key);
-		if (index >= capacity) {
-			// If it not in the map, then return null.
-			return null;
-		}
-
-		return &entries[index].value;
-	}
-
-	bool opEquals(const ref VObject rhs) const {
-		// Wrong length.
-		if (tag.length != rhs.tag.length) {
-			return false;
-		}
-
-		// Compare all the values.
-		foreach (ref e; rhs.entries) {
-			if (this[e.key] != e.value) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	bool opEquals(O)(O o) const if (isObjectValue!O) {
-		// Wrong length.
-		if (tag.length != o.length) {
-			return false;
-		}
-
-		// Compare all the values.
-		foreach (k, ref v; o) {
-			if (this[k] != v) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-private:
 	static allocateWithLength(uint length) {
 		static uint countLeadingZeros(ulong x) {
 			version(LDC) {
@@ -434,42 +497,27 @@ private:
 			GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE
 		);
 
-		ptr.tag.kind = Kind.Object;
+		ptr.tag.kind = Tag;
 		ptr.tag.length = length;
 		ptr.lgBucketCount = lgC;
 
 		return ptr;
-	}
-
-	@property
-	inout(Bucket)[] buckets() inout {
-		auto ptr = cast(inout Bucket*) (impl + 1);
-		return ptr[0 .. bucketCount];
-	}
-
-	@property
-	inout(Entry)[] entries() inout {
-		auto ptr = cast(inout Entry*) (buckets.ptr + bucketCount);
-		return ptr[0 .. tag.length];
-	}
-
-	void _insert(string key, uint index) {
-		auto h = rehash(hashOf(key));
-		auto p = Probe(h, bucketCount);
-
-		while (!buckets[p.current].insert(h, index)) {
-			p.next();
-		}
 	}
 }
 
 unittest {
 	static testVObject(O : E[string], E)(O content) {
 		auto o = VObject(content);
-
 		assert(o.tag.length == content.length);
 		assert(o.capacity >= content.length);
+		assert(o == content);
 
+		auto m = VMap(content);
+		/*
+		assert(m.tag.length == content.length);
+		assert(m.capacity >= content.length);
+		assert(m == content);
+		// */
 		foreach (k, v; content) {
 			assert(o[k] == v, k);
 

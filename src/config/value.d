@@ -17,13 +17,6 @@ enum Kind : ubyte {
 
 struct Value {
 private:
-	Kind _kind;
-
-	union {
-		ulong _dummy;
-		Value[Value] _map;
-	}
-
 	/**
 	 * We use NaN boxing to pack all kind of values into a 64 bits payload.
 	 * 
@@ -135,7 +128,11 @@ public:
 			return Kind.Object;
 		}
 
-		return _kind;
+		if (isMap()) {
+			return Kind.Map;
+		}
+
+		assert(0, "Invalid value kind.");
 	}
 
 	bool isUndefined() const {
@@ -215,20 +212,16 @@ public:
 	}
 
 	bool isMap() const {
-		return kind == Kind.Map;
+		return isHeapValue() && heapValue.isMap();
 	}
 
 	@property
-	inout(Value[Value]) map() inout nothrow in(isMap()) {
-		return _map;
+	ref map() inout in(isMap()) {
+		return heapValue.toMap();
 	}
 
 	@property
-	size_t length() const in(isString() || isArray() || isObject() || isMap()) {
-		if (isMap()) {
-			return map.length;
-		}
-
+	size_t length() const in(isHeapValue()) {
 		return heapValue.length;
 	}
 
@@ -237,7 +230,7 @@ public:
 	 */
 	inout(Value)* opBinaryRight(string op : "in")(string key) inout
 			in(isObject() || isMap()) {
-		return isMap() ? Value(key) in map : key in object;
+		return isMap() ? key in heapValue.toMap() : key in object;
 	}
 
 	/**
@@ -257,6 +250,11 @@ public:
 				return to!string(v);
 			}
 		})();
+	}
+
+	string dump() const {
+		// FIXME: This toString/dump thing needs to be sorted out.
+		return this.toString();
 	}
 
 	@trusted
@@ -305,14 +303,7 @@ public:
 	}
 
 	Value opAssign(M)(M m) if (isMapValue!M) {
-		_kind = Kind.Map;
-		_map = null;
-
-		foreach (ref k, ref e; m) {
-			_map[Value(k)] = Value(e);
-		}
-
-		payload = 0;
+		heapValue = VMap(m);
 		return this;
 	}
 
@@ -364,25 +355,7 @@ public:
 	}
 
 	bool opEquals(M)(M m) const if (isMapValue!M) {
-		// Wrong type.
-		if (kind != Kind.Map) {
-			return false;
-		}
-
-		// Wrong length.
-		if (map.length != m.length) {
-			return false;
-		}
-
-		// Compare all the values.
-		foreach (ref k, ref v; m) {
-			auto vPtr = Value(k) in map;
-			if (vPtr is null || *vPtr != v) {
-				return false;
-			}
-		}
-
-		return true;
+		return isMap() && map == m;
 	}
 }
 
@@ -527,7 +500,7 @@ unittest {
 
 // toString
 unittest {
-	assert(Value().toString() == "null");
+	assert(Value(null).toString() == "null");
 	assert(Value(true).toString() == "true");
 	assert(Value(false).toString() == "false");
 	assert(Value(0).toString() == "0");
@@ -548,5 +521,5 @@ unittest {
 	assert(
 		Value(["y": true, "n": false]).toString() == `["y": true, "n": false]`);
 	assert(Value([["a", "b"]: [1, 2], ["c", "d"]: [3, 4]]).toString()
-		== `[["a", "b"]:[1, 2], ["c", "d"]:[3, 4]]`);
+		== `[["a", "b"]: [1, 2], ["c", "d"]: [3, 4]]`);
 }

@@ -26,6 +26,10 @@ public:
 	bool isObject() const {
 		return kind == Kind.Object;
 	}
+
+	bool isMap() const {
+		return kind == Kind.Map;
+	}
 }
 
 struct HeapValue {
@@ -49,6 +53,10 @@ package:
 		return *(cast(inout(VObject)*) &this);
 	}
 
+	ref inout(VMap) toMap() inout in(isMap()) {
+		return *(cast(inout(VMap)*) &this);
+	}
+
 	HeapValue opAssign(const VString s) {
 		tag = &s.tag;
 		return this;
@@ -61,6 +69,11 @@ package:
 
 	HeapValue opAssign(const VObject o) {
 		tag = &o.tag;
+		return this;
+	}
+
+	HeapValue opAssign(const VMap m) {
+		tag = &m.tag;
 		return this;
 	}
 }
