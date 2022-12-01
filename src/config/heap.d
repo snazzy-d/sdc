@@ -41,6 +41,10 @@ package:
 		this.tag = tag;
 	}
 
+	this(H)(H h) if (isHeapValue!H) {
+		this = h;
+	}
+
 package:
 	ref inout(VString) toVString() inout in(isString()) {
 		return *(cast(inout(VString)*) &this);
@@ -155,27 +159,59 @@ package:
 		return isArray() && toVArray() == a;
 	}
 
-	bool opEquals(O)(O o) const if (isObjectValue!O) {
+	bool opEquals(M)(M m) const if (isMapLike!M) {
 		if (isObject()) {
-			return toVObject() == o;
+			return toVObject() == m;
 		}
 
 		if (isMap()) {
-			return toVMap() == o;
+			return toVMap() == m;
 		}
 
 		return false;
 	}
 
-	bool opEquals(M)(M m) const if (isMapValue!M) {
-		return isMap() && toVMap() == m;
+	bool opEquals(const HeapValue rhs) const {
+		if (tag == rhs.tag) {
+			return true;
+		}
+
+		if (length != rhs.length) {
+			return false;
+		}
+
+		if (isString()) {
+			return toVString() == rhs;
+		}
+
+		if (isArray()) {
+			return toVArray() == rhs;
+		}
+
+		if (isObject()) {
+			return toVObject() == rhs;
+		}
+
+		if (isMap()) {
+			return toVMap() == rhs;
+		}
+
+		assert(0, "Malformed HeapValue");
+	}
+
+	bool opEquals(const ref Value rhs) const {
+		return rhs == this;
+	}
+
+	bool opEquals(V)(V v) const if (isPrimitiveValue!V) {
+		return false;
 	}
 
 	/**
 	 * Object/Map features.
 	 */
 	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
-			if (isValue!K) {
+			if (isKeyLike!K) {
 		if (isObject()) {
 			return key in toVObject();
 		}
@@ -186,6 +222,38 @@ package:
 
 		return null;
 	}
+}
+
+unittest {
+	HeapValue h = VString("test");
+	assert(h != Value());
+
+	static testHeapEquality(T)(T t) {
+		HeapValue hvs = VString("test");
+		assert(hvs != t);
+		assert(hvs != Value(t));
+
+		// A few of numbers chosen at random.
+		// https://dilbert.com/strip/2001-10-25
+		HeapValue hva = VArray([9, 9, 9, 9]);
+		assert(hva != t);
+		assert(hva != Value(t));
+
+		HeapValue hvo = VObject(["ping": "pong"]);
+		assert(hvo != t);
+		assert(hvo != Value(t));
+
+		HeapValue hvm = VMap(["ping": "pong"]);
+		assert(hvm != t);
+		assert(hvm != Value(t));
+	}
+
+	testHeapEquality("");
+	testHeapEquality(1);
+	testHeapEquality(2.3);
+	testHeapEquality([1, 2, 3]);
+	testHeapEquality(["foo": "bar"]);
+	testHeapEquality([1: "fizz", 2: "buzz"]);
 }
 
 struct VString {
@@ -215,8 +283,20 @@ public:
 		return toString() == s;
 	}
 
-	bool opEquals(const ref VString rhs) const {
+	bool opEquals(const VString rhs) const {
 		return this == rhs.toString();
+	}
+
+	bool opEquals(const HeapValue rhs) const {
+		return rhs == this;
+	}
+
+	bool opEquals(const Value v) const {
+		return v == this;
+	}
+
+	bool opEquals(V)(V v) const if (isValue!V) {
+		return false;
 	}
 
 	hash_t toHash() const {
@@ -253,6 +333,22 @@ unittest {
 	testString("toto");
 	testString("\0\0\0\0\0\0\0");
 	testString("🙈🙉🙊");
+
+	assert(VString("test") != Value());
+	assert(VString("test") == Value("test"));
+
+	static testStringEquality(T)(T t) {
+		auto s = VString("test");
+		assert(s != t);
+		assert(s != Value(t));
+	}
+
+	testStringEquality("");
+	testStringEquality(1);
+	testStringEquality(2.3);
+	testStringEquality([1, 2, 3]);
+	testStringEquality(["foo": "bar"]);
+	testStringEquality([1: "fizz", 2: "buzz"]);
 }
 
 struct VArray {
@@ -286,10 +382,6 @@ public:
 		return toArray()[index];
 	}
 
-	bool opEquals(const ref VArray rhs) const {
-		return toArray() == rhs.toArray();
-	}
-
 	bool opEquals(A)(A a) const if (isArrayValue!A) {
 		// Wrong length.
 		if (tag.length != a.length) {
@@ -303,6 +395,22 @@ public:
 		}
 
 		return true;
+	}
+
+	bool opEquals(const ref VArray rhs) const {
+		return toArray() == rhs.toArray();
+	}
+
+	bool opEquals(const HeapValue rhs) const {
+		return rhs == this;
+	}
+
+	bool opEquals(const Value v) const {
+		return v == this;
+	}
+
+	bool opEquals(V)(V v) const if (isValue!V && !isArrayValue!V) {
+		return false;
 	}
 
 	hash_t toHash() const {
@@ -344,4 +452,20 @@ unittest {
 	testArray(empty);
 	testArray(["", "foo", "bar"]);
 	testArray([1, 2, 3, 4, 5]);
+
+	assert(VArray([9, 9, 9, 9]) != Value());
+	assert(VArray([9, 9, 9, 9]) == Value([9, 9, 9, 9]));
+
+	static testArrayEquality(T)(T t) {
+		auto a = VArray([9, 9, 9, 9]);
+		assert(a != t);
+		assert(a != Value(t));
+	}
+
+	testArrayEquality("");
+	testArrayEquality(1);
+	testArrayEquality(2.3);
+	testArrayEquality([1, 2, 3]);
+	testArrayEquality(["foo": "bar"]);
+	testArrayEquality([1: "fizz", 2: "buzz"]);
 }

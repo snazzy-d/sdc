@@ -236,7 +236,7 @@ public:
 	 * Map and Object features
 	 */
 	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
-			if (isValue!K) {
+			if (isKeyLike!K) {
 		return isHeapValue() ? key in heapValue : null;
 	}
 
@@ -307,10 +307,6 @@ public:
 	/**
 	 * Equality
 	 */
-	bool opEquals(const ref Value rhs) const {
-		return this.visit!((x, const ref Value rhs) => rhs == x)(rhs);
-	}
-
 	bool opEquals(T : typeof(null))(T t) const {
 		return isNull();
 	}
@@ -327,36 +323,22 @@ public:
 		return isFloat() && floating == f;
 	}
 
+	bool opEquals(const ref Value rhs) const {
+		// Special case floating point, because NaN != NaN .
+		if (isFloat() || rhs.isFloat()) {
+			return isFloat() && rhs.isFloat() && floating == rhs.floating;
+		}
+
+		// Floating point's NaN is the only value that is not equal to itself.
+		if (payload == rhs.payload) {
+			return true;
+		}
+
+		return isHeapValue() && rhs == heapValue;
+	}
+
 	bool opEquals(V)(V v) const if (.isHeapValue!V) {
 		return isHeapValue() && heapValue == v;
-	}
-}
-
-auto visit(alias fun, Args...)(const ref Value v, auto ref Args args) {
-	final switch (v.kind) with (Kind) {
-		case Null:
-			return fun(null, args);
-
-		case Boolean:
-			return fun(v.boolean, args);
-
-		case Integer:
-			return fun(v.integer, args);
-
-		case Float:
-			return fun(v.floating, args);
-
-		case String:
-			return fun(v.str, args);
-
-		case Array:
-			return fun(v.array, args);
-
-		case Object:
-			return fun(v.object, args);
-
-		case Map:
-			return fun(v.map, args);
 	}
 }
 

@@ -262,12 +262,10 @@ package:
 	static if (T == MapKind.Object) {
 		alias K = VString;
 		alias Tag = Kind.Object;
-		alias isKeyLike = isStringValue;
 		alias isSimilarTo = isObjectValue;
 	} else static if (T == MapKind.Map) {
 		alias K = Value;
 		alias Tag = Kind.Map;
-		alias isKeyLike = isValue;
 		enum isSimilarTo(T) = isObjectValue!T || isMapValue!T;
 	}
 
@@ -346,15 +344,8 @@ public:
 	}
 
 	inout(Value) opIndex(K)(K key) inout if (isKeyLike!K) {
+		// TODO: Do not try to look for non string keys in Objects.
 		return at(find(key));
-	}
-
-	inout(Value) opIndex(const ref Value key) inout {
-		if (key.isString()) {
-			return this[key.str];
-		}
-
-		return Value();
 	}
 
 	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
@@ -384,7 +375,7 @@ public:
 		return true;
 	}
 
-	bool opEquals(const ref VObject rhs) const {
+	bool opEquals(const VObject rhs) const {
 		// Wrong length.
 		if (length != rhs.length) {
 			return false;
@@ -400,7 +391,7 @@ public:
 		return true;
 	}
 
-	bool opEquals(const ref VMap rhs) const {
+	bool opEquals(const VMap rhs) const {
 		// Wrong length.
 		if (length != rhs.length) {
 			return false;
@@ -414,6 +405,18 @@ public:
 		}
 
 		return true;
+	}
+
+	bool opEquals(const HeapValue rhs) const {
+		return rhs == this;
+	}
+
+	bool opEquals(const Value v) const {
+		return v == this;
+	}
+
+	bool opEquals(V)(V v) const if (isValue!V && !isMapLike!V) {
+		return false;
 	}
 
 private:
@@ -503,25 +506,41 @@ private:
 unittest {
 	static testVObject(O : E[string], E)(O content) {
 		auto o = VObject(content);
-		assert(o.tag.length == content.length);
+		assert(o.length == content.length);
 		assert(o.capacity >= content.length);
 		assert(o == content);
 
 		auto m = VMap(content);
-		/*
-		assert(m.tag.length == content.length);
+
+		assert(m.length == content.length);
 		assert(m.capacity >= content.length);
 		assert(m == content);
-		// */
+		assert(m == o);
+		assert(o == m);
+
 		foreach (k, v; content) {
 			assert(o[k] == v, k);
-
 			assert(k in o);
 			assert(*(k in o) == v);
+
+			assert(m[k] == v, k);
+			assert(k in m);
+			assert(*(k in m) == v);
 		}
 
+		// Key that doesn't exist.
 		assert(("not in the map" in o) == null);
 		assert(o["not in the map"].isUndefined());
+
+		assert(("not in the map" in m) == null);
+		assert(m["not in the map"].isUndefined());
+
+		// Key that isn't a string.
+		assert((42 in o) == null);
+		assert(o[42].isUndefined());
+
+		assert((42 in m) == null);
+		assert(m[42].isUndefined());
 	}
 
 	Value[string] o;
@@ -545,4 +564,38 @@ unittest {
 	testVObject(numbers);
 	numbers["fourteen"] = 14;
 	testVObject(numbers);
+
+	assert(VObject(["ping": "pong"]) != Value());
+	assert(VObject(["ping": "pong"]) == Value(["ping": "pong"]));
+	assert(VObject(["ping": "pong"]) == VMap(["ping": "pong"]));
+
+	static testObjectEquality(T)(T t) {
+		auto a = VObject(["ping": "pong"]);
+		assert(a != t);
+		assert(a != Value(t));
+	}
+
+	testObjectEquality("");
+	testObjectEquality(1);
+	testObjectEquality(2.3);
+	testObjectEquality([1, 2, 3]);
+	testObjectEquality(["foo": "bar"]);
+	testObjectEquality([1: "fizz", 2: "buzz"]);
+
+	assert(VMap(["ping": "pong"]) != Value());
+	assert(VMap(["ping": "pong"]) == Value(["ping": "pong"]));
+	assert(VMap(["ping": "pong"]) == VObject(["ping": "pong"]));
+
+	static testMapEquality(T)(T t) {
+		auto m = VMap(["ping": "pong"]);
+		assert(m != t);
+		assert(m != Value(t));
+	}
+
+	testMapEquality("");
+	testMapEquality(1);
+	testMapEquality(2.3);
+	testMapEquality([1, 2, 3]);
+	testMapEquality(["foo": "bar"]);
+	testMapEquality([1: "fizz", 2: "buzz"]);
 }
