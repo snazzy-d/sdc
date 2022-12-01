@@ -272,8 +272,7 @@ public:
 
 	@trusted
 	hash_t toHash() const {
-		return
-			this.visit!(x => is(typeof(x) : typeof(null)) ? -1 : hashOf(x))();
+		return isHeapValue() ? heapValue.toHash() : payload;
 	}
 
 	/**

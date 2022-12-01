@@ -81,6 +81,26 @@ package:
 		assert(0, "Malformed HeapValue");
 	}
 
+	hash_t toHash() const {
+		if (isString()) {
+			return toVString().toHash();
+		}
+
+		if (isArray()) {
+			return toVArray().toHash();
+		}
+
+		if (isObject()) {
+			return toVObject().toHash();
+		}
+
+		if (isMap()) {
+			return toVMap().toHash();
+		}
+
+		assert(0, "Malformed HeapValue");
+	}
+
 	/**
 	 * Assignement.
 	 */
@@ -200,7 +220,8 @@ public:
 	}
 
 	hash_t toHash() const {
-		return hashOf(toString());
+		import config.hash;
+		return Hasher().hash(toString());
 	}
 
 	string toString() const {
@@ -216,19 +237,22 @@ public:
 }
 
 unittest {
-	static testString(string v) {
-		auto s = VString(v);
+	static testString(string s) {
+		auto sv = VString(s);
+		assert(sv == s);
 
-		assert(s == v);
-		assert(hashOf(s) == hashOf(v));
+		auto sv2 = VString(s);
+		assert(sv == sv2);
 
-		auto s2 = VString(v);
-		assert(s == s2);
+		import config.hash;
+		assert(hash(sv) == hash(s));
 	}
 
-	foreach (s; ["", "a", "toto", "\0\0\0\0\0\0\0", "🙈🙉🙊"]) {
-		testString(s);
-	}
+	testString("");
+	testString("a");
+	testString("toto");
+	testString("\0\0\0\0\0\0\0");
+	testString("🙈🙉🙊");
 }
 
 struct VArray {
@@ -282,7 +306,8 @@ public:
 	}
 
 	hash_t toHash() const {
-		return hashOf(toArray());
+		import config.hash;
+		return Hasher().hash(toArray());
 	}
 
 	string dump() const {
@@ -297,18 +322,22 @@ public:
 }
 
 unittest {
-	static testArray(T)(T[] v) {
-		auto a = VArray(v);
-		assert(a == v);
+	static testArray(T)(T[] a) {
+		auto va = VArray(a);
+		assert(va == a);
 
 		import std.algorithm, std.array;
-		auto v2 = v.map!(e => Value(e)).array();
-		auto a2 = VArray(v2);
+		auto a2 = a.map!(e => Value(e)).array();
+		auto va2 = VArray(a2);
+		assert(va2 == a);
+		assert(va2 == va);
+		assert(va2 == a2);
 
-		assert(a == a2);
-		assert(hashOf(a) == hashOf(a2));
-		assert(a2 == v2);
-		assert(hashOf(a2) == hashOf(v2));
+		import config.hash;
+		assert(hash(va) == hash(a));
+		assert(hash(va2) == hash(a));
+		assert(hash(va2) == hash(va));
+		assert(hash(va2) == hash(a2));
 	}
 
 	int[] empty;
