@@ -21,15 +21,13 @@ enum isArrayValue(X) = false;
 enum isArrayValue(T : const(VArray)) = true;
 enum isArrayValue(A : E[], E) = isValue!E;
 
-enum isMapLike(X) = false;
-enum isMapLike(M : V[K], K, V) = isValue!K && isValue!V;
-
-enum isBoxedValue(T) = is(T : const(Value)) || isBoxedHeapValue!T;
-enum isBoxedHeapValue(T) = is(T : const(HeapValue)) || is(T : const(VString))
-	|| is(T : const(VArray)) || is(T : const(VObject)) || is(T : const(VMap));
-
 enum isKeyLike(T) = isPrimitiveValue!T || isStringValue!T
 	|| (is(T : E[], E) && isKeyLike!E) || isBoxedValue!T;
+
+enum isMapLike(X) = false;
+enum isMapLike(T : const(VObject)) = true;
+enum isMapLike(T : const(VMap)) = true;
+enum isMapLike(M : V[K], K, V) = isValue!K && isValue!V;
 
 enum isObjectValue(X) = false;
 enum isObjectValue(T : const(VObject)) = true;
@@ -38,6 +36,10 @@ enum isObjectValue(O : V[K], K, V) = isStringValue!K && isValue!V;
 enum isMapValue(X) = false;
 enum isMapValue(T : const(VMap)) = true;
 enum isMapValue(M : V[K], K, V) = isMapLike!M && !isObjectValue!M;
+
+enum isBoxedValue(T) = is(T : const(Value)) || isBoxedHeapValue!T;
+enum isBoxedHeapValue(T) = is(T : const(HeapValue)) || is(T : const(VString))
+	|| is(T : const(VArray)) || is(T : const(VObject)) || is(T : const(VMap));
 
 unittest {
 	import std.meta;
