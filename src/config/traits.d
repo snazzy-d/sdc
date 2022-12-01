@@ -21,13 +21,16 @@ enum isArrayValue(X) = false;
 enum isArrayValue(T : const(VArray)) = true;
 enum isArrayValue(A : E[], E) = isValue!E;
 
+enum isMapLike(X) = false;
+enum isMapLike(M : V[K], K, V) = isValue!K && isValue!V;
+
 enum isObjectValue(X) = false;
 enum isObjectValue(T : const(VObject)) = true;
 enum isObjectValue(O : V[K], K, V) = isStringValue!K && isValue!V;
 
 enum isMapValue(X) = false;
 enum isMapValue(T : const(VMap)) = true;
-enum isMapValue(M : V[K], K, V) = !isObjectValue!M && isValue!K && isValue!V;
+enum isMapValue(M : V[K], K, V) = isMapLike!M && !isObjectValue!M;
 
 unittest {
 	import std.meta;
@@ -40,6 +43,7 @@ unittest {
 		assert(!isHeapValue!T);
 		assert(!isStringValue!T, T.stringof);
 		assert(!isArrayValue!T);
+		assert(!isMapLike!T);
 		assert(!isObjectValue!T);
 		assert(!isMapValue!T);
 
@@ -49,6 +53,7 @@ unittest {
 		assert(isHeapValue!A);
 		assert(!isStringValue!A);
 		assert(isArrayValue!A);
+		assert(!isMapLike!A);
 		assert(!isObjectValue!A);
 		assert(!isMapValue!A);
 
@@ -58,6 +63,7 @@ unittest {
 		assert(isHeapValue!O);
 		assert(!isStringValue!O);
 		assert(!isArrayValue!O);
+		assert(isMapLike!O);
 		assert(isObjectValue!O);
 		assert(!isMapValue!O);
 
@@ -67,6 +73,7 @@ unittest {
 		assert(isHeapValue!M);
 		assert(!isStringValue!M);
 		assert(!isArrayValue!M);
+		assert(isMapLike!M);
 		assert(!isObjectValue!M);
 		assert(isMapValue!M);
 
@@ -76,6 +83,7 @@ unittest {
 		assert(isHeapValue!MM);
 		assert(!isStringValue!MM);
 		assert(!isArrayValue!MM);
+		assert(isMapLike!MM);
 		assert(!isObjectValue!MM);
 		assert(isMapValue!MM);
 
@@ -85,6 +93,7 @@ unittest {
 		assert(isHeapValue!AA);
 		assert(!isStringValue!AA);
 		assert(isArrayValue!AA);
+		assert(!isMapLike!AA);
 		assert(!isObjectValue!AA);
 		assert(!isMapValue!AA);
 
@@ -94,6 +103,7 @@ unittest {
 		assert(isHeapValue!AO);
 		assert(!isStringValue!AO);
 		assert(!isArrayValue!AO);
+		assert(isMapLike!AO);
 		assert(isObjectValue!AO);
 		assert(!isMapValue!AO);
 
@@ -103,6 +113,7 @@ unittest {
 		assert(isHeapValue!OA);
 		assert(!isStringValue!OA);
 		assert(isArrayValue!OA);
+		assert(!isMapLike!OA);
 		assert(!isObjectValue!OA);
 		assert(!isMapValue!OA);
 
@@ -112,6 +123,7 @@ unittest {
 		assert(isHeapValue!OO);
 		assert(!isStringValue!OO);
 		assert(!isArrayValue!OO);
+		assert(isMapLike!OO);
 		assert(isObjectValue!OO);
 		assert(!isMapValue!OO);
 	}
@@ -127,6 +139,7 @@ unittest {
 		assert(isHeapValue!A);
 		assert(!isStringValue!A);
 		assert(isArrayValue!A);
+		assert(!isMapLike!A);
 		assert(!isObjectValue!A);
 		assert(!isMapValue!A);
 
@@ -136,6 +149,7 @@ unittest {
 		assert(isHeapValue!O);
 		assert(!isStringValue!O);
 		assert(!isArrayValue!O);
+		assert(isMapLike!O);
 		assert(isObjectValue!O);
 		assert(!isMapValue!O);
 
@@ -145,6 +159,7 @@ unittest {
 		assert(isHeapValue!M);
 		assert(!isStringValue!M);
 		assert(!isArrayValue!M);
+		assert(isMapLike!M);
 		assert(!isObjectValue!M);
 		assert(isMapValue!M);
 
@@ -154,6 +169,7 @@ unittest {
 		assert(isHeapValue!MM);
 		assert(!isStringValue!MM);
 		assert(!isArrayValue!MM);
+		assert(isMapLike!MM);
 		assert(!isObjectValue!MM);
 		assert(isMapValue!MM);
 
@@ -163,6 +179,7 @@ unittest {
 		assert(isHeapValue!AA);
 		assert(!isStringValue!AA);
 		assert(isArrayValue!AA);
+		assert(!isMapLike!AA);
 		assert(!isObjectValue!AA);
 		assert(!isMapValue!AA);
 
@@ -172,6 +189,7 @@ unittest {
 		assert(isHeapValue!AO);
 		assert(!isStringValue!AO);
 		assert(!isArrayValue!AO);
+		assert(isMapLike!AO);
 		assert(isObjectValue!AO);
 		assert(!isMapValue!AO);
 
@@ -181,6 +199,7 @@ unittest {
 		assert(isHeapValue!OA);
 		assert(!isStringValue!OA);
 		assert(isArrayValue!OA);
+		assert(!isMapLike!OA);
 		assert(!isObjectValue!OA);
 		assert(!isMapValue!OA);
 
@@ -190,6 +209,7 @@ unittest {
 		assert(isHeapValue!OO);
 		assert(!isStringValue!OO);
 		assert(!isArrayValue!OO);
+		assert(isMapLike!OO);
 		assert(isObjectValue!OO);
 		assert(!isMapValue!OO);
 	}

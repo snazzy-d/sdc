@@ -373,14 +373,14 @@ public:
 		return &entries[index].value;
 	}
 
-	bool opEquals(T)(T t) const if (isSimilarTo!T) {
+	bool opEquals(M)(M m) const if (isMapLike!M) {
 		// Wrong length.
-		if (tag.length != t.length) {
+		if (length != m.length) {
 			return false;
 		}
 
 		// Compare all the values.
-		foreach (ref k, ref v; t) {
+		foreach (ref k, ref v; m) {
 			if (this[k] != v) {
 				return false;
 			}
