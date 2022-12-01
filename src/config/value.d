@@ -4,17 +4,6 @@ import config.heap;
 import config.map;
 import config.traits;
 
-enum Kind : ubyte {
-	Null,
-	Boolean,
-	Integer,
-	Float,
-	String,
-	Array,
-	Object,
-	Map,
-}
-
 class ValueException : Exception {
 	this(string msg, string file = __FILE__, size_t line = __LINE__,
 	     Throwable next = null) {
@@ -103,43 +92,6 @@ private:
 public:
 	this(T)(T t) {
 		this = t;
-	}
-
-	@property
-	Kind kind() const {
-		if (isNull()) {
-			return Kind.Null;
-		}
-
-		if (isBoolean()) {
-			return Kind.Boolean;
-		}
-
-		if (isInteger()) {
-			return Kind.Integer;
-		}
-
-		if (isFloat()) {
-			return Kind.Float;
-		}
-
-		if (isString()) {
-			return Kind.String;
-		}
-
-		if (isArray()) {
-			return Kind.Array;
-		}
-
-		if (isObject()) {
-			return Kind.Object;
-		}
-
-		if (isMap()) {
-			return Kind.Map;
-		}
-
-		assert(0, "Invalid value kind.");
 	}
 
 	bool isUndefined() const {
@@ -393,8 +345,9 @@ unittest {
 		// sdfmt on
 	);
 
-	static testAllValues(E)(Value v, E expected, Kind k) {
-		assert(v.kind == k);
+	static testAllValues(string Type, E)(Value v, E expected) {
+		import std.format;
+		assert(mixin(format!"v.is%s"(Type)));
 
 		bool found = false;
 		foreach (I; Cases) {
@@ -415,32 +368,32 @@ unittest {
 	Value initVar;
 	assert(initVar.isUndefined());
 
-	static testValue(E)(E expected, Kind k) {
+	static testValue(string Type, E)(E expected) {
 		Value v = expected;
-		testAllValues(v, expected, k);
+		testAllValues!Type(v, expected);
 	}
 
-	testValue(null, Kind.Null);
-	testValue(true, Kind.Boolean);
-	testValue(false, Kind.Boolean);
-	testValue(0, Kind.Integer);
-	testValue(1, Kind.Integer);
-	testValue(42, Kind.Integer);
-	testValue(0., Kind.Float);
-	testValue(3.141592, Kind.Float);
-	// testValue(float.nan, Kind.Float);
-	testValue(float.infinity, Kind.Float);
-	testValue(-float.infinity, Kind.Float);
-	testValue("", Kind.String);
-	testValue("foobar", Kind.String);
-	testValue([1, 2, 3], Kind.Array);
-	testValue([1, 2, 3, 4], Kind.Array);
-	testValue(["y": true, "n": false], Kind.Object);
-	testValue(["x": 3, "y": 5], Kind.Object);
-	testValue(["foo": "bar"], Kind.Object);
-	testValue(["fizz": "buzz"], Kind.Object);
-	testValue(["first": [1, 2], "second": [3, 4]], Kind.Object);
-	testValue([["a", "b"]: [1, 2], ["c", "d"]: [3, 4]], Kind.Map);
+	testValue!"Null"(null);
+	testValue!"Boolean"(true);
+	testValue!"Boolean"(false);
+	testValue!"Integer"(0);
+	testValue!"Integer"(1);
+	testValue!"Integer"(42);
+	testValue!"Float"(0.);
+	testValue!"Float"(3.141592);
+	// testValue!"Float"(float.nan);
+	testValue!"Float"(float.infinity);
+	testValue!"Float"(-float.infinity);
+	testValue!"String"("");
+	testValue!"String"("foobar");
+	testValue!"Array"([1, 2, 3]);
+	testValue!"Array"([1, 2, 3, 4]);
+	testValue!"Object"(["y": true, "n": false]);
+	testValue!"Object"(["x": 3, "y": 5]);
+	testValue!"Object"(["foo": "bar"]);
+	testValue!"Object"(["fizz": "buzz"]);
+	testValue!"Object"(["first": [1, 2], "second": [3, 4]]);
+	testValue!"Map"([["a", "b"]: [1, 2], ["c", "d"]: [3, 4]]);
 }
 
 // length

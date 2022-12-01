@@ -4,6 +4,13 @@ import config.map;
 import config.traits;
 import config.value;
 
+enum Kind : ubyte {
+	String,
+	Array,
+	Object,
+	Map,
+}
+
 struct Descriptor {
 package:
 	Kind kind;
