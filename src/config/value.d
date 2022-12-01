@@ -15,6 +15,13 @@ enum Kind : ubyte {
 	Map,
 }
 
+class ValueException : Exception {
+	this(string msg, string file = __FILE__, size_t line = __LINE__,
+	     Throwable next = null) {
+		super(msg, file, line, next);
+	}
+}
+
 struct Value {
 private:
 	/**
@@ -190,7 +197,7 @@ public:
 
 	@property
 	ref str() const in(isString()) {
-		return heapValue.toString();
+		return heapValue.toVString();
 	}
 
 	bool isArray() const {
@@ -199,7 +206,7 @@ public:
 
 	@property
 	ref array() inout in(isArray()) {
-		return heapValue.toArray();
+		return heapValue.toVArray();
 	}
 
 	bool isObject() const {
@@ -208,7 +215,7 @@ public:
 
 	@property
 	ref object() inout in(isObject()) {
-		return heapValue.toObject();
+		return heapValue.toVObject();
 	}
 
 	bool isMap() const {
@@ -217,7 +224,7 @@ public:
 
 	@property
 	ref map() inout in(isMap()) {
-		return heapValue.toMap();
+		return heapValue.toVMap();
 	}
 
 	@property
@@ -236,25 +243,31 @@ public:
 	/**
 	 * Misc
 	 */
-	string toString() const {
-		return this.visit!(function string(v) {
-			alias T = typeof(v);
-			static if (is(T : typeof(null))) {
-				return "null";
-			} else static if (is(T == bool)) {
-				return v ? "true" : "false";
-			} else static if (is(T : const VString)) {
-				return v.dump();
-			} else {
-				import std.conv;
-				return to!string(v);
-			}
-		})();
-	}
-
 	string dump() const {
-		// FIXME: This toString/dump thing needs to be sorted out.
-		return this.toString();
+		if (isUndefined()) {
+			return "(undefined)";
+		}
+
+		if (isNull()) {
+			return "null";
+		}
+
+		if (isBoolean()) {
+			return boolean ? "true" : "false";
+		}
+
+		if (isInteger()) {
+			import std.conv;
+			return to!string(integer);
+		}
+
+		if (isFloat()) {
+			import std.conv;
+			return to!string(floating);
+		}
+
+		assert(isHeapValue());
+		return heapValue.dump();
 	}
 
 	@trusted
@@ -414,7 +427,8 @@ unittest {
 			}
 		}
 
-		assert(found, v.toString());
+		import std.conv;
+		assert(found, to!string(v));
 	}
 
 	Value initVar;
@@ -459,28 +473,28 @@ unittest {
 	assert(Value([3.2: "a", 37.5: "b", 1.1: "c"]).length == 3);
 }
 
-// toString
+// string conversion.
 unittest {
-	assert(Value(null).toString() == "null");
-	assert(Value(true).toString() == "true");
-	assert(Value(false).toString() == "false");
-	assert(Value(0).toString() == "0");
-	assert(Value(1).toString() == "1");
-	assert(Value(42).toString() == "42");
+	assert(Value().dump() == "(undefined)");
+	assert(Value(null).dump() == "null");
+	assert(Value(true).dump() == "true");
+	assert(Value(false).dump() == "false");
+	assert(Value(0).dump() == "0");
+	assert(Value(1).dump() == "1");
+	assert(Value(42).dump() == "42");
+
 	// FIXME: I have not found how to write down float in a compact form that is
 	// not ambiguous with an integer in some cases. Here, D writes '1' by default.
 	// std.format is not of great help on that one.
-	// assert(Value(1.0).toString() == "1.0");
-	assert(Value(4.2).toString() == "4.2");
-	assert(Value(0.5).toString() == "0.5");
+	// assert(Value(1.0).dump() == "1.0");
+	assert(Value(4.2).dump() == "4.2");
+	assert(Value(0.5).dump() == "0.5");
 
-	assert(Value("").toString() == `""`);
-	assert(Value("abc").toString() == `"abc"`);
-	assert(Value("\n\t\n").toString() == `"\n\t\n"`);
-
-	assert(Value([1, 2, 3]).toString() == "[1, 2, 3]");
-	assert(
-		Value(["y": true, "n": false]).toString() == `["y": true, "n": false]`);
-	assert(Value([["a", "b"]: [1, 2], ["c", "d"]: [3, 4]]).toString()
+	assert(Value("").dump() == `""`);
+	assert(Value("abc").dump() == `"abc"`);
+	assert(Value("\n\t\n").dump() == `"\n\t\n"`);
+	assert(Value([1, 2, 3]).dump() == "[1, 2, 3]", Value([1, 2, 3]).dump());
+	assert(Value(["y": true, "n": false]).dump() == `["y": true, "n": false]`);
+	assert(Value([["a", "b"]: [1, 2], ["c", "d"]: [3, 4]]).dump()
 		== `[["a", "b"]: [1, 2], ["c", "d"]: [3, 4]]`);
 }

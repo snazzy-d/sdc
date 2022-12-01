@@ -42,20 +42,43 @@ package:
 	}
 
 package:
-	ref inout(VString) toString() inout in(isString()) {
+	ref inout(VString) toVString() inout in(isString()) {
 		return *(cast(inout(VString)*) &this);
 	}
 
-	ref inout(VArray) toArray() inout in(isArray()) {
+	ref inout(VArray) toVArray() inout in(isArray()) {
 		return *(cast(inout(VArray)*) &this);
 	}
 
-	ref inout(VObject) toObject() inout in(isObject()) {
+	ref inout(VObject) toVObject() inout in(isObject()) {
 		return *(cast(inout(VObject)*) &this);
 	}
 
-	ref inout(VMap) toMap() inout in(isMap()) {
+	ref inout(VMap) toVMap() inout in(isMap()) {
 		return *(cast(inout(VMap)*) &this);
+	}
+
+	/**
+	 * Misc.
+	 */
+	string dump() const {
+		if (isString()) {
+			return toVString().dump();
+		}
+
+		if (isArray()) {
+			return toVArray().dump();
+		}
+
+		if (isObject()) {
+			return toVObject().dump();
+		}
+
+		if (isMap()) {
+			return toVMap().dump();
+		}
+
+		assert(0, "Malformed HeapValue");
 	}
 
 	/**
@@ -105,27 +128,27 @@ package:
 	 * Equality check.
 	 */
 	bool opEquals(S)(S s) const if (isStringValue!S) {
-		return isString() && toString() == s;
+		return isString() && toVString() == s;
 	}
 
 	bool opEquals(A)(A a) const if (isArrayValue!A) {
-		return isArray() && toArray() == a;
+		return isArray() && toVArray() == a;
 	}
 
 	bool opEquals(O)(O o) const if (isObjectValue!O) {
 		if (isObject()) {
-			return toObject() == o;
+			return toVObject() == o;
 		}
 
 		if (isMap()) {
-			return toMap() == o;
+			return toVMap() == o;
 		}
 
 		return false;
 	}
 
 	bool opEquals(M)(M m) const if (isMapValue!M) {
-		return isMap() && toMap() == m;
+		return isMap() && toVMap() == m;
 	}
 
 	/**
@@ -134,11 +157,11 @@ package:
 	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
 			if (isValue!K) {
 		if (isObject()) {
-			return key in toObject();
+			return key in toVObject();
 		}
 
 		if (isMap()) {
-			return key in toMap();
+			return key in toVMap();
 		}
 
 		return null;
@@ -262,10 +285,9 @@ public:
 		return hashOf(toArray());
 	}
 
-	string toString() const {
-		import std.format;
-		auto a = toArray();
-		return format!"%(%s%)"((&a)[0 .. 1]);
+	string dump() const {
+		import std.algorithm, std.format;
+		return format!"[%-(%s, %)]"(toArray().map!(v => v.dump()));
 	}
 
 	inout(Value)[] toArray() inout {

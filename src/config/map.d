@@ -294,9 +294,9 @@ package:
 		K key;
 		Value value;
 
-		string toString() const {
+		string dump() const {
 			import std.format;
-			return format!"%s: %s"(key.dump(), value);
+			return format!"%s: %s"(key.dump(), value.dump());
 		}
 	}
 
@@ -332,9 +332,9 @@ public:
 		return 12 << lgBucketCount;
 	}
 
-	string toString() const {
-		import std.conv;
-		return to!string(entries);
+	string dump() const {
+		import std.algorithm, std.format;
+		return format!"[%-(%s, %)]"(entries.map!(e => e.dump()));
 	}
 
 	uint find(K)(K key) const if (isKeyLike!K) {
@@ -356,7 +356,7 @@ public:
 
 	inout(Value) opIndex(const ref Value key) inout {
 		if (key.isString()) {
-			return this[key.toString()];
+			return this[key.str];
 		}
 
 		return Value();
