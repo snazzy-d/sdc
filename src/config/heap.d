@@ -217,6 +217,18 @@ package:
 	/**
 	 * Object/Map features.
 	 */
+	inout(Value) opIndex(K)(K key) inout if (isKeyLike!K) {
+		if (isObject()) {
+			return toVObject()[key];
+		}
+
+		if (isMap()) {
+			return toVMap()[key];
+		}
+
+		return Value();
+	}
+
 	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
 			if (isKeyLike!K) {
 		if (isObject()) {

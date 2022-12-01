@@ -98,6 +98,9 @@ public:
 		return payload == UndefinedValue;
 	}
 
+	/**
+	 * Primitive types support.
+	 */
 	bool isNull() const {
 		return payload == NullValue;
 	}
@@ -107,8 +110,13 @@ public:
 	}
 
 	@property
-	bool boolean() const nothrow in(isBoolean()) {
-		return payload & 0x01;
+	bool boolean() const {
+		if (isBoolean()) {
+			return payload & 0x01;
+		}
+
+		import std.format;
+		throw new ValueException(format!"%s is not a boolean."(dump()));
 	}
 
 	bool isInteger() const {
@@ -116,9 +124,14 @@ public:
 	}
 
 	@property
-	int integer() const nothrow in(isInteger()) {
-		uint i = payload & uint.max;
-		return i;
+	int integer() const {
+		if (isInteger()) {
+			uint i = payload & uint.max;
+			return i;
+		}
+
+		import std.format;
+		throw new ValueException(format!"%s is not an integer."(dump()));
 	}
 
 	bool isNumber() const {
@@ -130,12 +143,20 @@ public:
 	}
 
 	@property
-	double floating() const in(isFloat()) {
-		return Double(payload).toFloat();
+	double floating() const {
+		if (isFloat()) {
+			return Double(payload).toFloat();
+		}
+
+		import std.format;
+		throw new ValueException(
+			format!"%s is not a floating point number."(dump()));
 	}
 
-	bool isHeapValue() const {
-		// FIXME: This shouldn't be necessary once everything is NaN boxed.
+	/**
+	 * Values that lives on the heap.
+	 */
+	private bool isHeapValue() const {
 		if (heapValue is null) {
 			return false;
 		}
@@ -143,53 +164,66 @@ public:
 		return (payload & (RangeMask | OtherFlag)) == HeapPrefix;
 	}
 
+	@property
+	size_t length() const in(isHeapValue()) {
+		if (isHeapValue()) {
+			return heapValue.length;
+		}
+
+		import std.format;
+		throw new ValueException(format!"%s does not have length."(dump()));
+	}
+
+	inout(Value) opIndex(K)(K key) inout if (isKeyLike!K) {
+		return isHeapValue() ? heapValue[key] : Value();
+	}
+
+	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
+			if (isKeyLike!K) {
+		return isHeapValue() ? key in heapValue : null;
+	}
+
+	/**
+	 * Strings.
+	 */
 	bool isString() const {
 		return isHeapValue() && heapValue.isString();
 	}
 
-	@property
-	ref str() const in(isString()) {
-		return heapValue.toVString();
+	string toString() const {
+		if (isString()) {
+			return heapValue.toVString().toString();
+		}
+
+		import std.format;
+		throw new ValueException(format!"%s is not a string."(dump()));
 	}
 
+	/**
+	 * Arrays.
+	 */
 	bool isArray() const {
 		return isHeapValue() && heapValue.isArray();
 	}
 
-	@property
-	ref array() inout in(isArray()) {
-		return heapValue.toVArray();
+	inout(Value)[] toArray() inout {
+		if (isArray()) {
+			return heapValue.toVArray().toArray();
+		}
+
+		import std.format;
+		throw new ValueException(format!"%s is not an array."(dump()));
 	}
 
+	/**
+	 * Objects and Maps.
+	 */
 	bool isObject() const {
 		return isHeapValue() && heapValue.isObject();
 	}
 
-	@property
-	ref object() inout in(isObject()) {
-		return heapValue.toVObject();
-	}
-
 	bool isMap() const {
 		return isHeapValue() && heapValue.isMap();
-	}
-
-	@property
-	ref map() inout in(isMap()) {
-		return heapValue.toVMap();
-	}
-
-	@property
-	size_t length() const in(isHeapValue()) {
-		return heapValue.length;
-	}
-
-	/**
-	 * Map and Object features
-	 */
-	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
-			if (isKeyLike!K) {
-		return isHeapValue() ? key in heapValue : null;
 	}
 
 	/**
@@ -275,7 +309,7 @@ public:
 		return isFloat() && floating == f;
 	}
 
-	bool opEquals(const ref Value rhs) const {
+	bool opEquals(const Value rhs) const {
 		// Special case floating point, because NaN != NaN .
 		if (isFloat() || rhs.isFloat()) {
 			return isFloat() && rhs.isFloat() && floating == rhs.floating;
@@ -347,7 +381,42 @@ unittest {
 
 	static testAllValues(string Type, E)(Value v, E expected) {
 		import std.format;
-		assert(mixin(format!"v.is%s"(Type)));
+		assert(mixin(format!"v.is%s()"(Type)));
+
+		static if (Type == "Boolean") {
+			assert(v.boolean == expected);
+		} else {
+			import std.exception;
+			assertThrown!ValueException(v.boolean);
+		}
+
+		static if (Type == "Integer") {
+			assert(v.integer == expected);
+		} else {
+			import std.exception;
+			assertThrown!ValueException(v.integer);
+		}
+
+		static if (Type == "Float") {
+			assert(v.floating == expected);
+		} else {
+			import std.exception;
+			assertThrown!ValueException(v.floating);
+		}
+
+		static if (Type == "String") {
+			assert(v.toString() == expected);
+		} else {
+			import std.exception;
+			assertThrown!ValueException(v.toString());
+		}
+
+		static if (Type == "Array") {
+			assert(v.toArray() == expected);
+		} else {
+			import std.exception;
+			assertThrown!ValueException(v.toArray());
+		}
 
 		bool found = false;
 		foreach (I; Cases) {
@@ -367,6 +436,7 @@ unittest {
 
 	Value initVar;
 	assert(initVar.isUndefined());
+	assert(initVar == Value());
 
 	static testValue(string Type, E)(E expected) {
 		Value v = expected;
@@ -405,6 +475,60 @@ unittest {
 	assert(Value(["foo", "bar"]).length == 2);
 	assert(Value([3.2, 37.5]).length == 2);
 	assert(Value([3.2: "a", 37.5: "b", 1.1: "c"]).length == 3);
+}
+
+// indexing
+unittest {
+	auto s = Value("this is a string");
+	assert(s[null].isUndefined());
+	assert(s[true].isUndefined());
+	assert(s[0].isUndefined());
+	assert(s[1].isUndefined());
+	assert(s[""].isUndefined());
+	assert(s["foo"].isUndefined());
+
+	auto o = Value(["foo": "bar"]);
+	assert(o[null].isUndefined());
+	assert(o[true].isUndefined());
+	assert(o[0].isUndefined());
+	assert(o[1].isUndefined());
+	assert(o[""].isUndefined());
+	assert(o["foo"] == "bar");
+
+	auto m = Value([1: "one"]);
+	assert(m[null].isUndefined());
+	assert(m[true].isUndefined());
+	assert(m[0].isUndefined());
+	assert(m[1] == "one");
+	assert(m[""].isUndefined());
+	assert(m["foo"].isUndefined());
+}
+
+// in operator
+unittest {
+	auto s = Value("this is a string");
+	assert((null in s) == null);
+	assert((true in s) == null);
+	assert((0 in s) == null);
+	assert((1 in s) == null);
+	assert(("" in s) == null);
+	assert(("foo" in s) == null);
+
+	auto o = Value(["foo": "bar"]);
+	assert((null in o) == null);
+	assert((true in o) == null);
+	assert((0 in o) == null);
+	assert((1 in o) == null);
+	assert(("" in o) == null);
+	assert(*("foo" in o) == "bar");
+
+	auto m = Value([1: "one"]);
+	assert((null in m) == null);
+	assert((true in m) == null);
+	assert((0 in m) == null);
+	assert(*(1 in m) == "one");
+	assert(("" in m) == null);
+	assert(("foo" in m) == null);
 }
 
 // string conversion.
