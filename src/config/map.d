@@ -494,7 +494,7 @@ private:
 		import core.memory;
 		auto ptr = cast(Impl*) GC.malloc(
 			Impl.sizeof + ((Bucket.sizeof + 2 * 14 * Value.sizeof) << lgC),
-			GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE
+			GC.BlkAttr.APPENDABLE
 		);
 
 		ptr.tag.kind = Tag;

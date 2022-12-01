@@ -220,9 +220,8 @@ private:
 public:
 	this(A)(A a) if (isArrayValue!A) in(a.length < uint.max) {
 		import core.memory;
-		impl = cast(Impl*) GC
-			.malloc(Impl.sizeof + Value.sizeof * a.length,
-			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
+		impl = cast(Impl*) GC.malloc(Impl.sizeof + Value.sizeof * a.length,
+		                             GC.BlkAttr.APPENDABLE);
 
 		tag.kind = Kind.Array;
 		tag.length = a.length & uint.max;
