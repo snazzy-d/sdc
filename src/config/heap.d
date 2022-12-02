@@ -21,7 +21,7 @@ package:
 	static assert(Descriptor.sizeof == 8,
 	              "Descriptors are expected to be 64 bits.");
 
-public:
+public nothrow:
 	bool isString() const {
 		return kind == Kind.String;
 	}
@@ -53,19 +53,19 @@ package:
 	}
 
 package:
-	ref inout(VString) toVString() inout in(isString()) {
+	ref inout(VString) toVString() inout nothrow in(isString()) {
 		return *(cast(inout(VString)*) &this);
 	}
 
-	ref inout(VArray) toVArray() inout in(isArray()) {
+	ref inout(VArray) toVArray() inout nothrow in(isArray()) {
 		return *(cast(inout(VArray)*) &this);
 	}
 
-	ref inout(VObject) toVObject() inout in(isObject()) {
+	ref inout(VObject) toVObject() inout nothrow in(isObject()) {
 		return *(cast(inout(VObject)*) &this);
 	}
 
-	ref inout(VMap) toVMap() inout in(isMap()) {
+	ref inout(VMap) toVMap() inout nothrow in(isMap()) {
 		return *(cast(inout(VMap)*) &this);
 	}
 
@@ -92,7 +92,7 @@ package:
 		assert(0, "Malformed HeapValue");
 	}
 
-	hash_t toHash() const {
+	hash_t toHash() const nothrow {
 		if (isString()) {
 			return toVString().toHash();
 		}
@@ -322,12 +322,12 @@ public:
 		return false;
 	}
 
-	hash_t toHash() const {
+	hash_t toHash() const nothrow {
 		import config.hash;
 		return Hasher().hash(toString());
 	}
 
-	string toString() const {
+	string toString() const nothrow {
 		auto ptr = cast(immutable char*) (impl + 1);
 		return ptr[0 .. tag.length];
 	}
@@ -440,7 +440,7 @@ public:
 		return false;
 	}
 
-	hash_t toHash() const {
+	hash_t toHash() const nothrow {
 		import config.hash;
 		return Hasher().hash(toArray());
 	}
@@ -450,7 +450,7 @@ public:
 		return format!"[%-(%s, %)]"(toArray().map!(v => v.dump()));
 	}
 
-	inout(Value)[] toArray() inout {
+	inout(Value)[] toArray() inout nothrow {
 		auto ptr = cast(inout Value*) (impl + 1);
 		return ptr[0 .. tag.length];
 	}

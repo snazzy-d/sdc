@@ -316,7 +316,7 @@ public:
 		return format!"[%-(%s, %)]"(entries.map!(e => e.dump()));
 	}
 
-	hash_t toHash() const {
+	hash_t toHash() const nothrow @trusted {
 		import config.hash;
 		auto h = Hasher(length);
 
