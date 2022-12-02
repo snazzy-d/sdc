@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        dc: [dmd-latest]
+        dc: [dmd-latest, dmd-2.100.2]
 
     runs-on: ${{ matrix.os }}
     steps:
