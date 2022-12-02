@@ -215,9 +215,13 @@ package:
 	}
 
 	/**
-	 * Object/Map features.
+	 * Indexing features.
 	 */
 	inout(Value) opIndex(K)(K key) inout if (isKeyLike!K) {
+		if (isArray()) {
+			return toVArray()[key];
+		}
+
 		if (isObject()) {
 			return toVObject()[key];
 		}
@@ -394,11 +398,15 @@ public:
 	}
 
 	inout(Value) opIndex(size_t index) inout {
-		if (index >= tag.length) {
-			return inout(Value)();
-		}
+		return (index < tag.length) ? toArray()[index] : Value();
+	}
 
-		return toArray()[index];
+	inout(Value) opIndex(const Value v) inout {
+		return v.isInteger() ? this[v.integer] : Value();
+	}
+
+	inout(Value) opIndex(V)(V v) inout if (isValue!V) {
+		return Value();
 	}
 
 	bool opEquals(A)(A a) const if (isArrayValue!A) {
@@ -416,7 +424,7 @@ public:
 		return true;
 	}
 
-	bool opEquals(const ref VArray rhs) const {
+	bool opEquals(const VArray rhs) const {
 		return toArray() == rhs.toArray();
 	}
 
@@ -487,4 +495,15 @@ unittest {
 	testArrayEquality([1, 2, 3]);
 	testArrayEquality(["foo": "bar"]);
 	testArrayEquality([1: "fizz", 2: "buzz"]);
+
+	auto a = VArray([0, 11, 22, 33, 44, 55]);
+	assert(a[-1].isUndefined());
+	assert(a[6].isUndefined());
+	assert(a[""].isUndefined());
+	assert(a["foo"].isUndefined());
+
+	foreach (i; 0 .. 6) {
+		assert(a[i] == 11 * i);
+		assert(a[Value(i)] == 11 * i);
+	}
 }

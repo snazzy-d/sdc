@@ -487,6 +487,14 @@ unittest {
 	assert(s[""].isUndefined());
 	assert(s["foo"].isUndefined());
 
+	auto a = Value([42]);
+	assert(a[null].isUndefined());
+	assert(a[true].isUndefined());
+	assert(a[0] == 42);
+	assert(a[1].isUndefined());
+	assert(a[""].isUndefined());
+	assert(a["foo"].isUndefined());
+
 	auto o = Value(["foo": "bar"]);
 	assert(o[null].isUndefined());
 	assert(o[true].isUndefined());
