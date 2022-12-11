@@ -6,7 +6,7 @@ bool isPow2(uint x) {
 
 // I have not figured out how to do this in a sensible way.
 // See: https://forum.dlang.org/post/zsaghidvbsdwqthadphx@forum.dlang.org
-ulong mulhi(ulong a, ulong b) nothrow {
+ulong mulhi(ulong a, ulong b) {
 	version(LDC) {
 		import ldc.llvmasm;
 		return __ir!(`

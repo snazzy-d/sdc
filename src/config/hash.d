@@ -26,7 +26,6 @@ hash_t rehash(hash_t h) {
 }
 
 struct Hasher {
-nothrow:
 	ulong state = 0;
 
 	hash_t mix(ulong k) {

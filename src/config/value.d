@@ -156,7 +156,7 @@ public:
 	/**
 	 * Values that lives on the heap.
 	 */
-	private bool isHeapValue() const nothrow {
+	private bool isHeapValue() const {
 		if (heapValue is null) {
 			return false;
 		}
@@ -257,7 +257,7 @@ public:
 	}
 
 	@trusted
-	hash_t toHash() const nothrow {
+	hash_t toHash() const {
 		return isHeapValue() ? heapValue.toHash() : payload;
 	}
 
