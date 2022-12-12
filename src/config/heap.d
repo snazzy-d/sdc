@@ -78,6 +78,29 @@ package:
 		assert(0, "Malformed HeapValue");
 	}
 
+	void acquire() {
+		uint c = refCount + 2;
+		refCount = (c | (c >> 8)) & 0xff;
+	}
+
+	bool release() {
+		if (refCount != 0) {
+			refCount -= 2;
+			return false;
+		}
+
+		static fun(T)(T x) {
+			return x.destroy();
+		}
+
+		dispatch!fun(this);
+
+		import core.memory;
+		GC.free(this);
+
+		return true;
+	}
+
 package:
 	ref inout(VString) toVString() inout in(isString()) {
 		return *(cast(inout(VString)*) &this);
@@ -300,6 +323,8 @@ public:
 		memcpy(impl + 1, s.ptr, s.length);
 	}
 
+	void destroy() {}
+
 	bool opEquals(string s) const {
 		return toString() == s;
 	}
@@ -392,6 +417,12 @@ public:
 		foreach (i, ref e; toArray()) {
 			e.clear();
 			e = a[i];
+		}
+	}
+
+	void destroy() {
+		foreach (ref a; toArray()) {
+			a.destroy();
 		}
 	}
 

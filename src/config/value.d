@@ -94,8 +94,26 @@ public:
 		this = t;
 	}
 
+	this(this) {
+		if (isHeapValue()) {
+			heapValue.acquire();
+		}
+	}
+
+	~this() {
+		destroy();
+	}
+
 	package void clear() {
 		payload = 0;
+	}
+
+	void destroy() {
+		if (isHeapValue()) {
+			heapValue.release();
+		}
+
+		clear();
 	}
 
 	bool isUndefined() const {
@@ -269,27 +287,32 @@ public:
 	 * Assignement
 	 */
 	Value opAssign()(typeof(null) nothing) {
+		destroy();
 		payload = NullValue;
 		return this;
 	}
 
 	Value opAssign(B : bool)(B b) {
+		destroy();
 		payload = OtherFlag | BoolFlag | b;
 		return this;
 	}
 
 	// FIXME: Promote to float for large ints.
 	Value opAssign(I : long)(I i) in((i & uint.max) == i) {
+		destroy();
 		payload = i | IntegerPrefix;
 		return this;
 	}
 
 	Value opAssign(F : double)(F f) {
+		destroy();
 		payload = Double(f).toPayload();
 		return this;
 	}
 
-	Value opAssign(V)(V v) if (.isHeapValue!V) {
+	Value opAssign(V)(V v) if (.isHeapValue!V && !isBoxedValue!V) {
+		destroy();
 		heapValue = v;
 		return this;
 	}
@@ -313,7 +336,15 @@ public:
 		return isFloat() && floating == f;
 	}
 
+	bool opEquals(V)(V v) const if (.isHeapValue!V) {
+		return isHeapValue() && heapValue == v;
+	}
+
 	bool opEquals(const Value rhs) const {
+		return this == rhs;
+	}
+
+	bool opEquals(const ref Value rhs) const {
 		// Special case floating point, because NaN != NaN .
 		if (isFloat() || rhs.isFloat()) {
 			return isFloat() && rhs.isFloat() && floating == rhs.floating;
@@ -325,10 +356,6 @@ public:
 		}
 
 		return isHeapValue() && rhs == heapValue;
-	}
-
-	bool opEquals(V)(V v) const if (.isHeapValue!V) {
-		return isHeapValue() && heapValue == v;
 	}
 }
 
@@ -567,4 +594,29 @@ unittest {
 	assert(Value(["y": true, "n": false]).dump() == `["y": true, "n": false]`);
 	assert(Value([["a", "b"]: [1, 2], ["c", "d"]: [3, 4]]).dump()
 		== `[["a", "b"]: [1, 2], ["c", "d"]: [3, 4]]`);
+}
+
+// Reference counting.
+unittest {
+	Value s = "foobar";
+	assert(s.heapValue.refCount == 0);
+
+	auto s2 = s;
+	assert(s.heapValue.refCount == 2);
+
+	Value a = ["foobar"];
+	assert(a.heapValue.refCount == 0);
+	assert(a[0].heapValue.refCount == 2);
+
+	auto a2 = a;
+	assert(a.heapValue.refCount == 2);
+	assert(a[0].heapValue.refCount == 2);
+
+	Value o = ["foo": "bar"];
+	assert(o.heapValue.refCount == 0);
+	assert(o["foo"].heapValue.refCount == 2);
+
+	auto o2 = o;
+	assert(o.heapValue.refCount == 2);
+	assert(o["foo"].heapValue.refCount == 2);
 }

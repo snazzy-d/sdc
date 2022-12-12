@@ -259,6 +259,13 @@ struct VObjectKey {
 		heapValue = null;
 	}
 
+	void destroy() {
+		if (!isUndefined()) {
+			heapValue.release();
+			clear();
+		}
+	}
+
 	string dump() const in(payload != 0) {
 		return str.dump();
 	}
@@ -326,6 +333,11 @@ package:
 			key.clear();
 			value.clear();
 		}
+
+		void destroy() {
+			key.destroy();
+			value.destroy();
+		}
 	}
 
 public:
@@ -341,6 +353,12 @@ public:
 		foreach (ref k, ref v; t) {
 			entries[i].init(k, v);
 			_insert(k, i++);
+		}
+	}
+
+	void destroy() {
+		foreach (ref e; entries) {
+			e.destroy();
 		}
 	}
 
