@@ -25,6 +25,8 @@ hash_t rehash(hash_t h) {
 	return (hi ^ lo) * K;
 }
 
+enum isHashable(T) = is(typeof(const(T).init.toHash()) : hash_t);
+
 struct Hasher {
 	ulong state = 0;
 
@@ -39,8 +41,8 @@ struct Hasher {
 		return hash(Value(t));
 	}
 
-	hash_t hash(V)(V v) if (isBoxedValue!V) {
-		state += v.toHash();
+	hash_t hash(H)(H h) if (isHashable!H) {
+		state += h.toHash();
 		return state;
 	}
 

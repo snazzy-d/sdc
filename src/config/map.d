@@ -241,6 +241,42 @@ unittest {
 	assert(b.overflow == 2);
 }
 
+/**
+ * A Value like struct, but that can only contain strings.
+ */
+struct VObjectKey {
+	union {
+		VString str;
+		HeapValue heapValue;
+		ulong payload;
+	}
+
+	bool isUndefined() const {
+		return payload == 0;
+	}
+
+	void clear() {
+		heapValue = null;
+	}
+
+	string dump() const in(payload != 0) {
+		return str.dump();
+	}
+
+	hash_t toHash() const {
+		return isUndefined() ? 0 : str.toHash();
+	}
+
+	VObjectKey opAssign(K)(K k) if (isKeyLike!K) {
+		str = VString(k);
+		return this;
+	}
+
+	bool opEquals(K)(K k) const if (isKeyLike!K) {
+		return !isUndefined() && str == k;
+	}
+}
+
 enum MapKind {
 	Object,
 	Map,
@@ -260,7 +296,7 @@ package:
 	alias impl this;
 
 	static if (T == MapKind.Object) {
-		alias K = VString;
+		alias K = VObjectKey;
 		alias Tag = Kind.Object;
 		alias isSimilarTo = isObjectValue;
 	} else static if (T == MapKind.Map) {
@@ -282,20 +318,12 @@ package:
 		void init(SK, SV)(ref SK k, ref SV v) {
 			clear();
 
-			static if (Tag == Kind.Map) {
-				key = k;
-			} else {
-				key = K(k);
-			}
-
+			key = k;
 			value = v;
 		}
 
 		void clear() {
-			static if (Tag == Kind.Map) {
-				key.clear();
-			}
-
+			key.clear();
 			value.clear();
 		}
 	}
@@ -366,6 +394,10 @@ public:
 	inout(Value) opIndex(K)(K key) inout if (isKeyLike!K) {
 		// TODO: Do not try to look for non string keys in Objects.
 		return at(find(key));
+	}
+
+	inout(Value) opIndex(const VObjectKey key) inout {
+		return key.isUndefined() ? Value() : this[key.str];
 	}
 
 	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
@@ -452,7 +484,7 @@ private:
 		return ptr[0 .. tag.length];
 	}
 
-	uint _find(K)(K key) const {
+	uint _find(K)(K key) const if (isKeyLike!K) {
 		auto h = hash(key);
 		auto p = Probe(h, bucketCount);
 
