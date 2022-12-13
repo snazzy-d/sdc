@@ -94,6 +94,10 @@ public:
 		this = t;
 	}
 
+	package void clear() {
+		payload = 0;
+	}
+
 	bool isUndefined() const {
 		return payload == UndefinedValue;
 	}

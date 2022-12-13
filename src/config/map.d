@@ -277,6 +277,27 @@ package:
 			import std.format;
 			return format!"%s: %s"(key.dump(), value.dump());
 		}
+
+	private:
+		void init(SK, SV)(ref SK k, ref SV v) {
+			clear();
+
+			static if (Tag == Kind.Map) {
+				key = k;
+			} else {
+				key = K(k);
+			}
+
+			value = v;
+		}
+
+		void clear() {
+			static if (Tag == Kind.Map) {
+				key.clear();
+			}
+
+			value.clear();
+		}
 	}
 
 public:
@@ -290,8 +311,7 @@ public:
 
 		uint i = 0;
 		foreach (ref k, ref v; t) {
-			entries[i].key = K(k);
-			entries[i].value = Value(v);
+			entries[i].init(k, v);
 			_insert(k, i++);
 		}
 	}
@@ -495,8 +515,7 @@ private:
 			GC.BlkAttr.APPENDABLE
 		);
 
-		ptr.tag.kind = Tag;
-		ptr.tag.length = length;
+		ptr.tag = Descriptor(Tag, length);
 		ptr.lgBucketCount = lgC;
 
 		return ptr;

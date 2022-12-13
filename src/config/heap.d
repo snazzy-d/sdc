@@ -21,6 +21,12 @@ package:
 	static assert(Descriptor.sizeof == 8,
 	              "Descriptors are expected to be 64 bits.");
 
+	this(Kind kind, uint length) {
+		this.kind = kind;
+		this.refCount = 0;
+		this.length = length;
+	}
+
 public:
 	bool isString() const {
 		return kind == Kind.String;
@@ -41,11 +47,11 @@ public:
 
 struct HeapValue {
 package:
-	const(Descriptor)* tag;
+	Descriptor* tag;
 	alias tag this;
 
 	this(const Descriptor* tag) {
-		this.tag = tag;
+		this.tag = cast(Descriptor*) tag;
 	}
 
 	this(H)(H h) if (isHeapValue!H) {
@@ -111,44 +117,41 @@ package:
 	/**
 	 * Assignement.
 	 */
-	HeapValue opAssign(const VString s) {
-		tag = &s.tag;
+	HeapValue opAssign(const Descriptor* tag) {
+		this.tag = cast(Descriptor*) tag;
 		return this;
+	}
+
+	HeapValue opAssign(const VString s) {
+		return this = &s.tag;
 	}
 
 	HeapValue opAssign(const VArray a) {
-		tag = &a.tag;
-		return this;
+		return this = &a.tag;
 	}
 
 	HeapValue opAssign(const VObject o) {
-		tag = &o.tag;
-		return this;
+		return this = &o.tag;
 	}
 
 	HeapValue opAssign(const VMap m) {
-		tag = &m.tag;
-		return this;
+		return this = &m.tag;
 	}
 
 	HeapValue opAssign(S)(S s) if (isStringValue!S) {
-		this = VString(s);
-		return this;
+		return this = VString(s);
 	}
 
 	HeapValue opAssign(A)(A a) if (isArrayValue!A) {
-		this = VArray(a);
-		return this;
+		return this = VArray(a);
 	}
 
 	HeapValue opAssign(O)(O o) if (isObjectValue!O) {
-		this = VObject(o);
-		return this;
+		return this = VObject(o);
 	}
 
 	HeapValue opAssign(M)(M m) if (isMapValue!M) {
-		this = VMap(m);
-		return this;
+		return this = VMap(m);
 	}
 
 	/**
@@ -291,8 +294,7 @@ public:
 			.malloc(Impl.sizeof + s.length,
 			        GC.BlkAttr.NO_SCAN | GC.BlkAttr.APPENDABLE);
 
-		tag.kind = Kind.String;
-		tag.length = s.length & uint.max;
+		tag = Descriptor(Kind.String, s.length & uint.max);
 
 		import core.stdc.string;
 		memcpy(impl + 1, s.ptr, s.length);
@@ -385,11 +387,11 @@ public:
 		impl = cast(Impl*) GC.malloc(Impl.sizeof + Value.sizeof * a.length,
 		                             GC.BlkAttr.APPENDABLE);
 
-		tag.kind = Kind.Array;
-		tag.length = a.length & uint.max;
+		tag = Descriptor(Kind.Array, a.length & uint.max);
 
 		foreach (i, ref e; toArray()) {
-			e = Value(a[i]);
+			e.clear();
+			e = a[i];
 		}
 	}
 
