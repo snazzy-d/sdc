@@ -297,7 +297,7 @@ public:
 	}
 
 	@property
-		length() const {
+	uint length() const {
 		return tag.length;
 	}
 
