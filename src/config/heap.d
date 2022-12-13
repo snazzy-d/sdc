@@ -52,6 +52,26 @@ package:
 		this = h;
 	}
 
+	static dispatch(alias fun, T, A...)(T t, A args) {
+		if (t.isString()) {
+			return fun(t.toVString(), args);
+		}
+
+		if (t.isArray()) {
+			return fun(t.toVArray(), args);
+		}
+
+		if (t.isObject()) {
+			return fun(t.toVObject(), args);
+		}
+
+		if (t.isMap()) {
+			return fun(t.toVMap(), args);
+		}
+
+		assert(0, "Malformed HeapValue");
+	}
+
 package:
 	ref inout(VString) toVString() inout in(isString()) {
 		return *(cast(inout(VString)*) &this);
@@ -73,43 +93,19 @@ package:
 	 * Misc.
 	 */
 	string dump() const {
-		if (isString()) {
-			return toVString().dump();
+		static fun(T)(T x) {
+			return x.dump();
 		}
 
-		if (isArray()) {
-			return toVArray().dump();
-		}
-
-		if (isObject()) {
-			return toVObject().dump();
-		}
-
-		if (isMap()) {
-			return toVMap().dump();
-		}
-
-		assert(0, "Malformed HeapValue");
+		return dispatch!fun(this);
 	}
 
 	hash_t toHash() const {
-		if (isString()) {
-			return toVString().toHash();
+		static fun(T)(T x) {
+			return x.toHash();
 		}
 
-		if (isArray()) {
-			return toVArray().toHash();
-		}
-
-		if (isObject()) {
-			return toVObject().toHash();
-		}
-
-		if (isMap()) {
-			return toVMap().toHash();
-		}
-
-		assert(0, "Malformed HeapValue");
+		return dispatch!fun(this);
 	}
 
 	/**
