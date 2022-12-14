@@ -41,7 +41,12 @@ struct Hasher {
 		return hash(Value(t));
 	}
 
-	hash_t hash(H)(H h) if (isHashable!H) {
+	hash_t hash(H)(const H h) if (isHashable!H) {
+		// Forward to the ref version.
+		return hash(h);
+	}
+
+	hash_t hash(H)(const ref H h) if (isHashable!H) {
 		state += h.toHash();
 		return state;
 	}
