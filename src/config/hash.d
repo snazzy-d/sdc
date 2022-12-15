@@ -41,6 +41,23 @@ struct Hasher {
 		return hash(Value(t));
 	}
 
+	hash_t hash()(typeof(null) nothing) {
+		return hash(Value(nothing));
+	}
+
+	hash_t hash(B : bool)(B b) {
+		return hash(Value(b));
+	}
+
+	hash_t hash(I : long)(I i) {
+		return hash(Value(i));
+	}
+
+	hash_t hash(F : double)(F f) {
+		state += Double(f).toPayload();
+		return state;
+	}
+
 	hash_t hash(H)(const H h) if (isHashable!H) {
 		// Forward to the ref version.
 		return hash(h);
@@ -51,7 +68,7 @@ struct Hasher {
 		return state;
 	}
 
-	hash_t hash(string s) {
+	hash_t hash(S : string)(S s) {
 		// Ensure we have a non zero hash for empty strings.
 		state += (s.length - 8);
 
@@ -103,6 +120,33 @@ struct Hasher {
 
 		return state;
 	}
+}
+
+unittest {
+	static void testValueHash(T)(T t) {
+		assert(hash(t) == hash(Value(t)));
+	}
+
+	testValueHash(null);
+	testValueHash(true);
+	testValueHash(false);
+	testValueHash("");
+	testValueHash("dqsflgjh");
+	testValueHash(0);
+	testValueHash(1);
+	testValueHash(12345);
+	testValueHash(0.0);
+	testValueHash(1.1);
+	testValueHash(float.nan);
+	testValueHash(float.infinity);
+	testValueHash(-float.nan);
+	testValueHash(-float.infinity);
+
+	testValueHash([null, null]);
+	testValueHash([true, false]);
+	testValueHash(["the", "lazy", "fox"]);
+	testValueHash([1, 2, 3, 4, 5]);
+	testValueHash([0.0, 1.1, 2.2, 3.3, float.infinity]);
 }
 
 unittest {
