@@ -478,7 +478,15 @@ public:
 	}
 
 	bool opEquals(const HeapValue rhs) const {
-		return rhs == this;
+		if (rhs.isObject()) {
+			return rhs.toVObject() == this;
+		}
+
+		if (rhs.isMap()) {
+			return rhs.toVMap() == this;
+		}
+
+		return false;
 	}
 
 	bool opEquals(const Value v) const {

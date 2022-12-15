@@ -336,7 +336,7 @@ public:
 		return isFloat() && floating == f;
 	}
 
-	bool opEquals(V)(V v) const if (.isHeapValue!V) {
+	bool opEquals(V)(V v) const if (.isHeapValue!V || isBoxedHeapValue!V) {
 		return isHeapValue() && heapValue == v;
 	}
 
@@ -510,7 +510,7 @@ unittest {
 
 // indexing
 unittest {
-	auto s = Value("this is a string");
+	Value s = "this is a string";
 	assert(s[null].isUndefined());
 	assert(s[true].isUndefined());
 	assert(s[0].isUndefined());
@@ -518,7 +518,7 @@ unittest {
 	assert(s[""].isUndefined());
 	assert(s["foo"].isUndefined());
 
-	auto a = Value([42]);
+	Value a = [42];
 	assert(a[null].isUndefined());
 	assert(a[true].isUndefined());
 	assert(a[0] == 42);
@@ -526,7 +526,7 @@ unittest {
 	assert(a[""].isUndefined());
 	assert(a["foo"].isUndefined());
 
-	auto o = Value(["foo": "bar"]);
+	Value o = ["foo": "bar"];
 	assert(o[null].isUndefined());
 	assert(o[true].isUndefined());
 	assert(o[0].isUndefined());
@@ -534,7 +534,7 @@ unittest {
 	assert(o[""].isUndefined());
 	assert(o["foo"] == "bar");
 
-	auto m = Value([1: "one"]);
+	Value m = [1: "one"];
 	assert(m[null].isUndefined());
 	assert(m[true].isUndefined());
 	assert(m[0].isUndefined());
@@ -545,7 +545,7 @@ unittest {
 
 // in operator
 unittest {
-	auto s = Value("this is a string");
+	Value s = "this is a string";
 	assert((null in s) == null);
 	assert((true in s) == null);
 	assert((0 in s) == null);
@@ -553,7 +553,7 @@ unittest {
 	assert(("" in s) == null);
 	assert(("foo" in s) == null);
 
-	auto o = Value(["foo": "bar"]);
+	Value o = ["foo": "bar"];
 	assert((null in o) == null);
 	assert((true in o) == null);
 	assert((0 in o) == null);
@@ -561,7 +561,7 @@ unittest {
 	assert(("" in o) == null);
 	assert(*("foo" in o) == "bar");
 
-	auto m = Value([1: "one"]);
+	Value m = [1: "one"];
 	assert((null in m) == null);
 	assert((true in m) == null);
 	assert((0 in m) == null);

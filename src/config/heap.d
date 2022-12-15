@@ -54,7 +54,7 @@ package:
 		this.tag = cast(Descriptor*) tag;
 	}
 
-	this(H)(H h) if (isHeapValue!H) {
+	this(H)(H h) if (isHeapValue!H || isBoxedHeapValue!H) {
 		this = h;
 	}
 
@@ -228,10 +228,6 @@ package:
 		assert(0, "Malformed HeapValue");
 	}
 
-	bool opEquals(const ref Value rhs) const {
-		return rhs == this;
-	}
-
 	bool opEquals(V)(V v) const if (isPrimitiveValue!V) {
 		return false;
 	}
@@ -334,7 +330,7 @@ public:
 	}
 
 	bool opEquals(const HeapValue rhs) const {
-		return rhs == this;
+		return rhs.isString() && rhs.toVString() == this;
 	}
 
 	bool opEquals(const Value v) const {
@@ -458,7 +454,7 @@ public:
 	}
 
 	bool opEquals(const HeapValue rhs) const {
-		return rhs == this;
+		return rhs.isArray() && rhs.toVArray() == this;
 	}
 
 	bool opEquals(const Value v) const {
