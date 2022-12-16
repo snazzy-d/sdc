@@ -333,7 +333,7 @@ public:
 	}
 
 	bool opEquals(F : double)(F f) const {
-		return isFloat() && floating == f;
+		return isFloat() && floating is f;
 	}
 
 	bool opEquals(V)(V v) const if (.isHeapValue!V || isBoxedHeapValue!V) {
@@ -345,16 +345,20 @@ public:
 	}
 
 	bool opEquals(const ref Value rhs) const {
-		// Special case floating point, because NaN != NaN .
-		if (isFloat() || rhs.isFloat()) {
-			return isFloat() && rhs.isFloat() && floating == rhs.floating;
-		}
-
-		// Floating point's NaN is the only value that is not equal to itself.
 		if (payload == rhs.payload) {
+			/**
+			 * Floating point's NaN is usually not equal to itself.
+			 * However, this forces us to special case them here,
+			 * as well as prevent short circuit on identity for arrays,
+			 * objects, maps and generally any structures that may
+			 * contains a float.
+			 *
+			 * So instead, we consider that NaN == NaN. Voila!
+			 */
 			return true;
 		}
 
+		// If payload are not equal, then check for heap value.
 		return isHeapValue() && rhs == heapValue;
 	}
 }
@@ -383,6 +387,10 @@ struct Double {
 
 // Assignement and comparison.
 unittest {
+	Value initVar;
+	assert(initVar.isUndefined());
+	assert(initVar == Value());
+
 	import std.meta;
 	alias Cases = AliasSeq!(
 		// sdfmt off
@@ -394,9 +402,10 @@ unittest {
 		42,
 		0.,
 		3.141592,
-		// float.nan,
 		float.infinity,
 		-float.infinity,
+		float.nan,
+		-float.nan,
 		"",
 		"foobar",
 		[1, 2, 3],
@@ -429,7 +438,7 @@ unittest {
 		}
 
 		static if (Type == "Float") {
-			assert(v.floating == expected);
+			assert(v.floating == expected || expected != expected);
 		} else {
 			import std.exception;
 			assertThrown!ValueException(v.floating);
@@ -453,7 +462,7 @@ unittest {
 		foreach (I; Cases) {
 			static if (!is(E == typeof(I))) {
 				assert(v != I);
-			} else if (I == expected) {
+			} else if (I is expected || I == expected) {
 				found = true;
 				assert(v == I);
 			} else {
@@ -461,13 +470,8 @@ unittest {
 			}
 		}
 
-		import std.conv;
-		assert(found, to!string(v));
+		assert(found, v.dump());
 	}
-
-	Value initVar;
-	assert(initVar.isUndefined());
-	assert(initVar == Value());
 
 	static testValue(string Type, E)(E expected) {
 		Value v = expected;
@@ -482,9 +486,10 @@ unittest {
 	testValue!"Integer"(42);
 	testValue!"Float"(0.);
 	testValue!"Float"(3.141592);
-	// testValue!"Float"(float.nan);
 	testValue!"Float"(float.infinity);
 	testValue!"Float"(-float.infinity);
+	testValue!"Float"(float.nan);
+	testValue!"Float"(-float.nan);
 	testValue!"String"("");
 	testValue!"String"("foobar");
 	testValue!"Array"([1, 2, 3]);
