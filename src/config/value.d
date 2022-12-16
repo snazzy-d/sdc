@@ -31,33 +31,33 @@ private:
 	 * The layout goes as follow:
 	 * +--------+------------------------------------------------+
 	 * | 0x0000 | true, false, null as well as pointers to heap. |
-	 * +--------+------------------------------------------------+
-	 * | 0x0001 |                                                |
-	 * |  ....  | Positive floating point numbers.               |
-	 * | 0x7ff0 |                                                |
-	 * +--------+------------------------------------------------+
-	 * | 0x7ff1 |                                                |
-	 * |  ....  | Infinity, signaling NaN.                       |
-	 * | 0x7ff8 |                                                |
-	 * +--------+------------------------------------------------+
-	 * | 0x7ff9 |                                                |
-	 * |  ....  | Quiet NaN. Unused.                             |
-	 * | 0x8000 |                                                |
-	 * +--------+------------------------------------------------+
-	 * | 0x8001 |                                                |
-	 * |  ....  | Negative floating point numbers.               |
-	 * | 0xfff0 |                                                |
-	 * +--------+------------------------------------------------+
-	 * | 0xfff1 |                                                |
-	 * |  ....  | -Infinity, signaling -NaN.                     |
-	 * | 0xfff8 |                                                |
-	 * +--------+------------------------------------------------+
-	 * | 0xfff9 |                                                |
-	 * |  ....  | Quiet -NaN. Unused.                            |
-	 * | 0xfffe |                                                |
 	 * +--------+--------+ --------------------------------------+
-	 * | 0xffff | 0x0000 | 32 bits integers.                     |
+	 * | 0x0001 | 0x0000 | 32 bits integers.                     |
 	 * +--------+--------+---------------------------------------+
+	 * | 0x0002 |                                                |
+	 * |  ....  | Positive floating point numbers.               |
+	 * | 0x7ff1 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0x7ff2 |                                                |
+	 * |  ....  | Infinity, signaling NaN.                       |
+	 * | 0x7ff9 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0x7ffa |                                                |
+	 * |  ....  | Quiet NaN. Unused.                             |
+	 * | 0x8001 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0x8002 |                                                |
+	 * |  ....  | Negative floating point numbers.               |
+	 * | 0xfff1 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0xfff2 |                                                |
+	 * |  ....  | -Infinity, signaling -NaN.                     |
+	 * | 0xfff9 |                                                |
+	 * +--------+------------------------------------------------+
+	 * | 0xfffa |                                                |
+	 * |  ....  | Quiet -NaN. Unused.                            |
+	 * | 0xffff |                                                |
+	 * +--------+------------------------------------------------+
 	 */
 	union {
 		ulong payload;
@@ -69,7 +69,7 @@ private:
 	// range in the double to store the pointers.
 	// Because theses ranges overlap, we offset the values of the
 	// double by a constant such as they do.
-	enum FloatOffset = 0x0001000000000000;
+	enum FloatOffset = 0x0002000000000000;
 
 	// If some of the bits in the mask are set, then this is a number.
 	// If all the bits are set, then this is an integer.
@@ -77,7 +77,7 @@ private:
 
 	// For convenience, we provide prefixes
 	enum HeapPrefix = 0x0000000000000000;
-	enum IntegerPrefix = 0xffff000000000000;
+	enum IntegerPrefix = 0x0001000000000000;
 
 	// A series of flags that allow for quick checks.
 	enum OtherFlag = 0x02;
@@ -161,7 +161,7 @@ public:
 	}
 
 	bool isFloat() const {
-		return isNumber() && !isInteger();
+		return payload >= FloatOffset;
 	}
 
 	@property
@@ -420,6 +420,8 @@ unittest {
 	);
 
 	static testAllValues(string Type, E)(Value v, E expected) {
+		assert(v.isNumber() == (Type == "Float" || Type == "Integer"));
+
 		import std.format;
 		assert(mixin(format!"v.is%s()"(Type)));
 
