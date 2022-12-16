@@ -279,8 +279,20 @@ struct VObjectKey {
 		return this;
 	}
 
-	bool opEquals(K)(K k) const if (isKeyLike!K) {
+	bool opEquals(const VString rhs) const {
+		return !isUndefined() && rhs == str;
+	}
+
+	bool opEquals(const ref Value rhs) const {
+		return !isUndefined() && rhs.isString() && rhs == str;
+	}
+
+	bool opEquals(K)(K k) const if (isStringValue!K) {
 		return !isUndefined() && str == k;
+	}
+
+	bool opEquals(K)(K k) const if (isKeyLike!K && !isStringValue!K) {
+		return false;
 	}
 }
 
@@ -489,14 +501,6 @@ public:
 		return false;
 	}
 
-	bool opEquals(const Value v) const {
-		return v == this;
-	}
-
-	bool opEquals(V)(V v) const if (isValue!V && !isMapLike!V) {
-		return false;
-	}
-
 private:
 	@property
 	inout(Bucket)[] buckets() inout {
@@ -652,10 +656,6 @@ unittest {
 		assert(a != Value(t));
 	}
 
-	testObjectEquality("");
-	testObjectEquality(1);
-	testObjectEquality(2.3);
-	testObjectEquality([1, 2, 3]);
 	testObjectEquality(["foo": "bar"]);
 	testObjectEquality([1: "fizz", 2: "buzz"]);
 
@@ -669,10 +669,6 @@ unittest {
 		assert(m != Value(t));
 	}
 
-	testMapEquality("");
-	testMapEquality(1);
-	testMapEquality(2.3);
-	testMapEquality([1, 2, 3]);
 	testMapEquality(["foo": "bar"]);
 	testMapEquality([1: "fizz", 2: "buzz"]);
 }

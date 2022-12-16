@@ -333,14 +333,6 @@ public:
 		return rhs.isString() && rhs.toVString() == this;
 	}
 
-	bool opEquals(const Value v) const {
-		return v == this;
-	}
-
-	bool opEquals(V)(V v) const if (isValue!V) {
-		return false;
-	}
-
 	hash_t toHash() const {
 		import config.hash;
 		return Hasher().hash(toString());
@@ -379,18 +371,8 @@ unittest {
 	assert(VString("test") != Value());
 	assert(VString("test") == Value("test"));
 
-	static testStringEquality(T)(T t) {
-		auto s = VString("test");
-		assert(s != t);
-		assert(s != Value(t));
-	}
-
-	testStringEquality("");
-	testStringEquality(1);
-	testStringEquality(2.3);
-	testStringEquality([1, 2, 3]);
-	testStringEquality(["foo": "bar"]);
-	testStringEquality([1: "fizz", 2: "buzz"]);
+	assert(VString("test") != "");
+	assert(VString("test") != Value(""));
 }
 
 struct VArray {
@@ -457,14 +439,6 @@ public:
 		return rhs.isArray() && rhs.toVArray() == this;
 	}
 
-	bool opEquals(const Value v) const {
-		return v == this;
-	}
-
-	bool opEquals(V)(V v) const if (isValue!V && !isArrayValue!V) {
-		return false;
-	}
-
 	hash_t toHash() const {
 		import config.hash;
 		return Hasher().hash(toArray());
@@ -508,18 +482,8 @@ unittest {
 	assert(VArray([9, 9, 9, 9]) != Value());
 	assert(VArray([9, 9, 9, 9]) == Value([9, 9, 9, 9]));
 
-	static testArrayEquality(T)(T t) {
-		auto a = VArray([9, 9, 9, 9]);
-		assert(a != t);
-		assert(a != Value(t));
-	}
-
-	testArrayEquality("");
-	testArrayEquality(1);
-	testArrayEquality(2.3);
-	testArrayEquality([1, 2, 3]);
-	testArrayEquality(["foo": "bar"]);
-	testArrayEquality([1: "fizz", 2: "buzz"]);
+	assert(VArray([9, 9, 9, 9]) != ["foo", "bar"]);
+	assert(VArray([9, 9, 9, 9]) != Value(["foo", "bar"]));
 
 	auto a = VArray([0, 11, 22, 33, 44, 55]);
 	assert(a[-1].isUndefined());
