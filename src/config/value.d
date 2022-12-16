@@ -18,12 +18,11 @@ private:
 	 * 
 	 * NaN have a lot of bits we can play with in their payload. However,
 	 * the range over which NaNs occuirs does not allow to store pointers
-	 * 'as this'. this is a problem as the GC would then be unable to
+	 * 'as this'. This is a problem as the GC would then be unable to
 	 * recognize them and might end up freeing live memory.
 	 * 
-	 * In order to work around that limitation, the whole range is
-	 * shifted by FloatOffset so that the 0x0000 prefix overlap
-	 * with pointers.
+	 * In order to work around that limitation, the whole range is shifted
+	 * by FloatOffset so that the 0x0000 prefix overlap with pointers.
 	 * 
 	 * The value of the floating point number can be retrieved by
 	 * subtracting FloatOffset from the payload's value.
