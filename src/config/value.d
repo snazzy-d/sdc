@@ -74,8 +74,7 @@ private:
 	// If all the bits are set, then this is an integer.
 	enum RangeMask = 0xffff000000000000;
 
-	// For convenience, we provide prefixes
-	enum HeapPrefix = 0x0000000000000000;
+	// For convenience, we provide prefixes.
 	enum IntegerPrefix = 0x0001000000000000;
 
 	// A series of flags that allow for quick checks.
@@ -182,7 +181,7 @@ public:
 			return false;
 		}
 
-		return (payload & (RangeMask | OtherFlag)) == HeapPrefix;
+		return (payload & (RangeMask | OtherFlag)) == 0;
 	}
 
 	@property
