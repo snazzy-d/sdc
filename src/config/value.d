@@ -378,7 +378,7 @@ public:
 	}
 
 	bool opEquals(B : bool)(B b) const {
-		return isBoolean() && boolean == b;
+		return payload == (OtherFlag | BoolFlag | b);
 	}
 
 	bool opEquals(I : long)(I i) const {
@@ -386,7 +386,7 @@ public:
 	}
 
 	bool opEquals(F : double)(F f) const {
-		return isFloat() && floating is f;
+		return payload == Double(f).toPayload();
 	}
 
 	bool opEquals(V)(V v) const if (.isHeapValue!V || isBoxedHeapValue!V) {
