@@ -247,6 +247,29 @@ public:
 	}
 
 	/**
+	 * Conversion.
+	 */
+	bool opCast(B : bool)() const {
+		/**
+		 * What is false? Baby don't hurt me...
+		 *   - undefined
+		 *   - null
+		 *   - false (duh!)
+		 *   - 0
+		 *   - 0.0
+		 *   - ""
+		 *   - []
+		 *   - {}
+		 */
+		enum FalseMask = OtherFlag | BoolFlag | IntegerPrefix;
+		if (((payload | FalseMask) == FalseMask) || (payload == FloatOffset)) {
+			return false;
+		}
+
+		return !isHeapValue() || length > 0;
+	}
+
+	/**
 	 * Misc
 	 */
 	string dump() const {
@@ -573,6 +596,33 @@ unittest {
 	assert(*(1 in m) == "one");
 	assert(("" in m) == null);
 	assert(("foo" in m) == null);
+}
+
+// bool conversion
+unittest {
+	assert(!!Value() == false);
+	assert(!!Value(null) == false);
+	assert(!!Value(true) == true);
+	assert(!!Value(false) == false);
+	assert(!!Value(0) == false);
+	assert(!!Value(1) == true);
+	assert(!!Value(42) == true);
+	assert(!!Value(0.0) == false);
+	assert(!!Value(-0.0) == true);
+	assert(!!Value(1.0) == true);
+	assert(!!Value(-1.0) == true);
+	assert(!!Value(float.infinity) == true);
+	assert(!!Value(-float.infinity) == true);
+	assert(!!Value(float.nan) == true);
+	assert(!!Value(-float.nan) == true);
+	assert(!!Value("") == false);
+	assert(!!Value("hello!") == true);
+	assert(!!Value((int[]).init) == false);
+	assert(!!Value([1, 2, 3]) == true);
+	assert(!!Value((string[string]).init) == false);
+	assert(!!Value(["foo": "bar"]) == true);
+	assert(!!Value((int[string]).init) == false);
+	assert(!!Value([1: "one"]) == true);
 }
 
 // string conversion.

@@ -12,13 +12,13 @@ struct Config {
 			return;
 		}
 
-		if (auto ip = "includePaths" in add) {
+		if (auto ip = add["includePaths"]) {
 			import std.algorithm, std.range;
 			includePaths = ip.toArray().map!(i => i.toString())
 			                 .chain(includePaths).array();
 		}
 
-		if (auto lp = "libPaths" in add) {
+		if (auto lp = add["libPaths"]) {
 			import std.algorithm, std.range;
 			linkerPaths =
 				lp.toArray().map!(i => i.toString()).chain(linkerPaths).array();
