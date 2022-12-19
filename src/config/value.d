@@ -185,7 +185,7 @@ public:
 	}
 
 	@property
-	size_t length() const in(isHeapValue()) {
+	uint length() const in(isHeapValue()) {
 		if (isHeapValue()) {
 			return heapValue.length;
 		}
@@ -201,6 +201,47 @@ public:
 	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
 			if (isKeyLike!K) {
 		return isHeapValue() ? key in heapValue : null;
+	}
+
+	static struct Range {
+	private:
+		uint index;
+		uint _length;
+
+		Value data;
+		Value _front;
+
+		this(const ref Value data) {
+			index = 0;
+			_length = data.isHeapValue() ? data.length : 0;
+
+			this.data = data;
+			_front = data[0];
+		}
+
+	public:
+		@property
+		Value front() const {
+			return _front;
+		}
+
+		void popFront() {
+			_front = data[++index];
+		}
+
+		@property
+		uint length() const {
+			return _length;
+		}
+
+		@property
+		bool empty() const {
+			return index >= length;
+		}
+	}
+
+	Range opIndex() const {
+		return Range(this);
 	}
 
 	/**
@@ -224,15 +265,6 @@ public:
 	 */
 	bool isArray() const {
 		return isHeapValue() && heapValue.isArray();
-	}
-
-	inout(Value)[] toArray() inout {
-		if (isArray()) {
-			return heapValue.toVArray().toArray();
-		}
-
-		import std.format;
-		throw new ValueException(format!"%s is not an array."(dump()));
 	}
 
 	/**
@@ -472,13 +504,6 @@ unittest {
 		} else {
 			import std.exception;
 			assertThrown!ValueException(v.toString());
-		}
-
-		static if (Type == "Array") {
-			assert(v.toArray() == expected);
-		} else {
-			import std.exception;
-			assertThrown!ValueException(v.toArray());
 		}
 
 		bool found = false;
