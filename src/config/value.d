@@ -205,28 +205,24 @@ public:
 
 	static struct Range {
 	private:
-		uint index;
-		uint _length;
-
 		Value data;
-		Value _front;
+		uint _length;
+		uint index;
 
 		this(const ref Value data) {
-			index = 0;
-			_length = data.isHeapValue() ? data.length : 0;
-
 			this.data = data;
-			_front = data[0];
+			_length = data.isHeapValue() ? data.length : 0;
+			index = 0;
 		}
 
 	public:
 		@property
 		Value front() const {
-			return _front;
+			return data[index];
 		}
 
 		void popFront() {
-			_front = data[++index];
+			index++;
 		}
 
 		@property
