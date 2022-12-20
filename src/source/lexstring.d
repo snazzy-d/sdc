@@ -262,7 +262,7 @@ mixin template LexStringImpl(Token,
 	}
 
 	EscapeSequence lexEscapeSequence(uint begin) {
-		char c = frontChar;
+		dchar c = frontChar;
 		switch (c) {
 			case '\'', '"', '\\', '?':
 				break;
@@ -304,8 +304,10 @@ mixin template LexStringImpl(Token,
 
 			case 'x':
 				popChar();
-				if (decodeNHexCharacters(c)) {
-					return EscapeSequence(c);
+
+				char decoded;
+				if (decodeNHexCharacters(decoded)) {
+					return EscapeSequence(decoded);
 				}
 
 				import std.format;
@@ -324,16 +326,24 @@ mixin template LexStringImpl(Token,
 			case '&':
 				assert(0, "HTML5 named character references not implemented");
 
-			default:
-				dchar d;
+			case '\0':
+				goto Error;
 
-				import source.util.utf8, std.format;
+			default:
+				import source.util.utf8;
+				if (!decode(content, index, c)) {
+					return getEscapeSequenceError(begin,
+					                              "Invalid UTF-8 sequence.");
+				}
+
+				goto Error;
+
+			Error:
+				import std.format;
 				return getEscapeSequenceError(
 					begin,
-					decode(content, index, d)
-						? format!"%(%s%) is not a valid escape sequence."(
-							(&d)[0 .. 1])
-						: "Invalid UTF-8 sequence."
+					format!"%(%s%) is not a valid escape sequence."(
+						(&c)[0 .. 1])
 				);
 		}
 
@@ -385,7 +395,7 @@ unittest {
 		lex.match(TokenType.Begin);
 
 		auto t = lex.match(TokenType.Invalid);
-		assert(t.error.toString(context) == error);
+		assert(t.error.toString(context) == error, t.error.toString(context));
 	}
 
 	auto checkTokenSequence(string s, TokenType[] tokenTypes) {
@@ -465,6 +475,8 @@ unittest {
 	checkLexString(`"\'\"\?\0\a\b\f\r\n\t\v"`, "\'\"\?\0\a\b\f\r\n\t\v");
 	checkLexInvalid(`"\c"`, "'c' is not a valid escape sequence.");
 	checkLexInvalid(`"\α"`, "'α' is not a valid escape sequence.");
+
+	checkLexInvalid(`'\`, `'\0' is not a valid escape sequence.`);
 
 	checkLexChar(`'\"'`, 0x22);
 	checkLexChar(`'\''`, 0x27);
