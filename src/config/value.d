@@ -203,6 +203,10 @@ public:
 		return isHeapValue() ? key in heapValue : null;
 	}
 
+	inout(Value) at(size_t index) inout {
+		return isHeapValue() ? heapValue.at(index) : Value();
+	}
+
 	static struct Range {
 	private:
 		Value data;
@@ -218,7 +222,7 @@ public:
 	public:
 		@property
 		Value front() const {
-			return data[index];
+			return data.at(index);
 		}
 
 		void popFront() {
@@ -617,6 +621,28 @@ unittest {
 	assert(*(1 in m) == "one");
 	assert(("" in m) == null);
 	assert(("foo" in m) == null);
+}
+
+// range
+unittest {
+	void checkRange(T)(Value v, T[] expected) {
+		assert(v.length == expected.length);
+		assert(v[].length == expected.length);
+
+		size_t i = 0;
+		foreach (Value e; v[]) {
+			assert(e == expected[i++]);
+		}
+	}
+
+	Value a = [1, 2, 3, 4, 5];
+	checkRange(a, [1, 2, 3, 4, 5]);
+
+	Value o = ["foo": "bar"];
+	checkRange(o, ["bar"]);
+
+	Value m = [1: "one"];
+	checkRange(m, ["one"]);
 }
 
 // bool conversion

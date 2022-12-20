@@ -263,6 +263,22 @@ package:
 
 		return null;
 	}
+
+	inout(Value) at(size_t index) inout {
+		if (isArray()) {
+			return toVArray().at(index);
+		}
+
+		if (isObject()) {
+			return toVObject().at(index);
+		}
+
+		if (isMap()) {
+			return toVMap().at(index);
+		}
+
+		return Value();
+	}
 }
 
 unittest {
@@ -414,6 +430,10 @@ public:
 
 	inout(Value) opIndex(V)(V v) inout if (isValue!V) {
 		return Value();
+	}
+
+	inout(Value) at(size_t index) inout {
+		return this[index];
 	}
 
 	bool opEquals(A)(A a) const if (isArrayValue!A) {
