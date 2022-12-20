@@ -88,7 +88,7 @@ private:
 	enum UndefinedValue = 0x00;
 
 public:
-	this(T)(T t) {
+	this(T)(T t) if (isValue!T) {
 		this = t;
 	}
 
@@ -194,17 +194,28 @@ public:
 		throw new ValueException(format!"%s does not have length."(dump()));
 	}
 
+	inout(Value) at(size_t index) inout {
+		return isHeapValue() ? heapValue.at(index) : Value();
+	}
+
 	inout(Value) opIndex(K)(K key) inout if (isKeyLike!K) {
 		return isHeapValue() ? heapValue[key] : Value();
+	}
+
+	void opIndexAssign(K, V)(V value, K key) if (isKeyLike!K && isValue!V) {
+		if (isHeapValue()) {
+			heapValue[key] = value;
+			return;
+		}
+
+		import std.format;
+		throw new ValueException(
+			format!"%s[%s] cannot be assigned to."(dump(), Value(key).dump()));
 	}
 
 	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
 			if (isKeyLike!K) {
 		return isHeapValue() ? key in heapValue : null;
-	}
-
-	inout(Value) at(size_t index) inout {
-		return isHeapValue() ? heapValue.at(index) : Value();
 	}
 
 	static struct Range {
@@ -594,6 +605,37 @@ unittest {
 	assert(m[1] == "one");
 	assert(m[""].isUndefined());
 	assert(m["foo"].isUndefined());
+}
+
+// index assign
+unittest {
+	const Value base = [1, 2, 3, 4, 5];
+
+	Value a = base;
+	a[2] = "banana";
+
+	foreach (i; 0 .. 5) {
+		assert(base[i] == i + 1);
+
+		if (i == 2) {
+			assert(a[i] == "banana");
+		} else {
+			assert(a[i] == i + 1);
+		}
+	}
+
+	a[10] = 123;
+	foreach (i; 0 .. 10) {
+		if (i == 2) {
+			assert(a[i] == "banana");
+		} else if (i == 10) {
+			assert(a[i] == 123);
+		} else if (i > 4) {
+			assert(a[i].isUndefined());
+		} else {
+			assert(a[i] == i + 1);
+		}
+	}
 }
 
 // in operator

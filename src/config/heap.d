@@ -27,6 +27,10 @@ package:
 		this.length = length;
 	}
 
+	bool release() {
+		return HeapValue(&this).release();
+	}
+
 public:
 	bool isString() const {
 		return kind == Kind.String;
@@ -235,6 +239,22 @@ package:
 	/**
 	 * Indexing features.
 	 */
+	inout(Value) at(size_t index) inout {
+		if (isArray()) {
+			return toVArray().at(index);
+		}
+
+		if (isObject()) {
+			return toVObject().at(index);
+		}
+
+		if (isMap()) {
+			return toVMap().at(index);
+		}
+
+		return Value();
+	}
+
 	inout(Value) opIndex(K)(K key) inout if (isKeyLike!K) {
 		if (isArray()) {
 			return toVArray()[key];
@@ -251,6 +271,21 @@ package:
 		return Value();
 	}
 
+	void opIndexAssign(K, V)(V value, K key) if (isKeyLike!K && isValue!V) {
+		if (isString()) {
+			import std.format;
+			throw new ValueException(
+				format!"string %s cannot be assigned to."(dump()));
+		}
+
+		if (isArray()) {
+			toVArray()[key] = value;
+			return;
+		}
+
+		assert(0, "TODO");
+	}
+
 	inout(Value)* opBinaryRight(string op : "in", K)(K key) inout
 			if (isKeyLike!K) {
 		if (isObject()) {
@@ -262,22 +297,6 @@ package:
 		}
 
 		return null;
-	}
-
-	inout(Value) at(size_t index) inout {
-		if (isArray()) {
-			return toVArray().at(index);
-		}
-
-		if (isObject()) {
-			return toVObject().at(index);
-		}
-
-		if (isMap()) {
-			return toVMap().at(index);
-		}
-
-		return Value();
 	}
 }
 
@@ -402,11 +421,7 @@ private:
 
 public:
 	this(A)(A a) if (isArrayValue!A) in(a.length < uint.max) {
-		import core.memory;
-		impl = cast(Impl*) GC.malloc(Impl.sizeof + Value.sizeof * a.length,
-		                             GC.BlkAttr.APPENDABLE);
-
-		tag = Descriptor(Kind.Array, a.length & uint.max);
+		impl = allocateWithLength(a.length & uint.max);
 
 		foreach (i, ref e; toArray()) {
 			e.clear();
@@ -418,6 +433,10 @@ public:
 		foreach (ref a; toArray()) {
 			a.destroy();
 		}
+	}
+
+	inout(Value) at(size_t index) inout {
+		return this[index];
 	}
 
 	inout(Value) opIndex(size_t index) inout {
@@ -432,8 +451,31 @@ public:
 		return Value();
 	}
 
-	inout(Value) at(size_t index) inout {
-		return this[index];
+	void opIndexAssign(I : uint, V)(V value, I index) if (isValue!V) {
+		if (index >= tag.length || tag.refCount != 0) {
+			auto old = this;
+
+			import std.algorithm;
+			auto l = max(tag.length, index + 1);
+			impl = allocateWithLength(l);
+
+			foreach (i, ref e; toArray()) {
+				e.clear();
+			}
+
+			auto a = toArray().ptr;
+			foreach (i, ref e; old.toArray()) {
+				a[i] = e;
+			}
+
+			old.tag.release();
+		}
+
+		toArray().ptr[index] = value;
+	}
+
+	void opIndexAssign(K, V)(V value, K key) if (isKeyLike!K && isValue!V) {
+		assert(0, "Promote to whatever.");
 	}
 
 	bool opEquals(A)(A a) const if (isArrayValue!A) {
@@ -472,6 +514,15 @@ public:
 	inout(Value)[] toArray() inout {
 		auto ptr = cast(inout Value*) (impl + 1);
 		return ptr[0 .. tag.length];
+	}
+
+	static allocateWithLength(uint length) {
+		import core.memory;
+		auto ptr = cast(Impl*) GC
+			.malloc(Impl.sizeof + Value.sizeof * length, GC.BlkAttr.APPENDABLE);
+
+		ptr.tag = Descriptor(Kind.Array, length);
+		return ptr;
 	}
 }
 
