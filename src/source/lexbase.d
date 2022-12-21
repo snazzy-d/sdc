@@ -1,12 +1,16 @@
 module source.lexbase;
 
 mixin template LexBaseUtils() {
-	uint popChar() in(index < content.length) {
-		return index++;
+	uint popChar(uint count = 1) in(index + count <= content.length) {
+		auto ret = index;
+		index += count;
+		return ret;
 	}
 
-	uint unpopChar() in(index > 1) {
-		return index--;
+	uint unpopChar(uint count = 1) in(index > count) {
+		auto ret = index;
+		index -= count;
+		return ret;
 	}
 
 	@property
@@ -427,7 +431,7 @@ private:
 		while (remainingContent.length > 8
 			       && canSkipOverComment!8(remainingContent, state)) {
 			pstate = state;
-			index += 8;
+			popChar(8);
 		}
 
 		auto c = frontChar;
@@ -462,7 +466,7 @@ private:
 				                                     state2)) {
 				pstate1 = state1;
 				pstate2 = state2;
-				index += 8;
+				popChar(8);
 			}
 
 			auto c = frontChar;

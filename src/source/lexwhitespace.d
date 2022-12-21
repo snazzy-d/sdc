@@ -117,7 +117,7 @@ mixin template LexWhiteSpaceImpl() {
 			import source.swar.newline;
 			while (remainingContent.length > 8
 				       && canSkipOverLine!8(remainingContent)) {
-				index += 8;
+				popChar(8);
 			}
 
 			// canSkipOverLine has false positives, such as '\f' and '\v',
