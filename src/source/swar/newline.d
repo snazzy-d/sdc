@@ -4,67 +4,56 @@ module source.swar.newline;
  * Check if we can skip over the next N character when
  * searching for the end of line.
  */
-bool canSkipOverLine(uint N)(string s) {
-	import std.format;
-	static assert(
-		N == 2 || N == 4 || N == 8,
-		format!"canSkipOverLine only supports size 2, 4 and 8, not %d."(N)
-	);
-
-	if (s.length < N) {
-		return false;
+bool canSkipOver8CharsInLine(string s, ref ulong state) {
+	ulong v;
+	if (s.length >= 8) {
+		import source.swar.util;
+		v = read!ulong(s);
+	} else {
+		// Pad with line feed so we don't skip past
+		// the end of the input.
+		v = 0x0a0a0a0a0a0a0a0a << (8 * s.length);
+		foreach (i; 0 .. s.length) {
+			v |= ulong(s[i]) << (8 * i);
+		}
 	}
 
-	import std.meta;
-	alias T = AliasSeq!(ushort, uint, ulong)[N / 4];
-
-	import source.swar.util;
-	auto v = read!T(s);
-
-	enum T Mask = 0x8080808080808080 & T.max;
+	enum MSBs = 0x8080808080808080;
 
 	// Clear the high bits so we can avoid spill over.
-	auto ascii = (v ^ Mask) & Mask;
-	auto utf8 = v & Mask;
-	v &= ~Mask;
+	auto ascii = (v ^ MSBs) & MSBs;
+	auto utf8 = v & MSBs;
+	v &= ~MSBs;
 
 	// Set the high bit from '\n' to '\r'.
-	auto lessThanCR = (cast(T) 0x8d8d8d8d8d8d8d8d) - v;
-	auto moreThanLF = v + cast(T) 0x7676767676767676;
+	auto lessThanCR = 0x8d8d8d8d8d8d8d8d - v;
+	auto moreThanLF = v + 0x7676767676767676;
 	auto combined0 = lessThanCR & moreThanLF & ascii;
 
 	// Set high bit for utf-8 ranges c2 and e2.
-	v |= cast(T) 0x2020202020202020;
-	auto lessThanE2 = (cast(T) 0xe2e2e2e2e2e2e2e2) - v;
-	auto moreThanE2 = v + cast(T) 0x1e1e1e1e1e1e1e1e;
+	v |= 0x2020202020202020;
+	auto lessThanE2 = 0xe2e2e2e2e2e2e2e2 - v;
+	auto moreThanE2 = v + 0x1e1e1e1e1e1e1e1e;
 	auto combined1 = lessThanE2 & moreThanE2 & utf8;
 
-	return (combined0 | combined1) == 0;
+	state = combined0 | combined1;
+	return state == 0;
+}
+
+uint getSkippableCharsCount(ulong state)
+		in(state != 0 && (state & 0x8080808080808080) == state) {
+	import core.bitop;
+	return bsf((state * 0x0002040810204081) >> 56);
 }
 
 unittest {
-	static check0(string s) {
-		assert(!canSkipOverLine!2(s), s);
-		assert(!canSkipOverLine!4(s), s);
-		assert(!canSkipOverLine!8(s), s);
-	}
-
-	static check2(string s) {
-		assert(canSkipOverLine!2(s), s);
-		assert(!canSkipOverLine!4(s), s);
-		assert(!canSkipOverLine!8(s), s);
-	}
-
-	static check4(string s) {
-		assert(canSkipOverLine!2(s), s);
-		assert(canSkipOverLine!4(s), s);
-		assert(!canSkipOverLine!8(s), s);
-	}
-
-	static check8(string s) {
-		assert(canSkipOverLine!2(s), s);
-		assert(canSkipOverLine!4(s), s);
-		assert(canSkipOverLine!8(s), s);
+	static check(string s, uint count) {
+		ulong state;
+		if (canSkipOver8CharsInLine(s, state)) {
+			assert(count >= 8);
+		} else {
+			assert(getSkippableCharsCount(state) == count);
+		}
 	}
 
 	static mayIndicateLineBreak(char c) {
@@ -77,24 +66,20 @@ unittest {
 		}
 	}
 
-	check0("");
+	check("", 0);
 
 	// Test all combinations of 2 characters.
 	foreach (char c0; 0 .. 256) {
 		immutable char[1] s0 = [c0];
-
-		check0(s0[]);
-
 		bool c0nl = mayIndicateLineBreak(c0);
+
+		check(s0[], !c0nl);
+
 		foreach (char c1; 0 .. 256) {
 			immutable char[2] s1 = [c0, c1];
-
 			bool c1nl = mayIndicateLineBreak(c1);
-			if (c0nl || c1nl) {
-				check0(s1[]);
-			} else {
-				check2(s1[]);
-			}
+
+			check(s1[], !c0nl + !(c0nl || c1nl));
 
 			static immutable char[] Chars =
 				['\n' - 1, '\r' + 1, '\n' | 0x80, '\r' | 0x80, 0xc1, 0xc3, 0x42,
@@ -102,22 +87,16 @@ unittest {
 			foreach (char c3; Chars) {
 				foreach (char c4; Chars) {
 					immutable char[4] s2 = [c0, c1, c3, c4];
+					check(s2[], !c0nl + 3 * !(c0nl || c1nl));
+
 					immutable char[4] s3 = [c4, c3, c1, c0];
+					check(s3[], 2 + !c1nl + !(c0nl || c1nl));
 
 					immutable char[8] s4 = [c0, c1, c0, c1, c0, c1, c3, c4];
-					immutable char[8] s5 = [c4, c3, c3, c4, c3, c4, c1, c0];
+					check(s4[], !c0nl + 7 * !(c0nl || c1nl));
 
-					if (c0nl || c1nl) {
-						check0(s2[]);
-						check2(s3[]);
-						check0(s4[]);
-						check4(s5[]);
-					} else {
-						check4(s2[]);
-						check4(s3[]);
-						check8(s4[]);
-						check8(s5[]);
-					}
+					immutable char[8] s5 = [c4, c3, c3, c4, c3, c4, c1, c0];
+					check(s5[], 6 + !c1nl + !(c0nl || c1nl));
 				}
 			}
 		}

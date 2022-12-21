@@ -10,7 +10,7 @@ bool startsWith8DecDigits(string s, ref ulong state) {
 		v = read!ulong(s);
 	} else {
 		foreach (i; 0 .. s.length) {
-			v |= s[i] << (i * 8);
+			v |= ulong(s[i]) << (8 * i);
 		}
 	}
 

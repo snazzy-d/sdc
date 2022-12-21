@@ -114,36 +114,25 @@ mixin template LexWhiteSpaceImpl() {
 
 	uint popLine() {
 		while (true) {
+			ulong state;
+
 			import source.swar.newline;
-			while (remainingContent.length > 8
-				       && canSkipOverLine!8(remainingContent)) {
+			while (canSkipOver8CharsInLine(
+				       content.ptr[index .. content.length - 1], state)) {
 				popChar(8);
 			}
 
-			// canSkipOverLine has false positives, such as '\f' and '\v',
-			// so we limit ourselves to 8 characters at most.
-			foreach (i; 0 .. 8) {
-				// The end of the file is defintively the end of the line.
-				if (reachedEOF()) {
-					return index;
-				}
+			popChar(getSkippableCharsCount(state));
 
-				// Skip over non line break cheaply.
-				char c = frontChar;
-				if ((c < '\n' || '\r' < c) && ((c | 0x20) != 0xe2)) {
-					popChar();
-					continue;
-				}
-
-				uint end = index;
-				if (popLineBreak()) {
-					return end;
-				}
-
-				// A flase positive, get back to the fast track.
-				popChar();
-				break;
+			// canSkipOver8CharsInLine has false positives, such as '\f' and '\v',
+			// so we need to check we actually have a line break.
+			uint end = index;
+			if (popLineBreak()) {
+				return end;
 			}
+
+			// A false positive, get back to the fast track.
+			popChar();
 		}
 	}
 }
