@@ -3,61 +3,46 @@ module source.swar.dec;
 /**
  * Check we have enough digits in front of us to use SWAR.
  */
-bool startsWithDecDigits(uint N)(string s) {
-	import std.format;
-	static assert(
-		N == 2 || N == 4 || N == 8,
-		format!"startsWithDecDigits only supports size 2, 4 and 8, not %d."(N)
-	);
-
-	if (s.length < N) {
-		return false;
+bool startsWith8DecDigits(string s, ref ulong state) {
+	ulong v;
+	if (s.length >= 8) {
+		import source.swar.util;
+		v = read!ulong(s);
+	} else {
+		foreach (i; 0 .. s.length) {
+			v |= s[i] << (i * 8);
+		}
 	}
 
-	import std.meta;
-	alias T = AliasSeq!(ushort, uint, ulong)[N / 4];
-
-	import source.swar.util;
-	auto v = read!T(s);
-
 	// Set the high bit if the character isn't between '0' and '9'.
-	auto lessThan0 = v - cast(T) 0x3030303030303030;
-	auto moreThan9 = v + cast(T) 0x4646464646464646;
+	auto lessThan0 = v - 0x3030303030303030;
+	auto moreThan9 = v + 0x4646464646464646;
 
 	// Combine
 	auto c = lessThan0 | moreThan9;
 
 	// Check that none of the high bits are set.
-	enum T Mask = 0x8080808080808080 & T.max;
-	return (c & Mask) == 0;
+	state = c & 0x8080808080808080;
+	return state == 0;
+}
+
+uint getDigitCount(ulong state)
+		in(state != 0 && (state & 0x8080808080808080) == state) {
+	import core.bitop;
+	return bsf((state * 0x0002040810204081) >> 56);
 }
 
 unittest {
-	static check0(string s) {
-		assert(!startsWithDecDigits!2(s), s);
-		assert(!startsWithDecDigits!4(s), s);
-		assert(!startsWithDecDigits!8(s), s);
+	static check(string s, uint count) {
+		ulong state;
+		if (startsWith8DecDigits(s, state)) {
+			assert(count >= 8);
+		} else {
+			assert(getDigitCount(state) == count);
+		}
 	}
 
-	static check2(string s) {
-		assert(startsWithDecDigits!2(s), s);
-		assert(!startsWithDecDigits!4(s), s);
-		assert(!startsWithDecDigits!8(s), s);
-	}
-
-	static check4(string s) {
-		assert(startsWithDecDigits!2(s), s);
-		assert(startsWithDecDigits!4(s), s);
-		assert(!startsWithDecDigits!8(s), s);
-	}
-
-	static check8(string s) {
-		assert(startsWithDecDigits!2(s), s);
-		assert(startsWithDecDigits!4(s), s);
-		assert(startsWithDecDigits!8(s), s);
-	}
-
-	check0("");
+	check("", 0);
 
 	static bool isDecChar(char c) {
 		return '0' <= c && c <= '9';
@@ -66,39 +51,30 @@ unittest {
 	// Test all combinations of 2 characters.
 	foreach (char c0; 0 .. 256) {
 		immutable char[1] s0 = [c0];
-		check0(s0[]);
-
 		auto isC0Dec = isDecChar(c0);
+
+		check(s0[], isC0Dec);
+
 		foreach (char c1; 0 .. 256) {
 			immutable char[2] s1 = [c0, c1];
-
 			auto isC1Dec = isDecChar(c1);
-			if (isC0Dec && isC1Dec) {
-				check2(s1[]);
-			} else {
-				check0(s1[]);
-			}
+
+			check(s1[], isC0Dec + (isC0Dec && isC1Dec));
 
 			static immutable char[] Chars = ['0', '9'];
 			foreach (char c3; Chars) {
 				foreach (char c4; Chars) {
 					immutable char[4] s2 = [c0, c1, c3, c4];
+					check(s2[], isC0Dec + 3 * (isC0Dec && isC1Dec));
+
 					immutable char[4] s3 = [c4, c3, c1, c0];
+					check(s3[], 2 + isC1Dec + (isC0Dec && isC1Dec));
 
 					immutable char[8] s4 = [c0, c1, c0, c1, c0, c1, c3, c4];
-					immutable char[8] s5 = [c4, c3, c3, c4, c3, c4, c1, c0];
+					check(s4[], isC0Dec + 7 * (isC0Dec && isC1Dec));
 
-					if (isC0Dec && isC1Dec) {
-						check4(s2[]);
-						check4(s3[]);
-						check8(s4[]);
-						check8(s5[]);
-					} else {
-						check0(s2[]);
-						check2(s3[]);
-						check0(s4[]);
-						check4(s5[]);
-					}
+					immutable char[8] s5 = [c4, c3, c3, c4, c3, c4, c1, c0];
+					check(s5[], 6 + isC1Dec + (isC0Dec && isC1Dec));
 				}
 			}
 		}
@@ -119,9 +95,9 @@ private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
 
 	/**
 	 * We could simply go for
-	 *     return v - cast(T) 0x0f0f0f0f0f0f0f0f;
+	 *     return v & cast(T) 0x0f0f0f0f0f0f0f0f;
 	 * but this form is prefered as the computation is
-	 * already done in startsWithDecDigits.
+	 * already done in startsWith8DecDigits.
 	 */
 	return v - cast(T) 0x3030303030303030;
 }
@@ -135,7 +111,9 @@ ubyte parseDecDigits(T : ubyte)(string s) in(s.length >= 2) {
 unittest {
 	foreach (s, v; ["00": 0, "09": 9, "10": 10, "28": 28, "42": 42, "56": 56,
 	                "73": 73, "99": 99]) {
-		assert(startsWithDecDigits!2(s), s);
+		ulong state;
+		assert(!startsWith8DecDigits(s, state), s);
+		assert(getDigitCount(state) == 2, s);
 		assert(parseDecDigits!ubyte(s) == v, s);
 	}
 }
@@ -156,7 +134,9 @@ ushort parseDecDigits(T : ushort)(string s) in(s.length >= 4) {
 unittest {
 	foreach (s, v; ["0000": 0, "0123": 123, "4567": 4567, "5040": 5040,
 	                "8901": 8901, "9999": 9999]) {
-		assert(startsWithDecDigits!4(s), s);
+		ulong state;
+		assert(!startsWith8DecDigits(s, state), s);
+		assert(getDigitCount(state) == 4, s);
 		assert(parseDecDigits!ushort(s) == v, s);
 	}
 }
@@ -184,7 +164,8 @@ unittest {
 	foreach (s, v;
 		["00000000": 0, "01234567": 1234567, "10000019": 10000019,
 		 "34567890": 34567890, "52350178": 52350178, "99999999": 99999999]) {
-		assert(startsWithDecDigits!8(s), s);
+		ulong state;
+		assert(startsWith8DecDigits(s, state), s);
 		assert(parseDecDigits!uint(s) == v, s);
 	}
 }

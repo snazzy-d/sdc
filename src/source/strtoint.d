@@ -34,26 +34,47 @@ unittest {
 ulong strToDecInt(string s) {
 	ulong result = 0;
 
-Start:
-	import source.swar.dec;
-	while (startsWithDecDigits!8(s)) {
-		result *= 100000000;
-		result += parseDecDigits!uint(s);
-		s = s[8 .. $];
-	}
+	while (true) {
+		ulong state;
 
-	foreach (i; 0 .. s.length) {
-		auto c = s[i];
-		if (c == '_') {
-			s = s[i + 1 .. $];
-			goto Start;
+		import source.swar.dec;
+		while (startsWith8DecDigits(s, state)) {
+			result *= 100000000;
+			result += parseDecDigits!uint(s);
+			s = s[8 .. $];
 		}
 
-		assert('0' <= c && c <= '9', "Only digits are accepted here.");
-		result = (10 * result) + (c & 0x0f);
-	}
+		auto digitCount = getDigitCount(state);
 
-	return result;
+		if (digitCount >= 4) {
+			digitCount -= 4;
+			result *= 10000;
+			result += parseDecDigits!short(s);
+			s = s[4 .. $];
+		}
+
+		if (digitCount >= 2) {
+			digitCount -= 2;
+			result *= 100;
+			result += parseDecDigits!ubyte(s);
+			s = s[2 .. $];
+		}
+
+		if (digitCount >= 1) {
+			digitCount -= 1;
+			result *= 10;
+			result += s[0] & 0x0f;
+			s = s[1 .. $];
+		}
+
+		assert(digitCount == 0, "Invalid digit count.");
+		if (s.length > 0 && s[0] == '_') {
+			s = s[1 .. $];
+			continue;
+		}
+
+		return result;
+	}
 }
 
 unittest {
