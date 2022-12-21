@@ -41,7 +41,17 @@
 			"targetType": "library",
 			"targetPath": "lib",
 			"targetName": "source",
-			"sourcePaths": ["src/source/"]
+			"sourcePaths": ["src/source/"],
+			"dependencies": {
+				"sdc:util": { "version": "*" }
+			}
+		},
+		{
+			"name": "util",
+			"targetType": "library",
+			"targetPath": "lib",
+			"targetName": "util",
+			"sourcePaths": ["src/util/"]
 		}
 	]
 }
