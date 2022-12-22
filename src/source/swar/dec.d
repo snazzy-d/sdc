@@ -142,10 +142,7 @@ unittest {
 	}
 }
 
-uint parseDecDigits(T : uint)(string s) in(s.length >= 8) {
-	// v = [a, b, c, d, e, f, g, h]
-	auto v = loadBuffer!ulong(s);
-
+private uint reduceValue(ulong v) {
 	// v = [ba, dc, fe, hg]
 	v *= 2561;
 
@@ -161,6 +158,11 @@ uint parseDecDigits(T : uint)(string s) in(s.length >= 8) {
 	return (a + b) >> 32;
 }
 
+uint parseDecDigits(T : uint)(string s) in(s.length >= 8) {
+	auto v = loadBuffer!ulong(s);
+	return reduceValue(v);
+}
+
 unittest {
 	foreach (s, v;
 		["00000000": 0, "01234567": 1234567, "10000019": 10000019,
@@ -168,5 +170,32 @@ unittest {
 		ulong state;
 		assert(startsWith8DecDigits(s, state), s);
 		assert(parseDecDigits!uint(s) == v, s);
+	}
+}
+
+uint parseDecDigits(string s, uint count) in(count < 8 && s.length >= count) {
+	ulong v;
+	if (s.length >= 8) {
+		import source.swar.util;
+		v = read!ulong(s);
+	} else {
+		foreach (i; 0 .. s.length) {
+			v |= ulong(s[i]) << (8 * i);
+		}
+	}
+
+	v <<= 8;
+	v <<= (56 - 8 * count);
+	v &= 0x0f0f0f0f0f0f0f0f;
+
+	return reduceValue(v);
+}
+
+unittest {
+	foreach (s, v; ["0000a000": 0, "0123456!": 123456, "100000": 100000,
+	                "345678^!": 345678, "523501": 523501, "9999999": 9999999]) {
+		ulong state;
+		assert(!startsWith8DecDigits(s, state), s);
+		assert(parseDecDigits(s, getDigitCount(state)) == v, s);
 	}
 }

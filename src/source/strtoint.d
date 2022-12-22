@@ -44,30 +44,14 @@ ulong strToDecInt(string s) {
 			s = s[8 .. $];
 		}
 
+		static immutable uint[8] POWERS_OF_10 =
+			[1, 10, 100, 1000, 10000, 100000, 1000000, 10000000];
+
 		auto digitCount = getDigitCount(state);
+		result *= POWERS_OF_10[digitCount];
+		result += parseDecDigits(s, digitCount);
+		s = s[digitCount .. $];
 
-		if (digitCount >= 4) {
-			digitCount -= 4;
-			result *= 10000;
-			result += parseDecDigits!short(s);
-			s = s[4 .. $];
-		}
-
-		if (digitCount >= 2) {
-			digitCount -= 2;
-			result *= 100;
-			result += parseDecDigits!ubyte(s);
-			s = s[2 .. $];
-		}
-
-		if (digitCount >= 1) {
-			digitCount -= 1;
-			result *= 10;
-			result += s[0] & 0x0f;
-			s = s[1 .. $];
-		}
-
-		assert(digitCount == 0, "Invalid digit count.");
 		if (s.length > 0 && s[0] == '_') {
 			s = s[1 .. $];
 			continue;
