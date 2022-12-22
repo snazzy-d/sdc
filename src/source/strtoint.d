@@ -137,35 +137,49 @@ unittest {
 ulong strToHexInt(string s) {
 	ulong result = 0;
 
-Start:
-	import source.swar.hex;
-	while (startsWithHexDigits!8(s)) {
-		result <<= 32;
-		result |= parseHexDigits!uint(s);
-		s = s[8 .. $];
-	}
+	while (true) {
+		ulong state;
 
-	if (startsWithHexDigits!4(s)) {
-		result <<= 16;
-		result |= parseHexDigits!ushort(s);
-		s = s[4 .. $];
-	}
-
-	foreach (i; 0 .. s.length) {
-		auto c = s[i];
-		if (c == '_') {
-			s = s[i + 1 .. $];
-			goto Start;
+		import source.swar.hex;
+		while (startsWith8HexDigits(s, state)) {
+			result <<= 32;
+			result |= parseHexDigits!uint(s);
+			s = s[8 .. $];
 		}
 
-		import std.ascii;
-		assert(isHexDigit(c), "Only hex digits are accepted here.");
+		auto digitCount = getDigitCount(state);
 
-		auto n = (c & 0x0f) + 9 * (c >> 6);
-		result = (result << 4) | n;
+		if (digitCount >= 4) {
+			digitCount -= 4;
+			result <<= 16;
+			result |= parseHexDigits!short(s);
+			s = s[4 .. $];
+		}
+
+		if (digitCount >= 2) {
+			digitCount -= 2;
+			result <<= 8;
+			result |= parseHexDigits!ubyte(s);
+			s = s[2 .. $];
+		}
+
+		if (digitCount >= 1) {
+			digitCount -= 1;
+			result <<= 4;
+
+			auto c = s[0];
+			result |= (c & 0x0f) + 9 * (c >> 6);
+			s = s[1 .. $];
+		}
+
+		assert(digitCount == 0, "Invalid digit count.");
+		if (s.length > 0 && s[0] == '_') {
+			s = s[1 .. $];
+			continue;
+		}
+
+		return result;
 	}
-
-	return result;
 }
 
 unittest {

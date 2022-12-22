@@ -118,6 +118,27 @@ mixin template LexNumericImpl(
 		return lexFloatSuffix(begin, 0);
 	}
 
+	void popDigits(alias startsWith8Digits, alias getDigitCount)() {
+		while (true) {
+			while (frontChar == '_') {
+				popChar();
+			}
+
+			ulong state;
+			while (startsWith8Digits(remainingContent, state)) {
+				popChar(8);
+			}
+
+			popChar(getDigitCount(state));
+
+			if (frontChar != '_') {
+				return;
+			}
+
+			popChar();
+		}
+	}
+
 	/**
 	 * Binary literals.
 	 */
@@ -173,11 +194,8 @@ mixin template LexNumericImpl(
 	}
 
 	void popHexadecimal() {
-		auto c = frontChar;
-		while (isHexadecimal(c) || c == '_') {
-			popChar();
-			c = frontChar;
-		}
+		import source.swar.hex;
+		popDigits!(startsWith8HexDigits, getDigitCount)();
 	}
 
 	Token lexNumeric(string s : "0X")() {
@@ -212,23 +230,8 @@ mixin template LexNumericImpl(
 	}
 
 	void popDecimal() {
-		while (true) {
-			ulong state;
-
-			import source.swar.dec;
-			while (startsWith8DecDigits(remainingContent, state)) {
-				popChar(8);
-			}
-
-			popChar(getDigitCount(state));
-
-			if (frontChar == '_') {
-				popChar();
-				continue;
-			}
-
-			return;
-		}
+		import source.swar.dec;
+		popDigits!(startsWith8DecDigits, getDigitCount)();
 	}
 
 	auto lexNumeric(string s)() if (s.length == 1 && isDecimal(s[0])) {

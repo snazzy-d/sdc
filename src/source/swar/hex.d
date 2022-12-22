@@ -3,22 +3,26 @@ module source.swar.hex;
 /**
  * Check we have enough digits in front of us to use SWAR.
  */
-bool startsWithHexDigits(uint N)(string s) {
-	import std.format;
-	static assert(
-		N == 2 || N == 4 || N == 8,
-		format!"startsWithHexDigits only supports size 2, 4 and 8, not %d."(N)
-	);
+bool startsWith8HexDigits(string s, ref ulong state) {
+	return startsWithHexDigits!ulong(s, state);
+}
 
-	if (s.length < N) {
-		return false;
+uint getDigitCount(ulong state)
+		in(state != 0 && (state & 0x8080808080808080) == state) {
+	import core.bitop;
+	return bsf((state * 0x0002040810204081) >> 56);
+}
+
+private bool startsWithHexDigits(T)(string s, ref T state) {
+	T v;
+	if (s.length >= T.sizeof) {
+		import source.swar.util;
+		v = read!T(s);
+	} else {
+		foreach (i; 0 .. s.length) {
+			v |= T(s[i]) << (8 * i);
+		}
 	}
-
-	import std.meta;
-	alias T = AliasSeq!(ushort, uint, ulong)[N / 4];
-
-	import source.swar.util;
-	auto v = read!T(s);
 
 	// Set the high bit if the character isn't between '0' and '9'.
 	auto lessThan0 = v - cast(T) 0x3030303030303030;
@@ -34,7 +38,26 @@ bool startsWithHexDigits(uint N)(string s) {
 
 	// Check that none of the high bits are set.
 	enum T Mask = 0x8080808080808080 & T.max;
-	return (c & Mask) == 0;
+	state = c & Mask;
+	return state == 0;
+}
+
+bool startsWithHexDigits(uint N)(string s) {
+	import std.format;
+	static assert(
+		N == 2 || N == 4 || N == 8,
+		format!"startsWithHexDigits only supports size 2, 4 and 8, not %d."(N)
+	);
+
+	if (s.length < N) {
+		return false;
+	}
+
+	import std.meta;
+	alias T = AliasSeq!(ushort, uint, ulong)[N / 4];
+
+	T state;
+	return startsWithHexDigits(s, state);
 }
 
 unittest {
