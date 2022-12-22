@@ -147,11 +147,8 @@ mixin template LexNumericImpl(
 	}
 
 	void popBinary() {
-		auto c = frontChar;
-		while (isBinary(c) || c == '_') {
-			popChar();
-			c = frontChar;
-		}
+		import source.swar.bin;
+		popDigits!(startsWith8BinDigits, getDigitCount)();
 	}
 
 	Token lexNumeric(string s : "0B")() {

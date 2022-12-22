@@ -89,26 +89,28 @@ unittest {
 ulong strToBinInt(string s) {
 	ulong result = 0;
 
-Start:
-	import source.swar.bin;
-	while (startsWithBinDigits!8(s)) {
-		result <<= 8;
-		result |= parseBinDigits!ubyte(s);
-		s = s[8 .. $];
-	}
+	while (true) {
+		ulong state;
 
-	foreach (i; 0 .. s.length) {
-		auto c = s[i];
-		if (c == '_') {
-			s = s[i + 1 .. $];
-			goto Start;
+		import source.swar.bin;
+		while (startsWith8BinDigits(s, state)) {
+			result <<= 8;
+			result |= parseBinDigits(s);
+			s = s[8 .. $];
 		}
 
-		assert(c == '0' || c == '1', "Only 0 and 1 are accepted here.");
-		result = (result << 1) | (c & 0x01);
-	}
+		auto digitCount = getDigitCount(state);
+		result <<= digitCount;
+		result |= parseBinDigits(s, digitCount);
+		s = s[digitCount .. $];
 
-	return result;
+		if (s.length > 0 && s[0] == '_') {
+			s = s[1 .. $];
+			continue;
+		}
+
+		return result;
+	}
 }
 
 unittest {

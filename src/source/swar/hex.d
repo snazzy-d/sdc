@@ -154,7 +154,8 @@ unittest {
  */
 private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
 	// v = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-	auto v = *(cast(T*) s.ptr);
+	import source.swar.util;
+	auto v = read!T(s);
 
 	/**
 	 * For '0' to '9', the lower bits are what we are looking for.

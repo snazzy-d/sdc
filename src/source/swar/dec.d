@@ -91,7 +91,8 @@ unittest {
  * Archive: https://archive.ph/of2xZ
  */
 private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
-	auto v = *(cast(T*) s.ptr);
+	import source.swar.util;
+	auto v = read!T(s);
 
 	/**
 	 * We could simply go for
