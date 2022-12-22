@@ -212,10 +212,22 @@ mixin template LexNumericImpl(
 	}
 
 	void popDecimal() {
-		auto c = frontChar;
-		while (isDecimal(c) || c == '_') {
-			popChar();
-			c = frontChar;
+		while (true) {
+			ulong state;
+
+			import source.swar.dec;
+			while (startsWith8DecDigits(remainingContent, state)) {
+				popChar(8);
+			}
+
+			popChar(getDigitCount(state));
+
+			if (frontChar == '_') {
+				popChar();
+				continue;
+			}
+
+			return;
 		}
 	}
 
