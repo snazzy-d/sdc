@@ -79,18 +79,23 @@ unittest {
 /**
  * Parse binary numbers using SWAR.
  */
-ubyte parseBinDigits(string s) in(s.length >= 8) {
-	import source.swar.util;
-	auto v = read!ulong(s);
+private ubyte computeValue(ulong v) {
 	v &= 0x0101010101010101;
 	v *= 0x8040201008040201;
 	return v >> 56;
 }
 
+ubyte parseBinDigits(string s) in(s.length >= 8) {
+	import source.swar.util;
+	auto v = read!ulong(s);
+	return computeValue(v);
+}
+
 unittest {
 	foreach (s, v;
 		["00000000": 0x00, "01001001": 0x49, "01010101": 0x55, "10101010": 0xaa,
-		 "11000000": 0xc0, "11011011": 0xdb, "11111111": 0xff]) {
+		 "11000000": 0xc0, "11100111": 0xe7, "11011011": 0xdb, "11111111": 0xff]
+	) {
 		ulong state;
 		assert(startsWith8BinDigits(s, state), s);
 		assert(parseBinDigits(s) == v, s);
@@ -108,9 +113,7 @@ ubyte parseBinDigits(string s, uint count) in(count <= 8 && s.length >= count) {
 		}
 	}
 
-	v &= 0x0101010101010101;
-	v *= 0x8040201008040201;
-	return (v >> 56) >> (8 - count);
+	return computeValue(v) >> (8 - count);
 }
 
 unittest {
