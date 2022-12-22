@@ -102,7 +102,7 @@ unittest {
 	}
 }
 
-ubyte parseBinDigits(string s, uint count) in(count <= 8 && s.length >= count) {
+ubyte parseBinDigits(string s, uint count) in(count < 8 && s.length >= count) {
 	ulong v;
 	if (s.length >= 8) {
 		import source.swar.util;

@@ -152,11 +152,7 @@ unittest {
  * http://0x80.pl/notesen/2014-10-09-pext-convert-ascii-hex-to-num.html
  * Archive: https://archive.ph/dpMxo
  */
-private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
-	// v = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-	import source.swar.util;
-	auto v = read!T(s);
-
+private auto computeValue(T)(T v) {
 	/**
 	 * For '0' to '9', the lower bits are what we are looking for.
 	 * For letters, we get 'a'/'A'=1, 'b'/'B'=2, etc...
@@ -168,6 +164,12 @@ private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
 
 	// v = [a, b, c, d, e, f, g, h]
 	return base + fixup;
+}
+
+private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
+	import source.swar.util;
+	auto v = read!T(s);
+	return computeValue(v);
 }
 
 ubyte parseHexDigits(T : ubyte)(string s) in(s.length >= 2) {
@@ -230,10 +232,7 @@ unittest {
 	}
 }
 
-uint parseHexDigits(T : uint)(string s) in(s.length >= 8) {
-	// v = [a, b, c, d, e, f, g, h]
-	auto v = loadBuffer!ulong(s);
-
+private uint reduceValue(ulong v) {
 	// v = [ba, dc, fe, hg]
 	v |= v << 12;
 
@@ -247,6 +246,11 @@ uint parseHexDigits(T : uint)(string s) in(s.length >= 8) {
 
 	// hgfedcba
 	return (a | b) >> 32;
+}
+
+uint parseHexDigits(T : uint)(string s) in(s.length >= 8) {
+	auto v = loadBuffer!ulong(s);
+	return reduceValue(v);
 }
 
 unittest {
@@ -266,5 +270,38 @@ unittest {
 	]) {
 		assert(startsWithHexDigits!8(s), s);
 		assert(parseHexDigits!uint(s) == v, s);
+	}
+}
+
+uint parseHexDigits(string s, uint count) in(count < 8 && s.length >= count) {
+	ulong v;
+	if (s.length >= 8) {
+		import source.swar.util;
+		v = read!ulong(s);
+	} else {
+		foreach (i; 0 .. s.length) {
+			v |= ulong(s[i]) << (8 * i);
+		}
+	}
+
+	v = computeValue(v) & 0x0f0f0f0f0f0f0f0f;
+	return ulong(reduceValue(v)) >> (32 - 4 * count);
+}
+
+unittest {
+	foreach (s, v; [
+		"0000G000": 0x00000000,
+		"9999999!": 0x09999999,
+		"aaaaaa++": 0x00aaaaaa,
+		"fffffff": 0x0fffffff,
+		"BAAAAAD": 0xbaaaaad,
+		"BAAAAD": 0xbaaaad,
+		"BAAAD": 0xbaaad,
+		"BAAD": 0xbaad,
+		"BAD": 0xbad,
+	]) {
+		ulong state;
+		assert(!startsWith8HexDigits(s, state), s);
+		assert(parseHexDigits(s, getDigitCount(state)) == v, s);
 	}
 }

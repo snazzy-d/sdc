@@ -150,31 +150,10 @@ ulong strToHexInt(string s) {
 		}
 
 		auto digitCount = getDigitCount(state);
+		result <<= (4 * digitCount);
+		result |= parseHexDigits(s, digitCount);
+		s = s[digitCount .. $];
 
-		if (digitCount >= 4) {
-			digitCount -= 4;
-			result <<= 16;
-			result |= parseHexDigits!short(s);
-			s = s[4 .. $];
-		}
-
-		if (digitCount >= 2) {
-			digitCount -= 2;
-			result <<= 8;
-			result |= parseHexDigits!ubyte(s);
-			s = s[2 .. $];
-		}
-
-		if (digitCount >= 1) {
-			digitCount -= 1;
-			result <<= 4;
-
-			auto c = s[0];
-			result |= (c & 0x0f) + 9 * (c >> 6);
-			s = s[1 .. $];
-		}
-
-		assert(digitCount == 0, "Invalid digit count.");
 		if (s.length > 0 && s[0] == '_') {
 			s = s[1 .. $];
 			continue;
@@ -198,4 +177,5 @@ unittest {
 	assert(strToHexInt("FFFFFFFFFFFFFFFF") == 18446744073709551615);
 	assert(strToHexInt("123456789abcdef") == 81985529216486895);
 	assert(strToHexInt("a_B_c") == 2748);
+	assert(strToHexInt("_01") == 1);
 }
