@@ -80,7 +80,7 @@ private ubyte computeValue(ulong v) {
 
 ubyte parseBinDigits(string s) in(s.length >= 8) {
 	import source.swar.util;
-	auto v = readRaw!ulong(s);
+	auto v = unalignedLoad!ulong(s);
 	return computeValue(v);
 }
 

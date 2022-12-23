@@ -85,7 +85,7 @@ unittest {
  */
 private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
 	import source.swar.util;
-	auto v = readRaw!T(s);
+	auto v = unalignedLoad!T(s);
 
 	/**
 	 * We could simply go for

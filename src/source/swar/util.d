@@ -1,12 +1,12 @@
 module source.swar.util;
 
-auto readRaw(T)(string s) in(s.length >= T.sizeof) {
+auto unalignedLoad(T)(string s) in(s.length >= T.sizeof) {
 	return *(cast(T*) s.ptr);
 }
 
 auto read(T)(string s) {
 	if (s.length >= T.sizeof) {
-		return readRaw!T(s);
+		return unalignedLoad!T(s);
 	}
 
 	T v;
@@ -17,13 +17,13 @@ auto read(T)(string s) {
 	return v;
 }
 
-auto readRaw(T)(const(ubyte)[] data) in(data.length >= T.sizeof) {
+auto unalignedLoad(T)(const(ubyte)[] data) in(data.length >= T.sizeof) {
 	return *(cast(T*) data.ptr);
 }
 
 auto read(T)(const(ubyte)[] data) {
 	if (data.length >= T.sizeof) {
-		return readRaw!T(data);
+		return unalignedLoad!T(data);
 	}
 
 	T v;
