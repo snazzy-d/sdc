@@ -9,7 +9,7 @@ import source.name;
 
 /**
  * Parse a whole module.
- * This is the regular entry point in the parser
+ * This is the regular entry point in the parser.
  */
 auto parseModule(ref TokenRange trange) {
 	Location location = trange.front.location;

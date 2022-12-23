@@ -191,8 +191,7 @@ Declaration parseEnum(ref TokenRange trange, StorageClass stc)
 			break;
 
 		default:
-			// TODO: error.
-			trange.match(Begin);
+			throw unexpectedTokenError(trange, "an identifier, `:` or `{`");
 	}
 
 	trange.match(TokenType.OpenBrace);

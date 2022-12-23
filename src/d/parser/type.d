@@ -149,10 +149,7 @@ auto parseBasicType(ref TokenRange trange) {
 			return AstType.get(BuiltinType.Real);
 
 		default:
-			trange.match(Begin);
-			// TODO: handle.
-			// Erreur, basic type expected.
-			assert(0, "Expected BasicType");
+			throw unexpectedTokenError(trange, "a type");
 	}
 }
 

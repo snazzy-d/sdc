@@ -345,8 +345,7 @@ AstExpression parseComparaisonExpression(ref TokenRange trange,
 					break;
 
 				default:
-					trange.match(TokenType.Begin);
-					break;
+					throw unexpectedTokenError(trange, "is or in");
 			}
 
 			break;
@@ -748,9 +747,7 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 					break;
 			}
 
-			// TODO: error message that make sense.
-			trange.match(Begin);
-			assert(0, "Implement proper error handling :)");
+			throw unexpectedTokenError(trange, "an expression");
 	}
 }
 
@@ -812,9 +809,7 @@ AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange,
 							break;
 
 						default:
-							// TODO: error message that make sense.
-							trange.match(Begin);
-							break;
+							throw unexpectedTokenError(trange, "`]` or `..`");
 					}
 				}
 

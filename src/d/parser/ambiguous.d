@@ -120,10 +120,7 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 			}
 
 		default:
-			trange.match(Begin);
-			// TODO: handle.
-			// Erreur, unexpected.
-			assert(0);
+			throw unexpectedTokenError(trange, "a type or an expression");
 	}
 }
 
@@ -450,9 +447,8 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 					goto Type;
 
 				default:
-					// XXX: have a proper error message.
-					trange.match(Begin);
-					assert(0);
+					throw
+						unexpectedTokenError(trange, "a type or an expression");
 			}
 
 		case Dot:

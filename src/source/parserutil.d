@@ -20,6 +20,19 @@ auto match(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
 	throw new CompileException(token.location, error);
 }
 
+auto unexpectedTokenError(Lexer)(ref Lexer lexer, string expected) {
+	auto token = lexer.front;
+
+	import std.conv, std.string;
+	auto error = token.type == Lexer.TokenType.Invalid
+		? token.error.toString(lexer.context)
+		: format!"expected %s, not `%s`."(expected,
+		                                  token.toString(lexer.context));
+
+	import source.exception;
+	return new CompileException(token.location, error);
+}
+
 bool popOnMatch(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
 	auto token = lexer.front;
 	if (token.type != type) {

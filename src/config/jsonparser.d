@@ -88,9 +88,7 @@ Value parseJsonValue(ref JsonLexer lexer) {
 			return lexer.parseJsonObject();
 
 		default:
-			// TODO: actually handle this.
-			lexer.match(Begin);
-			assert(0, "Expected JSON value");
+			throw unexpectedTokenError(lexer, "a JSON value");
 	}
 }
 
