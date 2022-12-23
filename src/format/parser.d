@@ -2141,10 +2141,10 @@ private:
 			case BangEqual:
 				return 6;
 
-			case More:
-			case MoreEqual:
-			case Less:
-			case LessEqual:
+			case GreaterThan:
+			case GreaterEqual:
+			case SmallerThan:
+			case SmallerEqual:
 				return 6;
 
 			case LessLess:

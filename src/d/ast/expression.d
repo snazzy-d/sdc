@@ -87,10 +87,10 @@ enum AstBinaryOp {
 	NotIdentical,
 	In,
 	NotIn,
-	Greater,
+	GreaterThan,
 	GreaterEqual,
-	Less,
-	LessEqual,
+	SmallerThan,
+	SmallerEqual,
 
 	// Weird float operators
 	LessGreater,

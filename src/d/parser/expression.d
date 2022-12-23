@@ -60,82 +60,66 @@ AstExpression parseAssignExpression(ref TokenRange trange) {
 
 AstExpression parseAssignExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseTernaryExpression(lhs);
-	Location location = lhs.location;
 
-	void processToken(AstBinaryOp op) {
+	static auto processToken(ref TokenRange trange, AstExpression lhs,
+	                         AstBinaryOp op) {
+		auto location = lhs.location;
 		trange.popFront();
 
 		auto rhs = trange.parsePrefixExpression();
 		rhs = trange.parseAssignExpression(rhs);
 
 		location.spanTo(rhs.location);
-
-		lhs = new AstBinaryExpression(location, op, lhs, rhs);
+		return new AstBinaryExpression(location, op, lhs, rhs);
 	}
 
 	switch (trange.front.type) with (AstBinaryOp) with (TokenType) {
 		case Equal:
-			processToken(Assign);
-			break;
+			return processToken(trange, lhs, Assign);
 
 		case PlusEqual:
-			processToken(AddAssign);
-			break;
+			return processToken(trange, lhs, AddAssign);
 
 		case MinusEqual:
-			processToken(SubAssign);
-			break;
+			return processToken(trange, lhs, SubAssign);
 
 		case StarEqual:
-			processToken(MulAssign);
-			break;
+			return processToken(trange, lhs, MulAssign);
 
 		case SlashEqual:
-			processToken(DivAssign);
-			break;
+			return processToken(trange, lhs, DivAssign);
 
 		case PercentEqual:
-			processToken(RemAssign);
-			break;
+			return processToken(trange, lhs, RemAssign);
 
 		case AmpersandEqual:
-			processToken(AndAssign);
-			break;
+			return processToken(trange, lhs, AndAssign);
 
 		case PipeEqual:
-			processToken(OrAssign);
-			break;
+			return processToken(trange, lhs, OrAssign);
 
 		case CaretEqual:
-			processToken(XorAssign);
-			break;
+			return processToken(trange, lhs, XorAssign);
 
 		case TildeEqual:
-			processToken(ConcatAssign);
-			break;
+			return processToken(trange, lhs, ConcatAssign);
 
 		case LessLessEqual:
-			processToken(LeftShiftAssign);
-			break;
+			return processToken(trange, lhs, LeftShiftAssign);
 
 		case MoreMoreEqual:
-			processToken(SignedRightShiftAssign);
-			break;
+			return processToken(trange, lhs, SignedRightShiftAssign);
 
 		case MoreMoreMoreEqual:
-			processToken(UnsignedRightShiftAssign);
-			break;
+			return processToken(trange, lhs, UnsignedRightShiftAssign);
 
 		case CaretCaretEqual:
-			processToken(PowAssign);
-			break;
+			return processToken(trange, lhs, PowAssign);
 
 		default:
 			// No assignement.
-			break;
+			return lhs;
 	}
-
-	return lhs;
 }
 
 /**
@@ -257,105 +241,84 @@ AstExpression parseComparaisonExpression(ref TokenRange trange) {
 AstExpression parseComparaisonExpression(ref TokenRange trange,
                                          AstExpression lhs) {
 	lhs = trange.parseShiftExpression(lhs);
-	Location location = lhs.location;
 
-	void processToken(AstBinaryOp op) {
+	static auto processToken(ref TokenRange trange, AstExpression lhs,
+	                         AstBinaryOp op) {
+		auto location = lhs.location;
 		trange.popFront();
 
 		auto rhs = trange.parseShiftExpression();
 
 		location.spanTo(rhs.location);
-		lhs = new AstBinaryExpression(location, op, lhs, rhs);
+		return new AstBinaryExpression(location, op, lhs, rhs);
 	}
 
 	switch (trange.front.type) with (TokenType) {
 		case EqualEqual:
-			processToken(AstBinaryOp.Equal);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.Equal);
 
 		case BangEqual:
-			processToken(AstBinaryOp.NotEqual);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.NotEqual);
 
-		case More:
-			processToken(AstBinaryOp.Greater);
-			break;
+		case GreaterThan:
+			return processToken(trange, lhs, AstBinaryOp.GreaterThan);
 
-		case MoreEqual:
-			processToken(AstBinaryOp.GreaterEqual);
-			break;
+		case GreaterEqual:
+			return processToken(trange, lhs, AstBinaryOp.GreaterEqual);
 
-		case Less:
-			processToken(AstBinaryOp.Less);
-			break;
+		case SmallerThan:
+			return processToken(trange, lhs, AstBinaryOp.SmallerThan);
 
-		case LessEqual:
-			processToken(AstBinaryOp.LessEqual);
-			break;
+		case SmallerEqual:
+			return processToken(trange, lhs, AstBinaryOp.SmallerEqual);
 
 		case BangLessMoreEqual:
-			processToken(AstBinaryOp.Unordered);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.Unordered);
 
 		case BangLessMore:
-			processToken(AstBinaryOp.UnorderedEqual);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.UnorderedEqual);
 
 		case LessMore:
-			processToken(AstBinaryOp.LessGreater);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.LessGreater);
 
 		case LessMoreEqual:
-			processToken(AstBinaryOp.LessEqualGreater);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.LessEqualGreater);
 
 		case BangMore:
-			processToken(AstBinaryOp.UnorderedLessEqual);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.UnorderedLessEqual);
 
 		case BangMoreEqual:
-			processToken(AstBinaryOp.UnorderedLess);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.UnorderedLess);
 
 		case BangLess:
-			processToken(AstBinaryOp.UnorderedGreaterEqual);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.UnorderedGreaterEqual);
 
 		case BangLessEqual:
-			processToken(AstBinaryOp.UnorderedGreater);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.UnorderedGreater);
 
 		case Is:
-			processToken(AstBinaryOp.Identical);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.Identical);
 
 		case In:
-			processToken(AstBinaryOp.In);
-			break;
+			return processToken(trange, lhs, AstBinaryOp.In);
 
 		case Bang:
 			trange.popFront();
 			switch (trange.front.type) {
 				case Is:
-					processToken(AstBinaryOp.NotIdentical);
-					break;
+					return processToken(trange, lhs, AstBinaryOp.NotIdentical);
 
 				case In:
-					processToken(AstBinaryOp.NotIn);
-					break;
+					return processToken(trange, lhs, AstBinaryOp.NotIn);
 
 				default:
 					throw unexpectedTokenError(trange, "is or in");
 			}
 
-			break;
-
 		default:
 			// We have no comparaison, so we just return.
-			break;
+			return lhs;
 	}
-
-	return lhs;
 }
 
 /**
@@ -368,29 +331,30 @@ AstExpression parseShiftExpression(ref TokenRange trange) {
 
 AstExpression parseShiftExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseAddExpression(lhs);
-	Location location = lhs.location;
 
 	while (true) {
-		void processToken(AstBinaryOp op) {
+		static auto processToken(ref TokenRange trange, AstExpression lhs,
+		                         AstBinaryOp op) {
+			auto location = lhs.location;
 			trange.popFront();
 
 			auto rhs = trange.parseAddExpression();
 
 			location.spanTo(rhs.location);
-			lhs = new AstBinaryExpression(location, op, lhs, rhs);
+			return new AstBinaryExpression(location, op, lhs, rhs);
 		}
 
 		switch (trange.front.type) with (AstBinaryOp) with (TokenType) {
 			case LessLess:
-				processToken(LeftShift);
+				lhs = processToken(trange, lhs, LeftShift);
 				break;
 
 			case MoreMore:
-				processToken(SignedRightShift);
+				lhs = processToken(trange, lhs, SignedRightShift);
 				break;
 
 			case MoreMoreMore:
-				processToken(UnsignedRightShift);
+				lhs = processToken(trange, lhs, UnsignedRightShift);
 				break;
 
 			default:
@@ -409,29 +373,30 @@ AstExpression parseAddExpression(ref TokenRange trange) {
 
 AstExpression parseAddExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseMulExpression(lhs);
-	Location location = lhs.location;
 
 	while (true) {
-		void processToken(AstBinaryOp op) {
+		static auto processToken(ref TokenRange trange, AstExpression lhs,
+		                         AstBinaryOp op) {
+			auto location = lhs.location;
 			trange.popFront();
 
 			auto rhs = trange.parseMulExpression();
 
 			location.spanTo(rhs.location);
-			lhs = new AstBinaryExpression(location, op, lhs, rhs);
+			return new AstBinaryExpression(location, op, lhs, rhs);
 		}
 
 		switch (trange.front.type) with (AstBinaryOp) with (TokenType) {
 			case Plus:
-				processToken(Add);
+				lhs = processToken(trange, lhs, Add);
 				break;
 
 			case Minus:
-				processToken(Sub);
+				lhs = processToken(trange, lhs, Sub);
 				break;
 
 			case Tilde:
-				processToken(Concat);
+				lhs = processToken(trange, lhs, Concat);
 				break;
 
 			default:
@@ -449,29 +414,29 @@ AstExpression parseMulExpression(ref TokenRange trange) {
 }
 
 AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
-	Location location = lhs.location;
-
 	while (true) {
-		void processToken(AstBinaryOp op) {
+		static auto processToken(ref TokenRange trange, AstExpression lhs,
+		                         AstBinaryOp op) {
+			auto location = lhs.location;
 			trange.popFront();
 
 			auto rhs = trange.parsePrefixExpression();
 
 			location.spanTo(rhs.location);
-			lhs = new AstBinaryExpression(location, op, lhs, rhs);
+			return new AstBinaryExpression(location, op, lhs, rhs);
 		}
 
 		switch (trange.front.type) with (AstBinaryOp) with (TokenType) {
 			case Star:
-				processToken(Mul);
+				lhs = processToken(trange, lhs, Mul);
 				break;
 
 			case Slash:
-				processToken(Div);
+				lhs = processToken(trange, lhs, Div);
 				break;
 
 			case Percent:
-				processToken(Rem);
+				lhs = processToken(trange, lhs, Rem);
 				break;
 
 			default:
@@ -488,48 +453,48 @@ private AstExpression parsePrefixExpression(
 )(ref TokenRange trange) {
 	AstExpression result;
 
-	void processToken(UnaryOp op) {
-		Location location = trange.front.location;
+	static auto processToken(ref TokenRange trange, UnaryOp op) {
+		auto location = trange.front.location;
 		trange.popFront();
 
 		// Drop mode on purpose.
-		result = trange.parsePrefixExpression();
+		auto e = trange.parsePrefixExpression();
 
-		location.spanTo(result.location);
-		result = new AstUnaryExpression(location, op, result);
+		location.spanTo(e.location);
+		return new AstUnaryExpression(location, op, e);
 	}
 
 	switch (trange.front.type) with (TokenType) {
 		case Ampersand:
-			processToken(UnaryOp.AddressOf);
+			result = processToken(trange, UnaryOp.AddressOf);
 			break;
 
 		case PlusPlus:
-			processToken(UnaryOp.PreInc);
+			result = processToken(trange, UnaryOp.PreInc);
 			break;
 
 		case MinusMinus:
-			processToken(UnaryOp.PreDec);
+			result = processToken(trange, UnaryOp.PreDec);
 			break;
 
 		case Star:
-			processToken(UnaryOp.Dereference);
+			result = processToken(trange, UnaryOp.Dereference);
 			break;
 
 		case Plus:
-			processToken(UnaryOp.Plus);
+			result = processToken(trange, UnaryOp.Plus);
 			break;
 
 		case Minus:
-			processToken(UnaryOp.Minus);
+			result = processToken(trange, UnaryOp.Minus);
 			break;
 
 		case Bang:
-			processToken(UnaryOp.Not);
+			result = processToken(trange, UnaryOp.Not);
 			break;
 
 		case Tilde:
-			processToken(UnaryOp.Complement);
+			result = processToken(trange, UnaryOp.Complement);
 			break;
 
 		// TODO: parse qualifier casts.

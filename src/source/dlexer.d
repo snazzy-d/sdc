@@ -68,14 +68,14 @@ enum TokenType {
 	Plus,               // +
 	PlusEqual,          // +=
 	PlusPlus,           // ++
-	Less,               // <
-	LessEqual,          // <=
+	SmallerThan,        // <
+	SmallerEqual,       // <=
 	LessLess,           // <<
 	LessLessEqual,      // <<=
 	LessMore,           // <>
 	LessMoreEqual,      // <>=
-	More,               // >
-	MoreEqual,          // >=
+	GreaterThan,        // >
+	GreaterEqual,       // >=
 	MoreMoreEqual,      // >>=
 	MoreMoreMoreEqual,  // >>>=
 	MoreMore,           // >>
@@ -699,14 +699,14 @@ auto getOperatorsMap() {
 		"+"    : Plus,
 		"+="   : PlusEqual,
 		"++"   : PlusPlus,
-		"<"    : Less,
-		"<="   : LessEqual,
+		"<"    : SmallerThan,
+		"<="   : SmallerEqual,
 		"<<"   : LessLess,
 		"<<="  : LessLessEqual,
 		"<>"   : LessMore,
 		"<>="  : LessMoreEqual,
-		">"    : More,
-		">="   : MoreEqual,
+		">"    : GreaterThan,
+		">="   : GreaterEqual,
 		">>="  : MoreMoreEqual,
 		">>>=" : MoreMoreMoreEqual,
 		">>"   : MoreMore,

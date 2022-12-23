@@ -263,10 +263,10 @@ bool indicateExpression(TokenType t) {
 		case Ampersand:
 		case EqualEqual:
 		case BangEqual:
-		case More:
-		case MoreEqual:
-		case Less:
-		case LessEqual:
+		case GreaterThan:
+		case GreaterEqual:
+		case SmallerThan:
+		case SmallerEqual:
 		case BangLessMoreEqual:
 		case BangLessMore:
 		case LessMore:
@@ -538,10 +538,10 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 
 			case EqualEqual:
 			case BangEqual:
-			case More:
-			case MoreEqual:
-			case Less:
-			case LessEqual:
+			case GreaterThan:
+			case GreaterEqual:
+			case SmallerThan:
+			case SmallerEqual:
 			case BangLessMoreEqual:
 			case BangLessMore:
 			case LessMore:
