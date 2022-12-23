@@ -81,30 +81,11 @@ struct Hasher {
 			s = s[8 .. $];
 		}
 
-		ulong last = 0;
-		if (s.length >= 4) {
-			import source.swar.util;
-			last = read!uint(s[$ - 4 .. $]);
-			s = s[$ - 4 .. $];
-			last <<= (8 * s.length);
-		}
+		mix(0x1b87359352dce729);
 
-		switch (s.length) {
-			case 3:
-				last |= s[2] << (2 * 8);
-				goto case;
-			case 2:
-				last |= s[1] << (1 * 8);
-				goto case;
-			case 1:
-				last |= s[0];
-				goto default;
-
-			default:
-				mix(0x1b87359352dce729);
-				state += last;
-				return state;
-		}
+		import source.swar.util;
+		state += read!ulong(s);
+		return state;
 	}
 
 	hash_t hash(A : E[], E)(A a) if (isKeyLike!E) {

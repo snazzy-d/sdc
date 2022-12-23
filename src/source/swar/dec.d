@@ -4,15 +4,8 @@ module source.swar.dec;
  * Check we have enough digits in front of us to use SWAR.
  */
 bool startsWith8DecDigits(string s, ref ulong state) {
-	ulong v;
-	if (s.length >= 8) {
-		import source.swar.util;
-		v = read!ulong(s);
-	} else {
-		foreach (i; 0 .. s.length) {
-			v |= ulong(s[i]) << (8 * i);
-		}
-	}
+	import source.swar.util;
+	auto v = read!ulong(s);
 
 	// Set the high bit if the character isn't between '0' and '9'.
 	auto lessThan0 = v - 0x3030303030303030;
@@ -92,7 +85,7 @@ unittest {
  */
 private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
 	import source.swar.util;
-	auto v = read!T(s);
+	auto v = readRaw!T(s);
 
 	/**
 	 * We could simply go for
@@ -174,15 +167,8 @@ unittest {
 }
 
 uint parseDecDigits(string s, uint count) in(count < 8 && s.length >= count) {
-	ulong v;
-	if (s.length >= 8) {
-		import source.swar.util;
-		v = read!ulong(s);
-	} else {
-		foreach (i; 0 .. s.length) {
-			v |= ulong(s[i]) << (8 * i);
-		}
-	}
+	import source.swar.util;
+	auto v = read!ulong(s);
 
 	v <<= 8;
 	v <<= (56 - 8 * count);

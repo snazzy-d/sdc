@@ -4,15 +4,8 @@ module source.swar.bin;
  * Check we have enough digits in front of us to use SWAR.
  */
 bool startsWith8BinDigits(string s, ref ulong state) {
-	ulong v;
-	if (s.length >= 8) {
-		import source.swar.util;
-		v = read!ulong(s);
-	} else {
-		foreach (i; 0 .. s.length) {
-			v |= ulong(s[i]) << (8 * i);
-		}
-	}
+	import source.swar.util;
+	auto v = read!ulong(s);
 
 	// If the input is valid, make it all '1's.
 	state = v | 0x0101010101010101;
@@ -87,7 +80,7 @@ private ubyte computeValue(ulong v) {
 
 ubyte parseBinDigits(string s) in(s.length >= 8) {
 	import source.swar.util;
-	auto v = read!ulong(s);
+	auto v = readRaw!ulong(s);
 	return computeValue(v);
 }
 
@@ -103,15 +96,8 @@ unittest {
 }
 
 ubyte parseBinDigits(string s, uint count) in(count < 8 && s.length >= count) {
-	ulong v;
-	if (s.length >= 8) {
-		import source.swar.util;
-		v = read!ulong(s);
-	} else {
-		foreach (i; 0 .. s.length) {
-			v |= ulong(s[i]) << (8 * i);
-		}
-	}
+	import source.swar.util;
+	auto v = read!ulong(s);
 
 	return computeValue(v) >> (8 - count);
 }

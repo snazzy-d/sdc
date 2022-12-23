@@ -14,15 +14,8 @@ uint getDigitCount(ulong state)
 }
 
 private bool startsWithHexDigits(T)(string s, ref T state) {
-	T v;
-	if (s.length >= T.sizeof) {
-		import source.swar.util;
-		v = read!T(s);
-	} else {
-		foreach (i; 0 .. s.length) {
-			v |= T(s[i]) << (8 * i);
-		}
-	}
+	import source.swar.util;
+	auto v = read!T(s);
 
 	// Set the high bit if the character isn't between '0' and '9'.
 	auto lessThan0 = v - cast(T) 0x3030303030303030;
@@ -168,7 +161,7 @@ private auto computeValue(T)(T v) {
 
 private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
 	import source.swar.util;
-	auto v = read!T(s);
+	auto v = readRaw!T(s);
 	return computeValue(v);
 }
 
@@ -274,18 +267,14 @@ unittest {
 }
 
 uint parseHexDigits(string s, uint count) in(count < 8 && s.length >= count) {
-	ulong v;
-	if (s.length >= 8) {
-		import source.swar.util;
-		v = read!ulong(s);
-	} else {
-		foreach (i; 0 .. s.length) {
-			v |= ulong(s[i]) << (8 * i);
-		}
-	}
+	import source.swar.util;
+	auto v = read!ulong(s);
 
-	v = computeValue(v) & 0x0f0f0f0f0f0f0f0f;
-	return ulong(reduceValue(v)) >> (32 - 4 * count);
+	v <<= 8;
+	v <<= (56 - 8 * count);
+
+	v = computeValue(v);
+	return reduceValue(v);
 }
 
 unittest {

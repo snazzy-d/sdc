@@ -5,17 +5,13 @@ module source.swar.newline;
  * searching for the end of line.
  */
 bool canSkipOver8CharsInLine(string s, ref ulong state) {
-	ulong v;
-	if (s.length >= 8) {
-		import source.swar.util;
-		v = read!ulong(s);
-	} else {
+	import source.swar.util;
+	auto v = read!ulong(s);
+
+	if (s.length < 8) {
 		// Pad with line feed so we don't skip past
 		// the end of the input.
-		v = 0x0a0a0a0a0a0a0a0a << (8 * s.length);
-		foreach (i; 0 .. s.length) {
-			v |= ulong(s[i]) << (8 * i);
-		}
+		v |= 0x0a0a0a0a0a0a0a0a << (8 * s.length);
 	}
 
 	enum MSBs = 0x8080808080808080;
