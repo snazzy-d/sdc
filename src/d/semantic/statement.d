@@ -533,7 +533,7 @@ public:
 		import d.semantic.caster;
 		length = buildImplicitCast(pass, idx.location, idx.type, length);
 		auto condition =
-			build!ICmpExpression(loc, ICmpOp.Less, idxExpr, length);
+			build!ICmpExpression(loc, ICmpOp.SmallerThan, idxExpr, length);
 
 		auto iType = iterated.type.getCanonical();
 		assert(iType.hasElement, "Only array and slice are supported for now.");
@@ -606,13 +606,14 @@ public:
 			// for(...; idx-- > stop; idx)
 			condition = build!ICmpExpression(
 				loc,
-				ICmpOp.Greater,
+				ICmpOp.GreaterThan,
 				build!UnaryExpression(loc, type, UnaryOp.PostDec, idxExpr),
 				stop
 			);
 		} else {
 			// for(...; idx < stop; idx++)
-			condition = build!ICmpExpression(loc, ICmpOp.Less, idxExpr, stop);
+			condition =
+				build!ICmpExpression(loc, ICmpOp.SmallerThan, idxExpr, stop);
 			increment =
 				build!UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
 		}

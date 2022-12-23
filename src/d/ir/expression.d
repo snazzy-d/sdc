@@ -121,10 +121,10 @@ class BinaryExpression : Expression {
 enum ICmpOp {
 	Equal,
 	NotEqual,
-	Greater,
+	GreaterThan,
 	GreaterEqual,
-	Less,
-	LessEqual,
+	SmallerThan,
+	SmallerEqual,
 }
 
 /**
@@ -153,10 +153,10 @@ class ICmpExpression : Expression {
 enum FPCmpOp {
 	Equal,
 	NotEqual,
-	Greater,
+	GreaterThan,
 	GreaterEqual,
-	Less,
-	LessEqual,
+	SmallerThan,
+	SmallerEqual,
 
 	// Weird float operators
 	LessGreater,

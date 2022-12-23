@@ -244,7 +244,7 @@ struct ExpressionGen {
 			case NotEqual:
 				return handleComparison(e, LLVMIntPredicate.NE);
 
-			case Greater:
+			case GreaterThan:
 				return handleComparison(e, LLVMIntPredicate.SGT,
 				                        LLVMIntPredicate.UGT);
 
@@ -252,11 +252,11 @@ struct ExpressionGen {
 				return handleComparison(e, LLVMIntPredicate.SGE,
 				                        LLVMIntPredicate.UGE);
 
-			case Less:
+			case SmallerThan:
 				return handleComparison(e, LLVMIntPredicate.SLT,
 				                        LLVMIntPredicate.ULT);
 
-			case LessEqual:
+			case SmallerEqual:
 				return handleComparison(e, LLVMIntPredicate.SLE,
 				                        LLVMIntPredicate.ULE);
 		}

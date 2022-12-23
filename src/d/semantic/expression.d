@@ -264,7 +264,7 @@ private:
 				goto HandleICmp;
 
 			case GreaterThan:
-				icmpop = ICmpOp.Greater;
+				icmpop = ICmpOp.GreaterThan;
 				goto HandleICmp;
 
 			case GreaterEqual:
@@ -272,11 +272,11 @@ private:
 				goto HandleICmp;
 
 			case SmallerThan:
-				icmpop = ICmpOp.Less;
+				icmpop = ICmpOp.SmallerThan;
 				goto HandleICmp;
 
 			case SmallerEqual:
-				icmpop = ICmpOp.LessEqual;
+				icmpop = ICmpOp.SmallerEqual;
 				goto HandleICmp;
 
 			HandleICmp:
