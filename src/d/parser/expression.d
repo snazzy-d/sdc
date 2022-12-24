@@ -671,13 +671,13 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 					return new DelegateLiteral(location, params, isVariadic,
 					                           block);
 
-				case EqualMore:
+				case FatArrow:
 					import d.parser.declaration;
 					bool isVariadic;
 					auto params = trange.parseParameters(isVariadic);
 					assert(!isVariadic, "Variadic lambda not supported");
 
-					trange.match(EqualMore);
+					trange.match(FatArrow);
 
 					auto value = trange.parseExpression();
 					location.spanTo(value.location);

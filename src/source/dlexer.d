@@ -112,7 +112,7 @@ enum TokenType {
 	Tilde,              // ~
 	TildeEqual,         // ~=
 	At,                 // @
-	EqualMore,          // =>
+	FatArrow,           // =>
 	Hash,               // #
 	// sdfmt on
 }
@@ -743,7 +743,7 @@ auto getOperatorsMap() {
 		"~"    : Tilde,
 		"~="   : TildeEqual,
 		"@"    : At,
-		"=>"   : EqualMore,
+		"=>"   : FatArrow,
 		"#"    : Hash,
 		"\0"   : End,
 		// sdfmt on

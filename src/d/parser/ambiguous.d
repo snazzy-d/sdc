@@ -88,7 +88,7 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 			matchingParen.popMatchingDelimiter!OpenParen();
 
 			switch (matchingParen.front.type) {
-				case OpenBrace, EqualMore:
+				case OpenBrace, FatArrow:
 					// Delegates.
 					assert(0, "Ambiguous delegates not implemented");
 

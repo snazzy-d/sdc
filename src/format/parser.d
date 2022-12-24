@@ -913,7 +913,7 @@ private:
 				auto lookahead = trange.getLookahead();
 				auto t = getStorageClassTokenType(lookahead);
 
-				if (t != EqualMore) {
+				if (t != FatArrow) {
 					return kind;
 				}
 
@@ -986,7 +986,7 @@ private:
 				lookahead.popMatchingDelimiter!OpenParen();
 
 				auto t = getStorageClassTokenType(lookahead);
-				if (t != OpenBrace && t != EqualMore && t != At && t != Nothrow
+				if (t != OpenBrace && t != FatArrow && t != At && t != Nothrow
 					    && t != Pure && t != Ref && t != Synchronized) {
 					// Not a lambda.
 					goto ParenIdentifier;
@@ -1082,7 +1082,7 @@ private:
 					return IdentifierKind.Expression;
 				}
 
-				if (match(EqualMore)) {
+				if (match(FatArrow)) {
 					nextToken();
 					space();
 					split();
