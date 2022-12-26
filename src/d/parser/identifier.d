@@ -26,12 +26,11 @@ Identifier parseDotIdentifier(ref TokenRange trange) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Dot);
 
-	location.spanTo(trange.front.location);
-
 	auto name = trange.front.name;
 	trange.match(TokenType.Identifier);
 
-	return trange.parseBuiltIdentifier(new DotIdentifier(location, name));
+	return trange.parseBuiltIdentifier(
+		new DotIdentifier(location.spanToValue(trange.previous), name));
 }
 
 /**
@@ -40,7 +39,6 @@ Identifier parseDotIdentifier(ref TokenRange trange) {
 auto parseQualifiedIdentifier(Namespace)(ref TokenRange trange,
                                          Location location, Namespace ns) {
 	auto name = trange.front.name;
-	location.spanTo(trange.front.location);
 	trange.match(TokenType.Identifier);
 
 	static if (is(Namespace : Identifier)) {
@@ -57,8 +55,9 @@ auto parseQualifiedIdentifier(Namespace)(ref TokenRange trange,
 		);
 	}
 
-	return trange
-		.parseBuiltIdentifier(new QualifiedIdentifier(location, name, ns));
+	return trange.parseBuiltIdentifier(
+		new QualifiedIdentifier(location.spanToValue(trange.previous), name, ns)
+	);
 }
 
 /**
@@ -73,11 +72,9 @@ Identifier parseBuiltIdentifier(ref TokenRange trange, Identifier identifier) {
 				trange.popFront();
 				auto name = trange.front.name;
 
-				location.spanTo(trange.front.location);
 				trange.match(Identifier);
-
-				identifier =
-					new IdentifierDotIdentifier(location, name, identifier);
+				identifier = new IdentifierDotIdentifier(
+					location.spanToValue(trange.previous), name, identifier);
 				break;
 
 			case Bang:
@@ -90,10 +87,9 @@ Identifier parseBuiltIdentifier(ref TokenRange trange, Identifier identifier) {
 				trange.popFront();
 				auto arguments = parseTemplateArguments(trange);
 
-				location.spanTo(trange.previous);
-
-				identifier =
-					new TemplateInstantiation(location, identifier, arguments);
+				identifier = new TemplateInstantiation(
+					location.spanToValue(trange.previous), identifier,
+					arguments);
 				break;
 
 			default:

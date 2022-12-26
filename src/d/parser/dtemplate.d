@@ -14,16 +14,13 @@ auto parseTemplate(ref TokenRange trange, StorageClass stc) {
 	auto location = trange.front.location;
 	trange.match(TokenType.Template);
 
-	auto name = trange.front.name;
-	trange.match(TokenType.Identifier);
+	auto name = trange.match(TokenType.Identifier).name;
 
 	auto parameters = trange.parseTemplateParameters();
 	auto declarations = trange.parseAggregate();
 
-	location.spanTo(declarations[$ - 1].location);
-
-	return
-		new TemplateDeclaration(location, stc, name, parameters, declarations);
+	return new TemplateDeclaration(location.spanToValue(trange.previous), stc,
+	                               name, parameters, declarations);
 }
 
 auto parseConstraint(ref TokenRange trange) {
@@ -81,12 +78,10 @@ private AstTemplateParameter parseTemplateParameter(ref TokenRange trange) {
 			auto location = trange.front.location;
 			trange.popFront();
 
-			auto name = trange.front.name;
-			location.spanTo(trange.front.location);
+			auto name = trange.match(Identifier).name;
 
-			trange.match(Identifier);
-
-			return new AstThisTemplateParameter(location, name);
+			return new AstThisTemplateParameter(
+				location.spanToValue(trange.previous), name);
 
 		default:
 			// We probably have a value parameter (or an error).
@@ -95,10 +90,8 @@ private AstTemplateParameter parseTemplateParameter(ref TokenRange trange) {
 }
 
 private auto parseTypeParameter(ref TokenRange trange) {
-	auto name = trange.front.name;
 	auto location = trange.front.location;
-
-	trange.match(TokenType.Identifier);
+	auto name = trange.match(TokenType.Identifier).name;
 
 	AstType defaultType;
 	switch (trange.front.type) with (TokenType) {
@@ -111,9 +104,9 @@ private auto parseTypeParameter(ref TokenRange trange) {
 				defaultType = trange.parseType();
 			}
 
-			location.spanTo(trange.front.location);
-			return new AstTypeTemplateParameter(location, name, specialization,
-			                                    defaultType);
+			return new AstTypeTemplateParameter(
+				location.spanToValue(trange.previous), name, specialization,
+				defaultType);
 
 		case Equal:
 			trange.popFront();
@@ -122,10 +115,10 @@ private auto parseTypeParameter(ref TokenRange trange) {
 			goto default;
 
 		default:
+			location = location.spanToValue(trange.previous);
 			auto specialization =
 				AstType.get(new BasicIdentifier(location, name));
 
-			location.spanTo(trange.front.location);
 			return new AstTypeTemplateParameter(location, name, specialization,
 			                                    defaultType);
 	}
@@ -135,28 +128,23 @@ private auto parseValueParameter(ref TokenRange trange) {
 	auto location = trange.front.location;
 
 	auto type = trange.parseType();
-	auto name = trange.front.name;
-
-	location.spanTo(trange.front.location);
-	trange.match(TokenType.Identifier);
+	auto name = trange.match(TokenType.Identifier).name;
 
 	AstExpression defaultValue;
 	if (trange.front.type == TokenType.Equal) {
 		trange.popFront();
 		switch (trange.front.type) with (TokenType) {
 			case __File__, __Line__:
-				location.spanTo(trange.front.location);
-
 				trange.popFront();
 				break;
 
 			default:
 				defaultValue = trange.parseAssignExpression();
-				location.spanTo(defaultValue.location);
 		}
 	}
 
-	return new AstValueTemplateParameter(location, name, type, defaultValue);
+	return new AstValueTemplateParameter(location.spanToValue(trange.previous),
+	                                     name, type, defaultValue);
 }
 
 private AstTemplateParameter parseAliasParameter(ref TokenRange trange) {
@@ -183,19 +171,14 @@ private AstTemplateParameter parseAliasParameter(ref TokenRange trange) {
 
 	if (isTyped) {
 		auto type = trange.parseType();
-		auto name = trange.front.name;
+		auto name = trange.match(TokenType.Identifier).name;
 
-		location.spanTo(trange.front.location);
-		trange.match(TokenType.Identifier);
-
-		return new AstTypedAliasTemplateParameter(location, name, type);
+		return new AstTypedAliasTemplateParameter(
+			location.spanToValue(trange.previous), name, type);
 	} else {
-		auto name = trange.front.name;
-
-		location.spanTo(trange.front.location);
-		trange.match(TokenType.Identifier);
-
-		return new AstAliasTemplateParameter(location, name);
+		auto name = trange.match(TokenType.Identifier).name;
+		return new AstAliasTemplateParameter(
+			location.spanToValue(trange.previous), name);
 	}
 }
 
