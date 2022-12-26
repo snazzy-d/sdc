@@ -282,13 +282,13 @@ Declaration parseDeclaration(ref TokenRange trange) {
 			case Colon:
 				trange.popFront();
 				auto declarations = trange.parseAggregate!false();
-				return new GroupDeclaration(
-					location.spanToValue(trange.previous), stc, declarations);
+				return new GroupDeclaration(location.spanTo(trange.previous),
+				                            stc, declarations);
 
 			case OpenBrace:
 				auto declarations = trange.parseAggregate();
-				return new GroupDeclaration(
-					location.spanToValue(trange.previous), stc, declarations);
+				return new GroupDeclaration(location.spanTo(trange.previous),
+				                            stc, declarations);
 
 			default:
 				break;
@@ -342,8 +342,8 @@ Declaration parseDeclaration(ref TokenRange trange) {
 			// }
 
 			auto fbody = trange.parseBlock();
-			return new UnittestDeclaration(
-				location.spanToValue(trange.previous), stc, name, fbody);
+			return new UnittestDeclaration(location.spanTo(trange.previous),
+			                               stc, name, fbody);
 
 		default:
 			return trange.parseTypedDeclaration(location, stc);
@@ -399,8 +399,8 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
 			value = trange.parseInitializer();
 		}
 
-		variables ~= new VariableDeclaration(vloc.spanToValue(trange.previous),
-		                                     stc, type, name, value);
+		variables ~= new VariableDeclaration(vloc.spanTo(trange.previous), stc,
+		                                     type, name, value);
 
 		if (!trange.popOnMatch(TokenType.Comma)) {
 			break;
@@ -408,8 +408,8 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
 	}
 
 	trange.match(TokenType.Semicolon);
-	return new GroupDeclaration(location.spanToValue(trange.previous), stc,
-	                            variables);
+	return
+		new GroupDeclaration(location.spanTo(trange.previous), stc, variables);
 }
 
 // XXX: one callsite, remove
@@ -573,7 +573,7 @@ private Declaration parseFunction(
 			throw unexpectedTokenError(trange, "`{` or `;`");
 	}
 
-	location = location.spanToValue(trange.previous);
+	location = location.spanTo(trange.previous);
 	auto fun = new FunctionDeclaration(location, stc, returnType, name,
 	                                   parameters, isVariadic, fbody);
 	if (!isTemplate) {
@@ -667,7 +667,7 @@ auto parseParameter(ref TokenRange trange) {
 		}
 	}
 
-	return ParamDecl(location.spanToValue(trange.previous), type, name, value);
+	return ParamDecl(location.spanTo(trange.previous), type, name, value);
 }
 
 /**
@@ -685,7 +685,7 @@ Declaration parseAlias(ref TokenRange trange, StorageClass stc) {
 		import d.parser.ambiguous;
 		return trange.parseAmbiguous!(delegate Declaration(parsed) {
 			trange.match(TokenType.Semicolon);
-			location = location.spanToValue(trange.previous);
+			location = location.spanTo(trange.previous);
 
 			alias T = typeof(parsed);
 			static if (is(T : AstType)) {
@@ -702,8 +702,7 @@ Declaration parseAlias(ref TokenRange trange, StorageClass stc) {
 		trange.popFront();
 		trange.match(TokenType.Semicolon);
 
-		return new AliasThisDeclaration(location.spanToValue(trange.previous),
-		                                name);
+		return new AliasThisDeclaration(location.spanTo(trange.previous), name);
 	}
 
 	trange.match(TokenType.Begin);
@@ -738,6 +737,5 @@ auto parseImport(ref TokenRange trange) {
 	}
 
 	trange.match(TokenType.Semicolon);
-	return
-		new ImportDeclaration(location.spanToValue(trange.previous), modules);
+	return new ImportDeclaration(location.spanTo(trange.previous), modules);
 }

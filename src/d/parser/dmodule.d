@@ -40,6 +40,6 @@ auto parseModule(ref TokenRange trange) {
 		declarations ~= trange.parseDeclaration();
 	}
 
-	return new Module(location.spanToValue(trange.previous), name, packages,
+	return new Module(location.spanTo(trange.previous), name, packages,
 	                  declarations);
 }

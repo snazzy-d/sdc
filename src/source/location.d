@@ -45,15 +45,15 @@ public:
 		return start.isMixin();
 	}
 
-	auto spanToValue(Location end) in {
+	auto spanTo(Location end) in {
 		import std.conv;
 		assert(stop.offset <= end.stop.offset,
 		       to!string(stop.offset) ~ " > " ~ to!string(end.stop.offset));
 	} do {
-		return spanToValue(end.stop);
+		return spanTo(end.stop);
 	}
 
-	auto spanToValue(Position end) const in {
+	auto spanTo(Position end) const in {
 		import std.conv;
 		assert(stop.offset <= end.offset,
 		       to!string(stop.offset) ~ " > " ~ to!string(end.offset));

@@ -66,7 +66,7 @@ private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange,
 	}
 
 	auto members = trange.parseAggregate();
-	location = location.spanToValue(trange.previous);
+	location = location.spanTo(trange.previous);
 	auto adt = new DeclarationType(location, stc, name, bases, members);
 	if (!isTemplate) {
 		return adt;
@@ -115,7 +115,7 @@ Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange,
 			// Handle opaque declarations.
 			case Semicolon:
 				trange.popFront();
-				location = location.spanToValue(trange.previous);
+				location = location.spanTo(trange.previous);
 
 				assert(0, "Opaque declaration aren't supported.");
 
@@ -137,7 +137,7 @@ Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange,
 
 	auto members = trange.parseAggregate();
 
-	location = location.spanToValue(trange.previous);
+	location = location.spanTo(trange.previous);
 
 	auto adt = new DeclarationType(location, stc, name, members);
 	if (!isTemplate) {
@@ -207,8 +207,8 @@ Declaration parseEnum(ref TokenRange trange, StorageClass stc)
 		}
 
 		enumEntries ~=
-			new VariableDeclaration(entryLocation.spanToValue(trange.previous),
-			                        stc, type, entryName, entryValue);
+			new VariableDeclaration(entryLocation.spanTo(trange.previous), stc,
+			                        type, entryName, entryValue);
 
 		// If it is not a comma, then we abort the loop.
 		if (!trange.popOnMatch(TokenType.Comma)) {
@@ -217,6 +217,6 @@ Declaration parseEnum(ref TokenRange trange, StorageClass stc)
 	}
 
 	trange.match(TokenType.CloseBrace);
-	return new EnumDeclaration(location.spanToValue(trange.previous), stc, name,
+	return new EnumDeclaration(location.spanTo(trange.previous), stc, name,
 	                           type, enumEntries);
 }

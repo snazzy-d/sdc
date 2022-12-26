@@ -174,8 +174,7 @@ auto parseMixin(ItemType)(ref TokenRange trange) if (is(Mixin!ItemType)) {
 		trange.match(TokenType.Semicolon);
 	}
 
-	return
-		new Mixin!ItemType(location.spanToValue(trange.previous), expression);
+	return new Mixin!ItemType(location.spanTo(trange.previous), expression);
 }
 
 /**
@@ -204,6 +203,6 @@ ItemType parseStaticAssert(ItemType)(ref TokenRange trange)
 
 	trange.match(TokenType.CloseParen);
 	trange.match(TokenType.Semicolon);
-	return new StaticAssert!ItemType(location.spanToValue(trange.previous),
+	return new StaticAssert!ItemType(location.spanTo(trange.previous),
 	                                 condition, message);
 }

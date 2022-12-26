@@ -43,7 +43,7 @@ private AstExpression parseAstBinaryExpression(
 		auto rhs = trange.parsePrefixExpression();
 		rhs = parseNext(trange, rhs);
 
-		auto location = lhs.location.spanToValue(trange.previous);
+		auto location = lhs.location.spanTo(trange.previous);
 		lhs = new AstBinaryExpression(location, op, lhs, rhs);
 	}
 
@@ -67,7 +67,7 @@ AstExpression parseAssignExpression(ref TokenRange trange, AstExpression lhs) {
 		auto rhs = trange.parsePrefixExpression();
 		rhs = trange.parseAssignExpression(rhs);
 
-		auto location = lhs.location.spanToValue(trange.previous);
+		auto location = lhs.location.spanTo(trange.previous);
 		return new AstBinaryExpression(location, op, lhs, rhs);
 	}
 
@@ -139,7 +139,7 @@ AstExpression parseTernaryExpression(ref TokenRange trange,
 		trange.match(TokenType.Colon);
 		auto ifFalse = trange.parseTernaryExpression();
 
-		auto location = condition.location.spanToValue(trange.previous);
+		auto location = condition.location.spanTo(trange.previous);
 		return new AstTernaryExpression(location, condition, ifTrue, ifFalse);
 	}
 
@@ -243,7 +243,7 @@ AstExpression parseComparaisonExpression(ref TokenRange trange,
 		trange.popFront();
 		auto rhs = trange.parseShiftExpression();
 
-		auto location = lhs.location.spanToValue(trange.previous);
+		auto location = lhs.location.spanTo(trange.previous);
 		return new AstBinaryExpression(location, op, lhs, rhs);
 	}
 
@@ -332,7 +332,7 @@ AstExpression parseShiftExpression(ref TokenRange trange, AstExpression lhs) {
 			trange.popFront();
 			auto rhs = trange.parseAddExpression();
 
-			auto location = lhs.location.spanToValue(trange.previous);
+			auto location = lhs.location.spanTo(trange.previous);
 			return new AstBinaryExpression(location, op, lhs, rhs);
 		}
 
@@ -372,7 +372,7 @@ AstExpression parseAddExpression(ref TokenRange trange, AstExpression lhs) {
 			trange.popFront();
 			auto rhs = trange.parseMulExpression();
 
-			auto location = lhs.location.spanToValue(trange.previous);
+			auto location = lhs.location.spanTo(trange.previous);
 			return new AstBinaryExpression(location, op, lhs, rhs);
 		}
 
@@ -410,7 +410,7 @@ AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
 			trange.popFront();
 			auto rhs = trange.parsePrefixExpression();
 
-			auto location = lhs.location.spanToValue(trange.previous);
+			auto location = lhs.location.spanTo(trange.previous);
 			return new AstBinaryExpression(location, op, lhs, rhs);
 		}
 
@@ -447,8 +447,7 @@ private AstExpression parsePrefixExpression(
 
 		// Drop mode on purpose.
 		auto e = trange.parsePrefixExpression();
-		return new AstUnaryExpression(location.spanToValue(trange.previous), op,
-		                              e);
+		return new AstUnaryExpression(location.spanTo(trange.previous), op, e);
 	}
 
 	switch (trange.front.type) with (TokenType) {
@@ -499,8 +498,9 @@ private AstExpression parsePrefixExpression(
 					trange.match(CloseParen);
 
 					result = trange.parsePrefixExpression();
-					result = new AstCastExpression(
-						location.spanToValue(trange.previous), type, result);
+					result =
+						new AstCastExpression(location.spanTo(trange.previous),
+						                      type, result);
 			}
 
 			break;
@@ -529,8 +529,8 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 			trange.popFront();
 			auto type = trange.parseType();
 			auto args = trange.parseArguments!OpenParen();
-			return new AstNewExpression(location.spanToValue(trange.previous),
-			                            type, args);
+			return new AstNewExpression(location.spanTo(trange.previous), type,
+			                            args);
 
 		case Dot:
 			return
@@ -581,8 +581,8 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 			}
 
 			trange.match(CloseBracket);
-			return new AstArrayLiteral(location.spanToValue(trange.previous),
-			                           values);
+			return
+				new AstArrayLiteral(location.spanTo(trange.previous), values);
 
 		case OpenBrace:
 			return new DelegateLiteral(trange.parseBlock());
@@ -608,7 +608,7 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 
 			return trange.parseAmbiguous!(delegate AstExpression(parsed) {
 				trange.match(CloseParen);
-				location = location.spanToValue(trange.previous);
+				location = location.spanTo(trange.previous);
 
 				import d.ast.type;
 
@@ -651,9 +651,8 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 					auto params = trange.parseParameters(isVariadic);
 
 					auto block = trange.parseBlock();
-					return new DelegateLiteral(
-						location.spanToValue(trange.previous), params,
-						isVariadic, block);
+					return new DelegateLiteral(location.spanTo(trange.previous),
+					                           params, isVariadic, block);
 
 				case FatArrow:
 					import d.parser.declaration;
@@ -664,16 +663,16 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 					trange.match(FatArrow);
 
 					auto value = trange.parseExpression();
-					return new Lambda(location.spanToValue(trange.previous),
-					                  params, value);
+					return new Lambda(location.spanTo(trange.previous), params,
+					                  value);
 
 				default:
 					trange.popFront();
 					auto expression = trange.parseExpression();
 
 					trange.match(CloseParen);
-					return new ParenExpression(
-						location.spanToValue(trange.previous), expression);
+					return new ParenExpression(location.spanTo(trange.previous),
+					                           expression);
 			}
 
 		default:
@@ -688,7 +687,7 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 				case OpenParen:
 					auto args = trange.parseArguments!OpenParen();
 					return new TypeCallExpression(
-						location.spanToValue(trange.previous), type, args);
+						location.spanTo(trange.previous), type, args);
 
 				default:
 					break;
@@ -709,20 +708,20 @@ AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange,
 		switch (trange.front.type) with (TokenType) {
 			case PlusPlus:
 				trange.popFront();
-				e = new AstUnaryExpression(
-					location.spanToValue(trange.previous), UnaryOp.PostInc, e);
+				e = new AstUnaryExpression(location.spanTo(trange.previous),
+				                           UnaryOp.PostInc, e);
 				break;
 
 			case MinusMinus:
 				trange.popFront();
-				e = new AstUnaryExpression(
-					location.spanToValue(trange.previous), UnaryOp.PostDec, e);
+				e = new AstUnaryExpression(location.spanTo(trange.previous),
+				                           UnaryOp.PostDec, e);
 				break;
 
 			case OpenParen:
 				auto args = trange.parseArguments!OpenParen();
-				e = new AstCallExpression(location.spanToValue(trange.previous),
-				                          e, args);
+				e = new AstCallExpression(location.spanTo(trange.previous), e,
+				                          args);
 				break;
 
 			// TODO: Indices, Slices.
@@ -740,7 +739,7 @@ AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange,
 					case CloseBracket:
 						trange.popFront();
 						e = new AstIndexExpression(
-							location.spanToValue(trange.previous), e, args);
+							location.spanTo(trange.previous), e, args);
 						break;
 
 					case DotDot:
@@ -749,8 +748,7 @@ AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange,
 
 						trange.match(CloseBracket);
 						e = new AstSliceExpression(
-							location.spanToValue(trange.previous), e, args,
-							second);
+							location.spanTo(trange.previous), e, args, second);
 						break;
 
 					default:
@@ -786,7 +784,7 @@ AstExpression parsePowExpression(ref TokenRange trange, AstExpression expr) {
 	while (trange.front.type == TokenType.CaretCaret) {
 		trange.popFront();
 		AstExpression power = trange.parsePrefixExpression();
-		auto location = expr.location.spanToValue(trange.previous);
+		auto location = expr.location.spanTo(trange.previous);
 		expr = new AstBinaryExpression(location, AstBinaryOp.Pow, expr, power);
 	}
 
@@ -833,7 +831,7 @@ private auto parseIsExpression(ref TokenRange trange) {
 	}
 
 	trange.match(TokenType.CloseParen);
-	return new IsExpression(location.spanToValue(trange.previous), type);
+	return new IsExpression(location.spanTo(trange.previous), type);
 }
 
 /**
@@ -845,7 +843,7 @@ AstExpression parseIdentifierExpression(ref TokenRange trange, Identifier i) {
 	}
 
 	auto args = trange.parseArguments!(TokenType.OpenParen)();
-	auto location = i.location.spanToValue(trange.previous);
+	auto location = i.location.spanTo(trange.previous);
 	return new IdentifierCallExpression(location, i, args);
 }
 

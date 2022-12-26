@@ -30,7 +30,7 @@ Identifier parseDotIdentifier(ref TokenRange trange) {
 	trange.match(TokenType.Identifier);
 
 	return trange.parseBuiltIdentifier(
-		new DotIdentifier(location.spanToValue(trange.previous), name));
+		new DotIdentifier(location.spanTo(trange.previous), name));
 }
 
 /**
@@ -56,8 +56,7 @@ auto parseQualifiedIdentifier(Namespace)(ref TokenRange trange,
 	}
 
 	return trange.parseBuiltIdentifier(
-		new QualifiedIdentifier(location.spanToValue(trange.previous), name, ns)
-	);
+		new QualifiedIdentifier(location.spanTo(trange.previous), name, ns));
 }
 
 /**
@@ -74,7 +73,7 @@ Identifier parseBuiltIdentifier(ref TokenRange trange, Identifier identifier) {
 
 				trange.match(Identifier);
 				identifier = new IdentifierDotIdentifier(
-					location.spanToValue(trange.previous), name, identifier);
+					location.spanTo(trange.previous), name, identifier);
 				break;
 
 			case Bang:
@@ -87,9 +86,9 @@ Identifier parseBuiltIdentifier(ref TokenRange trange, Identifier identifier) {
 				trange.popFront();
 				auto arguments = parseTemplateArguments(trange);
 
-				identifier = new TemplateInstantiation(
-					location.spanToValue(trange.previous), identifier,
-					arguments);
+				identifier =
+					new TemplateInstantiation(location.spanTo(trange.previous),
+					                          identifier, arguments);
 				break;
 
 			default:
