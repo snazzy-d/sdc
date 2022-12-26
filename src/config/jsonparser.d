@@ -22,7 +22,7 @@ unittest {
 	auto context = new Context();
 
 	auto testJSON(string s) {
-		import source.name, source.location;
+		import source.location;
 		auto base = context.registerMixin(Location.init, s ~ '\0');
 		auto lexer = lex(base, context);
 		return lexer.parseJSON();

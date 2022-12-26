@@ -263,7 +263,7 @@ unittest {
 	auto context = new Context();
 
 	auto makeTestLexer(string s) {
-		import source.location, source.name;
+		import source.location;
 		auto base = context.registerMixin(Location.init, s ~ '\0');
 		return lex(base, context);
 	}

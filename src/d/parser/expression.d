@@ -994,7 +994,6 @@ unittest {
 	auto context = new Context();
 	import source.parserutil;
 	auto tokensFromString(string s) {
-		import source.name;
 		auto base = context.registerMixin(Location.init, s ~ '\0');
 		auto x = lex(base, context);
 		x.match(TokenType.Begin);

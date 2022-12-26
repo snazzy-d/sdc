@@ -861,7 +861,6 @@ unittest {
 	auto context = new Context();
 
 	auto testlexer(string s) {
-		import source.name;
 		auto base = context.registerMixin(Location.init, s ~ '\0');
 		return lex(base, context);
 	}
