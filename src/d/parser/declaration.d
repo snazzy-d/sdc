@@ -282,15 +282,13 @@ Declaration parseDeclaration(ref TokenRange trange) {
 			case Colon:
 				trange.popFront();
 				auto declarations = trange.parseAggregate!false();
-
-				location.spanTo(trange.front.location);
-				return new GroupDeclaration(location, stc, declarations);
+				return new GroupDeclaration(
+					location.spanToValue(trange.previous), stc, declarations);
 
 			case OpenBrace:
 				auto declarations = trange.parseAggregate();
-
-				location.spanTo(trange.front.location);
-				return new GroupDeclaration(location, stc, declarations);
+				return new GroupDeclaration(
+					location.spanToValue(trange.previous), stc, declarations);
 
 			default:
 				break;
@@ -344,9 +342,8 @@ Declaration parseDeclaration(ref TokenRange trange) {
 			// }
 
 			auto fbody = trange.parseBlock();
-			location.spanTo(trange.previous);
-
-			return new UnittestDeclaration(location, stc, name, fbody);
+			return new UnittestDeclaration(
+				location.spanToValue(trange.previous), stc, name, fbody);
 
 		default:
 			return trange.parseTypedDeclaration(location, stc);
@@ -373,8 +370,7 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
 	lookahead.popFront();
 	if (lookahead.front.type == TokenType.OpenParen) {
 		auto idLoc = trange.front.location;
-		auto name = trange.front.name;
-		trange.match(TokenType.Identifier);
+		auto name = trange.match(TokenType.Identifier).name;
 
 		if (name.isReserved) {
 			import source.exception;
@@ -394,28 +390,26 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
 	Declaration[] variables;
 
 	while (true) {
-		auto name = trange.front.name;
-		Location variableLocation = trange.front.location;
-		trange.match(TokenType.Identifier);
+		auto vloc = trange.front.location;
+		auto name = trange.match(TokenType.Identifier).name;
 
 		AstExpression value;
 		if (trange.front.type == TokenType.Equal) {
 			trange.popFront();
 			value = trange.parseInitializer();
-			variableLocation.spanTo(value.location);
 		}
 
-		variables ~= new VariableDeclaration(location, stc, type, name, value);
+		variables ~= new VariableDeclaration(vloc.spanToValue(trange.previous),
+		                                     stc, type, name, value);
 
 		if (!trange.popOnMatch(TokenType.Comma)) {
 			break;
 		}
 	}
 
-	location.spanTo(trange.front.location);
 	trange.match(TokenType.Semicolon);
-
-	return new GroupDeclaration(location, stc, variables);
+	return new GroupDeclaration(location.spanToValue(trange.previous), stc,
+	                            variables);
 }
 
 // XXX: one callsite, remove
@@ -568,26 +562,20 @@ private Declaration parseFunction(
 	BlockStatement fbody;
 	switch (trange.front.type) with (TokenType) {
 		case Semicolon:
-			location.spanTo(trange.front.location);
 			trange.popFront();
-
 			break;
 
 		case OpenBrace:
 			fbody = trange.parseBlock();
-			location.spanTo(fbody.location);
-
 			break;
 
 		default:
-			// TODO: error.
-			trange.match(Begin);
-			assert(0);
+			throw unexpectedTokenError(trange, "`{` or `;`");
 	}
 
+	location = location.spanToValue(trange.previous);
 	auto fun = new FunctionDeclaration(location, stc, returnType, name,
 	                                   parameters, isVariadic, fbody);
-
 	if (!isTemplate) {
 		return fun;
 	}
@@ -639,6 +627,8 @@ auto parseInitializer(ref TokenRange trange) {
 
 private:
 auto parseParameter(ref TokenRange trange) {
+	auto location = trange.front.location;
+
 	bool isRef;
 
 	// TODO: parse storage class
@@ -661,7 +651,6 @@ auto parseParameter(ref TokenRange trange) {
 		}
 	}
 
-	auto location = trange.front.location;
 	auto type = trange.parseType()
 	                  .getParamType(isRef ? ParamKind.Ref : ParamKind.Regular);
 
@@ -678,27 +667,25 @@ auto parseParameter(ref TokenRange trange) {
 		}
 	}
 
-	location.spanTo(trange.front.location);
-	return ParamDecl(location, type, name, value);
+	return ParamDecl(location.spanToValue(trange.previous), type, name, value);
 }
 
 /**
  * Parse alias declaration
  */
 Declaration parseAlias(ref TokenRange trange, StorageClass stc) {
-	Location location = trange.front.location;
-	trange.match(TokenType.Alias);
+	auto location = trange.front.location;
 
-	auto name = trange.front.name;
-	trange.match(TokenType.Identifier);
+	trange.match(TokenType.Alias);
+	auto name = trange.match(TokenType.Identifier).name;
 
 	if (trange.front.type == TokenType.Equal) {
 		trange.popFront();
 
 		import d.parser.ambiguous;
 		return trange.parseAmbiguous!(delegate Declaration(parsed) {
-			location.spanTo(trange.front.location);
 			trange.match(TokenType.Semicolon);
+			location = location.spanToValue(trange.previous);
 
 			alias T = typeof(parsed);
 			static if (is(T : AstType)) {
@@ -713,10 +700,10 @@ Declaration parseAlias(ref TokenRange trange, StorageClass stc) {
 	} else if (trange.front.type == TokenType.This) {
 		// FIXME: move this before storage class parsing.
 		trange.popFront();
-		location.spanTo(trange.front.location);
 		trange.match(TokenType.Semicolon);
 
-		return new AliasThisDeclaration(location, name);
+		return new AliasThisDeclaration(location.spanToValue(trange.previous),
+		                                name);
 	}
 
 	trange.match(TokenType.Begin);
@@ -727,7 +714,7 @@ Declaration parseAlias(ref TokenRange trange, StorageClass stc) {
  * Parse import declaration
  */
 auto parseImport(ref TokenRange trange) {
-	Location location = trange.front.location;
+	auto location = trange.front.location;
 	trange.match(TokenType.Import);
 
 	auto parseModuleName(TokenRange)(ref TokenRange trange) {
@@ -750,8 +737,7 @@ auto parseImport(ref TokenRange trange) {
 		modules ~= parseModuleName(trange);
 	}
 
-	location.spanTo(trange.front.location);
 	trange.match(TokenType.Semicolon);
-
-	return new ImportDeclaration(location, modules);
+	return
+		new ImportDeclaration(location.spanToValue(trange.previous), modules);
 }
