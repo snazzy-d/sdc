@@ -1,7 +1,5 @@
 module source.parserutil;
 
-import source.dlexer;
-
 auto match(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
 	auto token = lexer.front;
 
@@ -46,7 +44,9 @@ bool popOnMatch(Lexer, TokenType)(ref Lexer lexer, TokenType type) {
 /**
  * Get the matching delimiter
  */
-template MatchingDelimiter(TokenType openTokenType) {
+template MatchingDelimiter(alias openTokenType) {
+	alias TokenType = typeof(openTokenType);
+
 	static if (openTokenType == TokenType.OpenParen) {
 		alias MatchingDelimiter = TokenType.CloseParen;
 	} else static if (openTokenType == TokenType.OpenBrace) {
@@ -69,17 +69,17 @@ template MatchingDelimiter(TokenType openTokenType) {
  * Pop a range of token until we pop the matchin delimiter.
  * matchin tokens are (), [], <> and {}
  */
-void popMatchingDelimiter(TokenType openTokenType)(ref TokenRange trange) {
-	auto startLocation = trange.front.location;
+void popMatchingDelimiter(alias openTokenType, Lexer)(ref Lexer lexer) {
+	auto startLocation = lexer.front.location;
 	alias closeTokenType = MatchingDelimiter!openTokenType;
 
-	assert(trange.front.type == openTokenType);
+	assert(lexer.front.type == openTokenType);
 	uint level = 1;
 
 	while (level > 0) {
-		trange.popFront();
+		lexer.popFront();
 
-		switch (trange.front.type) {
+		switch (lexer.front.type) {
 			case openTokenType:
 				level++;
 				break;
@@ -88,7 +88,7 @@ void popMatchingDelimiter(TokenType openTokenType)(ref TokenRange trange) {
 				level--;
 				break;
 
-			case TokenType.End:
+			case Lexer.TokenType.End:
 				import source.exception;
 				throw new CompileException(startLocation,
 				                           "Matching delimiter not found");
@@ -98,6 +98,6 @@ void popMatchingDelimiter(TokenType openTokenType)(ref TokenRange trange) {
 		}
 	}
 
-	assert(trange.front.type == closeTokenType);
-	trange.popFront();
+	assert(lexer.front.type == closeTokenType);
+	lexer.popFront();
 }
