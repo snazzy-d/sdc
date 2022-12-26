@@ -7,7 +7,7 @@ mixin template LexBaseUtils() {
 		return ret;
 	}
 
-	uint unpopChar(uint count = 1) in(index > count) {
+	uint unpopChar(uint count = 1) in(index >= count) {
 		auto ret = index;
 		index -= count;
 		return ret;
@@ -627,4 +627,7 @@ unittest {
 			checkLexComment(s ~ nl, s);
 		}
 	}
+
+	// Go over invalid unicode.
+	checkLexInvalid("\xe2\x82", "Invalid UTF-8 sequence.");
 }
