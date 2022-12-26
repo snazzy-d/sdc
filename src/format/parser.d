@@ -327,7 +327,7 @@ private:
 
 			skipped = Location(trange.previous, token.location.stop);
 		} else {
-			skipped.spanTo(token.location);
+			skipped = skipped.spanToValue(token.location);
 		}
 
 		if (match(TokenType.End)) {
@@ -339,7 +339,7 @@ private:
 
 		// Skip over comments that look related too.
 		while (match(TokenType.Comment) && newLineCount() == 0) {
-			skipped.spanTo(token.location);
+			skipped = skipped.spanToValue(token.location);
 			trange.popFront();
 		}
 

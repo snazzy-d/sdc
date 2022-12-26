@@ -53,12 +53,28 @@ public:
 		spanTo(end.stop);
 	}
 
+	auto spanToValue(Location end) in {
+		import std.conv;
+		assert(stop.offset <= end.stop.offset,
+		       to!string(stop.offset) ~ " > " ~ to!string(end.stop.offset));
+	} do {
+		return spanToValue(end.stop);
+	}
+
 	void spanTo(Position end) in {
 		import std.conv;
 		assert(stop.offset <= end.offset,
 		       to!string(stop.offset) ~ " > " ~ to!string(end.offset));
 	} do {
 		_stop = end;
+	}
+
+	auto spanToValue(Position end) const in {
+		import std.conv;
+		assert(stop.offset <= end.offset,
+		       to!string(stop.offset) ~ " > " ~ to!string(end.offset));
+	} do {
+		return Location(start, end);
 	}
 
 	auto getFullLocation(Context c) const {
