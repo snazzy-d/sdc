@@ -100,8 +100,8 @@ typeof(handler(AstExpression.init)) parseAmbiguous(
 					return trange.parseAmbiguous!ambiguousHandler().apply!((
 						parsed
 					) {
-						location.spanTo(trange.front.location);
 						trange.match(CloseParen);
+						location = location.spanToValue(trange.previous);
 
 						alias T = typeof(parsed);
 						static if (is(T : AstType)) {
@@ -182,9 +182,9 @@ Statement finalizeStatement(T)(ref TokenRange trange, Location location,
 		return new ExpressionStatement(parsed);
 	} else static if (is(T : IdentifierStarName)) {
 		trange.match(TokenType.Semicolon);
-		location.spanTo(trange.previous);
-		return new IdentifierStarNameStatement(location, parsed.identifier,
-		                                       parsed.name, parsed.value);
+		return new IdentifierStarNameStatement(
+			location.spanToValue(trange.previous), parsed.identifier,
+			parsed.name, parsed.value);
 	} else {
 		// Identifier follow by another identifier is a declaration.
 		if (trange.front.type == TokenType.Identifier) {
@@ -318,8 +318,8 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 
 			return trange.parseAmbiguous!ambiguousHandler().apply!((parsed) {
 				auto location = i.location;
-				location.spanTo(trange.front.location);
 				trange.match(CloseBracket);
+				location = location.spanToValue(trange.previous);
 
 				alias T = typeof(parsed);
 				static if (is(T : AstType)) {

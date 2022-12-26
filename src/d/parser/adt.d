@@ -66,9 +66,7 @@ private Declaration parsePolymorphic(bool isClass = true)(ref TokenRange trange,
 	}
 
 	auto members = trange.parseAggregate();
-
-	location.spanTo(trange.previous);
-
+	location = location.spanToValue(trange.previous);
 	auto adt = new DeclarationType(location, stc, name, bases, members);
 	if (!isTemplate) {
 		return adt;
@@ -116,9 +114,8 @@ Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange,
 		switch (trange.front.type) with (TokenType) {
 			// Handle opaque declarations.
 			case Semicolon:
-				location.spanTo(trange.front.location);
-
 				trange.popFront();
+				location = location.spanToValue(trange.previous);
 
 				assert(0, "Opaque declaration aren't supported.");
 
@@ -140,7 +137,7 @@ Declaration parseMonomorphic(bool isStruct = true)(ref TokenRange trange,
 
 	auto members = trange.parseAggregate();
 
-	location.spanTo(trange.previous);
+	location = location.spanToValue(trange.previous);
 
 	auto adt = new DeclarationType(location, stc, name, members);
 	if (!isTemplate) {
@@ -206,15 +203,12 @@ Declaration parseEnum(ref TokenRange trange, StorageClass stc)
 		AstExpression entryValue;
 		if (trange.front.type == TokenType.Equal) {
 			trange.popFront();
-
 			entryValue = trange.parseAssignExpression();
-
-			// FIXME: don't work for whatever reason.
-			// entryLocation.spanTo(entryValue.location);
 		}
 
-		enumEntries ~= new VariableDeclaration(entryLocation, stc, type,
-		                                       entryName, entryValue);
+		enumEntries ~=
+			new VariableDeclaration(entryLocation.spanToValue(trange.previous),
+			                        stc, type, entryName, entryValue);
 
 		// If it is not a comma, then we abort the loop.
 		if (!trange.popOnMatch(TokenType.Comma)) {
@@ -222,8 +216,7 @@ Declaration parseEnum(ref TokenRange trange, StorageClass stc)
 		}
 	}
 
-	location.spanTo(trange.front.location);
 	trange.match(TokenType.CloseBrace);
-
-	return new EnumDeclaration(location, stc, name, type, enumEntries);
+	return new EnumDeclaration(location.spanToValue(trange.previous), stc, name,
+	                           type, enumEntries);
 }
