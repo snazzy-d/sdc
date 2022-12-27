@@ -183,7 +183,7 @@ enum Prefill = [
 	"3sdc10intrinsics", "expect", "cas", "casWeak", "popCount",
 	"countLeadingZeros", "countTrailingZeros", "bswap",
 	// Misc that are useful to lex other langauges.
-	"when", "match", "from", "|>", "->",
+	"when", "match", "from", "|>", "->", "\\",
 	// sdfmt on
 ];
 
