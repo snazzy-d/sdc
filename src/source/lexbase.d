@@ -510,11 +510,11 @@ unittest {
 	auto makeTestLexer(string s) {
 		import source.location;
 		auto base = context.registerMixin(Location.init, s ~ '\0');
-		return lex(base, context).withComments(true);
+		return lex(base, context);
 	}
 
 	auto checkLexComment(string s, string expected) {
-		auto lex = makeTestLexer(s);
+		auto lex = makeTestLexer(s).withComments(true);
 
 		import source.parserutil;
 		lex.match(TokenType.Begin);
@@ -534,20 +534,6 @@ unittest {
 
 		auto t = lex.match(TokenType.Invalid);
 		assert(t.error.toString(context) == error);
-	}
-
-	auto checkTokenSequence(string s, TokenType[] tokenTypes) {
-		auto lex = makeTestLexer(s);
-
-		import source.parserutil;
-		lex.match(TokenType.Begin);
-
-		foreach (t; tokenTypes) {
-			lex.match(t);
-		}
-
-		assert(lex.front.type == TokenType.End);
-		assert(lex.index == s.length + 1);
 	}
 
 	checkLexComment("//", "//");
