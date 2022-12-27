@@ -40,8 +40,10 @@ public:
 }
 
 template BuiltinName(string name) {
+	import std.format;
+	static assert(id < uint.max, format!"`%s` is not a builtin name."(name));
+
 	private enum id = Lookups.get(name, uint.max);
-	static assert(id < uint.max, name ~ " is not a builtin name.");
 	enum BuiltinName = Name(id);
 }
 
