@@ -395,7 +395,7 @@ unittest {
 		lex.match(TokenType.Begin);
 
 		auto t = lex.match(TokenType.Invalid);
-		assert(t.error.toString(context) == error, t.error.toString(context));
+		assert(t.error.toString(context) == error);
 	}
 
 	auto checkTokenSequence(string s, TokenType[] tokenTypes) {
