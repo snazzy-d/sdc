@@ -76,9 +76,8 @@ public:
 			return (ulong(_prefix) << 32) | _base;
 		}
 
-		auto buf = name.toString(context);
-		assert(buf.length == 8);
-		return *(cast(ulong*) buf.ptr);
+		import source.swar.util;
+		return unalignedLoad!ulong(name.toString(context));
 	}
 }
 
