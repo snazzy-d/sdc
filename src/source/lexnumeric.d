@@ -121,10 +121,6 @@ mixin template LexNumericImpl(
 	/**
 	 * Binary literals.
 	 */
-	static bool isBinary(char c) {
-		return c == '0' || c == '1';
-	}
-
 	uint popBinary(bool decode)(ref ulong result) {
 		uint count = 0;
 		while (true) {
@@ -173,7 +169,8 @@ mixin template LexNumericImpl(
 			popChar();
 		}
 
-		if (!isBinary(frontChar)) {
+		auto c = frontChar;
+		if (c != '0' && c != '1') {
 			import std.format;
 			return getError(
 				begin,
