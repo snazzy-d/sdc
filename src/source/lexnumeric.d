@@ -26,6 +26,12 @@ mixin template LexNumericImpl(
 	}
 
 	Token lexFloatLiteral(char E)(uint begin) {
+		return decodeLiterals
+			? lexFloatLiteral!(E, true)(begin)
+			: lexFloatLiteral!(E, false)(begin);
+	}
+
+	Token lexFloatLiteral(char E, bool decode)(uint begin) {
 		enum IsDec = E == 'e';
 		enum IsHex = E == 'p';
 		static if (IsDec) {
@@ -38,7 +44,8 @@ mixin template LexNumericImpl(
 			static assert(0, "Invalid exponent declarator.");
 		}
 
-		popFun();
+		ulong value = 0;
+		popFun!decode(value);
 
 		bool isFloat = false;
 		bool hasExponent = false;
@@ -54,7 +61,7 @@ mixin template LexNumericImpl(
 
 			if (isFun(frontChar)) {
 				popChar();
-				popFun();
+				popFun!decode(value);
 				isFloat = true;
 				goto LexExponent;
 			}
@@ -90,7 +97,8 @@ mixin template LexNumericImpl(
 				return getError(begin, "Float literal is missing exponent.");
 			}
 
-			popDecimal();
+			ulong exponent = 0;
+			popDecimal!decode(exponent);
 		}
 
 		if (isFloat) {
@@ -98,14 +106,6 @@ mixin template LexNumericImpl(
 		}
 
 	LexIntegral:
-		ulong value = 0;
-		if (decodeLiterals) {
-			import source.strtoint;
-			value = IsDec
-				? strToDecInt(content[begin .. index])
-				: strToHexInt(content[begin + 2 .. index]);
-		}
-
 		return lexIntegralSuffix(begin, value);
 
 	LexFloat:
@@ -118,27 +118,6 @@ mixin template LexNumericImpl(
 		return lexFloatSuffix(begin, 0);
 	}
 
-	void popDigits(alias startsWith8Digits, alias getDigitCount)() {
-		while (true) {
-			while (frontChar == '_') {
-				popChar();
-			}
-
-			ulong state;
-			while (startsWith8Digits(remainingContent, state)) {
-				popChar(8);
-			}
-
-			popChar(getDigitCount(state));
-
-			if (frontChar != '_') {
-				return;
-			}
-
-			popChar();
-		}
-	}
-
 	/**
 	 * Binary literals.
 	 */
@@ -146,9 +125,41 @@ mixin template LexNumericImpl(
 		return c == '0' || c == '1';
 	}
 
-	void popBinary() {
-		import source.swar.bin;
-		popDigits!(startsWith8BinDigits, getDigitCount)();
+	uint popBinary(bool decode)(ref ulong result) {
+		uint count = 0;
+		while (true) {
+			while (frontChar == '_') {
+				popChar();
+			}
+
+			import source.swar.bin;
+
+			ulong state;
+			while (startsWith8BinDigits(remainingContent, state)) {
+				if (decode) {
+					result <<= 8;
+					result |= parseBinDigits(remainingContent);
+				}
+
+				count += 8;
+				popChar(8);
+			}
+
+			auto digitCount = getDigitCount(state);
+			if (decode) {
+				result <<= digitCount;
+				result |= parseBinDigits(remainingContent, digitCount);
+			}
+
+			count += digitCount;
+			popChar(digitCount);
+
+			if (frontChar != '_') {
+				return count;
+			}
+
+			popChar();
+		}
 	}
 
 	Token lexNumeric(string s : "0B")() {
@@ -171,12 +182,11 @@ mixin template LexNumericImpl(
 			);
 		}
 
-		popBinary();
-
 		ulong value = 0;
 		if (decodeLiterals) {
-			import source.strtoint;
-			value = strToBinInt(content[begin + 2 .. index]);
+			popBinary!true(value);
+		} else {
+			popBinary!false(value);
 		}
 
 		return lexIntegralSuffix(begin, value);
@@ -190,9 +200,41 @@ mixin template LexNumericImpl(
 		return (c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f');
 	}
 
-	void popHexadecimal() {
-		import source.swar.hex;
-		popDigits!(startsWith8HexDigits, getDigitCount)();
+	uint popHexadecimal(bool decode)(ref ulong result) {
+		uint count = 0;
+		while (true) {
+			while (frontChar == '_') {
+				popChar();
+			}
+
+			import source.swar.hex;
+
+			ulong state;
+			while (startsWith8HexDigits(remainingContent, state)) {
+				if (decode) {
+					result <<= 32;
+					result |= parseHexDigits!uint(remainingContent);
+				}
+
+				count += 8;
+				popChar(8);
+			}
+
+			auto digitCount = getDigitCount(state);
+			if (decode) {
+				result <<= (4 * digitCount);
+				result |= parseHexDigits(remainingContent, digitCount);
+			}
+
+			count += digitCount;
+			popChar(digitCount);
+
+			if (frontChar != '_') {
+				return count;
+			}
+
+			popChar();
+		}
 	}
 
 	Token lexNumeric(string s : "0X")() {
@@ -226,24 +268,59 @@ mixin template LexNumericImpl(
 		return c >= '0' && c <= '9';
 	}
 
-	void popDecimal() {
-		import source.swar.dec;
-		popDigits!(startsWith8DecDigits, getDigitCount)();
+	uint popDecimal(bool decode)(ref ulong result) {
+		uint count = 0;
+		while (true) {
+			while (frontChar == '_') {
+				popChar();
+			}
+
+			import source.swar.dec;
+
+			ulong state;
+			while (startsWith8DecDigits(remainingContent, state)) {
+				if (decode) {
+					result *= 100000000;
+					result += parseDecDigits!uint(remainingContent);
+				}
+
+				count += 8;
+				popChar(8);
+			}
+
+			auto digitCount = getDigitCount(state);
+			if (decode) {
+				static immutable uint[8] POWERS_OF_10 =
+					[1, 10, 100, 1000, 10000, 100000, 1000000, 10000000];
+
+				result *= POWERS_OF_10[digitCount];
+				result += parseDecDigits(remainingContent, digitCount);
+			}
+
+			count += digitCount;
+			popChar(digitCount);
+
+			if (frontChar != '_') {
+				return count;
+			}
+
+			popChar();
+		}
 	}
 
 	auto lexNumeric(string s)() if (s.length == 1 && isDecimal(s[0])) {
-		uint l = s.length;
-		return lexDecimal(index - l);
+		index -= s.length;
+		return lexDecimal();
 	}
 
 	auto lexNumeric(string s)()
 			if (s.length == 2 && s[0] == '.' && isDecimal(s[1])) {
 		index -= s.length;
-		return lexDecimal(index);
+		return lexDecimal();
 	}
 
-	auto lexDecimal(uint begin) {
-		return lexFloatLiteral!'e'(begin);
+	auto lexDecimal() {
+		return lexFloatLiteral!'e'(index);
 	}
 }
 
@@ -416,14 +493,17 @@ unittest {
 	checkLexIntegral("1_1", 11);
 	checkLexIntegral("11_11", 1111);
 	checkLexIntegral("1_2_3_4_5", 12345);
+	checkLexIntegral("34_56", 3456);
 
 	checkLexIntegral("0x_01", 1);
 	checkLexIntegral("0x0_1", 1);
 	checkLexIntegral("0x01_", 1);
+	checkLexIntegral("0xa_B_c", 2748);
 
 	checkLexIntegral("0b_01", 1);
 	checkLexIntegral("0b0_1", 1);
 	checkLexIntegral("0b01_", 1);
+	checkLexIntegral("0b11_101_00", 116);
 
 	checkTokenSequence("_1", [TokenType.Identifier]);
 	checkTokenSequence("_0x01", [TokenType.Identifier]);
@@ -442,6 +522,15 @@ unittest {
 
 	checkLexInvalid("0_b", "`b` is not a valid suffix.");
 	checkLexInvalid("0_b_", "`b_` is not a valid suffix.");
+
+	// Decimal cases.
+	checkLexIntegral("1234567890", 1234567890);
+	checkLexIntegral("18446744073709551615", 18446744073709551615);
+
+	// Hexadecimal cases.
+	checkLexIntegral("0xAbCdEf0", 180150000);
+	checkLexIntegral("0x12345aBcDeF", 1251004370415);
+	checkLexIntegral("0x12345aBcDeF0", 20016069926640);
 
 	// Decimal floats.
 	checkLexFloat("1.", 1);
