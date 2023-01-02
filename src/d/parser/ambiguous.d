@@ -553,7 +553,7 @@ typeof(handler(AstExpression.init)) parseAmbiguousSuffix(
 			case Is:
 			case In:
 			case Bang:
-				e = trange.parseComparaisonExpression(e);
+				e = trange.parseComparisonExpression(e);
 				continue;
 
 			case LessLess, MoreMore, MoreMoreMore:

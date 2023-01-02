@@ -222,7 +222,7 @@ auto parseBitwiseAndExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.Ampersand, AstBinaryOp.And,
 		function AstExpression(ref TokenRange trange, AstExpression e) {
-			return trange.parseComparaisonExpression(e);
+			return trange.parseComparisonExpression(e);
 		})(lhs);
 }
 
@@ -230,12 +230,12 @@ auto parseBitwiseAndExpression(ref TokenRange trange, AstExpression lhs) {
  * Parse ==, != and comparaisons
  */
 // FIXME: Should be private, but dmd don't like that.
-AstExpression parseComparaisonExpression(ref TokenRange trange) {
-	return trange.parseComparaisonExpression(trange.parsePrefixExpression());
+AstExpression parseComparisonExpression(ref TokenRange trange) {
+	return trange.parseComparisonExpression(trange.parsePrefixExpression());
 }
 
-AstExpression parseComparaisonExpression(ref TokenRange trange,
-                                         AstExpression lhs) {
+AstExpression parseComparisonExpression(ref TokenRange trange,
+                                        AstExpression lhs) {
 	lhs = trange.parseShiftExpression(lhs);
 
 	static auto processToken(ref TokenRange trange, AstExpression lhs,
