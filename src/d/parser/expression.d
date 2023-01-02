@@ -19,11 +19,8 @@ AstExpression parseExpression(ParseMode mode = ParseMode.Greedy)(
 	ref TokenRange trange
 ) {
 	auto lhs = trange.parsePrefixExpression!mode();
-	return trange.parseAstBinaryExpression!(
-		TokenType.Comma, AstBinaryOp.Comma,
-		function AstExpression(ref TokenRange trange, AstExpression e) {
-			return trange.parseAssignExpression(e);
-		})(lhs);
+	return trange.parseAstBinaryExpression!(TokenType.Comma, AstBinaryOp.Comma,
+	                                        parseAssignExpression)(lhs);
 }
 
 /**
@@ -33,8 +30,7 @@ private AstExpression parseAstBinaryExpression(
 	TokenType tokenType,
 	AstBinaryOp op,
 	alias parseNext,
-	R,
-)(ref R trange, AstExpression lhs) {
+)(ref TokenRange trange, AstExpression lhs) {
 	lhs = parseNext(trange, lhs);
 
 	while (trange.front.type == tokenType) {
@@ -123,11 +119,6 @@ AstExpression parseAssignExpression(ref TokenRange trange, AstExpression lhs) {
 /**
  * Parse ?:
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseTernaryExpression(ref TokenRange trange) {
-	return trange.parseTernaryExpression(trange.parsePrefixExpression());
-}
-
 AstExpression parseTernaryExpression(ref TokenRange trange,
                                      AstExpression condition) {
 	condition = trange.parseLogicalOrExpression(condition);
@@ -137,7 +128,8 @@ AstExpression parseTernaryExpression(ref TokenRange trange,
 		auto ifTrue = trange.parseExpression();
 
 		trange.match(TokenType.Colon);
-		auto ifFalse = trange.parseTernaryExpression();
+		auto ifFalse = trange.parsePrefixExpression();
+		ifFalse = trange.parseTernaryExpression(ifFalse);
 
 		auto location = condition.location.spanTo(trange.previous);
 		return new AstTernaryExpression(location, condition, ifTrue, ifFalse);
@@ -149,91 +141,49 @@ AstExpression parseTernaryExpression(ref TokenRange trange,
 /**
  * Parse ||
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseLogicalOrExpression(ref TokenRange trange) {
-	return trange.parseLogicalOrExpression(trange.parsePrefixExpression());
-}
-
 auto parseLogicalOrExpression(ref TokenRange trange, AstExpression lhs) {
-	return trange.parseAstBinaryExpression!(
-		TokenType.PipePipe, AstBinaryOp.LogicalOr,
-		function AstExpression(ref TokenRange trange, AstExpression e) {
-			return trange.parseLogicalAndExpression(e);
-		})(lhs);
+	return trange
+		.parseAstBinaryExpression!(TokenType.PipePipe, AstBinaryOp.LogicalOr,
+		                           parseLogicalAndExpression)(lhs);
 }
 
 /**
  * Parse &&
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseLogicalAndExpression(ref TokenRange trange) {
-	return trange.parseLogicalAndExpression(trange.parsePrefixExpression());
-}
-
 auto parseLogicalAndExpression(ref TokenRange trange, AstExpression lhs) {
 	return trange.parseAstBinaryExpression!(
 		TokenType.AmpersandAmpersand, AstBinaryOp.LogicalAnd,
-		function AstExpression(ref TokenRange trange, AstExpression e) {
-			return trange.parseBitwiseOrExpression(e);
-		})(lhs);
+		parseBitwiseOrExpression)(lhs);
 }
 
 /**
  * Parse |
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseBitwiseOrExpression(ref TokenRange trange) {
-	return trange.parseBitwiseOrExpression(trange.parsePrefixExpression());
-}
-
 auto parseBitwiseOrExpression(ref TokenRange trange, AstExpression lhs) {
-	return trange.parseAstBinaryExpression!(
-		TokenType.Pipe, AstBinaryOp.Or,
-		function AstExpression(ref TokenRange trange, AstExpression e) {
-			return trange.parseBitwiseXorExpression(e);
-		})(lhs);
+	return trange.parseAstBinaryExpression!(TokenType.Pipe, AstBinaryOp.Or,
+	                                        parseBitwiseXorExpression)(lhs);
 }
 
 /**
  * Parse ^
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseBitwiseXorExpression(ref TokenRange trange) {
-	return trange.parseBitwiseXorExpression(trange.parsePrefixExpression());
-}
-
 auto parseBitwiseXorExpression(ref TokenRange trange, AstExpression lhs) {
-	return trange.parseAstBinaryExpression!(
-		TokenType.Caret, AstBinaryOp.Xor,
-		function AstExpression(ref TokenRange trange, AstExpression e) {
-			return trange.parseBitwiseAndExpression(e);
-		})(lhs);
+	return trange.parseAstBinaryExpression!(TokenType.Caret, AstBinaryOp.Xor,
+	                                        parseBitwiseAndExpression)(lhs);
 }
 
 /**
  * Parse &
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseBitwiseAndExpression(ref TokenRange trange) {
-	return trange.parseBitwiseAndExpression(trange.parsePrefixExpression());
-}
-
 auto parseBitwiseAndExpression(ref TokenRange trange, AstExpression lhs) {
-	return trange.parseAstBinaryExpression!(
-		TokenType.Ampersand, AstBinaryOp.And,
-		function AstExpression(ref TokenRange trange, AstExpression e) {
-			return trange.parseComparisonExpression(e);
-		})(lhs);
+	return trange
+		.parseAstBinaryExpression!(TokenType.Ampersand, AstBinaryOp.And,
+		                           parseComparisonExpression)(lhs);
 }
 
 /**
  * Parse ==, != and comparaisons
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseComparisonExpression(ref TokenRange trange) {
-	return trange.parseComparisonExpression(trange.parsePrefixExpression());
-}
-
 AstExpression parseComparisonExpression(ref TokenRange trange,
                                         AstExpression lhs) {
 	lhs = trange.parseShiftExpression(lhs);
@@ -241,7 +191,9 @@ AstExpression parseComparisonExpression(ref TokenRange trange,
 	static auto processToken(ref TokenRange trange, AstExpression lhs,
 	                         AstBinaryOp op) {
 		trange.popFront();
-		auto rhs = trange.parseShiftExpression();
+
+		auto rhs = trange.parsePrefixExpression();
+		rhs = trange.parseShiftExpression(rhs);
 
 		auto location = lhs.location.spanTo(trange.previous);
 		return new AstBinaryExpression(location, op, lhs, rhs);
@@ -318,11 +270,6 @@ AstExpression parseComparisonExpression(ref TokenRange trange,
 /**
  * Parse <<, >> and >>>
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseShiftExpression(ref TokenRange trange) {
-	return trange.parseShiftExpression(trange.parsePrefixExpression());
-}
-
 AstExpression parseShiftExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseAddExpression(lhs);
 
@@ -330,7 +277,9 @@ AstExpression parseShiftExpression(ref TokenRange trange, AstExpression lhs) {
 		static auto processToken(ref TokenRange trange, AstExpression lhs,
 		                         AstBinaryOp op) {
 			trange.popFront();
-			auto rhs = trange.parseAddExpression();
+
+			auto rhs = trange.parsePrefixExpression();
+			rhs = trange.parseAddExpression(rhs);
 
 			auto location = lhs.location.spanTo(trange.previous);
 			return new AstBinaryExpression(location, op, lhs, rhs);
@@ -358,11 +307,6 @@ AstExpression parseShiftExpression(ref TokenRange trange, AstExpression lhs) {
 /**
  * Parse +, - and ~
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseAddExpression(ref TokenRange trange) {
-	return trange.parseAddExpression(trange.parsePrefixExpression());
-}
-
 AstExpression parseAddExpression(ref TokenRange trange, AstExpression lhs) {
 	lhs = trange.parseMulExpression(lhs);
 
@@ -370,7 +314,9 @@ AstExpression parseAddExpression(ref TokenRange trange, AstExpression lhs) {
 		static auto processToken(ref TokenRange trange, AstExpression lhs,
 		                         AstBinaryOp op) {
 			trange.popFront();
-			auto rhs = trange.parseMulExpression();
+
+			auto rhs = trange.parsePrefixExpression();
+			rhs = trange.parseMulExpression(rhs);
 
 			auto location = lhs.location.spanTo(trange.previous);
 			return new AstBinaryExpression(location, op, lhs, rhs);
@@ -398,11 +344,6 @@ AstExpression parseAddExpression(ref TokenRange trange, AstExpression lhs) {
 /**
  * Parse *, / and %
  */
-// FIXME: Should be private, but dmd don't like that.
-AstExpression parseMulExpression(ref TokenRange trange) {
-	return trange.parseMulExpression(trange.parsePrefixExpression());
-}
-
 AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
 	while (true) {
 		static auto processToken(ref TokenRange trange, AstExpression lhs,
