@@ -566,6 +566,14 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		return (x & -x) == x;
 	}
 
+	auto negate(bool negate = true) const {
+		auto negMask = -T(negate);
+		auto posMask = T(negate) - 1;
+
+		return ValueRange((min & posMask) | (-max & negMask),
+		                  (max & posMask) | (-min & negMask));
+	}
+
 	auto unionWith(ValueRange other) const {
 		auto twraparound = this.max < this.min;
 		auto owraparound = other.max < other.min;
@@ -806,14 +814,10 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 
 		// If the whole range is in the negative, a * b = -(a * b).
 		auto lneg = lhs.min > S.max;
-		if (lneg) {
-			lhs = -lhs;
-		}
+		lhs = lhs.negate(lneg);
 
 		auto rneg = rhs.min > S.max;
-		if (rneg) {
-			rhs = -rhs;
-		}
+		rhs = rhs.negate(rneg);
 
 		// Zero is a special case as it always produce a
 		// range containign only itself. By splitting it,
@@ -859,10 +863,8 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 			return ValueRange();
 		}
 
-		auto res = ValueRange(lhs.min * rhs.min, lhs.max * rhs.max);
-		if (lneg != rneg) {
-			res = -res;
-		}
+		auto res = ValueRange(lhs.min * rhs.min, lhs.max * rhs.max)
+			.negate(lneg != rneg);
 
 		// We try to zero extend the range to be the most restrictive.
 		if (!hasZero) {
@@ -939,14 +941,13 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 
 			// Alright, this is a signed division.
 			bool neg = rhs.max < 0;
-			if (neg) {
-				// a / -b = -(a / b)
-				rhs = -rhs;
-			}
+
+			// a / -b = -(a / b)
+			rhs = rhs.negate(neg);
 
 			auto min = lhs.min / (lhs.min < 0 ? rhs.min : rhs.max);
 			auto max = lhs.max / (lhs.max < 0 ? rhs.max : rhs.min);
-			return neg ? ValueRange(-max, -min) : ValueRange(min, max);
+			return ValueRange(min, max).negate(neg);
 		}
 	}
 
@@ -954,10 +955,8 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		assert(this != ValueRange(0));
 		assert(rhs is rhs.normalized);
 	} do {
-		if (rhs.max < 0) {
-			// a % -b = a % b
-			rhs = -rhs;
-		}
+		// a % -b = a % b
+		rhs = rhs.negate(rhs.max < 0);
 
 		if (rhs.containsZero) {
 			import std.algorithm : max;
@@ -966,15 +965,11 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 
 		auto lhs = this.normalized;
 
-		// lhs is positive
-		if (lhs.min >= 0) {
-			return lhs.unsigned.urem(rhs.unsigned).signed;
-		}
-
-		// lhs is negative
-		if (lhs.max <= 0) {
-			lhs = -lhs;
-			return -lhs.unsigned.urem(rhs.unsigned).signed;
+		// lhs is positive or negative.
+		auto lneg = lhs.max <= 0;
+		if (lneg || lhs.min >= 0) {
+			return lhs.negate(lneg).unsigned.urem(rhs.unsigned).signed
+			          .negate(lneg);
 		}
 
 		// Ok lhs can be both positive and negative.
@@ -1085,12 +1080,10 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		ValueRange lhs = this;
 
 		auto lneg = min > S.max;
-		if (lneg) {
-			lhs = -lhs;
-		}
+		lhs = lhs.negate(lneg);
 
 		auto res = lhs.ushl(rhs);
-		return lneg ? -res : res;
+		return res.negate(lneg);
 	}
 
 	auto sshr(URange rhs) const in {
