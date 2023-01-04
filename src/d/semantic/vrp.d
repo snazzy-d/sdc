@@ -841,20 +841,8 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 				// XXX: VRP can't figure that one out aparently.
 				return cast(T) ((a * b) >> Bits);
 			} else {
-				// (a0 << 32 + a1)(b0 << 32 + b1) = a0b0 << 64 + (a0b1 + a1b0) << 32 + a1b1
-				auto a0 = a >> 32;
-				auto a1 = a & uint.max;
-
-				auto b0 = b >> 32;
-				auto b1 = b & uint.max;
-
-				auto a0b0 = a0 * b0;
-				auto a0b1 = a0 * b1;
-				auto a1b0 = a1 * b0;
-				auto a1b1 = a1 * b1;
-
-				auto carry = (a1b1 >> 32 + ((a0b1 + a1b0) & uint.max)) >> 32;
-				return a0b0 + (a0b1 >> 32) + (a1b0 >> 32) + carry;
+				import util.math : mulhi;
+				return mulhi(a, b);
 			}
 		}
 

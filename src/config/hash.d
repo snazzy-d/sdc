@@ -1,7 +1,6 @@
 module config.hash;
 
 import config.traits;
-import config.util;
 import config.value;
 
 hash_t hash(T)(T t) if (isKeyLike!T) {
@@ -19,6 +18,7 @@ hash_t hash(T)(T t) if (isKeyLike!T) {
  * for CRC32 (ARMv8.1+, x86), we might want to use that.
  */
 hash_t rehash(hash_t h) {
+	import util.math;
 	enum K = 0xc4ceb9fe1a85ec53;
 	auto hi = mulhi(h, K);
 	auto lo = h * K;
@@ -31,6 +31,7 @@ struct Hasher {
 	ulong state = 0;
 
 	hash_t mix(ulong k) {
+		import util.math;
 		auto hi = mulhi(state, k);
 		auto lo = state * k;
 		state = hi ^ lo;

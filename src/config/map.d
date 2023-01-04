@@ -3,8 +3,9 @@ module config.map;
 import config.hash;
 import config.heap;
 import config.traits;
-import config.util;
 import config.value;
+
+import util.math;
 
 /**
  * Extract 7 bits of the hash for the tag.
