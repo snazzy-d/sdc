@@ -473,7 +473,12 @@ public:
 				return MatchLevel.Not;
 
 			case IntToPtr, PtrToInt, Down, IntToBool, Trunc:
+			case FloatToSigned, FloatToUnsigned:
 				assert(0, "Not an implicit cast !");
+
+			case FloatExtend, FloatTrunc:
+			case SignedToFloat, UnsignedToFloat:
+				return MatchLevel.TypeConvert;
 
 			case UPad, SPad, Bit:
 				return MatchLevel.TypeConvert;

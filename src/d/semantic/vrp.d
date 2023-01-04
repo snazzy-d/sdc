@@ -220,8 +220,14 @@ public:
 
 			case PtrToInt:
 				assert(0, "Not implemented");
-
 				// return ValueRange.get(e.type.builtin);
+
+			case SignedToFloat, UnsignedToFloat:
+			case FloatExtend, FloatTrunc:
+				assert(0, "VRP not valid on float-yielding casts");
+
+			case FloatToSigned, FloatToUnsigned:
+				return getRange(e.type.builtin);
 
 			case IntToBool:
 				static doTheDMDMonkeyDance(R)(R r) {
