@@ -68,7 +68,7 @@ obj/x64/%.o: sdlib/sys/x64/%.asm $(LIBSDRT_X64_SRC) $(SDLIB_DEPS)
 
 $(LIBSDRT): $(LIBSDRT_DEPS)
 	@mkdir -p lib
-	ar rcs $(LIBSDRT) $^
+	ar rcs "$@" $^
 
 CHECK_LIBSDRT_GC = $(LIBSDRT_GC_SRC:sdlib/d/gc/%.d=check-sdlib-gc-%)
 CHECK_LIBSDRT_STDC = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=check-sdlib-stdc-%)

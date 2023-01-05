@@ -12,7 +12,7 @@ LIBSDMD_IMPORTS = -I$(NATIVE_DRUNTIME) -Isdlib
 
 obj/sdmd.o: $(LIBSMD_SRC)
 	@mkdir -p lib obj
-	$(DMD) -c -ofobj/sdmd.o -makedeps="$@.deps" $(LIBSMD_SRC) $(ARCHFLAG) $(LIBSDMD_IMPORTS)
+	$(DMD) -c -of"$@" $(LIBSMD_SRC) -makedeps="$@.deps" $(ARCHFLAG) $(LIBSDMD_IMPORTS)
 
 $(LIBSDMD): obj/sdmd.o
-	ar rcs $(LIBSDMD) obj/sdmd.o
+	ar rcs "$@" $^

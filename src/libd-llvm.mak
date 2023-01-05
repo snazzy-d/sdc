@@ -9,10 +9,10 @@ LDFLAGS_LLVM = $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs) 
 
 obj/libd-llvm.o: $(LIBD_LLVM_SRC)
 	@mkdir -p lib obj
-	$(DMD) -c -ofobj/libd-llvm.o $(LIBD_LLVM_SRC) -makedeps="$@.deps" $(DFLAGS) $(LIBD_LLVM_IMPORTS)
+	$(DMD) -c -of"$@" $(LIBD_LLVM_SRC) -makedeps="$@.deps" $(DFLAGS) $(LIBD_LLVM_IMPORTS)
 
 $(LIBD_LLVM): obj/libd-llvm.o
-	ar rcs $(LIBD_LLVM) obj/libd-llvm.o
+	ar rcs "$@" $^
 
 check-llvm: $(SDC) $(LIBSDRT) $(PHOBOS)
 	cd test/llvm; ./runlit.py . -v

@@ -9,4 +9,4 @@ obj/phobos/%.o: sdlib/std/%.d $(PHOBOS_SRC) $(SDLIB_DEPS)
 
 $(PHOBOS): $(PHOBOS_OBJ)
 	@mkdir -p lib obj/phobos
-	ar rcs $(PHOBOS) $^
+	ar rcs "$@" $^

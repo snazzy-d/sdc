@@ -21,8 +21,8 @@ uint getDigitCount(ulong state) in(state != 0x3131313131313131) {
 	state |= state + 0x7f7f7f7f7f7f7f7f;
 	state &= 0x8080808080808080;
 
-	import core.bitop;
-	return bsf((state * 0x0002040810204081) >> 56);
+	import core.bitop, util.math;
+	return bsf(mulhi(state, 0x0204081020408100));
 }
 
 unittest {

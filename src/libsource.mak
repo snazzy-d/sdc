@@ -2,12 +2,12 @@ LIBSOURCE_SRC = $(wildcard src/source/*.d) $(wildcard src/source/swar/*.d) $(wil
 
 LIBSOURCE = lib/libsource.a
 
-obj/libsource.o: $(LIBSOURCE_SRC)
+obj/source.o: $(LIBSOURCE_SRC)
 	@mkdir -p lib obj
 	$(DMD) -c -of"$@" $(LIBSOURCE_SRC) -makedeps="$@.deps" $(DFLAGS)
 
-$(LIBSOURCE): obj/libsource.o
-	ar rcs $(LIBSOURCE) obj/libsource.o
+$(LIBSOURCE): obj/source.o
+	ar rcs "$@" $^
 
 check-source: $(LIBSOURCE_SRC)
 	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="/* Do nothing */"

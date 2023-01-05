@@ -6,14 +6,14 @@ LIBSDFMT = lib/libsdfmt.a
 
 obj/format.o: $(LIBSDFMT_SRC)
 	@mkdir -p lib obj
-	$(DMD) -c -ofobj/format.o -makedeps="$@.deps" $(LIBSDFMT_SRC) $(DFLAGS)
+	$(DMD) -c -of"$@" $(LIBSDFMT_SRC) -makedeps="$@.deps" $(DFLAGS)
 
 $(LIBSDFMT): obj/format.o
-	ar rcs $(LIBSDFMT) obj/format.o
+	ar rcs "$@" $^
 
-$(SDFMT): obj/driver/sdfmt.o $(LIBSDFMT) $(LIBCONFIG) $(LIBSOURCE)
+$(SDFMT): obj/driver/sdfmt.o $(LIBSDFMT) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL)
 	@mkdir -p bin
-	$(DMD) -of"$@" $^ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS))
+	$(DMD) -of"$@" $+ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS))
 
 check-libfmt: $(LIBSDFMT_SRC)
 	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="/* Do nothing */"
