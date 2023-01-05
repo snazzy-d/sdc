@@ -12,6 +12,10 @@ bool startsWith8BinDigits(string s, ref ulong state) {
 	return state == 0x3131313131313131;
 }
 
+bool hasMoreDigits(ulong state) {
+	return (state & 0xff) == 0x31;
+}
+
 uint getDigitCount(ulong state) in(state != 0x3131313131313131) {
 	state ^= 0x3131313131313131;
 	state |= state + 0x7f7f7f7f7f7f7f7f;
@@ -27,6 +31,7 @@ unittest {
 		if (startsWith8BinDigits(s, state)) {
 			assert(count >= 8);
 		} else {
+			assert(hasMoreDigits(state) == (count > 0));
 			assert(getDigitCount(state) == count);
 		}
 	}
@@ -108,6 +113,7 @@ unittest {
 		 "1000011z": 0x43, "1011011": 0x5b, "1111111": 0x7f]) {
 		ulong state;
 		assert(!startsWith8BinDigits(s, state), s);
+		assert(hasMoreDigits(state));
 		assert(parseBinDigits(s, getDigitCount(state)) == v, s);
 	}
 }

@@ -141,14 +141,16 @@ mixin template LexNumericImpl(
 				popChar(8);
 			}
 
-			auto digitCount = getDigitCount(state);
-			if (decode) {
-				result <<= digitCount;
-				result |= parseBinDigits(remainingContent, digitCount);
-			}
+			if (hasMoreDigits(state)) {
+				auto digitCount = getDigitCount(state);
+				if (decode) {
+					result <<= digitCount;
+					result |= parseBinDigits(remainingContent, digitCount);
+				}
 
-			count += digitCount;
-			popChar(digitCount);
+				count += digitCount;
+				popChar(digitCount);
+			}
 
 			if (frontChar != '_') {
 				return count;
@@ -217,14 +219,16 @@ mixin template LexNumericImpl(
 				popChar(8);
 			}
 
-			auto digitCount = getDigitCount(state);
-			if (decode) {
-				result <<= (4 * digitCount);
-				result |= parseHexDigits(remainingContent, digitCount);
-			}
+			if (hasMoreDigits(state)) {
+				auto digitCount = getDigitCount(state);
+				if (decode) {
+					result <<= (4 * digitCount);
+					result |= parseHexDigits(remainingContent, digitCount);
+				}
 
-			count += digitCount;
-			popChar(digitCount);
+				count += digitCount;
+				popChar(digitCount);
+			}
 
 			if (frontChar != '_') {
 				return count;
@@ -285,17 +289,19 @@ mixin template LexNumericImpl(
 				popChar(8);
 			}
 
-			auto digitCount = getDigitCount(state);
-			if (decode) {
+			if (hasMoreDigits(state)) {
 				static immutable uint[8] POWERS_OF_10 =
 					[1, 10, 100, 1000, 10000, 100000, 1000000, 10000000];
 
-				result *= POWERS_OF_10[digitCount];
-				result += parseDecDigits(remainingContent, digitCount);
-			}
+				auto digitCount = getDigitCount(state);
+				if (decode) {
+					result *= POWERS_OF_10[digitCount];
+					result += parseDecDigits(remainingContent, digitCount);
+				}
 
-			count += digitCount;
-			popChar(digitCount);
+				count += digitCount;
+				popChar(digitCount);
+			}
 
 			if (frontChar != '_') {
 				return count;

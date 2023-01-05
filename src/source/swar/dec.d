@@ -19,6 +19,10 @@ bool startsWith8DecDigits(string s, ref ulong state) {
 	return state == 0;
 }
 
+bool hasMoreDigits(ulong state) {
+	return (state & 0x80) == 0;
+}
+
 uint getDigitCount(ulong state)
 		in(state != 0 && (state & 0x8080808080808080) == state) {
 	import core.bitop;
@@ -31,6 +35,7 @@ unittest {
 		if (startsWith8DecDigits(s, state)) {
 			assert(count >= 8);
 		} else {
+			assert(hasMoreDigits(state) == (count > 0));
 			assert(getDigitCount(state) == count);
 		}
 	}
@@ -107,6 +112,7 @@ unittest {
 	                "73": 73, "99": 99]) {
 		ulong state;
 		assert(!startsWith8DecDigits(s, state), s);
+		assert(hasMoreDigits(state));
 		assert(getDigitCount(state) == 2, s);
 		assert(parseDecDigits!ubyte(s) == v, s);
 	}
@@ -130,6 +136,7 @@ unittest {
 	                "8901": 8901, "9999": 9999]) {
 		ulong state;
 		assert(!startsWith8DecDigits(s, state), s);
+		assert(hasMoreDigits(state));
 		assert(getDigitCount(state) == 4, s);
 		assert(parseDecDigits!ushort(s) == v, s);
 	}
@@ -166,12 +173,12 @@ unittest {
 	}
 }
 
-uint parseDecDigits(string s, uint count) in(count < 8 && s.length >= count) {
+uint parseDecDigits(string s, uint count)
+		in(count < 8 && count > 0 && s.length >= count) {
 	import source.swar.util;
 	auto v = read!ulong(s);
 
-	v <<= 8;
-	v <<= (56 - 8 * count);
+	v <<= (64 - 8 * count);
 	v &= 0x0f0f0f0f0f0f0f0f;
 
 	return reduceValue(v);
@@ -182,6 +189,7 @@ unittest {
 	                "345678^!": 345678, "523501": 523501, "9999999": 9999999]) {
 		ulong state;
 		assert(!startsWith8DecDigits(s, state), s);
+		assert(hasMoreDigits(state));
 		assert(parseDecDigits(s, getDigitCount(state)) == v, s);
 	}
 }

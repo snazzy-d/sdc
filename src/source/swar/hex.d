@@ -7,6 +7,10 @@ bool startsWith8HexDigits(string s, ref ulong state) {
 	return startsWithHexDigits!ulong(s, state);
 }
 
+bool hasMoreDigits(ulong state) {
+	return (state & 0x80) == 0;
+}
+
 uint getDigitCount(ulong state)
 		in(state != 0 && (state & 0x8080808080808080) == state) {
 	import core.bitop;
@@ -266,14 +270,14 @@ unittest {
 	}
 }
 
-uint parseHexDigits(string s, uint count) in(count < 8 && s.length >= count) {
+uint parseHexDigits(string s, uint count)
+		in(count < 8 && count > 0 && s.length >= count) {
 	import source.swar.util;
 	auto v = read!ulong(s);
 
-	v <<= 8;
-	v <<= (56 - 8 * count);
-
+	v <<= (64 - 8 * count);
 	v = computeValue(v);
+
 	return reduceValue(v);
 }
 
@@ -291,6 +295,7 @@ unittest {
 	]) {
 		ulong state;
 		assert(!startsWith8HexDigits(s, state), s);
+		assert(hasMoreDigits(state));
 		assert(parseHexDigits(s, getDigitCount(state)) == v, s);
 	}
 }
