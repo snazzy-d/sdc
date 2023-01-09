@@ -31,7 +31,17 @@ ulong mulhi()(ulong a, ulong b) {
 		auto a1b0 = a1 * b0;
 		auto a1b1 = a1 * b1;
 
-		auto carry = (a1b1 >> 32 + ((a0b1 + a1b0) & uint.max)) >> 32;
-		return a0b0 + (a0b1 >> 32) + (a1b0 >> 32) + carry;
+		auto lo = (a1b1 >> 32) + (a0b1 & uint.max) + (a1b0 & uint.max);
+		return a0b0 + (a0b1 >> 32) + (a1b0 >> 32) + (lo >> 32);
 	}
+}
+
+unittest {
+	assert(mulhi(0, 0) == 0);
+	assert(mulhi(0xcde6fd5e09abcf26, 0x0b6dfb9c0f956447) == 0x0931629beb2ac9c8);
+	assert(mulhi(0xa8acd7c0222311bc, 0xf50a3fa490c30190) == 0xa1742b2a45611ae0);
+	assert(mulhi(0x5cafb867790ea400, 0x775ea264cf55347e) == 0x2b37f20981aab417);
+	assert(mulhi(0xcecb8f27f4200f3a, 0x9e74d1b791e07e48) == 0x7fffffffffffffff);
+	assert(mulhi(0x7fffffffffffffff, 0x7fffffffffffffff) == 0x3fffffffffffffff);
+	assert(mulhi(0xffffffffffffffff, 0xffffffffffffffff) == 0xfffffffffffffffe);
 }
