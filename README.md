@@ -7,7 +7,7 @@ to compile your code.
 The project currently provides a collection of tools:
 
 - [sdc][1], the D compiler.
-- [sduint][2], an utility to runt he unit tests in D modules.
+- [sdunit][2], an utility to runt he unit tests in D modules.
 - [sdfmt][3], a code formatter for D.
 
 This compiler is based on [libd][4] for D code analysis. It uses [LLVM][5] and
