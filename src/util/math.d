@@ -6,6 +6,11 @@ bool isPow2(T)(T x) if (isIntegral!T) {
 	return (x & (x - 1)) == 0;
 }
 
+uint countLeadingZeros(T)(T x) if (isIntegral!T) {
+	import core.bitop;
+	return (8 * T.sizeof - 1 - bsr(x)) & uint.max;
+}
+
 // I have not figured out how to do this in a sensible way.
 // See: https://forum.dlang.org/post/zsaghidvbsdwqthadphx@forum.dlang.org
 ulong mulhi()(ulong a, ulong b) {
