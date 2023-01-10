@@ -1,5 +1,7 @@
 module source.packedint;
 
+import source.context;
+
 struct PackedInt(uint ExtraBits) {
 private:
 	enum PrefixBits = ExtraBits - 3;
@@ -34,7 +36,6 @@ private:
 	}
 
 public:
-	import source.context;
 	static get(Context context, ulong value) {
 		if ((value & Mask) == value) {
 			return PackedInt(value);
@@ -68,12 +69,12 @@ public:
 
 	@property
 	uint extra() const {
-		return (_prefix << 3) | (_long << 2) | (_unsigned << 1) | _inline;
+		return _inline | (_unsigned << 1) | (_long << 2) | (_prefix << 3);
 	}
 
 	ulong toInt(Context context) const {
 		if (_inline) {
-			return (ulong(_prefix) << 32) | _base;
+			return _base | (ulong(_prefix) << 32);
 		}
 
 		import source.swar.util;
@@ -84,7 +85,6 @@ public:
 unittest {
 	alias PI = PackedInt!24;
 
-	import source.context;
 	auto c = new Context();
 
 	foreach (i; 0 .. 54) {
