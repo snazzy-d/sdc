@@ -95,15 +95,8 @@ public:
 		}
 
 		alias CR = TypeConstants!real;
-		if (mantissa == 0 || exponent < CR.SmallestPowerOfTen) {
-			return fromFloat(0);
-		}
-
-		if (exponent > CR.LargestPowerOfTen) {
-			return fromFloat(float.infinity);
-		}
-
-		return fromSoftFloat(context, SoftFloat(mantissa, exponent));
+		return fromSoftFloat(context, SoftFloat(mantissa, exponent),
+		                     CR.SmallestPowerOfTen, CR.LargestPowerOfTen);
 	}
 
 	static recompose(uint base, uint extra) {
@@ -148,14 +141,23 @@ public:
 	}
 
 private:
-	static fromSoftFloat(Context context, SoftFloat value) {
+	static fromSoftFloat(Context context, SoftFloat sf, int minExponent,
+	                     int maxExponent) {
+		if (sf.mantissa == 0 || sf.exponent < minExponent) {
+			return fromFloat(0);
+		}
+
+		if (sf.exponent > maxExponent) {
+			return fromFloat(float.infinity);
+		}
+
 		union U {
 			SoftFloat value;
 			immutable(char)[12] buf;
 		}
 
 		U v;
-		v.value = value;
+		v.value = sf;
 		return PackedFloat(context.getName(v.buf[]));
 	}
 }
