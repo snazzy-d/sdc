@@ -181,14 +181,11 @@ struct SoftFloat {
 	}
 
 	T to(T)() const if (isFloatingPoint!T) {
-		return hex ? fromHexdecimalTo!T() : fromDecimalTo!T();
-	}
+		if (hex) {
+			import core.math;
+			return ldexp(T(mantissa), exponent);
+		}
 
-	T fromHexdecimalTo(T)() const if (isFloatingPoint!T) in(hex) {
-		assert(0, "Not implemented");
-	}
-
-	T fromDecimalTo(T)() const if (isFloatingPoint!T) in(!hex) {
 		alias C = TypeConstants!T;
 
 		/**
@@ -356,6 +353,9 @@ template TypeConstants(T : float) {
 	enum MaxMantissaFastPath = 2UL << MantissaExplicitBits;
 	enum MaxExactIntegral = MaxMantissaFastPath - 1;
 
+	enum SmallestPowerOfTwo = 1 - ExponentOffset - MantissaExplicitBits - 64;
+	enum LargestPowerOfTwo = ExponentOffset;
+
 	immutable float[11] PowersOfTen =
 		[1e0f, 1e1f, 1e2f, 1e3f, 1e4f, 1e5f, 1e6f, 1e7f, 1e8f, 1e9f, 1e10f];
 }
@@ -373,6 +373,9 @@ template TypeConstants(T : double) {
 	enum ExponentOffset = InfiniteExponent >> 1;
 	enum MaxMantissaFastPath = 2UL << MantissaExplicitBits;
 	enum MaxExactIntegral = MaxMantissaFastPath - 1;
+
+	enum SmallestPowerOfTwo = 1 - ExponentOffset - MantissaExplicitBits - 64;
+	enum LargestPowerOfTwo = ExponentOffset;
 
 	immutable double[23] PowersOfTen =
 		[1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12,
@@ -434,7 +437,7 @@ unittest {
 		ulong _double;
 	}
 
-	immutable TestCase[] TestVectors = [
+	immutable TestCase[] DecimalTestVectors = [
 		// Test lower float exponent boundaries.
 		TestCase("1.8446744073709551615e-46", ulong.max,
 		         CF.SmallestPowerOfTen - 1, 0x00000000, 0x3670d9976a5d5297),
@@ -507,9 +510,83 @@ unittest {
 		         0x32000000, 0x3e40000000000000),
 	];
 
-	foreach (t; TestVectors) {
+	foreach (t; DecimalTestVectors) {
 		import core.stdc.stdlib;
 		auto sf = SoftFloat(t.mantissa, t.exponent);
+
+		auto f0 = sf.to!float();
+		auto fi = *(cast(uint*) &f0);
+		assert(f0 == strtof(t.expected.ptr, null), t.expected);
+		assert(fi == t._float, t.expected);
+
+		auto d0 = sf.to!double();
+		auto di = *(cast(ulong*) &d0);
+		assert(d0 == strtod(t.expected.ptr, null), t.expected);
+		assert(di == t._double, t.expected);
+	}
+
+	immutable TestCase[] HexadecimalTestVectors = [
+		// Test lower float exponent boundaries.
+		TestCase("0xffffffffffffffffp-214", ulong.max,
+		         CF.SmallestPowerOfTwo - 1, 0x00000000, 0x3690000000000000),
+		TestCase("0x1p-213", 1, CF.SmallestPowerOfTwo, 0x00000000,
+		         0x32a0000000000000),
+		TestCase("0x8000000000000000p-213", 0x8000000000000000,
+		         CF.SmallestPowerOfTwo, 0x00000000, 0x3690000000000000),
+		TestCase("0x8000000000000001p-213", 0x8000000000000001,
+		         CF.SmallestPowerOfTwo, 0x00000001, 0x3690000000000000),
+		TestCase("0xffffff7fffffffffp64", 0xffffff7fffffffff, 64, 0x7f7fffff,
+		         0x47effffff0000000),
+		TestCase("0xffffff8000000000p64", 0xffffff8000000000, 64, 0x7f800000,
+		         0x47effffff0000000),
+		TestCase("0x1p127", 1, CF.LargestPowerOfTwo, 0x7f000000,
+		         0x47e0000000000000),
+		TestCase("0x2p127", 2, CF.LargestPowerOfTwo, 0x7f800000,
+		         0x47f0000000000000),
+		TestCase("0x1p128", 1, CF.LargestPowerOfTwo + 1, 0x7f800000,
+		         0x47f0000000000000),
+
+		// Test lower double exponent boundaries.
+		TestCase("0xffffffffffffffffp-1139", ulong.max,
+		         CD.SmallestPowerOfTwo - 1, 0x00000000, 0x0000000000000000),
+		TestCase("0x1p-1138", 1, CD.SmallestPowerOfTwo, 0x00000000,
+		         0x0000000000000000),
+		TestCase("0x8000000000000000p-1138", 0x8000000000000000,
+		         CD.SmallestPowerOfTwo, 0x00000000, 0x0000000000000000),
+		TestCase("0x8000000000000001p-1138", 0x8000000000000001,
+		         CD.SmallestPowerOfTwo, 0x00000000, 0x0000000000000001),
+		TestCase("0xfffffffffffffbffp960", 0xfffffffffffffbff, 960, 0x7f800000,
+		         0x7fefffffffffffff),
+		TestCase("0xfffffffffffffc00p960", 0xfffffffffffffc00, 960, 0x7f800000,
+		         0x7ff0000000000000),
+		TestCase("0x1p1023", 1, CD.LargestPowerOfTwo, 0x7f800000,
+		         0x7fe0000000000000),
+		TestCase("0x2p1023", 2, CD.LargestPowerOfTwo, 0x7f800000,
+		         0x7ff0000000000000),
+		TestCase("0x1p1024", 1, CD.LargestPowerOfTwo + 1, 0x7f800000,
+		         0x7ff0000000000000),
+
+		// Float subnormal to normal.
+		TestCase("0xfffffeffffffffffp-190", 0xfffffeffffffffff, -190,
+		         0x007fffff, 0x380fffffe0000000),
+		TestCase("0xffffff0000000000p-190", 0xffffff0000000000, -190,
+		         0x00800000, 0x380fffffe0000000),
+
+		// Double subnormal to normal.
+		TestCase("0xfffffffffffff7ffp-1086", 0xfffffffffffff7ff, -1086,
+		         0x00000000, 0x000fffffffffffff),
+		TestCase("0xfffffffffffff800p-1086", 0xfffffffffffff800, -1086,
+		         0x00000000, 0x0010000000000000),
+
+		// Integers past the range they can be represented exactly.
+		TestCase("0x1000001", 0x1000001, 0, 0x4b800000, 0x4170000010000000),
+		TestCase("0x20000000000001", 0x20000000000001, 0, 0x5a000000,
+		         0x4340000000000000),
+	];
+
+	foreach (t; HexadecimalTestVectors) {
+		import core.stdc.stdlib;
+		auto sf = SoftFloat(t.mantissa, t.exponent, true);
 
 		auto f0 = sf.to!float();
 		auto fi = *(cast(uint*) &f0);
