@@ -19,6 +19,19 @@ unittest {
 	}
 }
 
+uint countTrailingZeros(T)(T x) if (isIntegral!T) in(x != 0) {
+	import core.bitop;
+	return bsf(x) & uint.max;
+}
+
+unittest {
+	foreach (i; 0 .. 64) {
+		assert(countTrailingZeros(1UL << i) == i);
+		assert(countTrailingZeros(5UL << i) == i);
+		assert(countTrailingZeros(-1UL << i) == i);
+	}
+}
+
 // I have not figured out how to do this in a sensible way.
 // See: https://forum.dlang.org/post/zsaghidvbsdwqthadphx@forum.dlang.org
 ulong mulhi()(ulong a, ulong b) {
