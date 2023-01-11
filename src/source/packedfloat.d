@@ -70,6 +70,11 @@ private:
 
 public:
 	static fromInt(Context context, ulong value) {
+		alias CF = TypeConstants!float;
+		if (value <= CF.MaxExactIntegral) {
+			return fromFloat(value);
+		}
+
 		// TODO: Use fromHexadecimal instead.
 		return fromDecimal(context, value, 0);
 	}
@@ -149,7 +154,6 @@ struct SoftFloat {
 
 	T to(T)() const if (isFloatingPoint!T) {
 		alias C = TypeConstants!T;
-		enum MaxMantissaFastPath = 2UL << C.MantissaExplicitBits;
 
 		/**
 		 * If we can represent the power of 10 exactly,
@@ -157,7 +161,7 @@ struct SoftFloat {
 		 */
 		if (exponent >= C.MinExponentFastPath
 			    && exponent <= C.MaxExponentFastPath
-			    && mantissa <= MaxMantissaFastPath) {
+			    && mantissa <= C.MaxMantissaFastPath) {
 			if (exponent < 0) {
 				return T(mantissa) / C.PowersOfTen[-exponent];
 			} else {
@@ -311,6 +315,9 @@ template TypeConstants(T : float) {
 	enum ExponentOffset = 127;
 	enum InfiniteExponent = 0xff;
 
+	enum MaxMantissaFastPath = 2UL << MantissaExplicitBits;
+	enum MaxExactIntegral = MaxMantissaFastPath - 1;
+
 	immutable float[11] PowersOfTen =
 		[1e0f, 1e1f, 1e2f, 1e3f, 1e4f, 1e5f, 1e6f, 1e7f, 1e8f, 1e9f, 1e10f];
 }
@@ -323,6 +330,9 @@ template TypeConstants(T : double) {
 	enum LargestPowerOfTen = 308;
 	enum ExponentOffset = 1023;
 	enum InfiniteExponent = 0x7ff;
+
+	enum MaxMantissaFastPath = 2UL << MantissaExplicitBits;
+	enum MaxExactIntegral = MaxMantissaFastPath - 1;
 
 	immutable double[23] PowersOfTen =
 		[1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12,
@@ -342,7 +352,7 @@ unittest {
 		assert(p.to!double(c) == strtod(expected.ptr, null), expected);
 	}
 
-	foreach (i; [0, 1, 3, 4, 5, 42, 12345, 16777216]) {
+	foreach (i; [0, 1, 3, 4, 5, 42, 12345, CF.MaxExactIntegral]) {
 		auto p = PF.fromInt(c, i);
 		assert(p.to!float(c) == i);
 		assert(p.to!double(c) == i);
@@ -354,7 +364,8 @@ unittest {
 		}
 	}
 
-	foreach (i; [16777217, 35184372088831, 35184372088832, 9007199254740992]) {
+	foreach (i; [CF.MaxExactIntegral, PF.MantissaMask, PF.MantissaMask + 1,
+	             CD.MaxExactIntegral]) {
 		auto p = PF.fromInt(c, i);
 		assert(p.to!double(c) == i);
 
