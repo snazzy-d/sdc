@@ -15,8 +15,8 @@ shared static this() {
 struct PackedFloat(uint ExtraBits) {
 private:
 	enum Kind {
-		Indirect,
 		Float,
+		Indirect,
 		Decimal,
 		Hexdecimal,
 	}
@@ -76,16 +76,39 @@ public:
 			return fromFloat(value);
 		}
 
-		// TODO: Use fromHexadecimal instead.
-		return fromDecimal(context, value, 0);
+		return fromHexadecimal(context, value, 0);
 	}
 
 	static fromFloat(float value) {
 		return PackedFloat(value);
 	}
 
-	static fromHexadecimal(ulong mantissa, int exponent) {
-		assert(0, "Not implemented");
+	static fromHexadecimal(Context context, ulong mantissa, int exponent) {
+		if (mantissa == 0) {
+			return fromFloat(0);
+		}
+
+		// Normalize mantissa.
+		import util.math;
+		auto lz = countLeadingZeros(mantissa);
+		mantissa <<= lz;
+		exponent -= lz;
+
+		// Check if it fits inline.
+		enum TailBits = int(64 - MantissaBits - 1);
+		enum TailMask = (1UL << TailBits) - 1;
+
+		uint ee = exponent + ExponentOffset;
+		if ((mantissa & TailMask) == 0 && ee <= (ExponentMask - TailBits)) {
+			auto p = PackedFloat((mantissa >> TailBits) & MantissaMask,
+			                     exponent + TailBits);
+			p._kind = Kind.Hexdecimal;
+			return p;
+		}
+
+		alias CR = TypeConstants!real;
+		return fromSoftFloat(context, SoftFloat(mantissa, exponent, true),
+		                     CR.SmallestPowerOfTwo, CR.LargestPowerOfTwo);
 	}
 
 	static fromDecimal(Context context, ulong mantissa, int exponent) {
@@ -121,20 +144,36 @@ public:
 	}
 
 	T to(T)(Context context) const if (isFloatingPoint!T) {
-		auto k = _kind;
-		if (k == Kind.Float) {
-			return _float;
-		}
-
 		SoftFloat value;
-		if (k == Kind.Decimal || k == Kind.Hexdecimal) {
-			ulong mantissa = _base | (ulong(_prefix) << 32);
-			int exponent = _exponent - ExponentOffset;
-			value = SoftFloat(mantissa, exponent, k == Kind.Hexdecimal);
-		} else {
-			auto buf = name.toString(context);
-			assert(buf.length == 12);
-			value = *(cast(SoftFloat*) buf.ptr);
+
+		ulong mantissa;
+		bool isHex;
+
+		final switch (_kind) with (Kind) {
+			case Float:
+				return _float;
+
+			case Indirect:
+				auto buf = name.toString(context);
+				assert(buf.length == 12);
+				value = *(cast(SoftFloat*) buf.ptr);
+				break;
+
+			case Decimal:
+				isHex = false;
+				mantissa = 0;
+				goto MakeValue;
+
+			case Hexdecimal:
+				isHex = true;
+				mantissa = (1UL << MantissaBits);
+				goto MakeValue;
+
+			MakeValue:
+				mantissa |= _base | (ulong(_prefix) << 32);
+				int exponent = _exponent - ExponentOffset;
+				value = SoftFloat(mantissa, exponent, isHex);
+				break;
 		}
 
 		return value.to!T();
@@ -195,10 +234,11 @@ struct SoftFloat {
 		if (exponent >= C.MinExponentFastPath
 			    && exponent <= C.MaxExponentFastPath
 			    && mantissa <= C.MaxMantissaFastPath) {
+			auto m = T(mantissa);
 			if (exponent < 0) {
-				return T(mantissa) / C.PowersOfTen[-exponent];
+				return m / C.PowersOfTen[-exponent];
 			} else {
-				return T(mantissa) * C.PowersOfTen[exponent];
+				return m * C.PowersOfTen[exponent];
 			}
 		}
 
@@ -405,6 +445,14 @@ unittest {
 		assert(p.to!float(c) == i);
 		assert(p.to!double(c) == i);
 
+		p = PF.fromDecimal(c, i, 0);
+		assert(p.to!float(c) == i);
+		assert(p.to!double(c) == i);
+
+		p = PF.fromHexadecimal(c, i, 0);
+		assert(p.to!float(c) == i);
+		assert(p.to!double(c) == i);
+
 		foreach (e; CF.MinExponentFastPath .. CF.MaxExponentFastPath + 1) {
 			import std.format;
 			p = PF.fromDecimal(c, i, e);
@@ -415,6 +463,12 @@ unittest {
 	foreach (i; [CF.MaxExactIntegral, PF.MantissaMask, PF.MantissaMask + 1,
 	             CD.MaxExactIntegral]) {
 		auto p = PF.fromInt(c, i);
+		assert(p.to!double(c) == i);
+
+		p = PF.fromDecimal(c, i, 0);
+		assert(p.to!double(c) == i);
+
+		p = PF.fromHexadecimal(c, i, 0);
 		assert(p.to!double(c) == i);
 
 		foreach (e; CD.MinExponentFastPath .. CD.MaxExponentFastPath + 1) {
