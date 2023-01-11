@@ -316,14 +316,16 @@ template TypeConstants(T) {
 }
 
 template TypeConstants(T : float) {
+	enum MantissaExplicitBits = 23;
+	enum ExponentExplicitBits = 8;
+
 	enum MinExponentFastPath = -10;
 	enum MaxExponentFastPath = 10;
-	enum MantissaExplicitBits = 23;
 	enum SmallestPowerOfTen = -64;
 	enum LargestPowerOfTen = 38;
-	enum ExponentOffset = 127;
-	enum InfiniteExponent = 0xff;
 
+	enum InfiniteExponent = (1 << ExponentExplicitBits) - 1;
+	enum ExponentOffset = InfiniteExponent >> 1;
 	enum MaxMantissaFastPath = 2UL << MantissaExplicitBits;
 	enum MaxExactIntegral = MaxMantissaFastPath - 1;
 
@@ -332,14 +334,16 @@ template TypeConstants(T : float) {
 }
 
 template TypeConstants(T : double) {
+	enum MantissaExplicitBits = 52;
+	enum ExponentExplicitBits = 11;
+
 	enum MinExponentFastPath = -22;
 	enum MaxExponentFastPath = 22;
-	enum MantissaExplicitBits = 52;
 	enum SmallestPowerOfTen = -342;
 	enum LargestPowerOfTen = 308;
-	enum ExponentOffset = 1023;
-	enum InfiniteExponent = 0x7ff;
 
+	enum InfiniteExponent = (1 << ExponentExplicitBits) - 1;
+	enum ExponentOffset = InfiniteExponent >> 1;
 	enum MaxMantissaFastPath = 2UL << MantissaExplicitBits;
 	enum MaxExactIntegral = MaxMantissaFastPath - 1;
 
