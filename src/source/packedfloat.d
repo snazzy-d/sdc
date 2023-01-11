@@ -84,8 +84,7 @@ public:
 
 	static fromDecimal(Context context, ulong mantissa, int exponent) {
 		uint ee = exponent + ExponentOffset;
-		if ((mantissa & MantissaMask) == mantissa
-			    && (ee & ExponentMask) == ee) {
+		if (mantissa <= MantissaMask && ee <= ExponentMask) {
 			return PackedFloat(mantissa, exponent);
 		}
 
