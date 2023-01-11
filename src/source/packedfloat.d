@@ -15,10 +15,10 @@ shared static this() {
 struct PackedFloat(uint ExtraBits) {
 private:
 	enum Kind {
-		Float,
-		Hexdecimal,
-		Decimal,
 		Indirect,
+		Float,
+		Decimal,
+		Hexdecimal,
 	}
 
 	import util.bitfields;
@@ -141,12 +141,11 @@ public:
 			return _float;
 		}
 
-		assert(k != Kind.Hexdecimal, "Not implemented");
-
 		SoftFloat value;
-		if (k == Kind.Decimal) {
-			value.mantissa = _base | (ulong(_prefix) << 32);
-			value.exponent = _exponent - ExponentOffset;
+		if (k == Kind.Decimal || k == Kind.Hexdecimal) {
+			ulong mantissa = _base | (ulong(_prefix) << 32);
+			int exponent = _exponent - ExponentOffset;
+			value = SoftFloat(mantissa, exponent, k == Kind.Hexdecimal);
 		} else {
 			auto buf = name.toString(context);
 			assert(buf.length == 12);
@@ -160,9 +159,30 @@ public:
 private:
 struct SoftFloat {
 	ulong mantissa;
-	int exponent;
+
+	import std.bitmanip;
+	mixin(bitfields!(
+		// sdfmt off
+		bool, "hex", 1,
+		int, "exponent", 31,
+		// sdfmt on
+	));
+
+	this(ulong mantissa, int exponent, bool hex = false) {
+		this.mantissa = mantissa;
+		this.exponent = exponent;
+		this.hex = hex;
+	}
 
 	T to(T)() const if (isFloatingPoint!T) {
+		return hex ? fromHexdecimalTo!T() : fromDecimalTo!T();
+	}
+
+	T fromHexdecimalTo(T)() const if (isFloatingPoint!T) in(hex) {
+		assert(0, "Not implemented");
+	}
+
+	T fromDecimalTo(T)() const if (isFloatingPoint!T) in(!hex) {
 		alias C = TypeConstants!T;
 
 		/**
