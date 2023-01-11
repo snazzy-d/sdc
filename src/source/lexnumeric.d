@@ -17,12 +17,29 @@ mixin template LexNumericImpl(
 			.getIntegerLiteral(location, Token.PackedInt.get(context, value));
 	}
 
-	Token lexFloatSuffix(uint begin, double value) {
-		return lexLiteralSuffix!FloatSuffixes(begin, value);
+	Token lexFloatSuffix(bool IsHex)(uint begin, ulong mantissa, int exponent) {
+		return
+			lexLiteralSuffix!(FloatSuffixes, IsHex)(begin, mantissa, exponent);
 	}
 
-	Token getFloatLiteral(string s : "")(Location location, double value) {
-		return Token.getFloatLiteral(location, value);
+	Token lexDecimalFloatSuffix(uint begin, ulong mantissa, int exponent) {
+		return lexFloatSuffix!false(begin, mantissa, exponent);
+	}
+
+	Token lexHexadecimalFloatSuffix(uint begin, ulong mantissa, int exponent) {
+		return lexFloatSuffix!true(begin, mantissa, exponent);
+	}
+
+	Token getFloatLiteral(string s : "", bool IsHex)(
+		Location location,
+		ulong mantissa,
+		int exponent,
+	) {
+		import source.packedfloat;
+		auto pf = IsHex
+			? Token.PackedFloat.fromHexadecimal(context, mantissa, exponent)
+			: Token.PackedFloat.fromDecimal(context, mantissa, exponent);
+		return Token.getFloatLiteral(location, pf);
 	}
 
 	Token lexFloatLiteral(char E)(uint begin) {
@@ -41,11 +58,14 @@ mixin template LexNumericImpl(
 			alias isFun = isHexadecimal;
 			alias popFun = popHexadecimal;
 		} else {
-			static assert(0, "Invalid exponent declarator.");
+			import std.format;
+			static assert(0,
+			              format!"'%s' is not a valid exponent declarator."(E));
 		}
 
-		ulong value = 0;
-		popFun!decode(value);
+		int exponent = 0;
+		ulong mantissa = 0;
+		popFun!decode(mantissa);
 
 		bool isFloat = false;
 		bool hasExponent = false;
@@ -61,7 +81,7 @@ mixin template LexNumericImpl(
 
 			if (isFun(frontChar)) {
 				popChar();
-				popFun!decode(value);
+				exponent -= popFun!decode(mantissa);
 				isFloat = true;
 				goto LexExponent;
 			}
@@ -85,7 +105,8 @@ mixin template LexNumericImpl(
 			popChar();
 
 			auto c = frontChar;
-			if (c == '+' || c == '-') {
+			bool neg = c == '-';
+			if (neg || c == '+') {
 				popChar();
 			}
 
@@ -97,8 +118,11 @@ mixin template LexNumericImpl(
 				return getError(begin, "Float literal is missing exponent.");
 			}
 
-			ulong exponent = 0;
-			popDecimal!decode(exponent);
+			ulong value = 0;
+			popDecimal!decode(value);
+
+			import util.math;
+			exponent += maybeNegate(value, neg);
 		}
 
 		if (isFloat) {
@@ -106,16 +130,21 @@ mixin template LexNumericImpl(
 		}
 
 	LexIntegral:
-		return lexIntegralSuffix(begin, value);
+		return lexIntegralSuffix(begin, mantissa);
 
 	LexFloat:
+		bool isDec = IsDec;
+		if (isDec) {
+			return lexDecimalFloatSuffix(begin, mantissa, exponent);
+		}
+
 		// Exponent is mandatory for hex floats.
-		if (IsHex && !hasExponent) {
+		if (!hasExponent) {
 			return getError(begin,
 			                "An exponent is mandatory for hexadecimal floats.");
 		}
 
-		return lexFloatSuffix(begin, 0);
+		return lexHexadecimalFloatSuffix(begin, mantissa, exponent);
 	}
 
 	/**

@@ -6,6 +6,19 @@ bool isPow2(T)(T x) if (isIntegral!T) {
 	return (x & (x - 1)) == 0;
 }
 
+Signed!T maybeNegate(T)(T value, bool neg) {
+	return (value - neg) ^ -neg;
+}
+
+unittest {
+	foreach (ulong i; 0 .. 64) {
+		assert(maybeNegate(i, false) == i);
+		assert(maybeNegate(i, true) == -i);
+		assert(maybeNegate(-i, false) == -i);
+		assert(maybeNegate(-i, true) == i);
+	}
+}
+
 uint countLeadingZeros(T)(T x) if (isIntegral!T) in(x != 0) {
 	import core.bitop;
 	return (8 * T.sizeof - 1 - bsr(x)) & uint.max;

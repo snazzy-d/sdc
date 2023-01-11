@@ -365,28 +365,28 @@ private:
 	/**
 	 * Utilities to handle literals suffixes.
 	 */
-	Token lexLiteralSuffix(alias Suffixes, T...)(uint begin, T args) {
-		const prefixStart = index;
-		alias fun = lexLiteralSuffixTpl!Suffixes.fun;
+	template lexLiteralSuffix(alias Suffixes, A...) {
+		Token lexLiteralSuffix(T...)(uint begin, T args) {
+			const prefixStart = index;
 
-		static getLexerMap() {
-			string[string] ret;
+			static getLexerMap() {
+				string[string] ret;
 
-			foreach (op, _; Suffixes) {
-				ret[op] = "fun";
+				foreach (op, _; Suffixes) {
+					ret[op] = "fun";
+				}
+
+				return ret;
 			}
 
-			return ret;
+			while (true) {
+				import source.lexermixin;
+				mixin(lexerMixin(getLexerMap(), "fun",
+				                 ["begin", "prefixStart", "args"]));
+			}
 		}
 
-		while (true) {
-			import source.lexermixin;
-			mixin(lexerMixin(getLexerMap(), "fun",
-			                 ["begin", "prefixStart", "args"]));
-		}
-	}
-
-	template lexLiteralSuffixTpl(alias Suffixes) {
+		private
 		Token fun(string s, T...)(uint begin, uint prefixStart, T args) {
 			if (popIdChars() != 0) {
 				// We have something else.
@@ -401,7 +401,7 @@ private:
 			auto location = base.getWithOffsets(begin, index);
 
 			import std.format;
-			return mixin(format!"%s!s(location, args)"(Suffixes[s]));
+			return mixin(format!"%s!(s, A)(location, args)"(Suffixes[s]));
 		}
 	}
 

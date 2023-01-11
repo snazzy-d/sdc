@@ -184,6 +184,13 @@ public:
 		return PackedInt.recompose(_base, _extra);
 	}
 
+	import source.packedfloat;
+	alias PackedFloat = source.packedfloat.PackedFloat!ExtraBits;
+
+	PackedFloat packedFloat() const in(type == TokenType.FloatLiteral) {
+		return PackedFloat.recompose(_base, _extra);
+	}
+
 	import source.context;
 	string toString(Context context) {
 		return (type >= TokenType.Identifier)
@@ -257,10 +264,13 @@ public:
 		return t;
 	}
 
-	static getFloatLiteral(Location location, double value) {
+	static getFloatLiteral(Location location, PackedFloat value) {
 		Token t;
 		t._type = TokenType.FloatLiteral;
 		t._location = location;
+
+		t._base = value.base;
+		t._extra = value.extra;
 
 		return t;
 	}
@@ -404,12 +414,19 @@ struct DLexer {
 	]);
 	// sdfmt on
 
-	auto getFloatLiteral(string s)(Location location, double value) {
+	auto getFloatLiteral(string s)(Location location, ulong value) {
+		auto pf = Token.PackedFloat.fromInt(context, value);
+		return Token.getFloatLiteral(location, pf);
+	}
+
+	auto getFloatLiteral(string s, bool IsHex)(Location location,
+	                                           ulong mantissa, int exponent) {
 		if (s == "l") {
 			return getError(location, "Use 'L' suffix instead of 'l'.");
 		}
 
-		return Token.getFloatLiteral(location, value);
+		auto pf = Token.PackedFloat.fromDecimal(context, mantissa, exponent);
+		return Token.getFloatLiteral(location, pf);
 	}
 
 	/**
