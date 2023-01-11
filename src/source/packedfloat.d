@@ -103,15 +103,7 @@ public:
 			return fromFloat(float.infinity);
 		}
 
-		union U {
-			SoftFloat value;
-			immutable(char)[12] buf;
-		}
-
-		U v;
-		v.value.mantissa = mantissa;
-		v.value.exponent = exponent;
-		return PackedFloat(context.getName(v.buf[]));
+		return fromSoftFloat(context, SoftFloat(mantissa, exponent));
 	}
 
 	static recompose(uint base, uint extra) {
@@ -153,6 +145,18 @@ public:
 		}
 
 		return value.to!T();
+	}
+
+private:
+	static fromSoftFloat(Context context, SoftFloat value) {
+		union U {
+			SoftFloat value;
+			immutable(char)[12] buf;
+		}
+
+		U v;
+		v.value = value;
+		return PackedFloat(context.getName(v.buf[]));
 	}
 }
 
