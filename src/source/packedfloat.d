@@ -25,10 +25,11 @@ private:
 	enum KindBits = EnumSize!Kind;
 	enum ExponentBits = 9;
 	enum PrefixBits = ExtraBits - KindBits - ExponentBits;
+	enum MantissaBits = PrefixBits + 32;
 
 	enum KindMask = (1 << KindBits) - 1;
 	enum ExponentMask = (1 << ExponentBits) - 1;
-	enum MantissaMask = (1UL << (PrefixBits + 32)) - 1;
+	enum MantissaMask = (1UL << MantissaBits) - 1;
 
 	enum ExponentShift = KindBits;
 	enum ExponentOffset = ExponentMask >> 1;
