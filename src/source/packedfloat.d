@@ -93,6 +93,15 @@ public:
 			return PackedFloat(mantissa, exponent);
 		}
 
+		alias CR = TypeConstants!real;
+		if (mantissa == 0 || exponent < CR.SmallestPowerOfTen) {
+			return fromFloat(0);
+		}
+
+		if (exponent > CR.LargestPowerOfTen) {
+			return fromFloat(float.infinity);
+		}
+
 		union U {
 			SoftFloat value;
 			immutable(char)[12] buf;
@@ -337,6 +346,11 @@ template TypeConstants(T : double) {
 	immutable double[23] PowersOfTen =
 		[1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12,
 		 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22];
+}
+
+template TypeConstants(T : real) {
+	// TODO: Support real.
+	alias TypeConstants = TypeConstants!double;
 }
 
 unittest {
