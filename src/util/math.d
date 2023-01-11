@@ -6,9 +6,17 @@ bool isPow2(T)(T x) if (isIntegral!T) {
 	return (x & (x - 1)) == 0;
 }
 
-uint countLeadingZeros(T)(T x) if (isIntegral!T) {
+uint countLeadingZeros(T)(T x) if (isIntegral!T) in(x != 0) {
 	import core.bitop;
 	return (8 * T.sizeof - 1 - bsr(x)) & uint.max;
+}
+
+unittest {
+	foreach (i; 0 .. 64) {
+		assert(countLeadingZeros(-1UL >> i) == i);
+		assert(countLeadingZeros(0x8000000000000000 >> i) == i);
+		assert(countLeadingZeros(0xe0b62e2929aba83c >> i) == i);
+	}
 }
 
 // I have not figured out how to do this in a sensible way.
