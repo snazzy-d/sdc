@@ -144,11 +144,6 @@ public:
 	}
 
 	T to(T)(Context context) const if (isFloatingPoint!T) {
-		SoftFloat value;
-
-		ulong mantissa;
-		bool isHex;
-
 		final switch (_kind) with (Kind) {
 			case Float:
 				return _float;
@@ -156,27 +151,20 @@ public:
 			case Indirect:
 				auto buf = name.toString(context);
 				assert(buf.length == 12);
-				value = *(cast(SoftFloat*) buf.ptr);
-				break;
+				return (cast(SoftFloat*) buf.ptr).to!T();
 
 			case Decimal:
-				isHex = false;
-				mantissa = 0;
-				goto MakeValue;
+				auto mantissa = _base | (ulong(_prefix) << 32);
+				int exponent = _exponent - ExponentOffset;
+				return SoftFloat(mantissa, exponent).fromDecimalTo!T();
 
 			case Hexdecimal:
-				isHex = true;
-				mantissa = (1UL << MantissaBits);
-				goto MakeValue;
-
-			MakeValue:
-				mantissa |= _base | (ulong(_prefix) << 32);
+				auto mantissa =
+					_base | (ulong(_prefix) << 32) | (1UL << MantissaBits);
 				int exponent = _exponent - ExponentOffset;
-				value = SoftFloat(mantissa, exponent, isHex);
-				break;
+				return
+					SoftFloat(mantissa, exponent, true).fromHexadecimalTo!T();
 		}
-
-		return value.to!T();
 	}
 
 private:
@@ -220,11 +208,15 @@ struct SoftFloat {
 	}
 
 	T to(T)() const if (isFloatingPoint!T) {
-		if (hex) {
-			import core.math;
-			return ldexp(T(mantissa), exponent);
-		}
+		return hex ? fromHexadecimalTo!T() : fromDecimalTo!T();
+	}
 
+	T fromHexadecimalTo(T)() const if (isFloatingPoint!T) in(hex) {
+		import core.math;
+		return ldexp(T(mantissa), exponent);
+	}
+
+	T fromDecimalTo(T)() const if (isFloatingPoint!T) in(!hex) {
 		alias C = TypeConstants!T;
 
 		/**
