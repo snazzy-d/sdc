@@ -242,27 +242,21 @@ struct TypeGen {
 	private LLVMValueRef genPrimaries(Class c, string mangle,
 	                                  LLVMTypeRef classInfoPtr) {
 		auto count = cast(uint) c.primaries.length;
-		LLVMValueRef[2] elts =
-			[LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), count, false),
-			 LLVMConstNull(LLVMPointerType(classInfoPtr, 0))];
-
-		auto slice =
-			LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
+		auto sizeType =
+			LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), count, false);
 
 		if (count == 0) {
-			return slice;
+			LLVMValueRef[2] elts =
+				[sizeType, LLVMConstNull(LLVMPointerType(classInfoPtr, 0))];
+			return
+				LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
 		}
 
 		auto type = LLVMArrayType(classInfoPtr, count);
-		auto gen = LLVMGetUndef(type);
-
-		uint i = 0;
 
 		import std.algorithm, std.array;
-		foreach (v; c.primaries.map!(p => getTypeInfo(p))) {
-			auto index = i++;
-			gen = LLVMConstInsertValue(gen, v, &index, 1);
-		}
+		auto parents = c.primaries.map!(p => getTypeInfo(p)).array();
+		auto gen = LLVMConstArray(classInfoPtr, parents.ptr, count);
 
 		import std.string;
 		auto primaries =
@@ -272,8 +266,8 @@ struct TypeGen {
 		LLVMSetUnnamedAddr(primaries, true);
 		LLVMSetLinkage(primaries, LLVMLinkage.LinkOnceODR);
 
-		uint index = 1;
-		return LLVMConstInsertValue(slice, primaries, &index, 1);
+		LLVMValueRef[2] elts = [sizeType, primaries];
+		return LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
 	}
 
 	LLVMTypeRef visit(Class c) in(c.step >= Step.Signed) {
