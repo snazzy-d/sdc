@@ -903,16 +903,15 @@ FloatLiteral parseFloatLiteral(ref TokenRange trange) {
 	auto t = trange.match(TokenType.FloatLiteral);
 
 	auto litString = t.toString(trange.context);
+	assert(litString.length > 1);
 
 	// https://dlang.org/spec/lex.html#FloatSuffix
-	assert(litString.length > 1);
 	switch (litString[$ - 1]) {
 		case 'f', 'F':
-			import std.conv;
-			const float f = litString[0 .. $ - 1].to!float;
-
 			import d.common.builtintype;
-			return new FloatLiteral(t.location, f, BuiltinType.Float);
+			return new FloatLiteral(
+				t.location, t.packedFloat.to!float(trange.context),
+				BuiltinType.Float);
 
 		case 'L':
 			import source.exception;
@@ -920,12 +919,11 @@ FloatLiteral parseFloatLiteral(ref TokenRange trange) {
 				t.location, "SDC does not support real literals yet");
 
 		default:
-			// Lexed correctly but no suffix, it's a double
-			import std.conv;
-			const double d = litString[0 .. $].to!double;
-
+			// Lexed correctly but no suffix, it's a double.
 			import d.common.builtintype;
-			return new FloatLiteral(t.location, d, BuiltinType.Double);
+			return new FloatLiteral(
+				t.location, t.packedFloat.to!double(trange.context),
+				BuiltinType.Double);
 	}
 }
 
@@ -933,51 +931,35 @@ FloatLiteral parseFloatLiteral(ref TokenRange trange) {
 unittest {
 	import source.context;
 	auto context = new Context();
-	import source.parserutil;
-	auto tokensFromString(string s) {
+
+	auto makeTestLexer(string s) {
 		auto base = context.registerMixin(Location.init, s ~ '\0');
-		auto x = lex(base, context);
-		x.match(TokenType.Begin);
-		return x;
+		auto lexer = lex(base, context);
+
+		lexer.match(TokenType.Begin);
+		return lexer;
 	}
 
-	void floatRoundTrip(T)(const string floatString, const T floatValue)
-			if (__traits(isFloating, T)) {
-		import d.common.builtintype : BuiltinType;
-		const BuiltinType expectedType =
+	void floatRoundTrip(T)(const string floatString, const T floatValue) {
+		import d.common.builtintype;
+		enum ExpectedType =
 			is(T == float) ? BuiltinType.Float : BuiltinType.Double;
-		// Acceptable relativeError
-		const T maxRelError = is(T == float) ? float.epsilon : double.epsilon;
-		auto tr = tokensFromString(floatString);
-		const fl = parseFloatLiteral(tr);
 
-		import std.format : format;
-		assert(
-			fl,
-			format("Got a %s from `%s`", typeid(fl).toString(), floatString)
-		);
+		auto lexer = makeTestLexer(floatString);
+		const fl = lexer.parseFloatLiteral();
+		assert(fl.type.builtin == ExpectedType);
 
-		assert(fl.type.builtin == expectedType);
-		// Note that the value is store in the FloatLiteral as a double.
-		if (fl.value !is floatValue) {
-			import std.math : log10, abs;
-			const relError = abs((fl.value - floatValue) / floatValue) * 100.0;
-			assert(
-				0,
-				format(
-					"%s yielded %f, missed by %e % whereas desired precision is %e",
-					floatString, floatValue, relError, maxRelError)
-			);
-		}
+		// Note that the value is stored in the FloatLiteral as a double.
+		assert(fl.value is floatValue);
 	}
 
-	// A few values, note that "-3.14f" is a UnaExp not a floating point literal
+	// A few values, note that "-3.14f" is an unary expression
+	// not a floating point literal.
 	floatRoundTrip("4.14f", 4.14f);
 	floatRoundTrip("420.0", 420.0);
 	floatRoundTrip("4200.0", 4200.0);
 	floatRoundTrip("0.222225", 0.222225);
 	floatRoundTrip("0x1p-52 ", 0x1p-52);
-	// sdc can't lex this yet
-	// floatRoundTrip("0x1.FFFFFFFFFFFFFp1023", 0x1.FFFFFFFFFFFFFp1023);
+	floatRoundTrip("0x1.FFFFFFFFFFFFFp1023", 0x1.FFFFFFFFFFFFFp1023);
 	floatRoundTrip("1.175494351e-38F", 1.175494351e-38F);
 }
