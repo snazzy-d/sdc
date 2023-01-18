@@ -54,9 +54,11 @@ mixin template LexNumericImpl(
 		static if (IsDec) {
 			alias isFun = isDecimal;
 			alias popFun = popDecimal;
+			enum ExponentScaleFactor = 1;
 		} else static if (IsHex) {
 			alias isFun = isHexadecimal;
 			alias popFun = popHexadecimal;
+			enum ExponentScaleFactor = 4;
 		} else {
 			import std.format;
 			static assert(0,
@@ -80,8 +82,7 @@ mixin template LexNumericImpl(
 			}
 
 			if (isFun(frontChar)) {
-				popChar();
-				exponent -= popFun!decode(mantissa);
+				exponent -= popFun!decode(mantissa) * ExponentScaleFactor;
 				isFloat = true;
 				goto LexExponent;
 			}
@@ -383,6 +384,7 @@ unittest {
 		import source.parserutil;
 		lex.match(TokenType.Begin);
 
+		// FIXME: Handle overflow cases.
 		auto t = lex.match(TokenType.IntegerLiteral);
 		assert(t.packedInt.toInt(context) == expected);
 
@@ -396,14 +398,19 @@ unittest {
 		import source.parserutil;
 		lex.match(TokenType.Begin);
 
-		// FIXME: Check packed value we we actually pack a value.
 		auto t = lex.match(TokenType.FloatLiteral);
+		assert(t.packedFloat.to!double(context) is expected || s.length > 19,
+		       s);
+
+		// FIXME: Handle the cases where the mantissa overflows an ulong.
+		assert(t.packedFloat.to!double(context) is expected || s.length > 19,
+		       s);
 
 		import std.conv;
 		try {
 			auto val =
 				t.location.getFullLocation(context).getSlice().to!double();
-			assert(val == expected);
+			assert(val is expected);
 		} catch (ConvException e) {}
 
 		assert(lex.front.type == TokenType.End);

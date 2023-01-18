@@ -425,7 +425,9 @@ struct DLexer {
 			return getError(location, "Use 'L' suffix instead of 'l'.");
 		}
 
-		auto pf = Token.PackedFloat.fromDecimal(context, mantissa, exponent);
+		auto pf = IsHex
+			? Token.PackedFloat.fromHexadecimal(context, mantissa, exponent)
+			: Token.PackedFloat.fromDecimal(context, mantissa, exponent);
 		return Token.getFloatLiteral(location, pf);
 	}
 
