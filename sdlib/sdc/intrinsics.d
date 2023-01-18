@@ -22,6 +22,11 @@ CompareAndSwapResult!ushort cas(ushort* ptr, ushort old, ushort val);
 CompareAndSwapResult!uint cas(uint* ptr, uint old, uint val);
 CompareAndSwapResult!ulong cas(ulong* ptr, ulong old, ulong val);
 
+CompareAndSwapResult!ubyte casWeak(ubyte* ptr, ubyte old, ubyte val);
+CompareAndSwapResult!ushort casWeak(ushort* ptr, ushort old, ushort val);
+CompareAndSwapResult!uint casWeak(uint* ptr, uint old, uint val);
+CompareAndSwapResult!ulong casWeak(ulong* ptr, ulong old, ulong val);
+
 ubyte popCount(ubyte n);
 ushort popCount(ushort n);
 uint popCount(uint n);

@@ -86,14 +86,18 @@ struct IntrinsicGen {
 
 	LLVMValueRef cas(bool weak, LLVMValueRef[] args)
 			in(args.length == 3, "Invalid argument count") {
-		return cas(weak, args[0], args[1], args[2],
-		           LLVMAtomicOrdering.SequentiallyConsistent);
+		auto i = cas(weak, args[0], args[1], args[2],
+		             LLVMAtomicOrdering.SequentiallyConsistent);
+		LLVMSetWeak(i, weak);
+		return i;
 	}
 
 	LLVMValueRef cas(bool weak, LLVMValueRef ptr, LLVMValueRef old,
 	                 LLVMValueRef val, LLVMAtomicOrdering ordering) {
-		return LLVMBuildAtomicCmpXchg(builder, ptr, old, val, ordering,
-		                              ordering, false);
+		auto i = LLVMBuildAtomicCmpXchg(builder, ptr, old, val, ordering,
+		                                ordering, false);
+		LLVMSetWeak(i, weak);
+		return i;
 	}
 
 	LLVMValueRef ctpop(LLVMValueRef[] args)
