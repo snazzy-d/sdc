@@ -84,12 +84,44 @@ struct __LLVMOpaqueBasicBlock {};
 alias LLVMBasicBlockRef = __LLVMOpaqueBasicBlock*;
 
 /**
+ * Represents an LLVM Metadata.
+ *
+ * This models llvm::Metadata.
+ */
+struct __LLVMOpaqueMetadata {};
+alias LLVMMetadataRef = __LLVMOpaqueMetadata*;
+
+/**
+ * Represents an LLVM Named Metadata Node.
+ *
+ * This models llvm::NamedMDNode.
+ */
+struct __LLVMOpaqueNamedMDNode {};
+alias LLVMNamedMDNodeRef = __LLVMOpaqueNamedMDNode*;
+
+/**
+ * Represents an entry in a Global Object's metadata attachments.
+ *
+ * This models std::pair<unsigned, MDNode *>
+ */
+struct __LLVMOpaqueValueMetadataEntry {};
+alias LLVMValueMetadataEntry = __LLVMOpaqueValueMetadataEntry*;
+
+/**
  * Represents an LLVM basic block builder.
  *
  * This models llvm::IRBuilder.
  */
 struct __LLVMOpaqueBuilder {};
 alias LLVMBuilderRef = __LLVMOpaqueBuilder*;
+
+/**
+ * Represents an LLVM debug info builder.
+ *
+ * This models llvm::DIBuilder.
+ */
+struct __LLVMOpaqueDIBuilder {};
+alias LLVMDIBuilderRef = __LLVMOpaqueDIBuilder*;
 
 /**
  * Interface used to provide a module to JIT or interpreter.
@@ -127,6 +159,30 @@ alias LLVMAttributeRef = __LLVMOpaqueAttribute*;
  */
 struct __LLVMOpaqueDiagnosticInfo {};
 alias LLVMDiagnosticInfoRef = __LLVMOpaqueDiagnosticInfo*;
+
+/**
+ * @see llvm::Comdat
+ */
+struct __LLVMComdat {};
+alias LLVMComdatRef = __LLVMComdat*;
+
+/**
+ * @see llvm::Module::ModuleFlagEntry
+ */
+struct __LLVMOpaqueModuleFlagEntry {};
+alias LLVMModuleFlagEntry = __LLVMOpaqueModuleFlagEntry*;
+
+/**
+ * @see llvm::JITEventListener
+ */
+struct __LLVMOpaqueJITEventListener {};
+alias LLVMJITEventListenerRef = __LLVMOpaqueJITEventListener*;
+
+/**
+ * @see llvm::object::Binary
+ */
+struct __LLVMOpaqueBinary {};
+alias LLVMBinaryRef = __LLVMOpaqueBinary*;
 
 /**
  * @}
