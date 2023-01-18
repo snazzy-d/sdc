@@ -38,8 +38,8 @@ bool canSkipOver8CharsInLine(string s, ref ulong state) {
 
 uint getSkippableCharsCount(ulong state)
 		in(state != 0 && (state & 0x8080808080808080) == state) {
-	import core.bitop;
-	return bsf((state * 0x0002040810204081) >> 56);
+	import core.bitop, util.math;
+	return bsf(mulhi(state, 0x0204081020408100));
 }
 
 unittest {
