@@ -3014,15 +3014,26 @@ LLVMValueRef LLVMBuildArrayAlloca(LLVMBuilderRef, LLVMTypeRef Ty,
 LLVMValueRef LLVMBuildFree(LLVMBuilderRef, LLVMValueRef PointerVal);
 LLVMValueRef LLVMBuildLoad(LLVMBuilderRef, LLVMValueRef PointerVal,
                            const(char)* Name);
+LLVMValueRef LLVMBuildLoad2(LLVMBuilderRef, LLVMTypeRef Ty,
+                            LLVMValueRef PointerVal, const(char)* Name);
 LLVMValueRef LLVMBuildStore(LLVMBuilderRef, LLVMValueRef Val, LLVMValueRef Ptr);
 LLVMValueRef LLVMBuildGEP(LLVMBuilderRef B, LLVMValueRef Pointer,
                           LLVMValueRef *Indices, uint NumIndices,
                           const(char)* Name);
+LLVMValueRef LLVMBuildGEP2(LLVMBuilderRef B, LLVMTypeRef Ty,
+                           LLVMValueRef Pointer, LLVMValueRef* Indices,
+                           uint NumIndices, const(char)* Name);
 LLVMValueRef LLVMBuildInBoundsGEP(LLVMBuilderRef B, LLVMValueRef Pointer,
                                   LLVMValueRef *Indices, uint NumIndices,
                                   const(char)* Name);
+LLVMValueRef LLVMBuildInBoundsGEP2(LLVMBuilderRef B, LLVMTypeRef Ty,
+                                   LLVMValueRef Pointer, LLVMValueRef *Indices,
+                                   uint NumIndices, const(char)* Name);
 LLVMValueRef LLVMBuildStructGEP(LLVMBuilderRef B, LLVMValueRef Pointer,
                                 uint Idx, const(char)* Name);
+LLVMValueRef LLVMBuildStructGEP2(LLVMBuilderRef B, LLVMTypeRef Ty,
+                                 LLVMValueRef Pointer, uint Idx,
+                                 const(char)* Name);
 LLVMValueRef LLVMBuildGlobalString(LLVMBuilderRef B, const(char)* Str,
                                    const(char)* Name);
 LLVMValueRef LLVMBuildGlobalStringPtr(LLVMBuilderRef B, const(char)* Str,

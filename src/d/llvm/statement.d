@@ -146,12 +146,12 @@ struct StatementGen {
 				}
 
 				// Create an alloca for the landing pad results.
+				auto lpType = getLpType();
 				if (!lpContext) {
 					auto currentBB = LLVMGetInsertBlock(builder);
 					LLVMPositionBuilderAtEnd(builder,
 					                         LLVMGetFirstBasicBlock(fun));
-					lpContext =
-						LLVMBuildAlloca(builder, getLpType(), "lpContext");
+					lpContext = LLVMBuildAlloca(builder, lpType, "lpContext");
 					LLVMPositionBuilderAtEnd(builder, currentBB);
 					LLVMSetPersonalityFn(fun,
 					                     declare(pass.object.getPersonality()));
@@ -163,21 +163,19 @@ struct StatementGen {
 					if (auto lpBlock = fbody[b].landingpad) {
 						LLVMBuildBr(builder, genBasicBlock(lpBlock));
 					} else {
-						auto lp = LLVMBuildLoad(builder, lpContext, "");
+						auto lp =
+							LLVMBuildLoad2(builder, lpType, lpContext, "");
 						LLVMBuildResume(builder, lp);
 					}
 
 					break;
 				}
 
-				auto i32 = LLVMInt32TypeInContext(llvmCtx);
-				LLVMValueRef[2] gepIdx =
-					[LLVMConstInt(i32, 0, false), LLVMConstInt(i32, 1, false)];
-
-				auto ptr = LLVMBuildInBoundsGEP(builder, lpContext, gepIdx.ptr,
-				                                gepIdx.length, "");
-
-				auto actionid = LLVMBuildLoad(builder, ptr, "actionid");
+				auto ptr =
+					LLVMBuildStructGEP2(builder, lpType, lpContext, 1, "");
+				auto actionType = LLVMStructGetTypeAtIndex(lpType, 1);
+				auto actionid =
+					LLVMBuildLoad2(builder, actionType, ptr, "actionid");
 				auto i8 = LLVMInt8TypeInContext(llvmCtx);
 				auto voidstar = LLVMPointerType(i8, 0);
 				foreach (c; catchTable.catches) {
