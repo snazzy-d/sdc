@@ -198,7 +198,7 @@ final class LLVMEvaluator : Evaluator {
 		auto lpBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "lp");
 
 		LLVMPositionBuilderAtEnd(builder, callBB);
-		LLVMBuildInvoke(builder, callee, null, 0, thenBB, lpBB, "");
+		LLVMBuildInvoke2(builder, funType, callee, null, 0, thenBB, lpBB, "");
 
 		LLVMPositionBuilderAtEnd(builder, thenBB);
 		LLVMBuildRet(builder, LLVMConstInt(returnType, 0, false));
