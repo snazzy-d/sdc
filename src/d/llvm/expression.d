@@ -820,17 +820,19 @@ struct ExpressionGen {
 	}
 
 	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
+		auto funType = LLVMGetElementType(LLVMTypeOf(callee));
+
 		// Check if we need to invoke.
 		if (!lpBB) {
-			return LLVMBuildCall(builder, callee, args.ptr,
-			                     cast(uint) args.length, "");
+			return LLVMBuildCall2(builder, funType, callee, args.ptr,
+			                      cast(uint) args.length, "");
 		}
 
 		auto currentBB = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(currentBB);
 		auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
-		auto ret = LLVMBuildInvoke(builder, callee, args.ptr,
-		                           cast(uint) args.length, thenBB, lpBB, "");
+		auto ret = LLVMBuildInvoke2(builder, funType, callee, args.ptr,
+		                            cast(uint) args.length, thenBB, lpBB, "");
 
 		LLVMMoveBasicBlockAfter(thenBB, currentBB);
 		LLVMPositionBuilderAtEnd(builder, thenBB);

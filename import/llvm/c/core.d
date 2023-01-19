@@ -2927,6 +2927,10 @@ LLVMValueRef LLVMBuildInvoke(LLVMBuilderRef, LLVMValueRef Fn,
                              LLVMValueRef* Args, uint NumArgs,
                              LLVMBasicBlockRef Then, LLVMBasicBlockRef Catch,
                              const(char)* Name);
+LLVMValueRef LLVMBuildInvoke2(LLVMBuilderRef, LLVMTypeRef Ty, LLVMValueRef Fn,
+                              LLVMValueRef* Args, uint NumArgs,
+                              LLVMBasicBlockRef Then, LLVMBasicBlockRef Catch,
+                              const(char)* Name);
 LLVMValueRef LLVMBuildLandingPad(LLVMBuilderRef B, LLVMTypeRef Ty,
                                  LLVMValueRef PersFn, uint NumClauses,
                                  const(char)* Name);
