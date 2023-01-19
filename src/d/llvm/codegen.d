@@ -113,7 +113,8 @@ final class CodeGen {
 		auto charArray = LLVMConstStringInContext(llvmCtx, cstr.ptr,
 		                                          cast(uint) cstr.length, true);
 
-		auto globalVar = LLVMAddGlobal(dmodule, LLVMTypeOf(charArray), ".str");
+		auto type = LLVMTypeOf(charArray);
+		auto globalVar = LLVMAddGlobal(dmodule, type, ".str");
 		LLVMSetInitializer(globalVar, charArray);
 		LLVMSetLinkage(globalVar, LLVMLinkage.Private);
 		LLVMSetGlobalConstant(globalVar, true);
@@ -122,7 +123,8 @@ final class CodeGen {
 		auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, true);
 		LLVMValueRef[2] indices = [zero, zero];
 
-		return LLVMConstInBoundsGEP(globalVar, indices.ptr, indices.length);
+		return
+			LLVMConstInBoundsGEP2(type, globalVar, indices.ptr, indices.length);
 	}
 
 	auto buildDString(string str) {
