@@ -7,7 +7,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        dc: [dmd-latest, dmd-2.100.2]
+        dc: [dmd-latest]
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -33,7 +33,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        dc: [dmd-latest, ldc-latest, dmd-2.100.2]
+        dc: [dmd-latest, ldc-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
