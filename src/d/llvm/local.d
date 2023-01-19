@@ -242,7 +242,8 @@ struct LocalGen {
 			// Chain closures.
 			ctxPtr = LLVMBuildAlloca(builder, closure.type, "");
 
-			auto ctxStorage = LLVMBuildStructGEP(builder, ctxPtr, 0, "");
+			auto ctxStorage =
+				LLVMBuildStructGEP2(builder, closure.type, ctxPtr, 0, "");
 			LLVMBuildStore(builder, parentCtx, ctxStorage);
 			contexts ~= closure;
 		} else {
@@ -265,7 +266,7 @@ struct LocalGen {
 				                 toStringz("arg." ~ p.name.toString(context)));
 			}
 
-			// this is kind of magic :)
+			// This is kind of magic :)
 			import source.name;
 			if (p.name == BuiltinName!"this") {
 				buildEmbededCaptures(ptr, p.type);
@@ -333,10 +334,12 @@ struct LocalGen {
 
 	private void buildEmbededCaptures(S)(LLVMValueRef thisPtr, S s, uint i)
 			if (is(S : Scope)) {
-		buildCapturedVariables(
-			LLVMBuildLoad(builder, LLVMBuildStructGEP(builder, thisPtr, i, ""),
-			              ""),
-			localData.embededContexts[s], s.getCaptures());
+		auto thisType = LLVMGetElementType(LLVMTypeOf(thisPtr));
+		auto rootPtr = LLVMBuildStructGEP2(builder, thisType, thisPtr, i, "");
+		auto rootType = LLVMStructGetTypeAtIndex(thisType, i);
+		auto root = LLVMBuildLoad2(builder, rootType, rootPtr, "");
+		buildCapturedVariables(root, localData.embededContexts[s],
+		                       s.getCaptures());
 	}
 
 	private void buildCapturedVariables(LLVMValueRef root, Closure[] contexts,
@@ -353,10 +356,14 @@ struct LocalGen {
 			foreach (v; capture.byKey()) {
 				if (auto indexPtr = v in closure.indices) {
 					// Register the variable.
-					auto var = LLVMBuildStructGEP(builder, root, *indexPtr, "");
+					auto index = *indexPtr;
+					auto var = LLVMBuildStructGEP2(builder, closure.type, root,
+					                               index, "");
 
 					if (v.isRef || v.isFinal) {
-						var = LLVMBuildLoad(builder, var, "");
+						auto vType =
+							LLVMStructGetTypeAtIndex(closure.type, index);
+						var = LLVMBuildLoad2(builder, vType, var, "");
 					}
 
 					LLVMSetValueName(var, v.mangle.toStringz(context));
@@ -367,8 +374,10 @@ struct LocalGen {
 				}
 			}
 
-			auto rootPtr = LLVMBuildStructGEP(builder, root, 0, "");
-			root = LLVMBuildLoad(builder, rootPtr, "");
+			auto rootPtr =
+				LLVMBuildStructGEP2(builder, closure.type, root, 0, "");
+			auto rootType = LLVMStructGetTypeAtIndex(closure.type, 0);
+			root = LLVMBuildLoad2(builder, rootType, rootPtr, "");
 		}
 
 		assert(closureCount == 0);
@@ -451,7 +460,8 @@ struct LocalGen {
 			ctxPtr = LLVMBuildAlloca(builder, closure.type, "");
 		}
 
-		return LLVMBuildStructGEP(builder, ctxPtr, closure.indices[v], name);
+		return LLVMBuildStructGEP2(builder, closure.type, ctxPtr,
+		                           closure.indices[v], name);
 	}
 
 	LLVMValueRef getContext(Function f) {
@@ -468,8 +478,9 @@ struct LocalGen {
 				return LLVMBuildPointerCast(builder, value, ptrType, "");
 			}
 
-			auto ctxPtr = LLVMBuildStructGEP(builder, value, 0, "");
-			value = LLVMBuildLoad(builder, ctxPtr, "");
+			auto ctxPtr = LLVMBuildStructGEP2(builder, c.type, value, 0, "");
+			auto ctxType = LLVMStructGetTypeAtIndex(c.type, 0);
+			value = LLVMBuildLoad2(builder, ctxType, ctxPtr, "");
 		}
 
 		assert(0, "No context available.");
