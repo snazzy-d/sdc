@@ -406,24 +406,29 @@ struct ExpressionGen {
 		assert(classType.kind == TypeKind.Class,
 		       "Virtual dispatch can only be done on classes");
 
+		auto thisType = LLVMStructGetTypeAtIndex(LLVMTypeOf(dg), m.hasContext);
+		auto metadataType =
+			LLVMStructGetTypeAtIndex(LLVMGetElementType(thisType), 0);
+
 		LLVMValueRef metadata;
 		auto c = classType.dclass;
 		if (c.isFinal) {
-			auto thisType =
-				LLVMStructGetTypeAtIndex(LLVMTypeOf(dg), m.hasContext);
-			auto metadataType =
-				LLVMStructGetTypeAtIndex(LLVMGetElementType(thisType), 0);
 			metadata =
 				LLVMBuildBitCast(builder, getTypeid(c), metadataType, "");
 		} else {
 			auto thisPtr = LLVMBuildExtractValue(builder, dg, m.hasContext, "");
-			auto metadataPtr = LLVMBuildStructGEP(builder, thisPtr, 0, "");
-			metadata = LLVMBuildLoad(builder, metadataPtr, "");
+			auto mdPtrType = LLVMPointerType(metadataType, 0);
+			auto metadataPtr =
+				LLVMBuildBitCast(builder, thisPtr, mdPtrType, "");
+			metadata = LLVMBuildLoad2(builder, metadataType, metadataPtr, "");
 		}
 
-		auto vtbl = LLVMBuildStructGEP(builder, metadata, 1, "vtbl");
-		auto funPtr = LLVMBuildStructGEP(builder, vtbl, m.index, "");
-		return LLVMBuildLoad(builder, funPtr, "");
+		auto mdStruct = LLVMGetElementType(metadataType);
+		auto vtbl = LLVMBuildStructGEP2(builder, mdStruct, metadata, 1, "vtbl");
+		auto vtblType = LLVMStructGetTypeAtIndex(mdStruct, 1);
+		auto funPtr = LLVMBuildStructGEP2(builder, vtblType, vtbl, m.index, "");
+		auto funType = LLVMStructGetTypeAtIndex(vtblType, m.index);
+		return LLVMBuildLoad2(builder, funType, funPtr, "");
 	}
 
 	LLVMValueRef visit(DelegateExpression e) {
@@ -1000,25 +1005,29 @@ struct AddressOfGen {
 		switch (t.kind) with (TypeKind) {
 			case Slice:
 				auto slice = valueOf(indexed);
+				auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
 				auto i = LLVMBuildZExt(builder, valueOf(index),
 				                       LLVMInt64TypeInContext(llvmCtx), "");
+				auto eType = LLVMGetElementType(LLVMTypeOf(ptr));
+
 				auto length =
 					LLVMBuildExtractValue(builder, slice, 0, ".length");
 				auto condition =
 					LLVMBuildICmp(builder, LLVMIntPredicate.ULT, i, length, "");
 				genBoundCheck(location, condition);
 
-				auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
-				return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
+				return LLVMBuildInBoundsGEP2(builder, eType, ptr, &i, 1, "");
 
 			case Pointer:
 				auto ptr = valueOf(indexed);
 				auto i = valueOf(index);
-				return LLVMBuildInBoundsGEP(builder, ptr, &i, 1, "");
+				auto eType = LLVMGetElementType(LLVMTypeOf(ptr));
+				return LLVMBuildInBoundsGEP2(builder, eType, ptr, &i, 1, "");
 
 			case Array:
 				auto ptr = visit(indexed);
 				auto i = valueOf(index);
+				auto eType = LLVMGetElementType(LLVMTypeOf(ptr));
 
 				auto i64 = LLVMInt64TypeInContext(llvmCtx);
 				auto condition = LLVMBuildICmp(
@@ -1032,8 +1041,8 @@ struct AddressOfGen {
 				genBoundCheck(location, condition);
 
 				LLVMValueRef[2] indices = [LLVMConstInt(i64, 0, false), i];
-				return LLVMBuildInBoundsGEP(builder, ptr, indices.ptr,
-				                            indices.length, "");
+				return LLVMBuildInBoundsGEP2(builder, eType, ptr, indices.ptr,
+				                             indices.length, "");
 
 			default:
 				break;
