@@ -41,15 +41,15 @@ struct ExpressionGen {
 	}
 
 	private LLVMValueRef buildLoad(LLVMValueRef ptr, TypeQualifier q) {
-		auto l = LLVMBuildLoad(builder, ptr, "");
+		auto type = LLVMGetElementType(LLVMTypeOf(ptr));
+		auto l = LLVMBuildLoad2(builder, type, ptr, "");
 		final switch (q) with (TypeQualifier) {
 			case Mutable, Inout, Const:
 				break;
 
 			case Shared, ConstShared:
 				import llvm.c.target;
-				LLVMSetAlignment(
-					l, LLVMABIAlignmentOfType(targetData, LLVMTypeOf(l)));
+				LLVMSetAlignment(l, LLVMABIAlignmentOfType(targetData, type));
 				LLVMSetOrdering(l, LLVMAtomicOrdering.SequentiallyConsistent);
 				break;
 
