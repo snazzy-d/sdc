@@ -262,6 +262,27 @@ struct ExpressionGen {
 		}
 	}
 
+	private LLVMValueRef buildUnary(int Offset, bool IsPost)(Expression e) {
+		auto type = e.type.getCanonical();
+		auto ptr = addressOf(e);
+		auto value = buildLoad(ptr, type.qualifier);
+		auto postRet = value;
+
+		auto eType = TypeGen(pass.pass).visit(type);
+		if (type.kind == TypeKind.Pointer) {
+			auto o =
+				LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), Offset, true);
+			auto gepType = TypeGen(pass.pass).visit(type.element);
+			value = LLVMBuildInBoundsGEP2(builder, gepType, value, &o, 1, "");
+		} else {
+			value = LLVMBuildAdd(builder, value,
+			                     LLVMConstInt(eType, Offset, true), "");
+		}
+
+		LLVMBuildStore(builder, value, ptr);
+		return IsPost ? postRet : value;
+	}
+
 	LLVMValueRef visit(UnaryExpression e) {
 		final switch (e.op) with (UnaryOp) {
 			case AddressOf:
@@ -271,78 +292,16 @@ struct ExpressionGen {
 				return buildLoad(visit(e.expr), e.type.qualifier);
 
 			case PreInc:
-				auto q = e.expr.type.qualifier;
-				auto ptr = addressOf(e.expr);
-				auto value = buildLoad(ptr, q);
-				auto type = LLVMTypeOf(value);
-
-				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
-					auto one =
-						LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 1, true);
-					value = LLVMBuildInBoundsGEP(builder, value, &one, 1, "");
-				} else {
-					value = LLVMBuildAdd(builder, value,
-					                     LLVMConstInt(type, 1, true), "");
-				}
-
-				LLVMBuildStore(builder, value, ptr);
-				return value;
+				return buildUnary!(1, false)(e.expr);
 
 			case PreDec:
-				auto q = e.expr.type.qualifier;
-				auto ptr = addressOf(e.expr);
-				auto value = buildLoad(ptr, q);
-				auto type = LLVMTypeOf(value);
-
-				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
-					auto one =
-						LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), -1, true);
-					value = LLVMBuildInBoundsGEP(builder, value, &one, 1, "");
-				} else {
-					value = LLVMBuildSub(builder, value,
-					                     LLVMConstInt(type, 1, true), "");
-				}
-
-				LLVMBuildStore(builder, value, ptr);
-				return value;
+				return buildUnary!(-1, false)(e.expr);
 
 			case PostInc:
-				auto q = e.expr.type.qualifier;
-				auto ptr = addressOf(e.expr);
-				auto value = buildLoad(ptr, q);
-				auto ret = value;
-				auto type = LLVMTypeOf(value);
-
-				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
-					auto one =
-						LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 1, true);
-					value = LLVMBuildInBoundsGEP(builder, value, &one, 1, "");
-				} else {
-					value = LLVMBuildAdd(builder, value,
-					                     LLVMConstInt(type, 1, true), "");
-				}
-
-				LLVMBuildStore(builder, value, ptr);
-				return ret;
+				return buildUnary!(1, true)(e.expr);
 
 			case PostDec:
-				auto q = e.expr.type.qualifier;
-				auto ptr = addressOf(e.expr);
-				auto value = buildLoad(ptr, q);
-				auto ret = value;
-				auto type = LLVMTypeOf(value);
-
-				if (LLVMGetTypeKind(type) == LLVMTypeKind.Pointer) {
-					auto one =
-						LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), -1, true);
-					value = LLVMBuildInBoundsGEP(builder, value, &one, 1, "");
-				} else {
-					value = LLVMBuildSub(builder, value,
-					                     LLVMConstInt(type, 1, true), "");
-				}
-
-				LLVMBuildStore(builder, value, ptr);
-				return ret;
+				return buildUnary!(-1, true)(e.expr);
 
 			case Plus:
 				return visit(e.expr);
