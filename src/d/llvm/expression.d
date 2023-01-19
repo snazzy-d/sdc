@@ -1,6 +1,7 @@
 module d.llvm.expression;
 
 import d.llvm.local;
+import d.llvm.type;
 
 import d.ir.expression;
 import d.ir.symbol;
@@ -130,9 +131,8 @@ struct ExpressionGen {
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 
 		// Generate phi to get the result.
-		import d.llvm.type;
-		auto phiNode =
-			LLVMBuildPhi(builder, TypeGen(pass.pass).visit(e.type), "");
+		auto eType = TypeGen(pass.pass).visit(e.type);
+		auto phiNode = LLVMBuildPhi(builder, eType, "");
 
 		LLVMValueRef[2] incomingValues = [lhs, rhs];
 		LLVMBasicBlockRef[2] incomingBlocks = [lhsBB, rhsBB];
@@ -348,32 +348,20 @@ struct ExpressionGen {
 				return visit(e.expr);
 
 			case Minus:
-				import d.llvm.type;
-				return LLVMBuildSub(
-					builder,
-					LLVMConstInt(TypeGen(pass.pass).visit(e.type), 0, true),
-					visit(e.expr),
-					""
-				);
+				auto eType = TypeGen(pass.pass).visit(e.type);
+				return LLVMBuildSub(builder, LLVMConstInt(eType, 0, true),
+				                    visit(e.expr), "");
 
 			case Not:
-				import d.llvm.type;
+				auto eType = TypeGen(pass.pass).visit(e.type);
 				return LLVMBuildICmp(
-					builder,
-					LLVMIntPredicate.EQ,
-					LLVMConstInt(TypeGen(pass.pass).visit(e.type), 0, true),
-					visit(e.expr),
-					""
-				);
+					builder, LLVMIntPredicate.EQ, LLVMConstInt(eType, 0, true),
+					visit(e.expr), "");
 
 			case Complement:
-				import d.llvm.type;
-				return LLVMBuildXor(
-					builder,
-					visit(e.expr),
-					LLVMConstInt(TypeGen(pass.pass).visit(e.type), -1, true),
-					""
-				);
+				auto eType = TypeGen(pass.pass).visit(e.type);
+				return LLVMBuildXor(builder, visit(e.expr),
+				                    LLVMConstInt(eType, -1, true), "");
 		}
 	}
 
@@ -413,9 +401,8 @@ struct ExpressionGen {
 		// Generate phi to get the result.
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 
-		import d.llvm.type;
-		auto phiNode =
-			LLVMBuildPhi(builder, TypeGen(pass.pass).visit(e.type), "");
+		auto eType = TypeGen(pass.pass).visit(e.type);
+		auto phiNode = LLVMBuildPhi(builder, eType, "");
 
 		LLVMValueRef[2] incomingValues = [lhs, rhs];
 		LLVMBasicBlockRef[2] incomingBlocks = [lhsBB, rhsBB];
@@ -488,7 +475,6 @@ struct ExpressionGen {
 		auto length = cast(uint) tCtxs.length;
 		assert(eCtxs.length == length);
 
-		import d.llvm.type;
 		auto dg = LLVMGetUndef(TypeGen(pass.pass).visit(type));
 
 		foreach (i, c; eCtxs) {
@@ -506,7 +492,6 @@ struct ExpressionGen {
 		import std.algorithm, std.array;
 		auto args = e.args.map!(a => visit(a)).array();
 
-		import d.llvm.type;
 		auto type = TypeGen(pass.pass).visit(e.type);
 		LLVMValueRef size = LLVMSizeOf(
 			(e.type.kind == TypeKind.Class) ? LLVMGetElementType(type) : type);
@@ -588,7 +573,6 @@ struct ExpressionGen {
 		} else if (t.kind == TypeKind.Array) {
 			length = LLVMConstInt(i64, t.size, false);
 
-			import d.llvm.type;
 			auto ptrType =
 				LLVMPointerType(TypeGen(pass.pass).visit(t.element), 0);
 			ptr = LLVMBuildBitCast(builder, addressOf(e.sliced), ptrType, "");
@@ -609,7 +593,6 @@ struct ExpressionGen {
 
 		genBoundCheck(e.location, condition);
 
-		import d.llvm.type;
 		auto slice = LLVMGetUndef(TypeGen(pass.pass).visit(e.type));
 
 		auto sub = LLVMBuildSub(builder, second, first, "");
@@ -659,7 +642,6 @@ struct ExpressionGen {
 	// FIXME: This should forward to a template in object.d
 	// instead of reimplenting the logic.
 	LLVMValueRef buildDownCast(LLVMValueRef value, Class c) {
-		import d.llvm.type;
 		auto type = TypeGen(pass.pass).visit(c);
 		auto bitcast = LLVMBuildBitCast(builder, value, type, "");
 		auto nullcast = LLVMConstNull(type);
@@ -748,7 +730,6 @@ struct ExpressionGen {
 			return buildDownCast(value, t.dclass);
 		}
 
-		import d.llvm.type;
 		auto type = TypeGen(pass.pass).visit(t);
 
 		final switch (e.kind) with (CastKind) {
@@ -787,9 +768,8 @@ struct ExpressionGen {
 		auto t = e.type;
 		auto count = cast(uint) e.values.length;
 
-		import d.llvm.type;
-		auto et = TypeGen(pass.pass).visit(t.element);
-		auto type = LLVMArrayType(et, count);
+		auto eType = TypeGen(pass.pass).visit(t.element);
+		auto type = LLVMArrayType(eType, count);
 		auto array = LLVMGetUndef(type);
 
 		uint i = 0;
@@ -825,7 +805,7 @@ struct ExpressionGen {
 			LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), count, false);
 		slice = LLVMBuildInsertValue(builder, slice, llvmCount, 0, "");
 
-		auto elPtrType = LLVMPointerType(et, 0);
+		auto elPtrType = LLVMPointerType(eType, 0);
 		ptr = LLVMBuildPointerCast(builder, ptr, elPtrType, "");
 		slice = LLVMBuildInsertValue(builder, slice, ptr, 1, "");
 
@@ -895,7 +875,6 @@ struct ExpressionGen {
 			return r;
 		}
 
-		import d.llvm.type;
 		auto returnType = TypeGen(pass.pass).visit(c.type);
 		return LLVMBuildLoad2(builder, returnType, r, "");
 	}
@@ -910,7 +889,6 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(TupleExpression e) {
-		import d.llvm.type;
 		auto tuple = LLVMGetUndef(TypeGen(pass.pass).visit(e.type));
 
 		uint i = 0;
@@ -927,7 +905,6 @@ struct ExpressionGen {
 		auto tidType = LLVMStructGetTypeAtIndex(cType, 0);
 		auto tid = LLVMBuildLoad2(builder, tidType, value, "");
 
-		import d.llvm.type;
 		auto classInfo = TypeGen(pass.pass).visit(pass.object.getClassInfo());
 		return LLVMBuildBitCast(builder, tid, classInfo, "");
 	}
@@ -937,7 +914,6 @@ struct ExpressionGen {
 	}
 
 	private LLVMValueRef getTypeid(Class c) {
-		import d.llvm.type;
 		return TypeGen(pass.pass).getTypeInfo(c);
 	}
 
@@ -1004,7 +980,6 @@ struct AddressOfGen {
 		// Make the type is not opaque.
 		// XXX: Find a factorized way to load and gep that ensure
 		// the indexed is not opaque and load metadata are correct.
-		import d.llvm.type;
 		TypeGen(pass.pass).visit(type);
 
 		ptr = LLVMBuildStructGEP(builder, ptr, e.field.index, "");
@@ -1032,7 +1007,6 @@ struct AddressOfGen {
 	}
 
 	LLVMValueRef visit(CastExpression e) {
-		import d.llvm.type;
 		auto type = TypeGen(pass.pass).visit(e.type);
 		auto value = visit(e.expr);
 
