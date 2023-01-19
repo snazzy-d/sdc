@@ -31,7 +31,6 @@ struct IntrinsicGen {
 	}
 
 	LLVMValueRef build(Intrinsic i, LLVMValueRef[] args) {
-		bool weak;
 		final switch (i) with (Intrinsic) {
 			case None:
 				assert(0, "invalid intrinsic");
@@ -40,11 +39,10 @@ struct IntrinsicGen {
 				return expect(args);
 
 			case CompareAndSwap:
-				return cas(weak, args);
+				return cas(false, args);
 
 			case CompareAndSwapWeak:
-				weak = true;
-				goto case CompareAndSwap;
+				return cas(true, args);
 
 			case PopCount:
 				return ctpop(args);
@@ -67,7 +65,9 @@ struct IntrinsicGen {
 
 	LLVMValueRef expect(LLVMValueRef v, LLVMValueRef e) {
 		LLVMValueRef[2] args = [v, e];
-		return LLVMBuildCall(builder, getExpect(), args.ptr, args.length, "");
+		auto fun = getExpect();
+		auto t = LLVMGlobalGetValueType(fun);
+		return LLVMBuildCall2(builder, t, fun, args.ptr, args.length, "");
 	}
 
 	auto getExpect() {
@@ -103,7 +103,9 @@ struct IntrinsicGen {
 
 	LLVMValueRef ctpop(LLVMValueRef n) {
 		auto bits = LLVMGetIntTypeWidth(LLVMTypeOf(n));
-		return LLVMBuildCall(builder, getCtpop(bits), &n, 1, "");
+		auto fun = getCtpop(bits);
+		auto t = LLVMGlobalGetValueType(fun);
+		return LLVMBuildCall2(builder, t, fun, &n, 1, "");
 	}
 
 	auto getCtpop(uint bits) {
@@ -113,9 +115,8 @@ struct IntrinsicGen {
 			return *fPtr;
 		}
 
-		auto t = LLVMIntTypeInContext(llvmCtx, bits);
 		return cache[name] = LLVMAddFunction(dmodule, name.toStringz(context),
-		                                     LLVMFunctionType(t, &t, 1, false));
+		                                     getFunctionType(bits));
 	}
 
 	LLVMValueRef ctlz(LLVMValueRef[] args)
@@ -128,7 +129,9 @@ struct IntrinsicGen {
 			[n, LLVMConstInt(LLVMInt1TypeInContext(llvmCtx), false, false)];
 
 		auto bits = LLVMGetIntTypeWidth(LLVMTypeOf(n));
-		return LLVMBuildCall(builder, getCtlz(bits), args.ptr, args.length, "");
+		auto fun = getCtlz(bits);
+		auto t = LLVMGlobalGetValueType(fun);
+		return LLVMBuildCall2(builder, t, fun, args.ptr, args.length, "");
 	}
 
 	auto getCtlz(uint bits) {
@@ -138,12 +141,8 @@ struct IntrinsicGen {
 			return *fPtr;
 		}
 
-		auto t = LLVMIntTypeInContext(llvmCtx, bits);
-		LLVMTypeRef[2] params = [t, LLVMInt1TypeInContext(llvmCtx)];
-
-		auto type = LLVMFunctionType(t, params.ptr, params.length, false);
-		return cache[name] =
-			LLVMAddFunction(dmodule, name.toStringz(context), type);
+		return cache[name] = LLVMAddFunction(dmodule, name.toStringz(context),
+		                                     getFunctionTypeWithBool(bits));
 	}
 
 	LLVMValueRef cttz(LLVMValueRef[] args)
@@ -156,7 +155,9 @@ struct IntrinsicGen {
 			[n, LLVMConstInt(LLVMInt1TypeInContext(llvmCtx), false, false)];
 
 		auto bits = LLVMGetIntTypeWidth(LLVMTypeOf(n));
-		return LLVMBuildCall(builder, getCttz(bits), args.ptr, args.length, "");
+		auto fun = getCttz(bits);
+		auto t = LLVMGlobalGetValueType(fun);
+		return LLVMBuildCall2(builder, t, fun, args.ptr, args.length, "");
 	}
 
 	auto getCttz(uint bits) {
@@ -166,12 +167,8 @@ struct IntrinsicGen {
 			return *fPtr;
 		}
 
-		auto t = LLVMIntTypeInContext(llvmCtx, bits);
-		LLVMTypeRef[2] params = [t, LLVMInt1TypeInContext(llvmCtx)];
-
-		auto type = LLVMFunctionType(t, params.ptr, params.length, false);
-		return cache[name] =
-			LLVMAddFunction(dmodule, name.toStringz(context), type);
+		return cache[name] = LLVMAddFunction(dmodule, name.toStringz(context),
+		                                     getFunctionTypeWithBool(bits));
 	}
 
 	LLVMValueRef bswap(LLVMValueRef[] args)
@@ -181,7 +178,9 @@ struct IntrinsicGen {
 
 	LLVMValueRef bswap(LLVMValueRef n) {
 		auto bits = LLVMGetIntTypeWidth(LLVMTypeOf(n));
-		return LLVMBuildCall(builder, getBswap(bits), &n, 1, "");
+		auto fun = getBswap(bits);
+		auto t = LLVMGlobalGetValueType(fun);
+		return LLVMBuildCall2(builder, t, fun, &n, 1, "");
 	}
 
 	auto getBswap(uint bits) {
@@ -191,8 +190,20 @@ struct IntrinsicGen {
 			return *fPtr;
 		}
 
-		auto t = LLVMIntTypeInContext(llvmCtx, bits);
 		return cache[name] = LLVMAddFunction(dmodule, name.toStringz(context),
-		                                     LLVMFunctionType(t, &t, 1, false));
+		                                     getFunctionType(bits));
+	}
+
+private:
+	auto getFunctionType(uint bits) {
+		auto t = LLVMIntTypeInContext(llvmCtx, bits);
+		return LLVMFunctionType(t, &t, 1, false);
+	}
+
+	auto getFunctionTypeWithBool(uint bits) {
+		auto t = LLVMIntTypeInContext(llvmCtx, bits);
+		LLVMTypeRef[2] params = [t, LLVMInt1TypeInContext(llvmCtx)];
+
+		return LLVMFunctionType(t, params.ptr, params.length, false);
 	}
 }

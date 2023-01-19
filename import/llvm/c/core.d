@@ -1853,6 +1853,14 @@ LLVMBool LLVMHasUnnamedAddr(LLVMValueRef Global);
 void LLVMSetUnnamedAddr(LLVMValueRef Global, LLVMBool HasUnnamedAddr);
 
 /**
+ * Returns the "value type" of a global value.  This differs from the formal
+ * type of a global value which is always a pointer type.
+ *
+ * @see llvm::GlobalValue::getValueType()
+ */
+LLVMTypeRef LLVMGlobalGetValueType(LLVMValueRef Global);
+
+/**
  * @defgroup LLVMCCoreValueWithAlignment Values with alignment
  *
  * Functions in this group only apply to values with alignment, i.e.
@@ -3098,6 +3106,9 @@ LLVMValueRef LLVMBuildPhi(LLVMBuilderRef, LLVMTypeRef Ty, const(char)* Name);
 LLVMValueRef LLVMBuildCall(LLVMBuilderRef, LLVMValueRef Fn,
                            LLVMValueRef *Args, uint NumArgs,
                            const(char)* Name);
+LLVMValueRef LLVMBuildCall2(LLVMBuilderRef, LLVMTypeRef, LLVMValueRef Fn,
+                            LLVMValueRef* Args, uint NumArgs,
+                            const(char)* Name);
 LLVMValueRef LLVMBuildSelect(LLVMBuilderRef, LLVMValueRef If,
                              LLVMValueRef Then, LLVMValueRef Else,
                              const(char)* Name);
