@@ -910,8 +910,9 @@ struct ExpressionGen {
 	}
 
 	private LLVMValueRef getTypeid(LLVMValueRef value) {
-		auto tidPtr = LLVMBuildStructGEP(builder, value, 0, "");
-		auto tid = LLVMBuildLoad(builder, tidPtr, "");
+		auto cType = LLVMGetElementType(LLVMTypeOf(value));
+		auto tidType = LLVMStructGetTypeAtIndex(cType, 0);
+		auto tid = LLVMBuildLoad2(builder, tidType, value, "");
 
 		import d.llvm.type;
 		auto classInfo = TypeGen(pass.pass).visit(pass.object.getClassInfo());
