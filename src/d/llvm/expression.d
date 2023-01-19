@@ -656,6 +656,8 @@ struct ExpressionGen {
 		return ret;
 	}
 
+	// FIXME: This should forward to a template in object.d
+	// instead of reimplenting the logic.
 	LLVMValueRef buildDownCast(LLVMValueRef value, Class c) {
 		import d.llvm.type;
 		auto type = TypeGen(pass.pass).visit(c);
@@ -665,6 +667,12 @@ struct ExpressionGen {
 		auto otid = getTypeid(value);
 		auto ctid = getTypeid(c);
 
+		auto typeidType = LLVMTypeOf(ctid);
+		auto typeidStruct = LLVMGetElementType(typeidType);
+		auto pType = LLVMStructGetTypeAtIndex(typeidStruct, 1);
+		auto dType = LLVMStructGetTypeAtIndex(pType, 0);
+		auto ptrType = LLVMStructGetTypeAtIndex(pType, 1);
+
 		if (c.isFinal) {
 			auto cmp =
 				LLVMBuildICmp(builder, LLVMIntPredicate.EQ, otid, ctid, "");
@@ -673,14 +681,18 @@ struct ExpressionGen {
 
 		// If c is deeper in the hierarchy than the value,
 		// then it is impossible for the value to be of type c.
-		auto oPrimitives = LLVMBuildStructGEP(builder, otid, 1, "");
-		auto oDepthPtr = LLVMBuildStructGEP(builder, oPrimitives, 0, "");
-		auto oDepth = LLVMBuildLoad(builder, oDepthPtr, "");
+		auto oPrimitives =
+			LLVMBuildStructGEP2(builder, typeidStruct, otid, 1, "");
+		auto oDepthPtr =
+			LLVMBuildStructGEP2(builder, pType, oPrimitives, 0, "");
+		auto oDepth = LLVMBuildLoad2(builder, dType, oDepthPtr, "");
 
 		// This should constant fold.
-		auto cPrimitives = LLVMBuildStructGEP(builder, ctid, 1, "");
-		auto cDepthPtr = LLVMBuildStructGEP(builder, cPrimitives, 0, "");
-		auto cDepth = LLVMBuildLoad(builder, cDepthPtr, "");
+		auto cPrimitives =
+			LLVMBuildStructGEP2(builder, typeidStruct, ctid, 1, "");
+		auto cDepthPtr =
+			LLVMBuildStructGEP2(builder, pType, cPrimitives, 0, "");
+		auto cDepth = LLVMBuildLoad2(builder, dType, cDepthPtr, "");
 		auto one = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 1, false);
 		auto index = LLVMBuildSub(builder, cDepth, one, "");
 
@@ -699,11 +711,12 @@ struct ExpressionGen {
 
 		// Check if the parent of the value at c's depth is c.
 		LLVMPositionBuilderAtEnd(builder, downCastBB);
-		auto primitivesPtr = LLVMBuildStructGEP(builder, oPrimitives, 1, "");
-		auto primitives = LLVMBuildLoad(builder, primitivesPtr, "");
-		auto parentPtr =
-			LLVMBuildInBoundsGEP(builder, primitives, &index, 1, "");
-		auto parent = LLVMBuildLoad(builder, parentPtr, "");
+		auto primitivesPtr =
+			LLVMBuildStructGEP2(builder, pType, oPrimitives, 1, "");
+		auto primitives = LLVMBuildLoad2(builder, ptrType, primitivesPtr, "");
+		auto parentPtr = LLVMBuildInBoundsGEP2(builder, typeidType, primitives,
+		                                       &index, 1, "");
+		auto parent = LLVMBuildLoad2(builder, typeidType, parentPtr, "");
 		auto typeCheck =
 			LLVMBuildICmp(builder, LLVMIntPredicate.EQ, parent, ctid, "");
 		auto downcast =
