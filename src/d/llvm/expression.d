@@ -939,19 +939,19 @@ struct AddressOfGen {
 				);
 		}
 
-		// Make the type is not opaque.
+		// Make sure the type is not opaque.
 		// XXX: Find a factorized way to load and gep that ensure
 		// the indexed is not opaque and load metadata are correct.
 		TypeGen(pass.pass).visit(type);
 
-		ptr = LLVMBuildStructGEP(builder, ptr, e.field.index, "");
+		auto baseType = LLVMGetElementType(LLVMTypeOf(ptr));
+		ptr = LLVMBuildStructGEP2(builder, baseType, ptr, e.field.index, "");
 		if (type.kind != TypeKind.Union) {
 			return ptr;
 		}
 
-		return LLVMBuildBitCast(
-			builder, ptr, LLVMPointerType(TypeGen(pass.pass).visit(e.type), 0),
-			"");
+		auto eType = TypeGen(pass.pass).visit(e.type);
+		return LLVMBuildBitCast(builder, ptr, LLVMPointerType(eType, 0), "");
 	}
 
 	LLVMValueRef visit(ContextExpression e)
