@@ -876,9 +876,15 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(CallExpression c) {
-		return c.callee.type.asFunctionType().returnType.isRef
-			? LLVMBuildLoad(builder, buildCall(c), "")
-			: buildCall(c);
+		auto r = buildCall(c);
+		auto isRef = c.callee.type.asFunctionType().returnType.isRef;
+		if (!isRef) {
+			return r;
+		}
+
+		import d.llvm.type;
+		auto returnType = TypeGen(pass.pass).visit(c.type);
+		return LLVMBuildLoad2(builder, returnType, r, "");
 	}
 
 	LLVMValueRef visit(IntrinsicExpression e) {
