@@ -572,10 +572,11 @@ struct ExpressionGen {
 			ptr = visit(e.sliced);
 		} else if (t.kind == TypeKind.Array) {
 			length = LLVMConstInt(i64, t.size, false);
+			ptr = addressOf(e.sliced);
 
-			auto ptrType =
-				LLVMPointerType(TypeGen(pass.pass).visit(t.element), 0);
-			ptr = LLVMBuildBitCast(builder, addressOf(e.sliced), ptrType, "");
+			auto eType = TypeGen(pass.pass).visit(t.element);
+			auto ptrType = LLVMPointerType(eType, 0);
+			ptr = LLVMBuildBitCast(builder, ptr, ptrType, "");
 		} else {
 			assert(0, "Don't know how to slice " ~ e.type.toString(context));
 		}
@@ -593,12 +594,14 @@ struct ExpressionGen {
 
 		genBoundCheck(e.location, condition);
 
-		auto slice = LLVMGetUndef(TypeGen(pass.pass).visit(e.type));
+		auto sliceType = TypeGen(pass.pass).visit(e.type);
+		auto slice = LLVMGetUndef(sliceType);
 
 		auto sub = LLVMBuildSub(builder, second, first, "");
 		slice = LLVMBuildInsertValue(builder, slice, sub, 0, "");
 
-		ptr = LLVMBuildInBoundsGEP(builder, ptr, &first, 1, "");
+		auto eType = LLVMGetElementType(LLVMTypeOf(ptr));
+		ptr = LLVMBuildInBoundsGEP2(builder, eType, ptr, &first, 1, "");
 		slice = LLVMBuildInsertValue(builder, slice, ptr, 1, "");
 
 		return slice;
