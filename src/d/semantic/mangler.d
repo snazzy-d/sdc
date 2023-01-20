@@ -200,7 +200,8 @@ struct TypeMangler {
 
 	import d.ir.error;
 	string visit(CompileError e) {
-		assert(0, "Can't mangle error type.");
+		import source.exception;
+		throw new CompileException(e.location, e.message);
 	}
 }
 
