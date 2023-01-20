@@ -220,6 +220,7 @@ public:
 
 			case PtrToInt:
 				assert(0, "Not implemented");
+
 				// return ValueRange.get(e.type.builtin);
 
 			case SignedToFloat, UnsignedToFloat:
@@ -333,10 +334,14 @@ unittest {
 		auto bmax = new IntegerLiteral(Location.init, 255, BuiltinType.Byte);
 
 		auto tbool = Type.get(BuiltinType.Bool);
+		auto tbyte = Type.get(BuiltinType.Byte);
+		auto tshort = Type.get(BuiltinType.Short);
+		auto tushort = Type.get(BuiltinType.Ushort);
 		auto tint = Type.get(BuiltinType.Int);
 		auto tuint = Type.get(BuiltinType.Uint);
 		auto tubyte = Type.get(BuiltinType.Ubyte);
 		auto tlong = Type.get(BuiltinType.Long);
+		auto tulong = Type.get(BuiltinType.Ulong);
 
 		/**
 		 * Binary ops
@@ -482,6 +487,29 @@ unittest {
 		v = vrp
 			.visit(new CastExpression(Location.init, CastKind.Exact, tint, i1));
 		assert(v == VR(-7));
+
+		// Casts from floating point types to integer types
+
+		auto dPi = new FloatLiteral(Location.init, 3.14, BuiltinType.Double);
+		auto f0 = new FloatLiteral(Location.init, 0.0f, BuiltinType.Float);
+
+		foreach (floatVal; [dPi, f0]) {
+			foreach (builtinType;
+				[tshort, tushort, tint, tuint, tlong, tulong, tbyte, tubyte]
+			) {
+				const bt = builtinType.builtin();
+				if (bt.getSize() <= T.sizeof) {
+					const CastKind ck = isSigned(bt)
+						? CastKind.FloatToSigned
+						: CastKind.FloatToUnsigned;
+					auto castExpr = new CastExpression(Location.init, ck,
+					                                   builtinType, floatVal);
+					const vr = vrp.visit(castExpr);
+					// dmd doesn't try to do anything clever here, i.e. assume the cast to T could yield any T
+					assert(vr == vrp.getRange(builtinType));
+				}
+			}
+		}
 	}
 }
 
