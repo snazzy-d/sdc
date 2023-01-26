@@ -13,7 +13,7 @@ bool unlikely(T)(T val) {
 }
 
 struct CompareAndSwapResult(T) {
-	T val;
+	T value;
 	bool success;
 }
 

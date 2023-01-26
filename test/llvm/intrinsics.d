@@ -20,14 +20,14 @@ bool docas(uint* ptr, uint old, uint val) {
 	auto cr = cas(ptr, old, val);
 	return cr.success;
 // CHECK-LABEL: _D10intrinsics5docasFMPkkkZb
-// CHECK: [[RET:%[a-z0-9\.]+]] = cmpxchg i32* {{.*}}, i32 {{.*}}, i32 {{.*}} seq_cst seq_cst
+// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg i32* {{.*}}, i32 {{.*}}, i32 {{.*}} seq_cst seq_cst
 }
 
 bool docasweak(uint* ptr, uint old, uint val) {
 	auto cr = casWeak(ptr, old, val);
 	return cr.success;
 // CHECK-LABEL: _D10intrinsics9docasweakFMPkkkZb
-// CHECK: [[RET:%[a-z0-9\.]+]] = cmpxchg weak i32* {{.*}}, i32 {{.*}}, i32 {{.*}} seq_cst seq_cst
+// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg weak i32* {{.*}}, i32 {{.*}}, i32 {{.*}} seq_cst seq_cst
 }
 
 ulong dopopcount(ubyte n1, ushort n2, uint n3, ulong n4) {

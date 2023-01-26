@@ -1,8 +1,10 @@
 LIBSDRT_GC_SRC = $(wildcard sdlib/d/gc/*.d)
+LIBSDRT_SYNC_SRC = $(wildcard sdlib/d/sync/*.d)
 LIBSDRT_STDC_SRC = $(wildcard sdlib/core/stdc/*.d)
 LIBSDRT_RT_SRC = $(wildcard sdlib/d/rt/*.d)
 
 LIBSDRT_GC_OBJ = $(LIBSDRT_GC_SRC:sdlib/d/gc/%.d=obj/gc/%.o)
+LIBSDRT_SYNC_OBJ = $(LIBSDRT_SYNC_SRC:sdlib/d/sync/%.d=obj/sync/%.o)
 LIBSDRT_STDC_OBJ = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=obj/stdc/%.o)
 LIBSDRT_RT_OBJ = $(LIBSDRT_RT_SRC:sdlib/d/rt/%.d=obj/rt/%.o)
 
@@ -18,8 +20,8 @@ LIBSDRT_OSX_OBJ = $(LIBSDRT_OSX_OBJ_C) $(LIBSDRT_OSX_OBJ_D)
 LIBSDRT_X64_SRC = $(wildcard sdlib/sys/x64/*.asm)
 LIBSDRT_X64_OBJ = $(LIBSDRT_X64_SRC:sdlib/sys/x64/%.asm=obj/x64/%.o)
 
-LIBSDRT_DEPS = obj/object.o $(LIBSDRT_GC_OBJ) $(LIBSDRT_STDC_OBJ) \
-	$(LIBSDRT_RT_OBJ) $(LIBSDRT_X64_OBJ)
+LIBSDRT_DEPS = obj/object.o $(LIBSDRT_GC_OBJ) $(LIBSDRT_SYNC_OBJ) \
+	$(LIBSDRT_STDC_OBJ) $(LIBSDRT_RT_OBJ) $(LIBSDRT_X64_OBJ)
 
 ifeq ($(PLATFORM),Linux)
 	LIBSDRT_DEPS += $(LIBSDRT_LINUX_OBJ)
@@ -40,6 +42,10 @@ obj/object.o: sdlib/object.d $(SDLIB_DEPS)
 
 obj/gc/%.o: sdlib/d/gc/%.d $(LIBSDRT_GC_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/gc
+	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
+obj/sync/%.o: sdlib/d/sync/%.d $(LIBSDRT_SYNC_SRC) $(SDLIB_DEPS)
+	@mkdir -p obj/sync
 	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
 obj/stdc/%.o: sdlib/core/stdc/%.d $(LIBSDRT_STDC_SRC) $(SDLIB_DEPS)
