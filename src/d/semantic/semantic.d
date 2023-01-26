@@ -185,8 +185,8 @@ private:
 
 auto getDefaultVersions() {
 	import source.name;
-	auto versions = [BuiltinName!"SDC", BuiltinName!"D_LP64",
-	                 BuiltinName!"X86_64", BuiltinName!"Posix"];
+	auto versions =
+		[BuiltinName!"SDC", BuiltinName!"D_LP64", BuiltinName!"X86_64"];
 
 	version(linux) {
 		versions ~= BuiltinName!"linux";
