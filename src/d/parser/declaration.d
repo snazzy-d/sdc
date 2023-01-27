@@ -545,12 +545,12 @@ private Declaration parseFunction(
 				default:
 					break;
 			}
-
-			trange.match(Body);
+			// Body is deprecated in dmd, we don't accept it
+			trange.match(Do);
 			break;
 
-		case Body:
-			// Body without contract is just skipped.
+		case Do:
+			// Do without contract is just skipped.
 			trange.popFront();
 			break;
 
