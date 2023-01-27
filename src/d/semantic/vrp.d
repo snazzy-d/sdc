@@ -334,12 +334,16 @@ unittest {
 		auto bmax = new IntegerLiteral(Location.init, 255, BuiltinType.Byte);
 
 		auto tbool = Type.get(BuiltinType.Bool);
+
 		auto tbyte = Type.get(BuiltinType.Byte);
+		auto tubyte = Type.get(BuiltinType.Ubyte);
+
 		auto tshort = Type.get(BuiltinType.Short);
 		auto tushort = Type.get(BuiltinType.Ushort);
+
 		auto tint = Type.get(BuiltinType.Int);
 		auto tuint = Type.get(BuiltinType.Uint);
-		auto tubyte = Type.get(BuiltinType.Ubyte);
+
 		auto tlong = Type.get(BuiltinType.Long);
 		auto tulong = Type.get(BuiltinType.Ulong);
 
