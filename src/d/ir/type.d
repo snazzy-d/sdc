@@ -167,9 +167,8 @@ public:
 	}
 
 	@property
-	BuiltinType builtin() inout in {
-		assert(kind == TypeKind.Builtin, "Not a builtin type.");
-	} do {
+	BuiltinType builtin() inout
+			in(kind == TypeKind.Builtin, "Not a builtin type.") {
 		return cast(BuiltinType) desc.data;
 	}
 
@@ -178,37 +177,27 @@ public:
 	}
 
 	@property
-	auto aggregate() inout in {
-		assert(isAggregate, "Not an aggregate type.");
-	} do {
+	auto aggregate() inout in(isAggregate, "Not an aggregate type.") {
 		return payload.agg;
 	}
 
 	@property
-	auto dstruct() inout in {
-		assert(kind == TypeKind.Struct);
-	} do {
+	auto dstruct() inout in(kind == TypeKind.Struct) {
 		return payload.dstruct;
 	}
 
 	@property
-	auto dclass() inout in {
-		assert(kind == TypeKind.Class);
-	} do {
+	auto dclass() inout in(kind == TypeKind.Class) {
 		return payload.dclass;
 	}
 
 	@property
-	auto denum() inout in {
-		assert(kind == TypeKind.Enum);
-	} do {
+	auto denum() inout in(kind == TypeKind.Enum) {
 		return payload.denum;
 	}
 
 	@property
-	auto dalias() inout in {
-		assert(kind == TypeKind.Alias);
-	} do {
+	auto dalias() inout in(kind == TypeKind.Alias) {
 		return payload.dalias;
 	}
 
@@ -237,37 +226,27 @@ public:
 	}
 
 	@property
-	auto dinterface() inout in {
-		assert(kind == TypeKind.Interface);
-	} do {
+	auto dinterface() inout in(kind == TypeKind.Interface) {
 		return payload.dinterface;
 	}
 
 	@property
-	auto dunion() inout in {
-		assert(kind == TypeKind.Union);
-	} do {
+	auto dunion() inout in(kind == TypeKind.Union) {
 		return payload.dunion;
 	}
 
 	@property
-	auto context() inout in {
-		assert(kind == TypeKind.Context);
-	} do {
+	auto context() inout in(kind == TypeKind.Context) {
 		return payload.context;
 	}
 
 	@property
-	auto pattern() inout in {
-		assert(kind == TypeKind.Pattern);
-	} do {
+	auto pattern() inout in(kind == TypeKind.Pattern) {
 		return inout(Pattern)(desc, payload.patternPayload);
 	}
 
 	@property
-	auto error() inout in {
-		assert(kind == TypeKind.Error);
-	} do {
+	auto error() inout in(kind == TypeKind.Error) {
 		return payload.error;
 	}
 
@@ -292,9 +271,8 @@ public:
 	}
 
 	@property
-	auto element() inout in {
-		assert(hasElement, "element called on a type with no element.");
-	} do {
+	auto element() inout
+			in(hasElement, "element called on a type with no element.") {
 		if (kind == TypeKind.Array) {
 			return *payload.next;
 		}
@@ -303,17 +281,14 @@ public:
 	}
 
 	@property
-	uint size() const in {
-		assert(kind == TypeKind.Array, "Only array have size.");
-	} do {
+	uint size() const in(kind == TypeKind.Array, "Only array have size.") {
 		assert(desc.data <= uint.max);
 		return cast(uint) desc.data;
 	}
 
 	@property
-	auto sequence() inout in {
-		assert(kind == TypeKind.Sequence, "Not a sequence type.");
-	} do {
+	auto sequence() inout
+			in(kind == TypeKind.Sequence, "Not a sequence type.") {
 		return payload.next[0 .. desc.data];
 	}
 
@@ -760,9 +735,7 @@ private:
 		ValueTemplateParameter value;
 	}
 
-	auto getTypeValuePair() inout in {
-		assert(kind == PatternKind.TypeBracketValue);
-	} do {
+	auto getTypeValuePair() inout in(kind == PatternKind.TypeBracketValue) {
 		return payload.typeValuePair;
 	}
 
@@ -771,9 +744,7 @@ private:
 		TemplateArgument[] args;
 	}
 
-	auto getInstatiation() inout in {
-		assert(kind == PatternKind.Instance);
-	} do {
+	auto getInstatiation() inout in(kind == PatternKind.Instance) {
 		auto c = argCount;
 		return inout(Instantiation)(
 			payload.args[c].get!(TemplateArgument.Tag.Symbol),
@@ -798,9 +769,7 @@ public:
 	}
 
 	@property
-	auto parameter() inout in {
-		assert(kind == PatternKind.Parameter);
-	} do {
+	auto parameter() inout in(kind == PatternKind.Parameter) {
 		return payload.param;
 	}
 
