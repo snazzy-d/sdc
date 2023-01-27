@@ -110,9 +110,10 @@ Declaration parseDeclaration(ref TokenRange trange) {
 					}
 
 					// We have a qualifier(type) name type of declaration.
+					trange.moveTo(lookahead);
 					stc.hasQualifier = true;
 					stc.qualifier = stc.qualifier.add(qualifier);
-					goto HandleStorageClass;
+					break;
 				}
 
 			case Ref:
@@ -626,14 +627,44 @@ auto parseInitializer(ref TokenRange trange) {
 }
 
 private:
-auto parseParameter(ref TokenRange trange) {
-	auto location = trange.front.location;
+auto parseParameter(ref TokenRange lexer) {
+	auto location = lexer.front.location;
 
+	TypeQualifier qualifier = TypeQualifier.Mutable;
 	bool isRef;
 
 	// TODO: parse storage class
 	ParseStorageClassLoop: while (true) {
-		switch (trange.front.type) with (TokenType) {
+		TypeQualifier newQual;
+		switch (lexer.front.type) with (TokenType) {
+			case Const:
+				newQual = TypeQualifier.Const;
+				goto HandleQualifier;
+
+			case Immutable:
+				newQual = TypeQualifier.Immutable;
+				goto HandleQualifier;
+
+			case Inout:
+				newQual = TypeQualifier.Inout;
+				goto HandleQualifier;
+
+			case Shared:
+				newQual = TypeQualifier.Shared;
+				goto HandleQualifier;
+
+				HandleQualifier: {
+					auto lookahead = lexer.getLookahead();
+					lookahead.popFront();
+					if (lookahead.front.type == OpenParen) {
+						goto default;
+					}
+
+					lexer.moveTo(lookahead);
+					qualifier = qualifier.add(newQual);
+					break;
+				}
+
 			case In, Out, Lazy:
 				assert(
 					0,
@@ -641,7 +672,7 @@ auto parseParameter(ref TokenRange trange) {
 				);
 
 			case Ref:
-				trange.popFront();
+				lexer.popFront();
 				isRef = true;
 
 				break;
@@ -651,23 +682,23 @@ auto parseParameter(ref TokenRange trange) {
 		}
 	}
 
-	auto type = trange.parseType()
-	                  .getParamType(isRef ? ParamKind.Ref : ParamKind.Regular);
+	auto type = lexer.parseType().qualify(qualifier)
+	                 .getParamType(isRef ? ParamKind.Ref : ParamKind.Regular);
 
 	auto name = BuiltinName!"";
 	AstExpression value;
 
-	if (trange.front.type == TokenType.Identifier) {
-		name = trange.front.name;
+	if (lexer.front.type == TokenType.Identifier) {
+		name = lexer.front.name;
 
-		trange.popFront();
-		if (trange.front.type == TokenType.Equal) {
-			trange.popFront();
-			value = trange.parseAssignExpression();
+		lexer.popFront();
+		if (lexer.front.type == TokenType.Equal) {
+			lexer.popFront();
+			value = lexer.parseAssignExpression();
 		}
 	}
 
-	return ParamDecl(location.spanTo(trange.previous), type, name, value);
+	return ParamDecl(location.spanTo(lexer.previous), type, name, value);
 }
 
 /**

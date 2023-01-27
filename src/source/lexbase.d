@@ -136,6 +136,7 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 	} do {
 		index = fr.index;
 		t = fr.t;
+		previous = fr.previous;
 	}
 
 	@property
