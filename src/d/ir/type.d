@@ -142,6 +142,7 @@ public:
 		switch (kind) with (TypeKind) {
 			case Builtin, Struct, Class, Enum, Alias:
 			case Interface, Union, Context, Function:
+			case Error:
 				auto d = desc;
 				d.qualifier = nq;
 				return Type(d, payload);
@@ -156,7 +157,8 @@ public:
 				return element.qualify(nq).getArray(size, nq);
 
 			default:
-				assert(0, "Not implemented");
+				import std.format;
+				assert(0, format!"%s is not implemented!"(kind));
 		}
 	}
 
