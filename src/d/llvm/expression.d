@@ -709,6 +709,20 @@ struct ExpressionGen {
 			case SPad:
 				return LLVMBuildSExt(builder, value, type, "");
 
+			case Trunc:
+				return LLVMBuildTrunc(builder, value, type, "");
+
+			case IntToPtr:
+				return LLVMBuildIntToPtr(builder, value, type, "");
+
+			case PtrToInt:
+				return LLVMBuildPtrToInt(builder, value, type, "");
+
+			case IntToBool:
+				return LLVMBuildICmp(
+					builder, LLVMIntPredicate.NE, value,
+					LLVMConstInt(LLVMTypeOf(value), 0, false), "");
+
 			case FloatTrunc:
 				return LLVMBuildFPTrunc(builder, value, type, "");
 
@@ -726,20 +740,6 @@ struct ExpressionGen {
 
 			case UnsignedToFloat:
 				return LLVMBuildUIToFP(builder, value, type, "");
-
-			case Trunc:
-				return LLVMBuildTrunc(builder, value, type, "");
-
-			case IntToPtr:
-				return LLVMBuildIntToPtr(builder, value, type, "");
-
-			case PtrToInt:
-				return LLVMBuildPtrToInt(builder, value, type, "");
-
-			case IntToBool:
-				return LLVMBuildICmp(
-					builder, LLVMIntPredicate.NE, value,
-					LLVMConstInt(LLVMTypeOf(value), 0, false), "");
 
 			case Exact, Qual, Down:
 				assert(0, "Unreachable");
