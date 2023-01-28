@@ -723,6 +723,24 @@ struct ExpressionGen {
 					builder, LLVMIntPredicate.NE, value,
 					LLVMConstInt(LLVMTypeOf(value), 0, false), "");
 
+			case FloatTrunc:
+				return LLVMBuildFPTrunc(builder, value, type, "");
+
+			case FloatExtend:
+				return LLVMBuildFPExt(builder, value, type, "");
+
+			case FloatToSigned:
+				return LLVMBuildFPToSI(builder, value, type, "");
+
+			case FloatToUnsigned:
+				return LLVMBuildFPToUI(builder, value, type, "");
+
+			case SignedToFloat:
+				return LLVMBuildSIToFP(builder, value, type, "");
+
+			case UnsignedToFloat:
+				return LLVMBuildUIToFP(builder, value, type, "");
+
 			case Exact, Qual, Down:
 				assert(0, "Unreachable");
 
@@ -987,6 +1005,9 @@ struct AddressOfGen {
 
 			case Invalid, IntToPtr, PtrToInt, Down:
 			case IntToBool, Trunc, SPad, UPad:
+			case FloatToSigned, FloatToUnsigned:
+			case UnsignedToFloat, SignedToFloat:
+			case FloatExtend, FloatTrunc:
 				assert(0, "Not an lvalue");
 		}
 	}

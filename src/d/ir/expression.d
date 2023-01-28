@@ -522,6 +522,12 @@ enum CastKind {
 	Trunc,
 	UPad,
 	SPad,
+	FloatToSigned,
+	FloatToUnsigned,
+	SignedToFloat,
+	UnsignedToFloat,
+	FloatTrunc,
+	FloatExtend,
 	Bit,
 	Qual,
 	Exact,
@@ -554,6 +560,9 @@ class CastExpression : Expression {
 			case Trunc:
 			case UPad:
 			case SPad:
+			case FloatTrunc, FloatExtend:
+			case FloatToSigned, FloatToUnsigned:
+			case SignedToFloat, UnsignedToFloat:
 				return false;
 
 			case Bit:
