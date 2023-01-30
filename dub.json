@@ -9,6 +9,7 @@
 			"targetType": "executable",
 			"targetPath": "bin",
 			"targetName": "sdfmt",
+			"buildRequirements": ["allowWarnings"],
 			"mainSourceFile": "src/driver/sdfmt.d",
 			"sourcePaths": [],
 			"dependencies": {
@@ -21,6 +22,7 @@
 			"targetType": "library",
 			"targetPath": "lib",
 			"targetName": "format",
+			"buildRequirements": ["allowWarnings"],
 			"sourcePaths": ["src/format/"],
 			"dependencies": {
 				"sdc:source": { "version": "*" }
@@ -31,6 +33,7 @@
 			"targetType": "library",
 			"targetPath": "lib",
 			"targetName": "config",
+			"buildRequirements": ["allowWarnings"],
 			"sourcePaths": ["src/config/"],
 			"dependencies": {
 				"sdc:source": { "version": "*" }
@@ -41,6 +44,7 @@
 			"targetType": "library",
 			"targetPath": "lib",
 			"targetName": "source",
+			"buildRequirements": ["allowWarnings"],
 			"sourcePaths": ["src/source/"],
 			"dependencies": {
 				"sdc:util": { "version": "*" }
@@ -51,6 +55,7 @@
 			"targetType": "library",
 			"targetPath": "lib",
 			"targetName": "util",
+			"buildRequirements": ["allowWarnings"],
 			"sourcePaths": ["src/util/"]
 		}
 	]

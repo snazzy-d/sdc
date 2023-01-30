@@ -3,7 +3,7 @@ NASM ?= nasm
 RDMD ?= rdmd
 
 ARCHFLAG ?= -m64
-DFLAGS = $(ARCHFLAG) -Isrc -w -debug -g
+DFLAGS = $(ARCHFLAG) -Isrc -debug -g
 PLATFORM = $(shell uname -s)
 
 # DFLAGS = $(ARCHFLAG) -w -O -release
