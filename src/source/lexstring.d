@@ -264,7 +264,7 @@ mixin template LexStringImpl(Token,
 	EscapeSequence lexEscapeSequence(uint begin) {
 		dchar c = frontChar;
 		switch (c) {
-			case '\'', '"', '\\', '?':
+			case '\'', '"', '\\', '?', '$':
 				break;
 
 			case '0':
@@ -472,7 +472,7 @@ unittest {
 	);
 
 	// Check other escaped characters.
-	checkLexString(`"\'\"\?\0\a\b\f\r\n\t\v"`, "\'\"\?\0\a\b\f\r\n\t\v");
+	checkLexString(`"\'\"\?\$\0\a\b\f\r\n\t\v"`, "\'\"\?$\0\a\b\f\r\n\t\v");
 	checkLexInvalid(`"\c"`, "'c' is not a valid escape sequence.");
 	checkLexInvalid(`"\α"`, "'α' is not a valid escape sequence.");
 
