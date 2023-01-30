@@ -2433,7 +2433,7 @@ private:
 					// Function declaration.
 					return true;
 
-				case Body, Do:
+				case Do:
 					split();
 					nextToken();
 					return true;

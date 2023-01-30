@@ -24,7 +24,7 @@ enum TokenType {
 
 	// Keywords
 	Abstract, Alias, Align, Asm, Assert, Auto,
-	Body, Bool, Break, Byte,
+	Bool, Break, Byte,
 	Case, Cast, Catch, Cdouble, Cent, Cfloat, Char,
 	Class, Const, Continue, Creal,
 	Dchar, Debug, Default, Delegate, Delete,
@@ -779,7 +779,6 @@ auto getKeywordsMap() {
 		"asm"             : Asm,
 		"assert"          : Assert,
 		"auto"            : Auto,
-		"body"            : Body,
 		"bool"            : Bool,
 		"break"           : Break,
 		"byte"            : Byte,
@@ -1355,5 +1354,11 @@ FOO
 		lex.popFront();
 
 		assert(lex.front.type == TokenType.End);
+	}
+
+	{
+		auto lex = testlexer("body");
+		lex.match(TokenType.Begin);
+		assert(lex.front.type == TokenType.Identifier);
 	}
 }
