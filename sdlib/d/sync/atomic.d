@@ -23,9 +23,7 @@ enum MemoryOrder {
  */
 struct Atomic(T) {
 private:
-	// FIXME: Due to type qualifier not being properly implemented,
-	// value needs to be explicitely marked as shared here.
-	shared T value;
+	T value;
 
 public:
 	T load(MemoryOrder order = MemoryOrder.SeqCst) shared {

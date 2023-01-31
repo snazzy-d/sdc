@@ -627,7 +627,7 @@ class FieldExpression : Expression {
 	Field field;
 
 	this(Location location, Expression expr, Field field) {
-		super(location, field.type);
+		super(location, field.type.qualify(expr.type.qualifier));
 
 		this.expr = expr;
 		this.field = field;
