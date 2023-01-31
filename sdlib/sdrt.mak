@@ -1,12 +1,12 @@
 LIBSDRT_GC_SRC = $(wildcard sdlib/d/gc/*.d)
-LIBSDRT_SYNC_SRC = $(wildcard sdlib/d/sync/*.d)
-LIBSDRT_STDC_SRC = $(wildcard sdlib/core/stdc/*.d)
 LIBSDRT_RT_SRC = $(wildcard sdlib/d/rt/*.d)
+LIBSDRT_STDC_SRC = $(wildcard sdlib/core/stdc/*.d)
+LIBSDRT_SYNC_SRC = $(wildcard sdlib/d/sync/*.d)
 
 LIBSDRT_GC_OBJ = $(LIBSDRT_GC_SRC:sdlib/d/gc/%.d=obj/gc/%.o)
-LIBSDRT_SYNC_OBJ = $(LIBSDRT_SYNC_SRC:sdlib/d/sync/%.d=obj/sync/%.o)
-LIBSDRT_STDC_OBJ = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=obj/stdc/%.o)
 LIBSDRT_RT_OBJ = $(LIBSDRT_RT_SRC:sdlib/d/rt/%.d=obj/rt/%.o)
+LIBSDRT_STDC_OBJ = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=obj/stdc/%.o)
+LIBSDRT_SYNC_OBJ = $(LIBSDRT_SYNC_SRC:sdlib/d/sync/%.d=obj/sync/%.o)
 
 LIBSDRT_LINUX_SRC = $(wildcard sdlib/sys/linux/*.d)
 LIBSDRT_LINUX_OBJ = $(LIBSDRT_LINUX_SRC:sdlib/sys/linux/%.d=obj/linux/%.o)
@@ -20,8 +20,8 @@ LIBSDRT_OSX_OBJ = $(LIBSDRT_OSX_OBJ_C) $(LIBSDRT_OSX_OBJ_D)
 LIBSDRT_X64_SRC = $(wildcard sdlib/sys/x64/*.asm)
 LIBSDRT_X64_OBJ = $(LIBSDRT_X64_SRC:sdlib/sys/x64/%.asm=obj/x64/%.o)
 
-LIBSDRT_DEPS = obj/object.o $(LIBSDRT_GC_OBJ) $(LIBSDRT_SYNC_OBJ) \
-	$(LIBSDRT_STDC_OBJ) $(LIBSDRT_RT_OBJ) $(LIBSDRT_X64_OBJ)
+LIBSDRT_DEPS = obj/object.o $(LIBSDRT_GC_OBJ) $(LIBSDRT_RT_OBJ) \
+	$(LIBSDRT_STDC_OBJ) $(LIBSDRT_SYNC_OBJ) $(LIBSDRT_X64_OBJ)
 
 ifeq ($(PLATFORM),Linux)
 	LIBSDRT_DEPS += $(LIBSDRT_LINUX_OBJ)
@@ -44,16 +44,16 @@ obj/gc/%.o: sdlib/d/gc/%.d $(LIBSDRT_GC_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/gc
 	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
-obj/sync/%.o: sdlib/d/sync/%.d $(LIBSDRT_SYNC_SRC) $(SDLIB_DEPS)
-	@mkdir -p obj/sync
+obj/rt/%.o: sdlib/d/rt/%.d $(LIBSDRT_RT_SRC) $(SDLIB_DEPS)
+	@mkdir -p obj/rt
 	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
 obj/stdc/%.o: sdlib/core/stdc/%.d $(LIBSDRT_STDC_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/stdc
 	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
-obj/rt/%.o: sdlib/d/rt/%.d $(LIBSDRT_RT_SRC) $(SDLIB_DEPS)
-	@mkdir -p obj/rt
+obj/sync/%.o: sdlib/d/sync/%.d $(LIBSDRT_SYNC_SRC) $(SDLIB_DEPS)
+	@mkdir -p obj/sync
 	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
 obj/linux/%.o: sdlib/sys/linux/%.d $(LIBSDRT_LINUX_SRC) $(SDLIB_DEPS)
@@ -77,23 +77,28 @@ $(LIBSDRT): $(LIBSDRT_DEPS)
 	ar rcs "$@" $^
 
 CHECK_LIBSDRT_GC = $(LIBSDRT_GC_SRC:sdlib/d/gc/%.d=check-sdlib-gc-%)
-CHECK_LIBSDRT_STDC = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=check-sdlib-stdc-%)
 CHECK_LIBSDRT_RT = $(LIBSDRT_RT_SRC:sdlib/d/rt/%.d=check-sdlib-rt-%)
+CHECK_LIBSDRT_STDC = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=check-sdlib-stdc-%)
+CHECK_LIBSDRT_SYNC = $(LIBSDRT_SYNC_SRC:sdlib/d/sync/%.d=check-sdlib-sync-%)
 
 check-sdlib-gc-%: sdlib/d/gc/%.d $(SDUNIT)
-	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
-
-check-sdlib-stdc-%: sdlib/core/stdc/%.d $(SDUNIT)
 	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
 check-sdlib-rt-%: sdlib/d/rt/%.d $(SDUNIT)
 	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
-check-sdlib-gc: $(CHECK_LIBSDRT_GC)
-check-sdlib-stdc: $(CHECK_LIBSDRT_STDC)
-check-sdlib-rt: $(CHECK_LIBSDRT_RT)
+check-sdlib-stdc-%: sdlib/core/stdc/%.d $(SDUNIT)
+	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
-check-sdlib: check-sdlib-gc check-sdlib-stdc check-sdlib-rt
+check-sdlib-sync-%: sdlib/d/sync/%.d $(SDUNIT)
+	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
+check-sdlib-gc: $(CHECK_LIBSDRT_GC)
+check-sdlib-rt: $(CHECK_LIBSDRT_RT)
+check-sdlib-stdc: $(CHECK_LIBSDRT_STDC)
+check-sdlib-sync: $(CHECK_LIBSDRT_SYNC)
+
+check-sdlib: check-sdlib-gc check-sdlib-rt check-sdlib-stdc check-sdlib-sync
 
 check: check-sdlib
-.PHONY: check-sdlib check-sdlib-gc check-sdlib-stdc check-sdlib-rt
+.PHONY: check-sdlib check-sdlib-gc check-sdlib-rt check-sdlib-stdc check-sdlib-sync

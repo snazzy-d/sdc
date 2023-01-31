@@ -106,6 +106,10 @@ union pthread_attr_t {
 extern(C):
 
 pthread_t pthread_self();
+int pthread_create(pthread_t* thread, pthread_attr_t* attr,
+                   void* function(void*), void* arg);
+int pthread_cancel(pthread_t thread);
+int pthread_join(pthread_t th, void** thread_return);
 
 version(linux) {
 	int pthread_getattr_np(pthread_t __th, pthread_attr_t* __attr);
