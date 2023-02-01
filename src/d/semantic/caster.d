@@ -378,20 +378,17 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			case Exact:
 				return Qual;
 
-			static if (isExplicit) {
-				default:
-					return Bit;
-			} else {
-				case Bit:
-					if (canConvert(t.qualifier, e.qualifier)) {
-						return subCast;
-					}
+			case Bit:
+				bool canConvert =
+					!isExplicit && canConvert(t.qualifier, e.qualifier);
+				if (canConvert) {
+					return subCast;
+				}
 
-					goto default;
+				goto default;
 
-				default:
-					return Invalid;
-			}
+			default:
+				return isExplicit ? Bit : Invalid;
 		}
 	}
 
@@ -414,20 +411,17 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			case Exact:
 				return Qual;
 
-			static if (isExplicit) {
-				default:
-					return Bit;
-			} else {
-				case Bit:
-					if (canConvert(t.qualifier, e.qualifier)) {
-						return subCast;
-					}
+			case Bit:
+				bool canConvert =
+					!isExplicit && canConvert(t.qualifier, e.qualifier);
+				if (canConvert) {
+					return subCast;
+				}
 
-					goto default;
+				goto default;
 
-				default:
-					return Invalid;
-			}
+			default:
+				return isExplicit ? Bit : Invalid;
 		}
 	}
 
@@ -454,20 +448,17 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			case Exact:
 				return Exact;
 
-			static if (isExplicit) {
-				default:
-					return Bit;
-			} else {
-				case Bit:
-					if (canConvert(t.qualifier, e.qualifier)) {
-						return subCast;
-					}
+			case Bit:
+				bool canConvert =
+					!isExplicit && canConvert(t.qualifier, e.qualifier);
+				if (canConvert) {
+					return subCast;
+				}
 
-					goto default;
+				goto default;
 
-				default:
-					return Invalid;
-			}
+			default:
+				return isExplicit ? Bit : Invalid;
 		}
 	}
 
