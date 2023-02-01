@@ -179,7 +179,7 @@ public:
 	}
 
 	@property
-	auto aggregate() inout in(isAggregate, "Not an aggregate type.") {
+	auto aggregate() inout in(isAggregate(), "Not an aggregate type.") {
 		return payload.agg;
 	}
 
@@ -539,7 +539,7 @@ unittest {
 	auto m = new Module(Location.init, BuiltinName!"", null);
 	auto c = new Class(Location.init, m, BuiltinName!"", []);
 	auto tc = Type.get(c);
-	assert(tc.isAggregate);
+	assert(tc.isAggregate());
 	assert(tc.aggregate is c);
 
 	auto cc = Type.get(c, TypeQualifier.Const);

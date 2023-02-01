@@ -38,7 +38,7 @@ Expression buildCast(bool isExplicit)(
 	SemanticPass pass,
 	Location location,
 	Type to,
-	Expression e
+	Expression e,
 ) in(e, "Expression must not be null") {
 	// If the expression is polysemous, we try the several meaning and
 	// exclude the ones that make no sense.
@@ -107,6 +107,9 @@ Expression buildCast(bool isExplicit)(
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
 		static if (is(T : Aggregate)) {
+			assert(e.type.getCanonical().isAggregate(),
+			       "alias this ony works on aggregates.");
+
 			static struct AliasThisResult {
 				Expression expr;
 				CastKind level;
@@ -124,7 +127,8 @@ Expression buildCast(bool isExplicit)(
 					scope(exit) e = oldE;
 					e = identified;
 
-					auto cLevel = c.castFrom(identified.type, to);
+					// XXX: Use buildCast?
+					auto cLevel = c.subCast(identified.type, to);
 					if (cLevel == CastKind.Invalid || cLevel < level) {
 						return InvalidResult;
 					}
@@ -229,19 +233,6 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		return CastKind.Invalid;
 	}
 
-	CastKind castFrom(ParamType from, ParamType to) {
-		if (from.isRef != to.isRef) {
-			return CastKind.Invalid;
-		}
-
-		auto k = castFrom(from.getType(), to.getType());
-		if (from.isRef && k < CastKind.Qual) {
-			return CastKind.Invalid;
-		}
-
-		return k;
-	}
-
 	// FIXME: handle qualifiers.
 	CastKind castFrom(Type from) {
 		from = from.getCanonical();
@@ -254,9 +245,21 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		return from.accept(this);
 	}
 
-	CastKind castFrom(Type from, Type to) {
-		this.to = to;
-		return castFrom(from);
+	CastKind subCast(Type from, Type to) {
+		return Caster!isExplicit(pass, to).castFrom(from);
+	}
+
+	CastKind castParam(ParamType from, ParamType to) {
+		if (from.isRef != to.isRef) {
+			return CastKind.Invalid;
+		}
+
+		auto k = subCast(from.getType(), to.getType());
+		if (from.isRef && k < CastKind.Qual) {
+			return CastKind.Invalid;
+		}
+
+		return k;
 	}
 
 	CastKind visit(BuiltinType t) {
@@ -366,7 +369,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				: CastKind.Invalid;
 		}
 
-		auto subCast = castFrom(t, e);
+		auto subCast = subCast(t, e);
 		switch (subCast) with (CastKind) {
 			case Qual:
 				if (canConvert(t.qualifier, e.qualifier)) {
@@ -399,7 +402,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		auto e = to.element.getCanonical();
 
-		auto subCast = castFrom(t, e);
+		auto subCast = subCast(t, e);
 		switch (subCast) with (CastKind) {
 			case Qual:
 				if (canConvert(t.qualifier, e.qualifier)) {
@@ -436,7 +439,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		auto e = to.element.getCanonical();
 
-		auto subCast = castFrom(t, e);
+		auto subCast = subCast(t, e);
 		switch (subCast) with (CastKind) {
 			case Qual:
 				if (canConvert(t.qualifier, e.qualifier)) {
@@ -597,7 +600,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return onFail;
 		}
 
-		auto k = castFrom(f.returnType, tf.returnType);
+		auto k = castParam(f.returnType, tf.returnType);
 		if (k < CastKind.Bit) {
 			return onFail;
 		}
@@ -615,7 +618,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			}
 
 			// Contexts are covariant.
-			auto kc = castFrom(fromc, toc);
+			auto kc = castParam(fromc, toc);
 			if (kc < CastKind.Bit) {
 				return onFail;
 			}
@@ -626,7 +629,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		foreach (fromp, top; lockstep(f.parameters, tf.parameters)) {
 			// Parameters are contrevariant.
-			auto kp = castFrom(top, fromp);
+			auto kp = castParam(top, fromp);
 			if (kp < CastKind.Bit) {
 				return onFail;
 			}
