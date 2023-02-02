@@ -5,8 +5,8 @@
  */
 module sys.linux.link;
 
-version (linux):
-extern (C):
+version(linux):
+extern(C):
 // nothrow:
 
 import core.stdc.stdint /+ : uintptr_t, uint32_t +/;

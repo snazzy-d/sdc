@@ -5,8 +5,8 @@
  */
 module sys.linux.elf;
 
-version (linux):
-extern (C):
+version(linux):
+extern(C):
 // pure:
 // nothrow:
 

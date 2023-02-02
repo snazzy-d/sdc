@@ -5,7 +5,7 @@
  */
 module sys.linux.config;
 
-version (linux):
+version(linux):
 
 // import sys.posix.config;
 enum _XOPEN_SOURCE     = 600;

@@ -19,7 +19,7 @@ ubyte HTag(hash_t h) {
 
 /**
  * The index of the bucket in which we should probe.
- * 
+ *
  * Uses bits that do not overlap with Htag, to minimize
  * false negatives when filtering tags.
  */
@@ -30,11 +30,11 @@ uint HIndex(hash_t h) {
 /**
  * The offset of the bucket we need to probe next if
  * the curent one doesn't containt what we are lookign for.
- * 
+ *
  * We make sure HStep is odd. Because the number of buckets
  * is a power of 2, we are guaranteed that they are coprime,
  * which in turn ensures us that we will visit all buckets.
- * 
+ *
  * Randomizing probing ensure we avoid clumping.
  */
 uint HStep(hash_t h) {
