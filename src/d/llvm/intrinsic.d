@@ -38,6 +38,9 @@ struct IntrinsicGen {
 			case Expect:
 				return expect(args);
 
+			case FetchAdd:
+				return fetchAdd(args);
+
 			case CompareAndSwap:
 				return cas(false, args);
 
@@ -82,6 +85,18 @@ struct IntrinsicGen {
 		auto type = LLVMFunctionType(i1, params.ptr, params.length, false);
 		return cache[name] =
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
+	}
+
+	LLVMValueRef fetchAdd(LLVMValueRef[] args)
+			in(args.length == 2, "Invalid argument count") {
+		return fetchAdd(args[0], args[1],
+		                LLVMAtomicOrdering.SequentiallyConsistent);
+	}
+
+	LLVMValueRef fetchAdd(LLVMValueRef ptr, LLVMValueRef increment,
+	                      LLVMAtomicOrdering ordering) {
+		return LLVMBuildAtomicRMW(builder, LLVMAtomicRMWBinOp.Add, ptr,
+		                          increment, ordering, false);
 	}
 
 	LLVMValueRef cas(bool weak, LLVMValueRef[] args)

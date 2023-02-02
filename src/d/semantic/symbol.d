@@ -143,6 +143,7 @@ struct SymbolAnalyzer {
 		// Ideally we'd use UDA, but as they are not implemented,
 		// we just bake the magic in the compiler.
 		set(BuiltinName!"expect", Intrinsic.Expect);
+		set(BuiltinName!"fetchAdd", Intrinsic.FetchAdd);
 		set(BuiltinName!"cas", Intrinsic.CompareAndSwap);
 		set(BuiltinName!"casWeak", Intrinsic.CompareAndSwapWeak);
 		set(BuiltinName!"popCount", Intrinsic.PopCount);

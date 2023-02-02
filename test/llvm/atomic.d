@@ -2,6 +2,13 @@
 
 import d.sync.atomic;
 
+uint doFetchAdd(shared Atomic!uint* x, uint n) {
+	return x.fetchAdd(n);
+// CHECK-LABEL: _D6atomic10doFetchAddFMOPOS4sync1d6atomic6AtomicTTkZ6AtomickZk
+// CHECK: [[RET:%[a-z0-9\.]+]] = atomicrmw add i32* %0, i32 %arg.n seq_cst, align 4
+// CHECK: ret i32 [[RET]]
+}
+
 uint doLoad(shared Atomic!uint* x) {
 	return x.load();
 // CHECK-LABEL: _D6atomic6doLoadFMOPOS4sync1d6atomic6AtomicTTkZ6AtomicZk

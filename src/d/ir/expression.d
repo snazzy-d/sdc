@@ -238,6 +238,7 @@ class CallExpression : Expression {
 enum Intrinsic {
 	None,
 	Expect,
+	FetchAdd,
 	CompareAndSwap,
 	CompareAndSwapWeak,
 	PopCount,

@@ -3,6 +3,7 @@ module d.sync.atomic;
 import sdc.intrinsics;
 
 // Work around limitation in SDC's symbol resolution.
+private alias ifetchAdd = fetchAdd;
 private alias icas = cas;
 private alias icasWeak = casWeak;
 
@@ -32,6 +33,10 @@ public:
 
 	void store(T value, MemoryOrder order = MemoryOrder.SeqCst) shared {
 		this.value = value;
+	}
+
+	T fetchAdd(T increment, MemoryOrder order = MemoryOrder.SeqCst) shared {
+		return ifetchAdd(&value, increment);
 	}
 
 	bool cas(ref T expected, T desired,

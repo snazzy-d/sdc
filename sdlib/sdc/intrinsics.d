@@ -12,6 +12,11 @@ bool unlikely(T)(T val) {
 	return expect(cast(bool) val, false);
 }
 
+ubyte fetchAdd(ubyte* ptr, ubyte increment);
+ushort fetchAdd(ushort* ptr, ushort increment);
+uint fetchAdd(uint* ptr, uint increment);
+ulong fetchAdd(ulong* ptr, ulong increment);
+
 struct CompareAndSwapResult(T) {
 	T value;
 	bool success;
