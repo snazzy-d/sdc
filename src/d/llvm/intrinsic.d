@@ -95,16 +95,22 @@ struct IntrinsicGen {
 
 	LLVMValueRef fetchAdd(LLVMValueRef ptr, LLVMValueRef increment,
 	                      LLVMAtomicOrdering ordering) {
-		return LLVMBuildAtomicRMW(builder, LLVMAtomicRMWBinOp.Add, ptr,
-		                          increment, ordering, false);
+		return buildAtomicRMW(LLVMAtomicRMWBinOp.Add, ptr, increment, ordering);
+	}
+
+	LLVMValueRef buildAtomicRMW(
+		LLVMAtomicRMWBinOp op,
+		LLVMValueRef ptr,
+		LLVMValueRef increment,
+		LLVMAtomicOrdering ordering,
+	) {
+		return LLVMBuildAtomicRMW(builder, op, ptr, increment, ordering, false);
 	}
 
 	LLVMValueRef cas(bool weak, LLVMValueRef[] args)
 			in(args.length == 3, "Invalid argument count") {
-		auto i = cas(weak, args[0], args[1], args[2],
-		             LLVMAtomicOrdering.SequentiallyConsistent);
-		LLVMSetWeak(i, weak);
-		return i;
+		return cas(weak, args[0], args[1], args[2],
+		           LLVMAtomicOrdering.SequentiallyConsistent);
 	}
 
 	LLVMValueRef cas(bool weak, LLVMValueRef ptr, LLVMValueRef old,
