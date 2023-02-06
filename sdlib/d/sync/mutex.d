@@ -320,3 +320,69 @@ unittest locking {
 	assert(mutex.word.load() == 0x00, "Invalid mutext state!");
 	assert(count.load() == 1024 * 1024);
 }
+
+extern(C) int sleep(int);
+
+unittest fairness {
+	static runThread(void* delegate() dg) {
+		static struct Delegate {
+			void* ctx;
+			void* function(void*) fun;
+		}
+
+		auto x = *(cast(Delegate*) &dg);
+
+		import d.rt.thread;
+		pthread_t tid;
+		auto r = pthread_create(&tid, null, x.fun, x.ctx);
+		assert(r == 0, "Failed to create thread!");
+
+		return tid;
+	}
+
+	enum ThreadCount = 8;
+
+	import d.sync.atomic;
+	uint[ThreadCount] counts;
+	shared Mutex mutex;
+	shared Atomic!uint keepGoing;
+
+	auto run(uint i) {
+		void* fun() {
+			auto index = i;
+			while (keepGoing.load() != 0) {
+				mutex.lock();
+				counts[index]++;
+				mutex.unlockFairly();
+			}
+
+			return null;
+		}
+
+		return runThread(fun);
+	}
+
+	// Start the threads.
+	keepGoing.store(true);
+	mutex.lock();
+
+	import d.rt.thread;
+	pthread_t[ThreadCount] ts;
+	foreach (i; 0 .. ThreadCount) {
+		ts[i] = run(i);
+	}
+
+	mutex.unlock();
+
+	sleep(1);
+	keepGoing.store(false);
+
+	import core.stdc.stdio;
+	printf("Fairness results:\n");
+
+	foreach (i; 0 .. ThreadCount) {
+		void* ret;
+		pthread_join(ts[i], &ret);
+		printf("\t%4d => %16u\n", i, counts[i]);
+	}
+}
