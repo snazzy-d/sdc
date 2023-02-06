@@ -47,7 +47,17 @@ public:
 			return;
 		}
 
-		unlockSlow();
+		unlockSlow(Fairness.Unfair);
+	}
+
+	void unlockFairly() shared {
+		// No operation done before the lock is freed can be reordered after.
+		size_t expected = LockBit;
+		if (likely(word.casWeak(expected, 0, MemoryOrder.Release))) {
+			return;
+		}
+
+		unlockSlow(Fairness.Fair);
 	}
 
 private:
@@ -161,7 +171,12 @@ private:
 		}
 	}
 
-	void unlockSlow() shared {
+	enum Fairness {
+		Unfair,
+		Fair,
+	}
+
+	void unlockSlow(Fairness fairness) shared {
 		while (true) {
 			auto current = word.load(MemoryOrder.Relaxed);
 			assert(current & LockBit, "Lock not held!");
@@ -200,18 +215,23 @@ private:
 		auto head = tail.next;
 		tail.next = head.next;
 
-		// As we update the tail, we also release the lock and the queue lock.
-		auto newTail = (head == tail) ? null : tail;
-		word.store(cast(size_t) newTail, MemoryOrder.Release);
+		/**
+		 * As we update the tail, we also release the queue lock.
+		 * The lock itself is kept is the fair case, or unlocked if
+		 * fairness is not a concern.
+		 */
+		auto newTail = (head == tail) ? 0 : cast(size_t) tail;
+		word.store(newTail | fairness, MemoryOrder.Release);
 
 		// Wake up the blocked thread.
 		head.next = null;
-		head.handoff.store(cast(uint) Handoff.Barging, MemoryOrder.Release);
+		head.handoff.store(fairness ? Handoff.Direct : Handoff.Barging,
+		                   MemoryOrder.Release);
 		head.waiter.wakeup();
 	}
 }
 
-unittest {
+unittest locking {
 	static runThread(void* delegate() dg) {
 		static struct Delegate {
 			void* ctx;
@@ -278,7 +298,11 @@ unittest {
 		foreach (i; 0 .. 1024) {
 			mutex.lock();
 			count.fetchAdd(1);
-			mutex.unlock();
+			if ((i >> 1) & 0x03) {
+				mutex.unlock();
+			} else {
+				mutex.unlockFairly();
+			}
 		}
 
 		return null;
