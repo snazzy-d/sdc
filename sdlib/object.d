@@ -1,6 +1,6 @@
 module object;
 
-version (D_LP64) {
+version(D_LP64) {
 	alias size_t = ulong;
 	alias ptrdiff_t = long;
 } else {
@@ -10,7 +10,7 @@ version (D_LP64) {
 
 alias string = immutable(char)[];
 
-extern (C) {
+extern(C) {
 	void* memset(void* ptr, int value, size_t num);
 	void* memcpy(void* destination, const void* source, size_t num);
 }
@@ -34,8 +34,10 @@ final class ClassInfo : TypeInfo {
 }
 
 class Throwable {}
-class Exception: Throwable {}
-class Error: Throwable {}
+
+class Exception : Throwable {}
+
+class Error : Throwable {}
 
 // sdruntime
 extern(C) {
@@ -45,7 +47,7 @@ extern(C) {
 	int __sd_eh_personality(int, int, ulong, void*, void*);
 	int __sd_array_outofbounds(string, int);
 	void* __sd_gc_tl_malloc(size_t);
-	
+
 	// We should be using some dedicated array API instead of this.
 	void* __sd_gc_tl_array_alloc(size_t size);
 }
