@@ -50,3 +50,5 @@ ulong countTrailingZeros(ulong n);
 ushort bswap(ushort n);
 uint bswap(uint n);
 ulong bswap(ulong n);
+
+ulong readCycleCounter();

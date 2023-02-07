@@ -68,3 +68,10 @@ ulong doBswap(ushort n1, uint n2, ulong n3) {
 // CHECK: call i32 @llvm.bswap.i32(i32 {{.*}})
 // CHECK: call i64 @llvm.bswap.i64(i64 {{.*}})
 }
+
+ulong doReadCycleCounter() {
+// CHECK-LABEL: _D10intrinsics18doReadCycleCounterFMZm
+// CHECK:[[RET:%[a-z0-9\.]+]] = call i64 @llvm.readcyclecounter()
+// CHECK: ret i64 [[RET]]
+	return readCycleCounter();
+}

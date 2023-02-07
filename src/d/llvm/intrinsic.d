@@ -58,6 +58,9 @@ struct IntrinsicGen {
 
 			case ByteSwap:
 				return bswap(args);
+
+			case ReadCycleCounter:
+				return readCycleCounter(args);
 		}
 	}
 
@@ -217,6 +220,25 @@ struct IntrinsicGen {
 
 		return cache[name] = LLVMAddFunction(dmodule, name.toStringz(context),
 		                                     getFunctionType(bits));
+	}
+
+	LLVMValueRef readCycleCounter(LLVMValueRef[] args)
+			in(args.length == 0, "Invalid argument count") {
+		auto fun = getReadCycleCounter();
+		auto t = LLVMGlobalGetValueType(fun);
+		return LLVMBuildCall2(builder, t, fun, null, 0, "");
+	}
+
+	auto getReadCycleCounter() {
+		auto name = context.getName("llvm.readcyclecounter");
+		if (auto fPtr = name in cache) {
+			return *fPtr;
+		}
+
+		auto i64 = LLVMInt64TypeInContext(llvmCtx);
+		auto type = LLVMFunctionType(i64, null, 0, false);
+		return cache[name] =
+			LLVMAddFunction(dmodule, name.toStringz(context), type);
 	}
 
 private:

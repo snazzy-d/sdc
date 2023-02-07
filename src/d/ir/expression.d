@@ -245,6 +245,7 @@ enum Intrinsic {
 	CountLeadingZeros,
 	CountTrailingZeros,
 	ByteSwap,
+	ReadCycleCounter,
 }
 
 /**
