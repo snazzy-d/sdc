@@ -40,6 +40,10 @@ public:
 		return word.casWeak(current, current | LockBit, MemoryOrder.Acquire);
 	}
 
+	bool isHeld() shared {
+		return (word.load() & LockBit) != 0;
+	}
+
 	void unlock() shared {
 		// No operation done before the lock is freed can be reordered after.
 		size_t expected = LockBit;
