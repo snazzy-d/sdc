@@ -139,11 +139,13 @@ private:
 			tail = tail is null ? me : tail;
 			me.next = tail.next;
 			tail.next = me;
+
+			// Setup ourselves up for handoff.
 			me.handoff.store(Handoff.None, MemoryOrder.Release);
 
 			// Now we store the updated head. Note that this will release the
 			// queue lock too, but it's okay, by now we are in the queue.
-			word.store(LockBit | cast(size_t) tail, MemoryOrder.Release);
+			word.store(LockBit | cast(size_t) me, MemoryOrder.Release);
 
 			// Wait for the control to be handed back to us.
 			uint handoff;
@@ -171,12 +173,13 @@ private:
 		}
 	}
 
-	enum Fairness {
-		Unfair,
-		Fair,
+	// FIXME: Crashing for some reason.
+	enum Fairness /* : bool */ {
+		Unfair = 0,
+		Fair = 1,
 	}
 
-	void unlockSlow(Fairness fairness) shared {
+	void unlockSlow(Fairness fair) shared {
 		while (true) {
 			auto current = word.load(MemoryOrder.Relaxed);
 			assert(current & LockBit, "Lock not held!");
@@ -221,12 +224,14 @@ private:
 		 * fairness is not a concern.
 		 */
 		auto newTail = (head == tail) ? 0 : cast(size_t) tail;
-		word.store(newTail | fairness, MemoryOrder.Release);
+		word.store(newTail | fair, MemoryOrder.Release);
+
+		// Make sure our bit trickery remains valid.
+		static assert((Handoff.Barging + Fairness.Fair) == Handoff.Direct);
 
 		// Wake up the blocked thread.
 		head.next = null;
-		head.handoff.store(fairness ? Handoff.Direct : Handoff.Barging,
-		                   MemoryOrder.Release);
+		head.handoff.store(Handoff.Barging + fair, MemoryOrder.Release);
 		head.waiter.wakeup();
 	}
 }
