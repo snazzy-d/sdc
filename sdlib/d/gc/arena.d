@@ -32,6 +32,9 @@ extern(C) void _tl_gc_collect() {
 Arena tl;
 
 struct Arena {
+	import d.sync.mutex;
+	shared Mutex mutex;
+
 	// Spare chunk to avoid churning too much.
 	import d.gc.chunk;
 	Chunk* spare;
@@ -161,6 +164,9 @@ private:
 		assert(binID < ClassCount.Small);
 		assert(bins[binID].current is null);
 
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
 		import d.gc.spec;
 		uint needPages = binInfos[binID].needPages;
 		auto runBinID = getBinID(needPages << LgPageSize);
@@ -203,6 +209,9 @@ private:
 		assert(size > SizeClass.Small && size <= SizeClass.Large);
 		assert(size == getAllocSize(size));
 
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
 		auto binID = getBinID(size);
 		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
 
@@ -228,6 +237,9 @@ private:
 	 * The run will not be present in the freeRunTree.
 	 */
 	RunDesc* extractFreeRun(ubyte binID) {
+		// FIXME: in contract.
+		assert(mutex.isHeld(), "Mutex not held!");
+
 		while (true) {
 			// XXX: use extract or something.
 			auto run = freeRunTree.bestfit(cast(RunDesc*) binID);
@@ -260,11 +272,20 @@ private:
 			assert(spare is null);
 			spare = c;
 
+			// Maintaining the chunk set might require allocation,
+			// so we release the lock.
+			mutex.unlock();
+			scope(exit) mutex.lock();
+
 			// If we failed to register the chunk, free and bail out.
 			if (chunkSet.register(c)) {
 				c.free();
 				return null;
 			}
+
+			// Because we released the mutex, all bets are off,
+			// so we have to start again from the begining.
+			continue;
 		}
 
 		// FIXME: Unsure control flow analysis detects this.
