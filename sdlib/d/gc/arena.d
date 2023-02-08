@@ -153,31 +153,7 @@ private:
 		auto binID = getBinID(size);
 		assert(binID < ClassCount.Small);
 
-		// Load eagerly as prefetching.
-		size = binInfos[binID].itemSize;
-
-		auto run = findSmallRun(binID);
-		if (run is null) {
-			return null;
-		}
-
-		auto index = run.small.allocate();
-		auto base = cast(void*) &run.chunk.datas[run.runID];
-
-		return base + size * index;
-	}
-
-	RunDesc* findSmallRun(ubyte binID) {
-		// XXX: in contract.
-		assert(binID < ClassCount.Small);
-
-		auto run = bins[binID].getRun();
-		if (run !is null) {
-			return run;
-		}
-
-		// We don't have any run that fit, allocate a new one.
-		return allocateSmallRun(binID);
+		return bins[binID].allocSmall(&this, binID);
 	}
 
 	RunDesc* allocateSmallRun(ubyte binID) {
@@ -194,28 +170,17 @@ private:
 			return null;
 		}
 
-		// We may have allocated the run we need when allocating metadata.
-		if (bins[binID].current !is null) {
-			assert(run !is bins[binID].current);
-
-			// In which case we put the free run back in the tree.
-			assert(run.chunk.pages[run.runID].free);
-			freeRunTree.insert(run);
-
-			// And use the metadata run.
-			return bins[binID].current;
-		}
-
 		auto c = run.chunk;
 		auto i = run.runID;
 
+		assert(run.chunk.pages[run.runID].free);
 		auto rem = c.splitSmallRun(i, binID);
 		if (rem) {
 			assert(c.pages[rem].free);
 			freeRunTree.insert(&c.runs[rem]);
 		}
 
-		return bins[binID].current = run;
+		return run;
 	}
 
 	/**
