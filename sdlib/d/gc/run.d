@@ -4,7 +4,7 @@ struct RunDesc {
 	import d.gc.rbtree;
 	Node!RunDesc node;
 
-	// TODO: anonymous enum.
+	// FIXME: Use anonymous enum when SDC supports them.
 	union U {
 		DirtyRunMisc dirty;
 		SmallRunMisc small;

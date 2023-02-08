@@ -171,8 +171,8 @@ struct Chunk {
 		auto c = cast(Chunk*) ret;
 		assert(findChunk(c) is null);
 
-		// XXX: ensure I didn't fucked up the layout.
-		// this better belong to static assert when available.
+		// FIXME: Ensure the layout is as expected.
+		// This is better achieved as static assert.
 		{
 			auto ci = cast(size_t) ret;
 			auto pi = cast(size_t) &c.pages[0];
