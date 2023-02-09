@@ -321,6 +321,9 @@ private:
 		auto base = cast(void*) &c.datas[runID];
 		assert(ptr is (base + size * index));
 
+		bins[binID].mutex.lock();
+		scope(exit) bins[binID].mutex.unlock();
+
 		auto run = &c.runs[runID];
 		run.small.free(index);
 
@@ -333,6 +336,9 @@ private:
 				// it is never added to the tree.
 				bins[binID].runTree.remove(run);
 			}
+
+			bins[binID].mutex.unlock();
+			scope(exit) bins[binID].mutex.lock();
 
 			freeRun(c, runID, binInfo.needPages);
 		} else if (freeSlots == 1 && run !is bins[binID].current) {
@@ -358,6 +364,9 @@ private:
 		auto pd = c.pages[runID];
 		assert(pd.allocated && pd.offset == 0);
 		assert(pages > 0);
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
 
 		// XXX: find a way to merge dirty and clean free runs.
 		if (runID > 0) {
