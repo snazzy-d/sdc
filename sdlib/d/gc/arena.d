@@ -33,7 +33,7 @@ Arena tl;
 
 struct Arena {
 	import d.sync.mutex;
-	shared Mutex mutex;
+	shared Mutex chunkMutex;
 
 	// Spare chunk to avoid churning too much.
 	import d.gc.chunk;
@@ -164,12 +164,12 @@ private:
 		assert(binID < ClassCount.Small);
 		assert(bins[binID].current is null);
 
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
 		import d.gc.spec;
 		uint needPages = binInfos[binID].needPages;
 		auto runBinID = getBinID(needPages << LgPageSize);
+
+		chunkMutex.lock();
+		scope(exit) chunkMutex.unlock();
 
 		auto run = extractFreeRun(runBinID);
 		if (run is null) {
@@ -209,11 +209,11 @@ private:
 		assert(size > SizeClass.Small && size <= SizeClass.Large);
 		assert(size == getAllocSize(size));
 
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
 		auto binID = getBinID(size);
 		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
+
+		chunkMutex.lock();
+		scope(exit) chunkMutex.unlock();
 
 		auto run = extractFreeRun(binID);
 		if (run is null) {
@@ -238,7 +238,7 @@ private:
 	 */
 	RunDesc* extractFreeRun(ubyte binID) {
 		// FIXME: in contract.
-		assert(mutex.isHeld(), "Mutex not held!");
+		assert(chunkMutex.isHeld(), "Mutex not held!");
 
 		while (true) {
 			// XXX: use extract or something.
@@ -274,8 +274,8 @@ private:
 
 			// Maintaining the chunk set might require allocation,
 			// so we release the lock.
-			mutex.unlock();
-			scope(exit) mutex.lock();
+			chunkMutex.unlock();
+			scope(exit) chunkMutex.lock();
 
 			// If we failed to register the chunk, free and bail out.
 			if (chunkSet.register(c)) {
@@ -365,8 +365,8 @@ private:
 		assert(pd.allocated && pd.offset == 0);
 		assert(pages > 0);
 
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		chunkMutex.lock();
+		scope(exit) chunkMutex.unlock();
 
 		// XXX: find a way to merge dirty and clean free runs.
 		if (runID > 0) {
