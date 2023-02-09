@@ -43,13 +43,15 @@ struct Arena {
 	import d.gc.rbtree, d.gc.run;
 	RBTree!(RunDesc, sizeAddrRunCmp) freeRunTree;
 
+	// Set of chunks for GC lookup.
+	ChunkSet chunkSet;
+
 	// Extent describing huge allocs.
+	shared Mutex hugeMutex;
+
 	import d.gc.extent;
 	ExtentTree hugeTree;
 	ExtentTree hugeLookupTree;
-
-	// Set of chunks for GC lookup.
-	ChunkSet chunkSet;
 
 	const(void*)* stackBottom;
 	const(void*)[][] roots;
@@ -116,6 +118,9 @@ struct Arena {
 			assert(c.header.arena is &this);
 			oldBinID = c.pages[c.getRunID(ptr)].binID;
 		} else {
+			hugeMutex.lock();
+			scope(exit) hugeMutex.unlock();
+
 			auto e = extractHugeExtent(ptr);
 			assert(e !is null);
 
@@ -438,6 +443,9 @@ private:
 		e.addr = ret;
 		e.size = size;
 
+		hugeMutex.lock();
+		scope(exit) hugeMutex.unlock();
+
 		hugeTree.insert(e);
 
 		return ret;
@@ -447,6 +455,7 @@ private:
 		// XXX: in contracts
 		import d.gc.spec;
 		assert(((cast(size_t) ptr) & ChunkAlignMask) == 0);
+		assert(hugeMutex.isHeld(), "Mutex not held!");
 
 		Extent test;
 		test.addr = ptr;
@@ -470,14 +479,21 @@ private:
 			return;
 		}
 
+		hugeMutex.lock();
+		scope(exit) hugeMutex.unlock();
+
 		freeExtent(extractHugeExtent(ptr));
 	}
 
 	void freeExtent(Extent* e) {
 		// FIXME: in contract
 		assert(e !is null);
+		assert(hugeMutex.isHeld(), "Mutex not held!");
 		assert(hugeTree.find(e) is null);
 		assert(hugeLookupTree.find(e) is null);
+
+		hugeMutex.unlock();
+		scope(exit) hugeMutex.lock();
 
 		import d.gc.mman;
 		pages_unmap(e.addr, e.size);
@@ -504,11 +520,16 @@ private:
 	}
 
 	void collect() {
-		// Get ready to detect huge allocations.
-		hugeLookupTree = hugeTree;
+		{
+			hugeMutex.lock();
+			scope(exit) hugeMutex.unlock();
 
-		// FIXME: This bypass visibility.
-		hugeTree.root = null;
+			// Get ready to detect huge allocations.
+			hugeLookupTree = hugeTree;
+
+			// FIXME: This bypass visibility.
+			hugeTree.root = null;
+		}
 
 		// TODO: The set need a range interface or some other way to iterrate.
 		auto chunks = chunkSet.cloneChunks();
@@ -557,6 +578,9 @@ private:
 
 			c.collect();
 		}
+
+		hugeMutex.lock();
+		scope(exit) hugeMutex.unlock();
 
 		// Extents that have not been moved to hugeTree are dead.
 		while (!hugeLookupTree.empty) {
