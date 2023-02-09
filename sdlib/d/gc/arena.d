@@ -228,28 +228,47 @@ private:
 	 * The run will not be present in the freeRunTree.
 	 */
 	RunDesc* extractFreeRun(ubyte binID) {
-		// XXX: use extract or something.
-		auto run = freeRunTree.bestfit(cast(RunDesc*) binID);
-		if (run !is null) {
-			freeRunTree.remove(run);
-			return run;
+		while (true) {
+			// XXX: use extract or something.
+			auto run = freeRunTree.bestfit(cast(RunDesc*) binID);
+			if (run !is null) {
+				freeRunTree.remove(run);
+				return run;
+			}
+
+			if (spare !is null) {
+				// If we have a spare chunk, use that.
+				assert(!spare.pages[0].allocated, "Spare Chunk is not clean!");
+				scope(success) spare = null;
+				return &spare.runs[0];
+			}
+
+			auto c = Chunk.allocate(&this);
+			if (c is null) {
+				// XXX: In the multithreaded version, we should
+				// retry reuse as one run can have been freed
+				// while we tried to allocate the chunk.
+				return null;
+			}
+
+			assert(c.header.arena is &this);
+			assert(c.header.addr is cast(void*) c);
+
+			// Adding the chunk as spare so metadata can be allocated
+			// from it. For instance, this is useful if the chunk set
+			// needs to be resized to register this chunk.
+			assert(spare is null);
+			spare = c;
+
+			// If we failed to register the chunk, free and bail out.
+			if (chunkSet.register(c)) {
+				c.free();
+				return null;
+			}
 		}
 
-		auto c = allocateChunk();
-		if (c is null) {
-			// XXX: In the multithreaded version, we should
-			// retry reuse as one run can have been freed
-			// while we tried to allocate the chunk.
-			return null;
-		}
-
-		// In rare cases, we may have allocated metadata
-		// in the chunk for bookkeeping.
-		if (c.pages[0].allocated) {
-			return extractFreeRun(binID);
-		}
-
-		return &c.runs[0];
+		// FIXME: Unsure control flow analysis detects this.
+		assert(0, "Unreachable.");
 	}
 
 	/**
@@ -434,40 +453,6 @@ private:
 		pages_unmap(e.addr, e.size);
 
 		free(e);
-	}
-
-	/**
-	 * Chunk allocation facilities.
-	 */
-	Chunk* allocateChunk() {
-		// If we have a spare chunk, use that.
-		if (spare !is null) {
-			scope(success) spare = null;
-			return spare;
-		}
-
-		auto c = Chunk.allocate(&this);
-		if (c is null) {
-			return null;
-		}
-
-		assert(c.header.arena is &this);
-		assert(c.header.addr is cast(void*) c);
-
-		// Adding the chunk as spare so metadata can be allocated
-		// from it. For instance, this is useful if the chunk set
-		// needs to be resized to register this chunk.
-		assert(spare is null);
-		spare = c;
-
-		// If we failed to register the chunk, free and bail out.
-		if (chunkSet.register(c)) {
-			c.free();
-			c = null;
-		}
-
-		spare = null;
-		return c;
 	}
 
 	/**
