@@ -442,15 +442,8 @@ private:
 	Chunk* allocateChunk() {
 		// If we have a spare chunk, use that.
 		if (spare !is null) {
-			/*
-			// FIXME: Only scope(exit) are supported.
 			scope(success) spare = null;
 			return spare;
-			/*/
-			auto c = spare;
-			spare = null;
-			return c;
-			//*/
 		}
 
 		auto c = Chunk.allocate(&this);
