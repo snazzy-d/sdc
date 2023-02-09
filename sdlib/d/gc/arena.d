@@ -452,7 +452,7 @@ private:
 		}
 
 		assert(c.header.arena is &this);
-		// assert(c.header.addr is c);
+		assert(c.header.addr is cast(void*) c);
 
 		// Adding the chunk as spare so metadata can be allocated
 		// from it. For instance, this is useful if the chunk set
