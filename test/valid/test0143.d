@@ -18,6 +18,20 @@ int foo(bool fi) {
 	return a + b;
 }
 
+int bar(bool cond) {
+	uint x = 13;
+
+	if (cond) {
+		scope(exit) x *= 2;
+		x = 15;
+	}
+
+	return x;
+}
+
 int main() {
+	assert(bar(false) == 13);
+	assert(bar(true) == 30);
+
 	return foo(true) + foo(false) + a;
 }

@@ -209,9 +209,8 @@ private:
 		currentScope = new NestedScope(currentScope);
 
 		auto unwindLevel = unwindActions.length;
-		scope(success) unwindTo(unwindLevel);
-
 		process(args);
+		unwindTo(unwindLevel);
 
 		return currentBlockRef;
 	}
