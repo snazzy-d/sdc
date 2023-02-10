@@ -147,7 +147,6 @@ private:
 		*extent = Extent(arena, ret + size, newSize, newSizeClass);
 
 		availableExtents.insert(extent);
-
 		return ret;
 	}
 
