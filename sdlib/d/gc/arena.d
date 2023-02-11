@@ -246,10 +246,8 @@ private:
 		assert(chunkMutex.isHeld(), "Mutex not held!");
 
 		while (true) {
-			// XXX: use extract or something.
-			auto run = freeRunTree.bestfit(cast(RunDesc*) binID);
+			auto run = freeRunTree.extractBestFit(cast(RunDesc*) binID);
 			if (run !is null) {
-				freeRunTree.remove(run);
 				return run;
 			}
 

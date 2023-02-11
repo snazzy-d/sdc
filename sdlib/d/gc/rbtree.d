@@ -52,7 +52,7 @@ public:
 	}
 
 	/**
-	 * Find the smallest item that is larger than the test.
+	 * Find the smallest item that is greater or equal to the test.
 	 */
 	N* bestfit(N* test) {
 		auto n = root;
@@ -81,7 +81,7 @@ public:
 		// But a branch can be at most 2* longer than the shortest one.
 		import d.gc.util;
 		Path[16 * size_t.sizeof - log2floor(N.sizeof)] path = void;
-		auto stackp = &path[0]; // TODO: use .ptr when available.
+		auto stackp = path.ptr;
 
 		// Let's make sure this is a child node.
 		nodeData(n).left = Link(null, Color.Black);
@@ -183,25 +183,46 @@ public:
 		assert(n is removed);
 	}
 
+	N* extract(N* n) {
+		return extractImpl!false(n);
+	}
+
 	N* extractAny() {
 		return extract(root);
 	}
 
-	N* extract(N* n) {
+	N* extractBestFit(N* n) {
+		return extractImpl!true(n);
+	}
+
+private:
+	N* extractImpl(bool BestFit)(N* n) {
 		// rbtree's depth is ln(n) which is at most 8 * size_t.sizeof.
 		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
 		// But a branch can be at most 2* longer than the shortest one.
 		import d.gc.util;
 		Path[16 * size_t.sizeof - log2floor(N.sizeof)] path = void;
-		auto stackp = &path[0]; // TODO: use .ptr when available.
+		auto stackp = path.ptr;
 
 		// Root is always black.
 		auto link = Link(root, Color.Black);
-		auto rn = root;
-		while (rn !is null) {
-			auto diff = compare(n, rn);
 
-			// We found our node !
+		N* rn = null;
+		auto bfstackp = stackp;
+		auto bflink = link;
+
+		auto x = root;
+		while (x !is null) {
+			auto diff = compare(n, x);
+
+			// We found a valid node!
+			if (diff == 0 || (BestFit && diff < 0)) {
+				rn = x;
+				bfstackp = stackp;
+				bflink = link;
+			}
+
+			// And there is no best.
 			if (diff == 0) {
 				break;
 			}
@@ -211,12 +232,16 @@ public:
 
 			stackp++;
 			link = link.childs[cmp];
-			rn = link.node;
+			x = link.node;
 		}
 
 		if (rn is null) {
 			return null;
 		}
+
+		// Restore state to match the node to be removed.
+		stackp = bfstackp;
+		link = bflink;
 
 		// Now we look for a succesor.
 		*stackp = Path(link, true);
@@ -416,6 +441,30 @@ private:
 //+
 void rb_print_tree(string NodeName, N)(N* root) {
 	Debug!(N, NodeName).print_tree(Link!(N, NodeName)(root, Color.Black), 0);
+}
+
+template Debug(N, string NodeName) {
+	void print_tree(Link!(N, NodeName) root, uint depth) {
+		foreach (i; 0 .. depth) {
+			import core.stdc.stdio;
+			printf("\t");
+		}
+
+		if (root.isBlack()) {
+			import core.stdc.stdio;
+			printf("B %p\n", root.node);
+		} else {
+			assert(root.isRed());
+
+			import core.stdc.stdio;
+			printf("R %p\n", root.node);
+		}
+
+		if (!root.isLeaf()) {
+			print_tree(root.right, depth + 1);
+			print_tree(root.left, depth + 1);
+		}
+	}
 }
 
 // +/
@@ -640,39 +689,12 @@ unittest bestfit {
 	foreach (i; 0 .. Items / 2) {
 		Stuff* expected = &elements[i];
 		assert(tree.bestfit(cast(Stuff*) (2 * i)) is expected);
+		assert(tree.extractBestFit(cast(Stuff*) (2 * i)) is expected);
 
-		tree.remove(expected);
 		expected = &elements[i + Items / 2];
 		assert(tree.bestfit(cast(Stuff*) (2 * i)) is expected);
 	}
 }
-
-//+
-template Debug(N, string NodeName) {
-	void print_tree(Link!(N, NodeName) root, uint depth) {
-		foreach (i; 0 .. depth) {
-			import core.stdc.stdio;
-			printf("\t");
-		}
-
-		if (root.isBlack()) {
-			import core.stdc.stdio;
-			printf("B %p\n", root.node);
-		} else {
-			assert(root.isRed());
-
-			import core.stdc.stdio;
-			printf("R %p\n", root.node);
-		}
-
-		if (!root.isLeaf()) {
-			print_tree(root.right, depth + 1);
-			print_tree(root.left, depth + 1);
-		}
-	}
-}
-
-// +/
 
 unittest rbtree {
 	struct Stuff {
