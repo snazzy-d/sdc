@@ -117,6 +117,7 @@ struct BinInfo {
 		this.shift = (shift + 17) & 0xff;
 
 		// XXX: out contract
+		enum MaxShiftMask = (8 * size_t.sizeof) - 1;
 		assert(this.shift == (this.shift & MaxShiftMask));
 
 		/**
@@ -134,10 +135,6 @@ struct BinInfo {
 		return (offset * mul) >> shift;
 	}
 }
-
-// FIXME: For some reason, this is crashing.
-// enum uint MaxShiftMask = (8 * size_t.sizeof) - 1;
-enum uint MaxShiftMask = 63;
 
 import d.gc.sizeclass;
 immutable BinInfo[ClassCount.Small] binInfos = getBinInfos();
