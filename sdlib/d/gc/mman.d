@@ -1,5 +1,7 @@
 module d.gc.mman;
 
+import sys.mman;
+
 void* map_chunks(size_t count) {
 	import d.gc.spec;
 	auto size = count * ChunkSize;
@@ -21,8 +23,6 @@ void pages_unmap(void* addr, size_t size) {
 	}
 }
 
-private:
-
 void* pages_map(void* addr, size_t size) {
 	auto ret =
 		mmap(addr, size, Prot.Read | Prot.Write, Map.Private | Map.Anon, -1, 0);
@@ -42,6 +42,8 @@ void* pages_map(void* addr, size_t size) {
 		|| (addr !is null && ret is addr));
 	return ret;
 }
+
+private:
 
 void* map_chunks_slow(size_t count) {
 	import d.gc.spec;
@@ -87,48 +89,3 @@ void* pages_trim(void* addr, size_t alloc_size, size_t lead_size, size_t size) {
 
 	return ret;
 }
-
-private:
-
-// XXX: this is a bad port of mman header.
-// We should be able to use actual prot of C header soon.
-alias off_t = long; // Good for now.
-
-enum Prot {
-	None = 0x0,
-	Read = 0x1,
-	Write = 0x2,
-	Exec = 0x4,
-}
-
-version(OSX) {
-	enum Map {
-		Shared = 0x01,
-		Private = 0x02,
-		Fixed = 0x10,
-		Anon = 0x1000,
-	}
-}
-
-version(FreeBSD) {
-	enum Map {
-		Shared = 0x01,
-		Private = 0x02,
-		Fixed = 0x10,
-		Anon = 0x1000,
-	}
-}
-
-version(linux) {
-	enum Map {
-		Shared = 0x01,
-		Private = 0x02,
-		Fixed = 0x10,
-		Anon = 0x20,
-	}
-}
-
-extern(C):
-void* mmap(void* addr, size_t length, int prot, int flags, int fd,
-           off_t offset);
-int munmap(void* addr, size_t length);
