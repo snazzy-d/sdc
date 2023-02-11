@@ -584,6 +584,69 @@ struct Path(N, string NodeName) {
 	}
 }
 
+unittest bestfit {
+	struct Stuff {
+		Node!Stuff node;
+		ulong value;
+
+		this(ulong value) {
+			this.value = value;
+		}
+	}
+
+	static ptrdiff_t stuffCmp(Stuff* lhs, Stuff* rhs) {
+		auto l = cast(size_t) lhs;
+		auto r = cast(size_t) rhs;
+
+		ulong rv = rhs.value;
+		ulong lv;
+
+		import d.gc.spec;
+		if (l & ~PageMask) {
+			lv = lhs.value;
+		} else {
+			lhs = null;
+			lv = l & PageMask;
+		}
+
+		return (lv == rv) ? (l > r) - (l < r) : (lv - rv);
+	}
+
+	enum Items = 2 * 128;
+	Stuff[Items] elements;
+
+	RBTree!(Stuff, stuffCmp) tree;
+	foreach (i; 0 .. Items) {
+		elements[i] = Stuff((2 * i) % Items);
+		tree.insert(&elements[i]);
+	}
+
+	foreach (i; 0 .. Items) {
+		assert(tree.bestfit(&elements[i]) is &elements[i]);
+	}
+
+	foreach (i; 0 .. Items / 2) {
+		Stuff* expected0 = &elements[i];
+
+		Stuff* expected1 = null;
+		if (i + 1 < Items / 2) {
+			expected1 = &elements[i + 1];
+		}
+
+		assert(tree.bestfit(cast(Stuff*) (2 * i)) is expected0);
+		assert(tree.bestfit(cast(Stuff*) (2 * i + 1)) is expected1);
+	}
+
+	foreach (i; 0 .. Items / 2) {
+		Stuff* expected = &elements[i];
+		assert(tree.bestfit(cast(Stuff*) (2 * i)) is expected);
+
+		tree.remove(expected);
+		expected = &elements[i + Items / 2];
+		assert(tree.bestfit(cast(Stuff*) (2 * i)) is expected);
+	}
+}
+
 //+
 template Debug(N, string NodeName) {
 	void print_tree(Link!(N, NodeName) root, uint depth) {
@@ -618,8 +681,11 @@ unittest rbtree {
 	}
 
 	static ptrdiff_t stuffCmp(Stuff* lhs, Stuff* rhs) {
+		auto l = cast(size_t) lhs;
+		auto r = cast(size_t) rhs;
+
 		return (lhs.value == rhs.value)
-			? (cast(ptrdiff_t) lhs) - (cast(ptrdiff_t) rhs)
+			? (l > r) - (l < r)
 			: (lhs.value - rhs.value);
 	}
 
@@ -627,36 +693,38 @@ unittest rbtree {
 		return (prev * 31415821 + 1) % 100_000_000;
 	}
 
+	enum Trees = 24;
 	enum Items = 174762;
-	Stuff[32][Items]* nodes;
+	Stuff[Trees][Items]* nodes;
 
 	Stuff* get_node(ulong tree, ulong node) {
-		assert(node < 174762 && tree < 32);
+		assert(node < 174762 && tree < Trees);
 		return &nodes[0][node][tree];
 	}
 
 	// 128 Mb to ramble through.
-	nodes = cast(Stuff[32][Items]*) __sd_gc_tl_malloc(128 * 1024 * 1024);
+	assert(Stuff.sizeof * Trees * Items <= 128 * 1024 * 1024);
+	nodes = cast(Stuff[Trees][Items]*) __sd_gc_tl_malloc(128 * 1024 * 1024);
 	ulong prand = 365307287;
 
 	foreach (i; 0 .. Items) {
-		foreach (t; 0 .. 32) {
+		foreach (t; 0 .. Trees) {
 			prand = prand_next(prand);
 			get_node(t, i).value = prand;
 		}
 	}
 
-	RBTree!(Stuff, stuffCmp)[32] trees;
+	RBTree!(Stuff, stuffCmp)[Trees] trees;
 
 	foreach (i; 0 .. Items) {
-		foreach (t; 0 .. 32) {
+		foreach (t; 0 .. Trees) {
 			trees[t].insert(get_node(t, i));
 			// rb_print_tree(trees[t]);
 		}
 	}
 
 	foreach (i; 0 .. Items) {
-		foreach (t; 0 .. 32) {
+		foreach (t; 0 .. Trees) {
 			trees[t].remove(get_node(t, i));
 			// rb_print_tree(trees[t]);
 		}
