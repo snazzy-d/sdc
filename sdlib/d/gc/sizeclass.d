@@ -47,10 +47,6 @@ enum SizeClass {
 	Large = getSizeFromBinID(ClassCount.Large - 1),
 }
 
-// We want 64-bits aligned allocations.
-enum LgQuantum = 3;
-enum Quantum = 1 << LgQuantum;
-enum QuantumMask = Quantum - 1;
 enum MaxTinySize = 4 * Quantum;
 
 size_t getAllocSize(size_t size) {
@@ -90,6 +86,10 @@ unittest getAllocSize {
  * which will cuase several bin to use the same size class.
  */
 ubyte getBinID(size_t size) {
+	return getSizeClass(size);
+}
+
+ubyte getSizeClass(size_t size) {
 	if (size < MaxTinySize) {
 		auto ret = ((size + QuantumMask) >> LgQuantum) - 1;
 
@@ -106,9 +106,9 @@ ubyte getBinID(size_t size) {
 	return ret & 0xff;
 }
 
-unittest getBinID {
+unittest getSizeClass {
 	import d.gc.bin;
-	assert(getBinID(0) == InvalidBinID);
+	assert(getSizeClass(0) == InvalidBinID);
 
 	size_t[] boundaries = [Quantum, 2 * Quantum, 3 * Quantum, 32, 40, 48, 56,
 	                       64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
@@ -121,7 +121,7 @@ unittest getBinID {
 		}
 
 		while (s <= b) {
-			assert(getBinID(s) == bid);
+			assert(getSizeClass(s) == bid);
 			assert(getAllocSize(s) == getSizeFromBinID(bid));
 			s++;
 		}
@@ -144,7 +144,7 @@ size_t getSizeFromBinID(uint binID) {
 	}
 
 	// XXX: out contract
-	assert(binID == getBinID(ret));
+	assert(binID == getSizeClass(ret));
 	assert(ret == getAllocSize(ret));
 	return ret;
 }
@@ -301,7 +301,7 @@ void computeSizeClass(
 
 void printfAlloc(size_t s) {
 	import d.gc.util, core.stdc.stdio;
-	printf("%lu :\t%lu\t%hhu\n", s, getAllocSize(s), getBinID(s));
+	printf("%lu :\t%lu\t%hhu\n", s, getAllocSize(s), getSizeClass(s));
 }
 
 void main() {

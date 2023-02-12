@@ -9,7 +9,12 @@ enum LgPageSize = 12;
 enum PageSize = 1UL << LgPageSize;
 enum PageMask = PageSize - 1;
 
-// Virtual address space size.
+// Huge page size.
+enum LgHugePageSize = 21;
+enum HugePageSize = 1UL << LgHugePageSize;
+enum HugePageMask = HugePageSize - 1;
+
+// Virtual address space.
 enum LgAddressSpace = 48;
 enum AddressSpace = 1UL << LgAddressSpace;
 enum AddressMask = AddressSpace - 1;
@@ -20,3 +25,8 @@ enum ChunkPageCount = 1UL << LgChunkPageCount;
 enum LgChunkSize = LgPageSize + LgChunkPageCount;
 enum ChunkSize = 1UL << LgChunkSize;
 enum ChunkAlignMask = ChunkSize - 1;
+
+// We want 64-bits aligned allocations.
+enum LgQuantum = 3;
+enum Quantum = 1 << LgQuantum;
+enum QuantumMask = Quantum - 1;
