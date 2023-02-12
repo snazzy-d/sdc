@@ -162,8 +162,8 @@ struct Chunk {
 		// this better belong to static assert when available.
 		assert(Chunk.sizeof == ChunkSize);
 
-		import d.gc.mman;
-		auto ret = map_chunks(1);
+		import d.gc.pages;
+		auto ret = pages_map(null, ChunkSize, ChunkSize);
 		if (ret is null) {
 			return null;
 		}
@@ -215,7 +215,7 @@ struct Chunk {
 	}
 
 	void free() {
-		import d.gc.mman;
+		import d.gc.pages;
 		pages_unmap(&this, ChunkSize);
 	}
 

@@ -431,8 +431,8 @@ private:
 		auto e = cast(Extent*) allocSmall(Extent.sizeof);
 		e.arena = &this;
 
-		import d.gc.mman, d.gc.spec;
-		auto ret = map_chunks(((size - 1) >> LgChunkSize) + 1);
+		import d.gc.pages, d.gc.spec;
+		auto ret = pages_map(null, size, ChunkSize);
 		if (ret is null) {
 			free(e);
 			return null;
@@ -493,7 +493,7 @@ private:
 		hugeMutex.unlock();
 		scope(exit) hugeMutex.lock();
 
-		import d.gc.mman;
+		import d.gc.pages;
 		pages_unmap(e.addr, e.size);
 
 		free(e);
