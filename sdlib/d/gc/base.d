@@ -158,13 +158,13 @@ private:
 		 * fragment the address space more than necessary and limit degenerate
 		 * cases where we call into the base allocator again and again.
 		 */
-		auto minBlockSize =
-			alignUp(getAllocSize(headerSize + size), HugePageSize);
+		auto minBlockSize = getAllocSize(headerSize + size);
 		auto nextSizeClass =
 			lastSizeClass + (lastSizeClass < ClassCount.Total - 1);
 		auto nextBlockSize = getSizeFromBinID(nextSizeClass);
-		auto blockSize =
+		auto baseBlockSize =
 			(nextBlockSize < minBlockSize) ? minBlockSize : nextBlockSize;
+		auto blockSize = alignUp(baseBlockSize, HugePageSize);
 
 		import d.gc.pages;
 		auto block = cast(Block*) pages_map(null, blockSize, HugePageSize);
@@ -217,7 +217,7 @@ unittest base_alloc {
 	// Check that the block we allocate grow exponentially.
 	auto ptr4 = base.alloc(HugePageSize, HugePageSize);
 	assert(getBlockCount(base) == 3);
-	assert(base.head.size == 5 * (HugePageSize / 2));
+	assert(base.head.size == 3 * HugePageSize);
 	assert(isAligned(ptr4, HugePageSize));
 
 	// Reuse existing blocks.
