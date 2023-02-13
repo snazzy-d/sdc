@@ -12,6 +12,8 @@ struct Block {
 	Extent extent;
 }
 
+enum BlockHeaderSize = alignUp(Block.sizeof, Quantum);
+
 /**
  * Bump the pointer style allocator.
  *
@@ -110,7 +112,11 @@ private:
 		}
 
 		// Keep track of the last block size.
-		lastSizeClass = getSizeClass(block.size);
+		auto newSizeClass = getSizeClass(block.size);
+		if (newSizeClass > lastSizeClass) {
+			// FIXME: Assign no matter what without branching.
+			lastSizeClass = newSizeClass;
+		}
 
 		// Serial number.
 		block.extent.serialNumber = nextSerialNumber++;
@@ -127,8 +133,7 @@ private:
 		assert(isAligned(alignment, Quantum), "Invalid alignement!");
 		assert(isAligned(size, alignment), "Invalid size!");
 
-		auto p = cast(size_t) extent.addr;
-		auto gap = alignUp(p, alignment) - p;
+		auto gap = alignUpOffset(extent.addr, alignment);
 		auto ret = extent.addr + gap;
 
 		assert(extent.size >= size + gap, "Insufiscient space in the Extent!");
@@ -147,7 +152,9 @@ private:
 		mutex.unlock();
 		scope(exit) mutex.lock();
 
-		auto headerSize = alignUp(Block.sizeof, alignment);
+		// Technically not correct, but works because BlockHeaderSize
+		// is very small relative to HugePageSize.
+		auto prefixSize = alignUp(BlockHeaderSize, alignment);
 
 		/**
 		 * We make sure we allocate at least a huge page, to leave the
@@ -158,7 +165,7 @@ private:
 		 * fragment the address space more than necessary and limit degenerate
 		 * cases where we call into the base allocator again and again.
 		 */
-		auto minBlockSize = getAllocSize(headerSize + size);
+		auto minBlockSize = getAllocSize(prefixSize + size);
 		auto nextSizeClass =
 			lastSizeClass + (lastSizeClass < ClassCount.Total - 1);
 		auto nextBlockSize = getSizeFromBinID(nextSizeClass);
@@ -173,8 +180,8 @@ private:
 		}
 
 		block.size = blockSize;
-		block.extent.addr = (cast(void*) block) + headerSize;
-		block.extent.size = blockSize - headerSize;
+		block.extent.addr = (cast(void*) block) + BlockHeaderSize;
+		block.extent.size = blockSize - BlockHeaderSize;
 
 		return block;
 	}
@@ -228,4 +235,20 @@ unittest base_alloc {
 	auto ptr6 = base.alloc(HugePageSize / 2, 1);
 	assert(getBlockCount(base) == 3);
 	assert(isAligned(ptr6, Quantum));
+
+	// Check for large alignment.
+	auto ptr7 = base.alloc(1, 2 * HugePageSize);
+	assert(getBlockCount(base) == 4);
+	assert(base.head.size == 4 * HugePageSize);
+	assert(isAligned(ptr7, 2 * HugePageSize));
+
+	auto ptr8 = base.alloc(1, 2 * HugePageSize);
+	assert(getBlockCount(base) == 5);
+	assert(base.head.size == 5 * HugePageSize);
+	assert(isAligned(ptr8, 2 * HugePageSize));
+
+	auto ptr9 = base.alloc(1, 2 * HugePageSize);
+	assert(getBlockCount(base) == 6);
+	assert(base.head.size == 6 * HugePageSize);
+	assert(isAligned(ptr9, 2 * HugePageSize));
 }
