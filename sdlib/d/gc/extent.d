@@ -30,11 +30,7 @@ public:
 
 public:
 	this(Arena* arena, void* addr, size_t size) {
-		this.bits = ulong(ClassCount.Total) << 56;
-
-		this.arena = arena;
-		this.addr = addr;
-		this.size = size;
+		this(arena, addr, size, cast(ubyte) ClassCount.Total);
 	}
 
 	this(Arena* arena, void* addr, size_t size, ubyte sizeClass) {
