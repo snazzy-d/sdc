@@ -6,6 +6,10 @@ import d.gc.sizeclass;
 alias ExtentTree = RBTree!(Extent, addrRangeExtentCmp);
 
 struct Extent {
+private:
+	ulong bits;
+
+public:
 	import d.gc.arena;
 	Arena* arena;
 
@@ -23,6 +27,32 @@ struct Extent {
 	ExtentTree.Node node;
 
 	// TODO: slab data and/or stats.
+
+public:
+	this(Arena* arena, void* addr, size_t size) {
+		this.bits = ulong(ClassCount.Total) << 56;
+
+		this.arena = arena;
+		this.addr = addr;
+		this.size = size;
+	}
+
+	this(Arena* arena, void* addr, size_t size, ubyte sizeClass) {
+		this.bits = ulong(sizeClass) << 56;
+
+		this.arena = arena;
+		this.addr = addr;
+		this.size = size;
+	}
+
+	@property
+	ubyte sizeClass() const {
+		ubyte sc = bits >> 56;
+
+		// FIXME: out contract.
+		assert(sc < ClassCount.Total);
+		return sc;
+	}
 }
 
 ptrdiff_t addrExtentCmp(Extent* lhs, Extent* rhs) {
@@ -44,23 +74,23 @@ ptrdiff_t addrRangeExtentCmp(Extent* lhs, Extent* rhs) {
 
 ptrdiff_t sizeAddrExtentCmp(Extent* lhs, Extent* rhs) {
 	auto rAddr = cast(size_t) rhs.addr;
-	int rBinID = getBinID(rhs.size + 1) - 1;
+	int rSizeClass = rhs.sizeClass;
 
-	int lBinID;
+	int lSizeClass;
 	size_t lAddr;
 	auto l = cast(size_t) lhs;
 
 	import d.gc.spec;
 	if (l & ~PageMask) {
 		lAddr = cast(size_t) lhs.addr;
-		lBinID = getBinID(lhs.size + 1) - 1;
+		lSizeClass = lhs.sizeClass;
 	} else {
 		lAddr = 0;
-		lBinID = cast(int) (l & PageMask);
+		lSizeClass = cast(int) (l & PageMask);
 	}
 
-	if (lBinID != rBinID) {
-		return lBinID - rBinID;
+	if (lSizeClass != rSizeClass) {
+		return lSizeClass - rSizeClass;
 	}
 
 	return (lAddr > rAddr) - (lAddr < rAddr);

@@ -137,10 +137,17 @@ private:
 		auto ret = extent.addr + gap;
 
 		assert(extent.size >= size + gap, "Insufiscient space in the Extent!");
-		extent.addr = ret + size;
-		extent.size -= gap + size;
+		auto newSize = extent.size - gap - size;
+		if (newSize < Quantum) {
+			// XXX: Consider keeping track of empty extent for reuse.
+			return ret;
+		}
+
+		auto newSizeClass = cast(ubyte) (getSizeClass(newSize + 1) - 1);
+		*extent = Extent(null, ret + size, newSize, newSizeClass);
 
 		availableExtents.insert(extent);
+
 		return ret;
 	}
 
@@ -180,8 +187,11 @@ private:
 		}
 
 		block.size = blockSize;
-		block.extent.addr = (cast(void*) block) + BlockHeaderSize;
-		block.extent.size = blockSize - BlockHeaderSize;
+		auto availableSize = blockSize - BlockHeaderSize;
+		auto availableSizeClass =
+			cast(ubyte) (getSizeClass(availableSize + 1) - 1);
+		block.extent = Extent(null, (cast(void*) block) + BlockHeaderSize,
+		                      availableSize, availableSizeClass);
 
 		return block;
 	}
