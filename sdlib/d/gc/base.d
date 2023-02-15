@@ -144,7 +144,7 @@ private:
 		}
 
 		auto newSizeClass = cast(ubyte) (getSizeClass(newSize + 1) - 1);
-		*extent = Extent(null, ret + size, newSize, newSizeClass);
+		*extent = Extent(arena, ret + size, newSize, newSizeClass);
 
 		availableExtents.insert(extent);
 
@@ -190,7 +190,7 @@ private:
 		auto availableSize = blockSize - BlockHeaderSize;
 		auto availableSizeClass =
 			cast(ubyte) (getSizeClass(availableSize + 1) - 1);
-		block.extent = Extent(null, (cast(void*) block) + BlockHeaderSize,
+		block.extent = Extent(arena, (cast(void*) block) + BlockHeaderSize,
 		                      availableSize, availableSizeClass);
 
 		return block;
