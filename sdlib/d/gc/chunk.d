@@ -288,7 +288,7 @@ struct Chunk {
 			auto binID = pages[i].binID;
 			if (pages[i].large) {
 				import d.gc.sizeclass;
-				i += cast(uint) (getSizeFromBinID(binID) >> LgPageSize);
+				i += cast(uint) (getSizeFromClass(binID) >> LgPageSize);
 				continue;
 			}
 
@@ -411,7 +411,7 @@ struct Chunk {
 						cast(const(void*)*) ((cast(void*) base) + size * index);
 				} else {
 					import d.gc.sizeclass;
-					size = getSizeFromBinID(pd.binID);
+					size = getSizeFromClass(pd.binID);
 				}
 
 				range = base[0 .. size / size_t.sizeof];
@@ -441,7 +441,7 @@ struct Chunk {
 			if (pd.large) {
 				import d.gc.sizeclass;
 				auto pages =
-					cast(uint) (getSizeFromBinID(pd.binID) >> LgPageSize);
+					cast(uint) (getSizeFromClass(pd.binID) >> LgPageSize);
 				i += pages;
 
 				// Check if the run is alive.

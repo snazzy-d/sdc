@@ -32,7 +32,6 @@ import d.gc.spec;
  * classes are special cased so finer granularity can be
  * provided at that level.
  */
-
 enum ClassCount {
 	Tiny = getTinyClassCount(),
 	Small = getSmallClassCount(),
@@ -42,9 +41,9 @@ enum ClassCount {
 }
 
 enum SizeClass {
-	Tiny = getSizeFromBinID(ClassCount.Tiny - 1),
-	Small = getSizeFromBinID(ClassCount.Small - 1),
-	Large = getSizeFromBinID(ClassCount.Large - 1),
+	Tiny = getSizeFromClass(ClassCount.Tiny - 1),
+	Small = getSizeFromClass(ClassCount.Small - 1),
+	Large = getSizeFromClass(ClassCount.Large - 1),
 }
 
 enum MaxTinySize = 4 * Quantum;
@@ -122,7 +121,7 @@ unittest getSizeClass {
 
 		while (s <= b) {
 			assert(getSizeClass(s) == bid);
-			assert(getAllocSize(s) == getSizeFromBinID(bid));
+			assert(getAllocSize(s) == getSizeFromClass(bid));
 			s++;
 		}
 
@@ -130,32 +129,32 @@ unittest getSizeClass {
 	}
 }
 
-size_t getSizeFromBinID(uint binID) {
+size_t getSizeFromClass(uint sizeClass) {
 	size_t ret;
-	if (binID < ClassCount.Small) {
+	if (sizeClass < ClassCount.Small) {
 		import d.gc.bin;
-		ret = binInfos[binID].itemSize;
+		ret = binInfos[sizeClass].itemSize;
 	} else {
-		auto largeBinID = binID - ClassCount.Small;
-		auto shift = largeBinID / 4 + LgPageSize;
-		size_t bits = (largeBinID % 4) | 0x04;
+		auto largeSizeClass = sizeClass - ClassCount.Small;
+		auto shift = largeSizeClass / 4 + LgPageSize;
+		size_t bits = (largeSizeClass % 4) | 0x04;
 
 		ret = bits << shift;
 	}
 
 	// XXX: out contract
-	assert(binID == getSizeClass(ret));
+	assert(sizeClass == getSizeClass(ret));
 	assert(ret == getAllocSize(ret));
 	return ret;
 }
 
-unittest getSizeFromBinID {
+unittest getSizeFromClass {
 	size_t[] boundaries = [Quantum, 2 * Quantum, 3 * Quantum, 32, 40, 48, 56,
 	                       64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
 
 	uint bid = 0;
 	foreach (b; boundaries) {
-		assert(getSizeFromBinID(bid++) == b);
+		assert(getSizeFromClass(bid++) == b);
 	}
 }
 

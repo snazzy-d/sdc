@@ -139,7 +139,7 @@ struct Arena {
 		}
 
 		auto cpySize =
-			(newBinID > oldBinID) ? getSizeFromBinID(oldBinID) : size;
+			(newBinID > oldBinID) ? getSizeFromClass(oldBinID) : size;
 
 		memcpy(newPtr, ptr, cpySize);
 
@@ -358,7 +358,7 @@ private:
 		assert(ptr is base);
 
 		import d.gc.spec;
-		auto pages = cast(uint) (getSizeFromBinID(binID) >> LgPageSize);
+		auto pages = cast(uint) (getSizeFromClass(binID) >> LgPageSize);
 		freeRun(c, runID, pages);
 	}
 

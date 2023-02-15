@@ -175,7 +175,7 @@ private:
 		auto minBlockSize = getAllocSize(prefixSize + size);
 		auto nextSizeClass =
 			lastSizeClass + (lastSizeClass < ClassCount.Total - 1);
-		auto nextBlockSize = getSizeFromBinID(nextSizeClass);
+		auto nextBlockSize = getSizeFromClass(nextSizeClass);
 		auto baseBlockSize =
 			(nextBlockSize < minBlockSize) ? minBlockSize : nextBlockSize;
 		auto blockSize = alignUp(baseBlockSize, HugePageSize);
