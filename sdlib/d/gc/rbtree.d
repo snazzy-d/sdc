@@ -1,5 +1,7 @@
 module d.gc.rbtree;
 
+import d.gc.spec;
+
 struct Node(N, string NodeName = "node") {
 private:
 	alias Link = .Link!(N, NodeName);
@@ -76,11 +78,11 @@ public:
 	}
 
 	void insert(N* n) {
-		// rbtree's depth is ln(n) which is at most 8 * size_t.sizeof.
-		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
-		// But a branch can be at most 2* longer than the shortest one.
+		// rbtree's depth is ln(n) which is at most LgAddressSpace.
+		// Each tree node that N.sizeof size, so we can remove lg2(N.sizeof).
+		// But a branch can be at most 2 times longer than the shortest one.
 		import d.gc.util;
-		Path[16 * size_t.sizeof - log2floor(N.sizeof)] path = void;
+		Path[2 * (LgAddressSpace - log2floor(N.sizeof))] path = void;
 		auto stackp = path.ptr;
 
 		// Let's make sure this is a child node.
@@ -197,11 +199,11 @@ public:
 
 private:
 	N* extractImpl(bool BestFit)(N* n) {
-		// rbtree's depth is ln(n) which is at most 8 * size_t.sizeof.
-		// Each tree node that N.sizeof size, so we can remove ln(N.sizeof).
-		// But a branch can be at most 2* longer than the shortest one.
+		// rbtree's depth is ln(n) which is at most LgAddressSpace.
+		// Each tree node that N.sizeof size, so we can remove lg2(N.sizeof).
+		// But a branch can be at most 2 times longer than the shortest one.
 		import d.gc.util;
-		Path[16 * size_t.sizeof - log2floor(N.sizeof)] path = void;
+		Path[2 * (LgAddressSpace - log2floor(N.sizeof))] path = void;
 		auto stackp = path.ptr;
 
 		// Root is always black.
