@@ -2,6 +2,7 @@ module d.gc.extent;
 
 import d.gc.rbtree;
 import d.gc.sizeclass;
+import d.gc.util;
 
 alias ExtentTree = RBTree!(Extent, addrRangeExtentCmp);
 
@@ -28,6 +29,9 @@ public:
 
 	// TODO: slab data and/or stats.
 
+	enum Align = 128;
+	enum Size = alignUp(Extent.sizeof, Align);
+
 public:
 	this(Arena* arena, void* addr, size_t size) {
 		this(arena, addr, size, cast(ubyte) ClassCount.Total);
@@ -49,6 +53,14 @@ public:
 		assert(sc < ClassCount.Total);
 		return sc;
 	}
+}
+
+ptrdiff_t identityExtentCmp(Extent* lhs, Extent* rhs) {
+	auto l = cast(size_t) lhs;
+	auto r = cast(size_t) rhs;
+
+	// We need to compare that way to avoid integer overflow.
+	return (l > r) - (l < r);
 }
 
 ptrdiff_t addrExtentCmp(Extent* lhs, Extent* rhs) {

@@ -215,8 +215,13 @@ unittest subKey {
 
 unittest spawn_leaves {
 	import d.gc.base;
+	shared MDBase mdbase;
+	scope(exit) mdbase.clear();
+
 	shared Base base;
 	scope(exit) base.clear();
+
+	base.mdbase = &mdbase;
 
 	static shared RTree!ulong rt;
 	rt.base = &base;
@@ -245,8 +250,13 @@ unittest spawn_leaves {
 
 unittest get_set_clear {
 	import d.gc.base;
+	shared MDBase mdbase;
+	scope(exit) mdbase.clear();
+
 	shared Base base;
 	scope(exit) base.clear();
+
+	base.mdbase = &mdbase;
 
 	static shared RTree!ulong rt;
 	rt.base = &base;

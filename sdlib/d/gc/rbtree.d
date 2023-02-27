@@ -37,6 +37,10 @@ public:
 		return root is null;
 	}
 
+	void clear() {
+		root = null;
+	}
+
 	N* find(N* test) {
 		auto n = root;
 

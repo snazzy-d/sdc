@@ -5,29 +5,232 @@ import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
 
-struct Block {
-	size_t size;
-	Block* next;
-
-	Extent extent;
-}
-
-enum BlockHeaderSize = alignUp(Block.sizeof, Quantum);
-
 /**
  * Bump the pointer style allocator.
  *
  * It never deallocates, except on destruction.
  * It serves as a base allocator for address space.
- *
- * Note: We waste a fair amount of address space when
- * allocating with large alignment constraints. This is
- * not a huge deal per se because there is no memory
- * actually backing this address space, but this might
- * lead to various ineffisciencies.
  */
+
+struct MDBase {
+private:
+	import d.sync.mutex;
+	Mutex mutex;
+
+	// the slice of memory we have to allocate from.
+	void* addr;
+	size_t count;
+
+	// Linked list of all the blocks.
+	Block* head;
+
+	// Free list of block headers to be reserved.
+	Block* blockFreeList;
+
+	// Available extents ready to be recycled.
+	import d.gc.rbtree, d.gc.extent;
+	alias AvailableExtentTree = RBTree!(Extent, identityExtentCmp);
+	AvailableExtentTree availableExtents;
+
+	enum BlockPerExtent = Extent.Size / alignUp(Block.sizeof, Quantum);
+	static assert(BlockPerExtent == 5);
+
+public:
+	void clear() shared {
+		(cast(MDBase*) &this).clearImpl();
+	}
+
+	void freeExtent(Extent* extent) shared {
+		(cast(MDBase*) &this).freeExtentImpl(extent);
+	}
+
+	void freeBlock(Block* block) shared {
+		(cast(MDBase*) &this).freeBlockImpl(block);
+	}
+
+	Extent* allocExtent() shared {
+		return (cast(MDBase*) &this).allocExtentImpl();
+	}
+
+	Block* allocBlock() shared {
+		return (cast(MDBase*) &this).allocBlockImpl();
+	}
+
+private:
+	void clearImpl() {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		head.clearAll();
+		head = null;
+		blockFreeList = null;
+		availableExtents.clear();
+	}
+
+	auto freeExtentImpl(Extent* extent) {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		availableExtents.insert(extent);
+	}
+
+	auto freeBlockImpl(Block* block) {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		block.next = blockFreeList;
+		blockFreeList = block;
+	}
+
+	auto allocExtentImpl() {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		auto extent = availableExtents.extractAny();
+		if (extent !is null) {
+			return extent;
+		}
+
+		if (count == 0 && !allocateAddressSpace()) {
+			return null;
+		}
+
+		auto ret = cast(Extent*) addr;
+		addr += Extent.Size;
+		count -= 1;
+
+		return ret;
+	}
+
+	auto allocBlockImpl() {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return getOrAllocateBlock();
+	}
+
+	auto getOrAllocateBlock() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		while (true) {
+			if (blockFreeList !is null) {
+				auto ret = blockFreeList;
+				blockFreeList = blockFreeList.next;
+				return ret;
+			}
+
+			if (count > 0) {
+				break;
+			}
+
+			if (!allocateAddressSpace()) {
+				return null;
+			}
+		}
+
+		assert(isAligned(addr, Extent.Align), "addr isn't properly aligned!");
+
+		auto ret = cast(Block*) addr;
+		addr += Extent.Size;
+		count -= 1;
+
+		foreach (i; 2 .. BlockPerExtent) {
+			ret[i - 1].next = &ret[i];
+		}
+
+		if (BlockPerExtent > 1) {
+			ret[BlockPerExtent - 1].next = blockFreeList;
+			blockFreeList = &ret[1];
+		}
+
+		return ret;
+	}
+
+	bool allocateAddressSpace() {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(count == 0, "Trying to allocate where there is space left.");
+
+		import d.gc.pages;
+		auto ptr = pages_map(null, HugePageSize, HugePageSize);
+		if (ptr is null) {
+			return false;
+		}
+
+		addr = ptr;
+		count = HugePageSize / Extent.Size;
+
+		// We expect this allocation to always succeed as we just
+		// reserved a ton of address space.
+		auto block = getOrAllocateBlock();
+		assert(block !is null, "Failed to allocate a block!");
+
+		block.addr = ptr;
+		block.size = HugePageSize;
+		block.next = head;
+
+		head = block;
+		return true;
+	}
+}
+
+private:
+static assert(Block.sizeof <= Extent.Size,
+              "The block structure got too large!");
+
+struct Block {
+	void* addr;
+	size_t size;
+
+	Block* next;
+
+	void clearAll() {
+		auto next = &this;
+		while (next !is null) {
+			auto block = next;
+			next = block.next;
+
+			import d.gc.pages;
+			pages_unmap(block.addr, block.size);
+		}
+	}
+}
+
+unittest mdbase {
+	shared MDBase mdbase;
+	scope(exit) mdbase.clear();
+
+	// We can allocate blocks from mdbase.
+	auto b0 = mdbase.allocBlock();
+	auto b1 = mdbase.allocBlock();
+	assert(b0 !is b1);
+	assert(mdbase.count == 16383);
+
+	// We get the same block recycled.
+	mdbase.freeBlock(b0);
+	mdbase.freeBlock(b1);
+	assert(mdbase.allocBlock() is b1);
+	assert(mdbase.allocBlock() is b0);
+	assert(mdbase.count == 16383);
+
+	// Now allocate extents.
+	auto e0 = mdbase.allocExtent();
+	auto e1 = mdbase.allocExtent();
+	assert(e0 !is e1);
+	assert(mdbase.count == 16381);
+
+	// We can also free extents.
+	mdbase.freeExtent(e0);
+	mdbase.freeExtent(e1);
+	assert(mdbase.allocExtent() is e0);
+	assert(mdbase.allocExtent() is e1);
+	assert(mdbase.count == 16381);
+}
+
+public:
 struct Base {
 private:
+	shared(MDBase)* mdbase;
+
 	import d.sync.mutex;
 	Mutex mutex;
 
@@ -71,14 +274,7 @@ private:
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		auto next = head;
-		while (next !is null) {
-			auto block = next;
-			next = block.next;
-
-			import d.gc.pages;
-			pages_unmap(block, block.size);
-		}
+		head.clearAll();
 	}
 
 	void* allocImpl(size_t size, size_t alignment) {
@@ -106,10 +302,29 @@ private:
 		assert(isAligned(alignment, Quantum), "Invalid alignement!");
 		assert(isAligned(size, alignment), "Invalid size!");
 
-		auto block = blockAlloc(size, alignment, lastSizeClass);
-		if (block is null) {
-			return null;
+		auto lsc = lastSizeClass;
+		Block* block;
+		Extent* extent;
+
+		{
+			mutex.unlock();
+			scope(exit) mutex.lock();
+
+			extent = mdbase.allocExtent();
+			if (extent is null) {
+				return null;
+			}
+
+			block = blockAlloc(size, alignment, lsc);
+			if (block is null) {
+				mdbase.freeExtent(extent);
+				return null;
+			}
 		}
+
+		// Add the newly allocated block to the list of blocks.
+		block.next = head;
+		head = block;
 
 		// Keep track of the last block size.
 		auto newSizeClass = getSizeClass(block.size);
@@ -118,14 +333,14 @@ private:
 			lastSizeClass = newSizeClass;
 		}
 
-		// Serial number.
-		block.extent.serialNumber = nextSerialNumber++;
+		auto availableSizeClass =
+			cast(ubyte) (getSizeClass(block.size + 1) - 1);
 
-		// Add the newly allocated block to the list of blocks.
-		block.next = head;
-		head = block;
+		// Prepare the extent.
+		*extent = Extent(arena, block.addr, block.size, availableSizeClass);
+		extent.serialNumber = nextSerialNumber++;
 
-		return &block.extent;
+		return extent;
 	}
 
 	void* extentBumpAlloc(Extent* extent, size_t size, size_t alignment) {
@@ -151,16 +366,9 @@ private:
 	}
 
 	Block* blockAlloc(size_t size, size_t alignment, ubyte lastSizeClass) {
-		assert(mutex.isHeld(), "Mutex not held!");
+		assert(!mutex.isHeld(), "Mutex held!");
 		assert(isAligned(alignment, Quantum), "Invalid alignement!");
 		assert(isAligned(size, alignment), "Invalid size!");
-
-		mutex.unlock();
-		scope(exit) mutex.lock();
-
-		// Technically not correct, but works because BlockHeaderSize
-		// is very small relative to HugePageSize.
-		auto prefixSize = alignUp(BlockHeaderSize, alignment);
 
 		/**
 		 * We make sure we allocate at least a huge page, to leave the
@@ -171,7 +379,7 @@ private:
 		 * fragment the address space more than necessary and limit degenerate
 		 * cases where we call into the base allocator again and again.
 		 */
-		auto minBlockSize = getAllocSize(prefixSize + size);
+		auto minBlockSize = getAllocSize(size);
 		auto nextSizeClass =
 			lastSizeClass + (lastSizeClass < ClassCount.Total - 1);
 		auto nextBlockSize = getSizeFromClass(nextSizeClass);
@@ -179,26 +387,33 @@ private:
 			(nextBlockSize < minBlockSize) ? minBlockSize : nextBlockSize;
 		auto blockSize = alignUp(baseBlockSize, HugePageSize);
 
-		import d.gc.pages;
-		auto block = cast(Block*) pages_map(null, blockSize, HugePageSize);
+		auto block = mdbase.allocBlock();
 		if (block is null) {
 			return null;
 		}
 
+		import d.gc.pages;
+		auto addr = pages_map(null, blockSize, HugePageSize);
+		if (addr is null) {
+			mdbase.freeBlock(block);
+			return null;
+		}
+
+		block.addr = addr;
 		block.size = blockSize;
-		auto availableSize = blockSize - BlockHeaderSize;
-		auto availableSizeClass =
-			cast(ubyte) (getSizeClass(availableSize + 1) - 1);
-		block.extent = Extent(arena, (cast(void*) block) + BlockHeaderSize,
-		                      availableSize, availableSizeClass);
 
 		return block;
 	}
 }
 
 unittest base_alloc {
+	shared MDBase mdbase;
+	scope(exit) mdbase.clear();
+
 	shared Base base;
 	scope(exit) base.clear();
+
+	base.mdbase = &mdbase;
 
 	auto getBlockCount(shared ref Base base) {
 		size_t count = 0;

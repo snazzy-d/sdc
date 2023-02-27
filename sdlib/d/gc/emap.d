@@ -69,8 +69,13 @@ public:
 
 unittest ExtentMap {
 	import d.gc.base;
+	shared MDBase mdbase;
+	scope(exit) mdbase.clear();
+
 	shared Base base;
 	scope(exit) base.clear();
+
+	base.mdbase = &mdbase;
 
 	static shared ExtentMap emap;
 	emap.tree.base = &base;
