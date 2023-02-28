@@ -1,7 +1,6 @@
 module d.gc.base;
 
 import d.gc.extent;
-import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
 
@@ -11,15 +10,14 @@ import d.gc.util;
  * It never deallocates, except on destruction.
  * It serves as a base allocator for address space.
  */
-
-struct MDBase {
+struct Base {
 private:
 	import d.sync.mutex;
 	Mutex mutex;
 
 	// the slice of memory we have to allocate from.
-	void* addr;
-	size_t count;
+	void* nextMetadataAddr;
+	size_t availableMetadatSlots;
 
 	// Linked list of all the blocks.
 	Block* head;
@@ -33,33 +31,53 @@ private:
 	AvailableExtentTree availableExtents;
 
 	enum BlockPerExtent = Extent.Size / alignUp(Block.sizeof, Quantum);
-	static assert(BlockPerExtent == 5);
+	static assert(BlockPerExtent == 5, "For documentation purpose.");
 
 public:
 	void clear() shared {
-		(cast(MDBase*) &this).clearImpl();
-	}
+		mutex.lock();
+		scope(exit) mutex.unlock();
 
-	void freeExtent(Extent* extent) shared {
-		(cast(MDBase*) &this).freeExtentImpl(extent);
-	}
-
-	void freeBlock(Block* block) shared {
-		(cast(MDBase*) &this).freeBlockImpl(block);
+		(cast(Base*) &this).clearImpl();
 	}
 
 	Extent* allocExtent() shared {
-		return (cast(MDBase*) &this).allocExtentImpl();
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(Base*) &this).allocExtentImpl();
 	}
 
-	Block* allocBlock() shared {
-		return (cast(MDBase*) &this).allocBlockImpl();
+	void freeExtent(Extent* extent) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(Base*) &this).freeExtentImpl(extent);
+	}
+
+	void* reserveAddressSpace(size_t size) shared {
+		// Bump the alignement to huge page size if apropriate.
+		auto alignment =
+			isAligned(size, HugePageSize) ? HugePageSize : PageSize;
+
+		size = alignUp(size, alignment);
+		return reserveAddressSpace(size, alignment);
+	}
+
+	void* reserveAddressSpace(size_t size, size_t alignment) shared {
+		assert(alignment >= PageSize && isPow2(alignment),
+		       "Invalid alignment!");
+		assert(size > 0 && isAligned(size, PageSize), "Invalid size!");
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(Base*) &this).reserveAddressSpaceImpl(size, alignment);
 	}
 
 private:
 	void clearImpl() {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		assert(mutex.isHeld(), "Mutex not held!");
 
 		head.clearAll();
 		head = null;
@@ -67,72 +85,112 @@ private:
 		availableExtents.clear();
 	}
 
-	auto freeExtentImpl(Extent* extent) {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		availableExtents.insert(extent);
-	}
-
-	auto freeBlockImpl(Block* block) {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		block.next = blockFreeList;
-		blockFreeList = block;
-	}
-
 	auto allocExtentImpl() {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto extent = availableExtents.extractAny();
 		if (extent !is null) {
 			return extent;
 		}
 
-		if (count == 0 && !allocateAddressSpace()) {
+		if (!refillMetadataSpace()) {
 			return null;
 		}
 
-		auto ret = cast(Extent*) addr;
-		addr += Extent.Size;
-		count -= 1;
+		assert(availableMetadatSlots > 0, "No Metadata slot available!");
+		assert(isAligned(nextMetadataAddr, Extent.Align),
+		       "Invalid nextMetadataAddr alignment!");
+
+		auto ret = cast(Extent*) nextMetadataAddr;
+		nextMetadataAddr += Extent.Size;
+		availableMetadatSlots -= 1;
 
 		return ret;
 	}
 
-	auto allocBlockImpl() {
+	auto freeExtentImpl(Extent* extent) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		availableExtents.insert(extent);
+	}
+
+	void* reserveAddressSpaceImpl(size_t size, size_t alignment) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto block = getOrAllocateBlock();
+		if (block is null) {
+			return null;
+		}
+
+		import d.gc.pages;
+		auto ptr = pages_map(null, size, alignment);
+		if (ptr is null) {
+			freeBlockImpl(block);
+			return null;
+		}
+
+		registerBlock(block, ptr, size);
+		return ptr;
+	}
+
+	/**
+	 * Block management.
+	 */
+	Block* allocBlock() shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return getOrAllocateBlock();
+		return (cast(Base*) &this).getOrAllocateBlock();
+	}
+
+	void freeBlock(Block* block) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(Base*) &this).freeBlockImpl(block);
+	}
+
+	auto freeBlockImpl(Block* block) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		block.next = blockFreeList;
+		blockFreeList = block;
+	}
+
+	void registerBlock(Block* block, void* ptr, size_t size) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		block.addr = ptr;
+		block.size = HugePageSize;
+		block.next = head;
+
+		head = block;
 	}
 
 	auto getOrAllocateBlock() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		while (true) {
-			if (blockFreeList !is null) {
-				auto ret = blockFreeList;
-				blockFreeList = blockFreeList.next;
-				return ret;
-			}
-
-			if (count > 0) {
-				break;
-			}
-
-			if (!allocateAddressSpace()) {
-				return null;
-			}
+		auto block = getBlockInFrelist();
+		if (block !is null) {
+			return block;
 		}
 
-		assert(isAligned(addr, Extent.Align), "addr isn't properly aligned!");
+		if (!refillMetadataSpace()) {
+			return null;
+		}
 
-		auto ret = cast(Block*) addr;
-		addr += Extent.Size;
-		count -= 1;
+		block = getBlockInFrelist();
+		if (block !is null) {
+			return block;
+		}
+
+		assert(availableMetadatSlots > 0, "No Metadata slot available!");
+		assert(isAligned(nextMetadataAddr, Extent.Align),
+		       "Invalid nextMetadataAddr alignment!");
+
+		auto ret = cast(Block*) nextMetadataAddr;
+		nextMetadataAddr += Extent.Size;
+		availableMetadatSlots -= 1;
 
 		foreach (i; 2 .. BlockPerExtent) {
 			ret[i - 1].next = &ret[i];
@@ -146,9 +204,24 @@ private:
 		return ret;
 	}
 
-	bool allocateAddressSpace() {
+	Block* getBlockInFrelist() {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(count == 0, "Trying to allocate where there is space left.");
+
+		if (blockFreeList is null) {
+			return null;
+		}
+
+		auto ret = blockFreeList;
+		blockFreeList = blockFreeList.next;
+		return ret;
+	}
+
+	bool refillMetadataSpace() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		if (availableMetadatSlots > 0) {
+			return true;
+		}
 
 		import d.gc.pages;
 		auto ptr = pages_map(null, HugePageSize, HugePageSize);
@@ -156,19 +229,15 @@ private:
 			return false;
 		}
 
-		addr = ptr;
-		count = HugePageSize / Extent.Size;
+		nextMetadataAddr = ptr;
+		availableMetadatSlots = HugePageSize / Extent.Size;
 
 		// We expect this allocation to always succeed as we just
 		// reserved a ton of address space.
 		auto block = getOrAllocateBlock();
 		assert(block !is null, "Failed to allocate a block!");
 
-		block.addr = ptr;
-		block.size = HugePageSize;
-		block.next = head;
-
-		head = block;
+		registerBlock(block, ptr, HugePageSize);
 		return true;
 	}
 }
@@ -195,284 +264,33 @@ struct Block {
 	}
 }
 
-unittest mdbase {
-	shared MDBase mdbase;
-	scope(exit) mdbase.clear();
-
-	// We can allocate blocks from mdbase.
-	auto b0 = mdbase.allocBlock();
-	auto b1 = mdbase.allocBlock();
-	assert(b0 !is b1);
-	assert(mdbase.count == 16383);
-
-	// We get the same block recycled.
-	mdbase.freeBlock(b0);
-	mdbase.freeBlock(b1);
-	assert(mdbase.allocBlock() is b1);
-	assert(mdbase.allocBlock() is b0);
-	assert(mdbase.count == 16383);
-
-	// Now allocate extents.
-	auto e0 = mdbase.allocExtent();
-	auto e1 = mdbase.allocExtent();
-	assert(e0 !is e1);
-	assert(mdbase.count == 16381);
-
-	// We can also free extents.
-	mdbase.freeExtent(e0);
-	mdbase.freeExtent(e1);
-	assert(mdbase.allocExtent() is e0);
-	assert(mdbase.allocExtent() is e1);
-	assert(mdbase.count == 16381);
-}
-
-public:
-struct Base {
-private:
-	shared(MDBase)* mdbase;
-
-	import d.sync.mutex;
-	Mutex mutex;
-
-	import d.gc.arena;
-	Arena* arena;
-
-	/**
-	 * In order to avoid address space fragmentation,
-	 * we allocate larger and larger blocks of addresses.
-	 *
-	 * We do so by remembering the size class we used and
-	 * bump by 1. This ensure the block size we allocate
-	 * grows exponentially.
-	 */
-	ubyte lastSizeClass;
-
-	// Serial number generation?
-	size_t nextSerialNumber;
-
-	// Linked list of all the blocks.
-	Block* head;
-
-	// Free extents we can allocate to arenas.
-	import d.gc.rbtree, d.gc.extent;
-	RBTree!(Extent, sizeAddrExtentCmp) availableExtents;
-
-	// TODO: Keep track of stats.
-	// TODO: Support transparent huge pages?
-
-public:
-	void clear() shared {
-		(cast(Base*) &this).clearImpl();
-	}
-
-	void* alloc(size_t size, size_t alignment) shared {
-		return (cast(Base*) &this).allocImpl(size, alignment);
-	}
-
-private:
-	void clearImpl() {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		head.clearAll();
-	}
-
-	void* allocImpl(size_t size, size_t alignment) {
-		alignment = alignUp(alignment, Quantum);
-		size = alignUp(size, alignment);
-		auto sc = getSizeClass(size + alignment - Quantum);
-
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		auto extent = availableExtents.extractBestFit(cast(Extent*) sc);
-		if (extent is null) {
-			extent = extentAlloc(size, alignment);
-		}
-
-		if (extent is null) {
-			return null;
-		}
-
-		return extentBumpAlloc(extent, size, alignment);
-	}
-
-	Extent* extentAlloc(size_t size, size_t alignment) {
-		assert(mutex.isHeld(), "Mutex not held!");
-		assert(isAligned(alignment, Quantum), "Invalid alignement!");
-		assert(isAligned(size, alignment), "Invalid size!");
-
-		auto lsc = lastSizeClass;
-		Block* block;
-		Extent* extent;
-
-		{
-			mutex.unlock();
-			scope(exit) mutex.lock();
-
-			extent = mdbase.allocExtent();
-			if (extent is null) {
-				return null;
-			}
-
-			block = blockAlloc(size, alignment, lsc);
-			if (block is null) {
-				mdbase.freeExtent(extent);
-				return null;
-			}
-		}
-
-		// Add the newly allocated block to the list of blocks.
-		block.next = head;
-		head = block;
-
-		// Keep track of the last block size.
-		auto newSizeClass = getSizeClass(block.size);
-		if (newSizeClass > lastSizeClass) {
-			// FIXME: Assign no matter what without branching.
-			lastSizeClass = newSizeClass;
-		}
-
-		auto availableSizeClass =
-			cast(ubyte) (getSizeClass(block.size + 1) - 1);
-
-		// Prepare the extent.
-		*extent = Extent(arena, block.addr, block.size, availableSizeClass);
-		extent.serialNumber = nextSerialNumber++;
-
-		return extent;
-	}
-
-	void* extentBumpAlloc(Extent* extent, size_t size, size_t alignment) {
-		assert(mutex.isHeld(), "Mutex not held!");
-		assert(isAligned(alignment, Quantum), "Invalid alignement!");
-		assert(isAligned(size, alignment), "Invalid size!");
-
-		auto gap = alignUpOffset(extent.addr, alignment);
-		auto ret = extent.addr + gap;
-
-		assert(extent.size >= size + gap, "Insufiscient space in the Extent!");
-		auto newSize = extent.size - gap - size;
-		if (newSize < Quantum) {
-			// XXX: Consider keeping track of empty extent for reuse.
-			return ret;
-		}
-
-		auto newSizeClass = cast(ubyte) (getSizeClass(newSize + 1) - 1);
-		*extent = Extent(arena, ret + size, newSize, newSizeClass);
-
-		availableExtents.insert(extent);
-		return ret;
-	}
-
-	Block* blockAlloc(size_t size, size_t alignment, ubyte lastSizeClass) {
-		assert(!mutex.isHeld(), "Mutex held!");
-		assert(isAligned(alignment, Quantum), "Invalid alignement!");
-		assert(isAligned(size, alignment), "Invalid size!");
-
-		/**
-		 * We make sure we allocate at least a huge page, to leave the
-		 * kernel the opportunity to use huge pages.
-		 *
-		 * We also increase the size of the block exponentially by bumping
-		 * to the next size class if apropriate. This ensures we do not
-		 * fragment the address space more than necessary and limit degenerate
-		 * cases where we call into the base allocator again and again.
-		 */
-		auto minBlockSize = getAllocSize(size);
-		auto nextSizeClass =
-			lastSizeClass + (lastSizeClass < ClassCount.Total - 1);
-		auto nextBlockSize = getSizeFromClass(nextSizeClass);
-		auto baseBlockSize =
-			(nextBlockSize < minBlockSize) ? minBlockSize : nextBlockSize;
-		auto blockSize = alignUp(baseBlockSize, HugePageSize);
-
-		auto block = mdbase.allocBlock();
-		if (block is null) {
-			return null;
-		}
-
-		import d.gc.pages;
-		auto addr = pages_map(null, blockSize, HugePageSize);
-		if (addr is null) {
-			mdbase.freeBlock(block);
-			return null;
-		}
-
-		block.addr = addr;
-		block.size = blockSize;
-
-		return block;
-	}
-}
-
-unittest base_alloc {
-	shared MDBase mdbase;
-	scope(exit) mdbase.clear();
-
+unittest base {
 	shared Base base;
 	scope(exit) base.clear();
 
-	base.mdbase = &mdbase;
+	// We can allocate blocks from mdbase.
+	auto b0 = base.allocBlock();
+	auto b1 = base.allocBlock();
+	assert(b0 !is b1);
+	assert(base.availableMetadatSlots == 16383);
 
-	auto getBlockCount(shared ref Base base) {
-		size_t count = 0;
+	// We get the same block recycled.
+	base.freeBlock(b0);
+	base.freeBlock(b1);
+	assert(base.allocBlock() is b1);
+	assert(base.allocBlock() is b0);
+	assert(base.availableMetadatSlots == 16383);
 
-		auto next = base.head;
-		while (next !is null) {
-			count++;
-			next = next.next;
-		}
+	// Now allocate extents.
+	auto e0 = base.allocExtent();
+	auto e1 = base.allocExtent();
+	assert(e0 !is e1);
+	assert(base.availableMetadatSlots == 16381);
 
-		return count;
-	}
-
-	assert(getBlockCount(base) == 0);
-
-	auto ptr0 = base.alloc(5, 1);
-	assert(getBlockCount(base) == 1);
-	assert(base.head.size == HugePageSize);
-	assert(isAligned(ptr0, Quantum));
-
-	auto ptr1 = base.alloc(3, 1);
-	assert(getBlockCount(base) == 1);
-	assert(base.head.size == HugePageSize);
-	assert(isAligned(ptr1, Quantum));
-
-	// Check large alignment.
-	auto ptr3 = base.alloc(HugePageSize, HugePageSize);
-	assert(getBlockCount(base) == 2);
-	assert(base.head.size == 2 * HugePageSize);
-	assert(isAligned(ptr3, HugePageSize));
-
-	// Check that the block we allocate grow exponentially.
-	auto ptr4 = base.alloc(HugePageSize, HugePageSize);
-	assert(getBlockCount(base) == 3);
-	assert(base.head.size == 3 * HugePageSize);
-	assert(isAligned(ptr4, HugePageSize));
-
-	// Reuse existing blocks.
-	auto ptr5 = base.alloc(HugePageSize / 2, 1);
-	assert(getBlockCount(base) == 3);
-	assert(isAligned(ptr5, Quantum));
-
-	auto ptr6 = base.alloc(HugePageSize / 2, 1);
-	assert(getBlockCount(base) == 3);
-	assert(isAligned(ptr6, Quantum));
-
-	// Check for large alignment.
-	auto ptr7 = base.alloc(1, 2 * HugePageSize);
-	assert(getBlockCount(base) == 4);
-	assert(base.head.size == 4 * HugePageSize);
-	assert(isAligned(ptr7, 2 * HugePageSize));
-
-	auto ptr8 = base.alloc(1, 2 * HugePageSize);
-	assert(getBlockCount(base) == 5);
-	assert(base.head.size == 5 * HugePageSize);
-	assert(isAligned(ptr8, 2 * HugePageSize));
-
-	auto ptr9 = base.alloc(1, 2 * HugePageSize);
-	assert(getBlockCount(base) == 6);
-	assert(base.head.size == 6 * HugePageSize);
-	assert(isAligned(ptr9, 2 * HugePageSize));
+	// We can also free extents.
+	base.freeExtent(e0);
+	base.freeExtent(e1);
+	assert(base.allocExtent() is e0);
+	assert(base.allocExtent() is e1);
+	assert(base.availableMetadatSlots == 16381);
 }
