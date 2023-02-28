@@ -50,7 +50,11 @@ unittest isPow2 {
 size_t alignDown(size_t size, size_t alignment) {
 	// FIXME: in contract.
 	assert(alignment > 0 && isPow2(alignment));
-	return size & -alignment;
+	auto ret = size & -alignment;
+
+	// FIXME: out contract.
+	assert(ret <= size);
+	return ret;
 }
 
 void* alignDown(void* ptr, size_t alignment) {
