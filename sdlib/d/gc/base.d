@@ -101,11 +101,11 @@ private:
 		assert(isAligned(nextMetadataAddr, Extent.Align),
 		       "Invalid nextMetadataAddr alignment!");
 
-		auto ret = cast(Extent*) nextMetadataAddr;
+		extent = cast(Extent*) nextMetadataAddr;
 		nextMetadataAddr += Extent.Size;
 		availableMetadatSlots -= 1;
 
-		return ret;
+		return extent;
 	}
 
 	auto freeExtentImpl(Extent* extent) {
