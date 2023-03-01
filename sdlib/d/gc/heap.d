@@ -192,17 +192,15 @@ public:
 		}
 	}
 
-	/+
 	@property
 	N* any() {
-		if (root is null) {
+		if (root.isNull()) {
 			return null;
 		}
 
-		auto aux = nodeData(root).next;
-		return (aux is null) ? root : aux;
+		auto aux = root.next;
+		return aux.isNull() ? root.node : aux.node;
 	}
-	// +/
 
 private:
 	void mergeAux() {
@@ -485,6 +483,17 @@ unittest heap {
 	alias Link = .Link!(Stuff, "phnode");
 	Heap!(Stuff, stuffCmp) heap;
 
+	size_t computeAuxLength() {
+		auto n = heap.root;
+		size_t len = 0;
+		while (!n.isNull()) {
+			n = n.next;
+			len++;
+		}
+
+		return len - 1;
+	}
+
 	void checkIntegrity() {
 		void check(Link n, Link prev, Link parent) {
 			if (n.isNull()) {
@@ -529,6 +538,9 @@ unittest heap {
 		auto n = &stuffs[i];
 		heap.insert(n);
 		checkIntegrity();
+
+		import sdc.intrinsics;
+		assert(computeAuxLength() == popCount(i));
 	}
 
 	checkHeap();
