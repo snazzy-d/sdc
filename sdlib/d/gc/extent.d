@@ -25,7 +25,7 @@ public:
 
 	// TODO: Various links for tree, heaps, etc...
 	import d.gc.rbtree;
-	ExtentTree.Node node;
+	Node!Extent rbnode;
 
 	// TODO: slab data and/or stats.
 

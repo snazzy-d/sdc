@@ -2,7 +2,7 @@ module d.gc.rbtree;
 
 import d.gc.spec;
 
-struct Node(N, string NodeName = "node") {
+struct Node(N, string NodeName = "rbnode") {
 private:
 	alias Link = .Link!(N, NodeName);
 	Link[2] childs;
@@ -19,7 +19,7 @@ private:
 }
 
 // TODO: when supported add default to use opCmp for compare.
-struct RBTree(N, alias compare, string NodeName = "node") {
+struct RBTree(N, alias compare, string NodeName = "rbnode") {
 private:
 	N* root;
 
@@ -641,7 +641,7 @@ struct Path(N, string NodeName) {
 
 unittest bestfit {
 	struct Stuff {
-		Node!Stuff node;
+		Node!Stuff rbnode;
 		ulong value;
 
 		this(ulong value) {
@@ -704,7 +704,7 @@ unittest bestfit {
 
 unittest rbtree {
 	struct Stuff {
-		Node!Stuff node;
+		Node!Stuff rbnode;
 		ulong value;
 	}
 

@@ -2,7 +2,7 @@ module d.gc.run;
 
 struct RunDesc {
 	import d.gc.rbtree;
-	Node!RunDesc node;
+	Node!RunDesc rbnode;
 
 	// FIXME: Use anonymous enum when SDC supports them.
 	union U {
