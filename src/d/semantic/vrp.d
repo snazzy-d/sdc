@@ -819,9 +819,9 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 	}
 
 	/**
-	 * Because it is a signed operation, paddign is actually the one
+	 * Because it is a signed operation, padding is actually the one
 	 * finishing the truncate work. It works because properly formed
-	 * expression are promoted before being used, and this promotion
+	 * expressions are promoted before being used, and this promotion
 	 * translates into a pad operation here.
 	 */
 	ValueRange pad()(U mask) const if (isUnsigned!T)
