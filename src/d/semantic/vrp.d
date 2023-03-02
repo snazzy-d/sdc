@@ -302,28 +302,18 @@ unittest {
 		assert(vrp.getRange(BuiltinType.Dchar) == VR(uint.min, uint.max));
 
 		/**
-		 * Literals
+		 * Constant we can reuse for variosu tests.
 		 */
 		import source.location;
-		v = vrp.visit(new BooleanLiteral(Location.init, false));
-		assert(v == VR(0));
-
-		v = vrp.visit(new BooleanLiteral(Location.init, true));
-		assert(v == VR(1));
-
-		v = vrp.visit(new IntegerLiteral(Location.init, -9, BuiltinType.Byte));
-		assert(v == VR(-9));
-
-		v = vrp.visit(new IntegerLiteral(Location.init, 42, BuiltinType.Uint));
-		assert(v == VR(42));
-
-		// Let's define some values we can reuse.
 		auto zero = new IntegerLiteral(Location.init, 0, BuiltinType.Int);
 		auto i1 = new IntegerLiteral(Location.init, -7, BuiltinType.Int);
 		auto i2 = new IntegerLiteral(Location.init, 42, BuiltinType.Int);
 		auto i3 = new IntegerLiteral(Location.init, 2, BuiltinType.Uint);
 
 		auto bmax = new IntegerLiteral(Location.init, 255, BuiltinType.Byte);
+
+		auto ctrue = new BooleanLiteral(Location.init, true);
+		auto cfalse = new BooleanLiteral(Location.init, false);
 
 		auto tbool = Type.get(BuiltinType.Bool);
 
@@ -338,6 +328,27 @@ unittest {
 
 		auto tlong = Type.get(BuiltinType.Long);
 		auto tulong = Type.get(BuiltinType.Ulong);
+
+		/**
+		 * Literals
+		 */
+		v = vrp.visit(cfalse);
+		assert(v == VR(0));
+
+		v = vrp.visit(ctrue);
+		assert(v == VR(1));
+
+		v = vrp.visit(zero);
+		assert(v == VR(0));
+
+		v = vrp.visit(i1);
+		assert(v == VR(-7));
+
+		v = vrp.visit(i2);
+		assert(v == VR(42));
+
+		v = vrp.visit(i3);
+		assert(v == VR(2));
 
 		/**
 		 * Binary ops
@@ -501,7 +512,8 @@ unittest {
 					auto castExpr = new CastExpression(Location.init, ck,
 					                                   builtinType, floatVal);
 					const vr = vrp.visit(castExpr);
-					// dmd doesn't try to do anything clever here, i.e. assume the cast to T could yield any T
+					// dmd doesn't try to do anything clever here,
+					// i.e. assume the cast to T could yield any T.
 					assert(vr == vrp.getRange(builtinType));
 				}
 			}
