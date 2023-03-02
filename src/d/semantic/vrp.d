@@ -267,6 +267,21 @@ public:
 				return visit(e.expr);
 		}
 	}
+
+	VR visit(IntrinsicExpression e) {
+		switch (e.intrinsic) with (Intrinsic) {
+			case Expect:
+				return processExpr(e.args[0]);
+
+			case PopCount, CountLeadingZeros, CountTrailingZeros:
+				// TODO: Get a better estimate based on the argument's range.
+				auto t = getBuiltin(e.type);
+				return VR(0, t.getBits());
+
+			default:
+				return getRange(e.type);
+		}
+	}
 }
 
 unittest {
@@ -500,22 +515,61 @@ unittest {
 		auto f0 = new FloatLiteral(Location.init, 0.0f, BuiltinType.Float);
 
 		foreach (floatVal; [dPi, f0]) {
-			foreach (builtinType;
+			foreach (t;
 				[tshort, tushort, tint, tuint, tlong, tulong, tbyte, tubyte]
 			) {
-				const bt = builtinType.builtin();
+				const bt = t.builtin();
 				if (bt.getSize() <= T.sizeof) {
 					const CastKind ck = isSigned(bt)
 						? CastKind.FloatToSigned
 						: CastKind.FloatToUnsigned;
-					auto castExpr = new CastExpression(Location.init, ck,
-					                                   builtinType, floatVal);
+					auto castExpr =
+						new CastExpression(Location.init, ck, t, floatVal);
 					const vr = vrp.visit(castExpr);
 					// dmd doesn't try to do anything clever here,
 					// i.e. assume the cast to T could yield any T.
-					assert(vr == vrp.getRange(builtinType));
+					assert(vr == vrp.getRange(t));
 				}
 			}
+		}
+
+		/**
+		 * Intrinsics.
+		 */
+		v = vrp.visit(
+			new IntrinsicExpression(Location.init, tbool, Intrinsic.Expect,
+			                        [cfalse, cfalse]));
+		assert(v == VR(0));
+
+		v = vrp.visit(
+			new IntrinsicExpression(Location.init, tbool, Intrinsic.Expect,
+			                        [cfalse, ctrue]));
+		assert(v == VR(0));
+
+		v = vrp.visit(
+			new IntrinsicExpression(Location.init, tbool, Intrinsic.Expect,
+			                        [ctrue, ctrue]));
+		assert(v == VR(1));
+
+		foreach (t;
+			[tshort, tushort, tint, tuint, tlong, tulong, tbyte, tubyte]
+		) {
+			const bt = t.builtin();
+			auto expected = VR(0, bt.getBits());
+
+			v = vrp.visit(new IntrinsicExpression(Location.init, t,
+			                                      Intrinsic.PopCount, [i2]));
+			assert(v == expected);
+
+			v = vrp.visit(
+				new IntrinsicExpression(Location.init, t,
+				                        Intrinsic.CountLeadingZeros, [i2]));
+			assert(v == expected);
+
+			v = vrp.visit(
+				new IntrinsicExpression(Location.init, t,
+				                        Intrinsic.CountTrailingZeros, [i2]));
+			assert(v == expected);
 		}
 	}
 }
