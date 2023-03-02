@@ -93,10 +93,9 @@ private:
 		}
 	}
 
-	BuiltinType getBuiltin(Type t) out(result) {
-		assert(canConvertToIntegral(result),
-		       "VRP only supports integral types.");
-	} do {
+	BuiltinType getBuiltin(Type t)
+			out(result; canConvertToIntegral(result),
+			            "VRP only supports integral types.") {
 		t = t.getCanonicalAndPeelEnum();
 		if (t.hasPointerABI()) {
 			return getBuiltin(pass.object.getSizeT().type);
@@ -670,9 +669,8 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 	}
 
 	@property
-	ValueRange!A as(A)() const if (is(uint : A) && isIntegral!A) out(result) {
-		assert(result.range <= Unsigned!A.max);
-	} do {
+	ValueRange!A as(A)() const if (is(uint : A) && isIntegral!A)
+			out(result; result.range <= Unsigned!A.max) {
 		static if (T.sizeof <= A.sizeof) {
 			// Type are the same size, it is a noop.
 			return ValueRange!A(min, max);
@@ -722,10 +720,8 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 	 * but it doesn't matter as well formed expression should
 	 * UPad or SPad before normalizing due to integer promotion.
 	 */
-	ValueRange trunc(U mask) const out(result) {
-		assert(isMask(mask));
-		assert(result.range <= mask);
-	} do {
+	ValueRange trunc(U mask) const
+			out(result; result.range <= mask && isMask(mask)) {
 		auto smask = mask >> 1;
 
 		// Worse case scenario, we can return this.
@@ -774,20 +770,16 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 	 * expression are promoted before being used, and this promotion
 	 * translates into a pad operation here.
 	 */
-	ValueRange pad()(U mask) const if (isUnsigned!T) out(result) {
-		assert(result.range <= mask);
-		assert(isMask(mask));
-	} do {
+	ValueRange pad()(U mask) const if (isUnsigned!T)
+			out(result; result.range <= mask && isMask(mask)) {
 		auto bits = min ^ max;
 		return ((min > max) || (bits & ~mask))
 			? ValueRange(0, mask)
 			: ValueRange(min & mask, max & mask);
 	}
 
-	ValueRange pad()(U mask) const if (isSigned!T) out(result) {
-		assert(result.range <= mask);
-		assert(isMask(mask));
-	} do {
+	ValueRange pad()(U mask) const if (isSigned!T)
+			out(result; result.range <= mask && isMask(mask)) {
 		auto offset = URange(~(mask >> 1));
 		return ((unsigned - offset).pad(mask) + offset).signed;
 	}
@@ -981,10 +973,8 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		}
 	}
 
-	auto srem()(ValueRange rhs) const if (isSigned!T) in {
-		assert(this != ValueRange(0));
-		assert(rhs is rhs.normalized);
-	} do {
+	auto srem()(ValueRange rhs) const if (isSigned!T)
+			in(this != ValueRange(0) && rhs is rhs.normalized) {
 		// a % -b = a % b
 		rhs = rhs.negate(rhs.max < 0);
 
@@ -1062,10 +1052,8 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		}
 	}
 
-	auto sshl()(ValueRange rhs) const if (isUnsigned!T) in {
-		assert(rhs is rhs.normalized);
-		assert(rhs.max < Bits);
-	} do {
+	auto sshl()(ValueRange rhs) const if (isUnsigned!T)
+			in(rhs is rhs.normalized && rhs.max < Bits) {
 		auto v0 = ValueRange(0, max).ushl(rhs);
 		auto v1 = -ValueRange(0, -min).ushl(rhs);
 
@@ -1116,10 +1104,7 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		return res.negate(lneg);
 	}
 
-	auto sshr(URange rhs) const in {
-		assert(rhs is rhs.normalized);
-		assert(rhs.min < Bits);
-	} do {
+	auto sshr(URange rhs) const in(rhs is rhs.normalized && rhs.min < Bits) {
 		auto v0 = ValueRange(0, max).ushr(rhs);
 		auto v1 = ValueRange(min, U.max).ushr(rhs);
 
@@ -1143,10 +1128,7 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		return res;
 	}
 
-	auto ushr(URange rhs) const in {
-		assert(rhs is rhs.normalized);
-		assert(rhs.min < Bits);
-	} do {
+	auto ushr(URange rhs) const in(rhs is rhs.normalized && rhs.min < Bits) {
 		T rmin = min >> (min < 0 ? rhs.min : rhs.max);
 		if (min >= 0 && rhs.max >= Bits) {
 			rmin = 0;
