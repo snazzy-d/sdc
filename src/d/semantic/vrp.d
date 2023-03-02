@@ -232,15 +232,7 @@ public:
 
 			case IntToBool:
 				static doTheDMDMonkeyDance(R)(R r) {
-					if (r == typeof(r)(0)) {
-						return VR(0);
-					}
-
-					if (!r.containsZero) {
-						return VR(1);
-					}
-
-					return VR(0, 1);
+					return VR(!r.containsZero, r != R(0));
 				}
 
 				return processExpr!doTheDMDMonkeyDance(e.expr);
