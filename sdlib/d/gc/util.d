@@ -1,5 +1,27 @@
 module d.gc.util;
 
+T min(T)(T a, T b) {
+	return a <= b ? a : b;
+}
+
+unittest min {
+	assert(min(0, 0) == 0);
+	assert(min(0, -1) == -1);
+	assert(min(-1, 0) == -1);
+	assert(min(123, 456) == 123);
+}
+
+T max(T)(T a, T b) {
+	return a >= b ? a : b;
+}
+
+unittest max {
+	assert(max(0, 0) == 0);
+	assert(max(0, -1) == 0);
+	assert(max(-1, 0) == 0);
+	assert(max(123, 456) == 456);
+}
+
 size_t log2floor(size_t x) {
 	if (x == 0) {
 		return 0;
