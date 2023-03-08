@@ -158,7 +158,9 @@ private:
 			if (auto t = cast(TypeTemplateParameter) p) {
 				return TypeParameterMatcher(pass, matchedArgs, t.defaultValue)
 					.visit(t);
-			} else if (auto v = cast(ValueTemplateParameter) p) {
+			}
+
+			if (auto v = cast(ValueTemplateParameter) p) {
 				if (v.defaultValue !is null) {
 					import d.semantic.caster;
 					auto e = pass.evaluate(
@@ -334,9 +336,11 @@ struct TypeMatcher(bool isIFTI) {
 	}
 
 	bool visit(BuiltinType t) {
-		return (matchee.kind == TypeKind.Builtin)
-			? t == matchee.builtin
-			: false;
+		import d.semantic.caster;
+		auto castKind = implicitCastFrom(pass, matchee, Type.get(t));
+		return isIFTI
+			? castKind > CastKind.Invalid
+			: castKind == CastKind.Exact;
 	}
 
 	bool visitPointerOf(Type t) {
@@ -495,9 +499,7 @@ struct TypeMatcher(bool isIFTI) {
 
 			auto p =
 				cast(TemplateParameter) arg.get!(TemplateArgument.Tag.Symbol);
-			if (p is null) {
-				assert(0, "Expected a tepmplate argument");
-			}
+			assert(p !is null, "Expected a tepmplate argument");
 
 			if (!TemplateInstancier(pass)
 				    .matchArgument(p, ti.args[i], matchedArgs)) {
