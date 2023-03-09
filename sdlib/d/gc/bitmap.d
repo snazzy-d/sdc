@@ -80,6 +80,8 @@ public:
 		int i = index / NimbleSize;
 		auto offset = index % NimbleSize;
 
+		// XXX: When offset is zero, mask is 0 and
+		// we do a round of computation for nothing.
 		auto flip = ulong(V) - 1;
 		auto mask = (ulong(1) << offset) - 1;
 		auto current = (bits[i--] ^ flip) & mask;
