@@ -65,6 +65,38 @@ public:
 		return ret;
 	}
 
+	int findSetBackward(uint index) const {
+		return findValueBackward!true(index);
+	}
+
+	int findClearBackward(uint index) const {
+		return findValueBackward!false(index);
+	}
+
+	int findValueBackward(bool V)(uint index) const {
+		// FIXME: in contracts.
+		assert(index < N);
+
+		int i = index / NimbleSize;
+		auto offset = index % NimbleSize;
+
+		auto flip = ulong(V) - 1;
+		auto mask = (ulong(1) << offset) - 1;
+		auto current = (bits[i--] ^ flip) & mask;
+
+		while (current == 0) {
+			if (i < 0) {
+				return -1;
+			}
+
+			current = bits[i--] ^ flip;
+		}
+
+		import sdc.intrinsics;
+		int clz = countLeadingZeros(current);
+		return (i + 2) * NimbleSize - clz - 1;
+	}
+
 	bool nextFreeRange(uint start, ref uint index, ref uint length) const {
 		// FIXME: in contract.
 		assert(start < N);
@@ -175,28 +207,38 @@ unittest findValue {
 	bmp2.bits = [~0x80, ~0x80, ~0x80, ~0x80];
 
 	foreach (i; 0 .. 8) {
-		assert(bmp1.findValue!true(i) == 7);
-		assert(bmp2.findValue!false(i) == 7);
+		assert(bmp1.findSet(i) == 7);
+		assert(bmp2.findClear(i) == 7);
+		assert(bmp1.findSetBackward(i) == -1);
+		assert(bmp2.findClearBackward(i) == -1);
 	}
 
 	foreach (i; 8 .. 72) {
-		assert(bmp1.findValue!true(i) == 71);
-		assert(bmp2.findValue!false(i) == 71);
+		assert(bmp1.findSet(i) == 71);
+		assert(bmp2.findClear(i) == 71);
+		assert(bmp1.findSetBackward(i) == 7);
+		assert(bmp2.findClearBackward(i) == 7);
 	}
 
 	foreach (i; 72 .. 136) {
-		assert(bmp1.findValue!true(i) == 135);
-		assert(bmp2.findValue!false(i) == 135);
+		assert(bmp1.findSet(i) == 135);
+		assert(bmp2.findClear(i) == 135);
+		assert(bmp1.findSetBackward(i) == 71);
+		assert(bmp2.findClearBackward(i) == 71);
 	}
 
 	foreach (i; 136 .. 200) {
-		assert(bmp1.findValue!true(i) == 199);
-		assert(bmp2.findValue!false(i) == 199);
+		assert(bmp1.findSet(i) == 199);
+		assert(bmp2.findClear(i) == 199);
+		assert(bmp1.findSetBackward(i) == 135);
+		assert(bmp2.findClearBackward(i) == 135);
 	}
 
 	foreach (i; 200 .. 256) {
-		assert(bmp1.findValue!true(i) == 256);
-		assert(bmp2.findValue!false(i) == 256);
+		assert(bmp1.findSet(i) == 256);
+		assert(bmp2.findClear(i) == 256);
+		assert(bmp1.findSetBackward(i) == 199);
+		assert(bmp2.findClearBackward(i) == 199);
 	}
 }
 
