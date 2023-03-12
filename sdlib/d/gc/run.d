@@ -64,7 +64,7 @@ ptrdiff_t sizeAddrRunCmp(RunDesc* lhs, RunDesc* rhs) {
 	int rBinID = rhs.chunk.pages[rhs.runID].binID;
 
 	auto rsize = rhs.chunk.pages[rhs.runID].size;
-	assert(rBinID == getBinID(rsize + 1) - 1);
+	assert(rBinID == getSizeClass(rsize + 1) - 1);
 
 	auto l = cast(size_t) lhs;
 	int lBinID;
@@ -74,7 +74,7 @@ ptrdiff_t sizeAddrRunCmp(RunDesc* lhs, RunDesc* rhs) {
 		lBinID = lhs.chunk.pages[lhs.runID].binID;
 
 		auto lsize = lhs.chunk.pages[lhs.runID].size;
-		assert(lBinID == getBinID(lsize + 1) - 1);
+		assert(lBinID == getSizeClass(lsize + 1) - 1);
 	} else {
 		lhs = null;
 		lBinID = cast(int) (l & PageMask);

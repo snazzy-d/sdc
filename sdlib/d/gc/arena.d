@@ -107,7 +107,7 @@ struct Arena {
 			return alloc(size);
 		}
 
-		auto newBinID = getBinID(size);
+		auto newBinID = getSizeClass(size);
 
 		// TODO: Try in place resize for large/huge.
 		auto oldBinID = newBinID;
@@ -126,7 +126,7 @@ struct Arena {
 
 			// We need to keep it alive for now.
 			hugeTree.insert(e);
-			oldBinID = getBinID(e.size);
+			oldBinID = getSizeClass(e.size);
 		}
 
 		if (newBinID == oldBinID) {
@@ -158,7 +158,7 @@ private:
 			return null;
 		}
 
-		auto binID = getBinID(size);
+		auto binID = getSizeClass(size);
 		assert(binID < ClassCount.Small);
 
 		return bins[binID].allocSmall(&this, binID);
@@ -171,7 +171,7 @@ private:
 
 		import d.gc.spec;
 		uint needPages = binInfos[binID].needPages;
-		auto runBinID = getBinID(needPages << LgPageSize);
+		auto runBinID = getSizeClass(needPages << LgPageSize);
 
 		chunkMutex.lock();
 		scope(exit) chunkMutex.unlock();
@@ -214,7 +214,7 @@ private:
 		assert(size > SizeClass.Small && size <= SizeClass.Large);
 		assert(size == getAllocSize(size));
 
-		auto binID = getBinID(size);
+		auto binID = getSizeClass(size);
 		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
 
 		chunkMutex.lock();
@@ -396,7 +396,8 @@ private:
 		}
 
 		import d.gc.spec;
-		auto runBinID = cast(ubyte) (getBinID((pages << LgPageSize) + 1) - 1);
+		auto runBinID =
+			cast(ubyte) (getSizeClass((pages << LgPageSize) + 1) - 1);
 
 		// If we have remaining free space, keep track of it.
 		import d.gc.bin;

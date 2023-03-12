@@ -196,7 +196,7 @@ struct Chunk {
 
 		import d.gc.sizeclass;
 		enum DataSize = DataPages << LgPageSize;
-		enum FreeBinID = cast(ubyte) (getBinID(DataSize + 1) - 1);
+		enum FreeBinID = cast(ubyte) (getSizeClass(DataSize + 1) - 1);
 
 		import d.gc.bin;
 		auto d =
@@ -555,7 +555,7 @@ struct Chunk {
 		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
 		assert(pages[runID].free);
 		assert(size == getAllocSize(size));
-		assert(getBinID(size) == binID);
+		assert(getSizeClass(size) == binID);
 
 		// If we are GCing, mark the new allocation as live.
 		auto bPtr = header.bitmap;
@@ -627,7 +627,8 @@ private:
 		}
 
 		import d.gc.sizeclass;
-		auto remBin = cast(ubyte) (getBinID((remPages << LgPageSize) + 1) - 1);
+		auto remBin =
+			cast(ubyte) (getSizeClass((remPages << LgPageSize) + 1) - 1);
 
 		// If we have remaining free space, keep track of it.
 		import d.gc.bin;

@@ -78,16 +78,6 @@ unittest getAllocSize {
 	}
 }
 
-/**
- * FIXME: Differentiate size class and binID.
- * Large size classes don't have a bin associated, and
- * we may want to shard lower bins at some point
- * which will cuase several bin to use the same size class.
- */
-ubyte getBinID(size_t size) {
-	return getSizeClass(size);
-}
-
 ubyte getSizeClass(size_t size) {
 	if (size < MaxTinySize) {
 		auto ret = ((size + QuantumMask) >> LgQuantum) - 1;
