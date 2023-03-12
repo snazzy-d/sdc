@@ -1,6 +1,7 @@
 module d.gc.sizeclass;
 
 import d.gc.spec;
+import d.gc.util;
 
 /**
  * Designing a good allocator require to balance external
@@ -46,24 +47,24 @@ enum SizeClass {
 	Large = getSizeFromClass(ClassCount.Large - 1),
 }
 
-enum MaxTinySize = 4 * Quantum;
+enum MaxTinySize = ClassCount.Tiny * Quantum;
 
 size_t getAllocSize(size_t size) {
-	if (size < MaxTinySize) {
-		return (size + QuantumMask) & ~QuantumMask;
+	if (size <= MaxTinySize) {
+		return alignUp(size, Quantum);
 	}
 
 	import d.gc.util;
 	auto shift = log2floor(size - 1) - 2;
-
 	return (((size - 1) >> shift) + 1) << shift;
 }
 
 unittest getAllocSize {
 	assert(getAllocSize(0) == 0);
 
-	size_t[] boundaries = [Quantum, 2 * Quantum, 3 * Quantum, 32, 40, 48, 56,
-	                       64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+	size_t[] boundaries =
+		[8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256,
+		 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048];
 
 	size_t s = 1;
 	foreach (b; boundaries) {
@@ -73,13 +74,14 @@ unittest getAllocSize {
 
 		while (s <= b) {
 			assert(getAllocSize(s) == b);
+			assert(getSizeFromClass(getSizeClass(s)) == b);
 			s++;
 		}
 	}
 }
 
 ubyte getSizeClass(size_t size) {
-	if (size < MaxTinySize) {
+	if (size <= MaxTinySize) {
 		auto ret = ((size + QuantumMask) >> LgQuantum) - 1;
 
 		assert(size == 0 || ret < ubyte.max);
@@ -99,8 +101,9 @@ unittest getSizeClass {
 	import d.gc.bin;
 	assert(getSizeClass(0) == InvalidBinID);
 
-	size_t[] boundaries = [Quantum, 2 * Quantum, 3 * Quantum, 32, 40, 48, 56,
-	                       64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+	size_t[] boundaries =
+		[8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256,
+		 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048];
 
 	uint bid = 0;
 	size_t s = 1;
@@ -139,8 +142,9 @@ size_t getSizeFromClass(uint sizeClass) {
 }
 
 unittest getSizeFromClass {
-	size_t[] boundaries = [Quantum, 2 * Quantum, 3 * Quantum, 32, 40, 48, 56,
-	                       64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+	size_t[] boundaries =
+		[8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256,
+		 320, 384, 448, 512, 640, 768, 896, 1024, 1280, 1536, 1792, 2048];
 
 	uint bid = 0;
 	foreach (b; boundaries) {
@@ -204,7 +208,7 @@ auto getTinyClassCount() {
 	uint count = 0;
 
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
-		if (grp <= LgQuantum) {
+		if (delta <= LgQuantum) {
 			count++;
 		}
 	});
