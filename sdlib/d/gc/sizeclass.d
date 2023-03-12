@@ -68,10 +68,6 @@ unittest getAllocSize {
 
 	size_t s = 1;
 	foreach (b; boundaries) {
-		if (b <= s) {
-			continue;
-		}
-
 		while (s <= b) {
 			assert(getAllocSize(s) == b);
 			assert(getSizeFromClass(getSizeClass(s)) == b);
@@ -108,10 +104,6 @@ unittest getSizeClass {
 	uint bid = 0;
 	size_t s = 1;
 	foreach (b; boundaries) {
-		if (b <= s) {
-			continue;
-		}
-
 		while (s <= b) {
 			assert(getSizeClass(s) == bid);
 			assert(getAllocSize(s) == getSizeFromClass(bid));

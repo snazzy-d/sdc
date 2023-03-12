@@ -17,7 +17,8 @@ public:
 	void* addr;
 	size_t size;
 
-	// TODO: hpdata?
+	import d.gc.hpd;
+	HugePageDescriptor* hpd;
 
 	// Not necesserly unique, as splitting an Extent
 	// Will create two extent with the same serial.

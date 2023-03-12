@@ -34,6 +34,16 @@ public:
 		this.generation = generation;
 	}
 
+	@property
+	bool empty() const {
+		return usedCount == 0;
+	}
+
+	@property
+	bool full() const {
+		return usedCount >= PageCount;
+	}
+
 	uint reserve(uint pages) {
 		// FIXME: in contract
 		assert(pages <= longestFreeRange);
@@ -92,6 +102,13 @@ public:
 		usedCount -= pages;
 		longestFreeRange = max(longestFreeRange, stop - start);
 	}
+}
+
+ptrdiff_t generationHPDCmp(HugePageDescriptor* lhs, HugePageDescriptor* rhs) {
+	auto lg = lhs.generation;
+	auto rg = rhs.generation;
+
+	return (lg > rg) - (lg < rg);
 }
 
 unittest hugePageDescriptor {
