@@ -152,13 +152,33 @@ auto getBinInfos() {
 	import d.gc.bin;
 	BinInfo[ClassCount.Small] bins;
 
-	void delegate(uint id, uint grp, uint delta, uint ndelta) dg = void;
-	auto dgSt = cast(BinInfoComputerDg*) &dg;
+	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
+		// XXX: 1UL is useless here, but there is a bug in type
+		// promotion for >= so we need it.
+		auto s = (1UL << grp) + (ndelta << delta);
+		if (s >= (1UL << LgSizeClass.LgSmall)) {
+			return;
+		}
 
-	dgSt.fun = binInfoComputer;
-	dgSt.bins = &bins;
+		assert(s < ushort.max);
+		ushort itemSize = s & ushort.max;
 
-	computeSizeClass(dg);
+		ubyte[4] npLookup = [(((s - 1) >> LgPageSize) + 1) & 0xff, 5, 3, 7];
+
+		ubyte shift = delta & 0xff;
+		if (grp == delta) {
+			auto tag = (ndelta + 1) / 2;
+			shift = (delta + tag - 2) & 0xff;
+		}
+
+		auto needPages = npLookup[(itemSize >> shift) % 4];
+
+		uint p = needPages;
+		ushort slots = ((p << LgPageSize) / s) & ushort.max;
+
+		assert(id < ClassCount.Small);
+		bins[id] = BinInfo(itemSize, shift, needPages, slots);
+	});
 
 	return bins;
 }
@@ -168,45 +188,6 @@ private:
 enum LgSizeClass {
 	LgSmall = LgPageSize + 2,
 	LgLarge = LgSmall + 7,
-}
-
-// XXX: find a better way to do all this.
-// This is kind of convoluted as I want to avoid alloc.
-struct BinInfoComputerDg {
-	void* bins;
-	void* fun;
-}
-
-void binInfoComputer(void* binsPtr, uint id, uint grp, uint delta,
-                     uint ndelta) {
-	import d.gc.bin;
-	auto bins = cast(BinInfo*) binsPtr;
-
-	// XXX: 1UL is useless here, but there is a bug in type
-	// promotion for >= so we need it.
-	auto s = (1UL << grp) + (ndelta << delta);
-	if (s >= (1UL << LgSizeClass.LgSmall)) {
-		return;
-	}
-
-	assert(s < ushort.max);
-	ushort itemSize = s & ushort.max;
-
-	ubyte[4] npLookup = [(((s - 1) >> LgPageSize) + 1) & 0xff, 5, 3, 7];
-
-	ubyte shift = delta & 0xff;
-	if (grp == delta) {
-		auto tag = (ndelta + 1) / 2;
-		shift = (delta + tag - 2) & 0xff;
-	}
-
-	auto needPages = npLookup[(itemSize >> shift) % 4];
-
-	uint p = needPages;
-	ushort slots = ((p << LgPageSize) / s) & ushort.max;
-
-	assert(id < ClassCount.Small);
-	bins[id] = BinInfo(itemSize, shift, needPages, slots);
 }
 
 auto getTotalClassCount() {
