@@ -218,16 +218,16 @@ public:
 				assert(0, "Do not make any sense on integrals");
 
 			case PtrToInt:
-				assert(0, "Not implemented");
-
-				// return ValueRange.get(e.type.builtin);
+				auto t = getBuiltin(e.type);
+				return getRange(t);
 
 			case SignedToFloat, UnsignedToFloat:
 			case FloatExtend, FloatTrunc:
 				assert(0, "VRP not valid on float-yielding casts");
 
 			case FloatToSigned, FloatToUnsigned:
-				return getRange(e.type.builtin);
+				auto t = getBuiltin(e.type);
+				return getRange(t);
 
 			case IntToBool:
 				static doTheDMDMonkeyDance(R)(R r) {
