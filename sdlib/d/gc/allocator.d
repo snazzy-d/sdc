@@ -13,6 +13,9 @@ private:
 	import d.gc.hpa;
 	shared(HugePageAllocator)* hpa;
 
+	import d.gc.emap;
+	shared(ExtentMap)* emap;
+
 	import d.sync.mutex;
 	Mutex mutex;
 
@@ -30,10 +33,20 @@ public:
 		assert(pages > 0 && pages <= PageCount, "Invalid page count!");
 		auto mask = ulong.max << getAllocClass(pages);
 
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		Extent* e;
 
-		return (cast(Allocator*) &this).allocPagesImpl(pages, mask);
+		{
+			mutex.lock();
+			scope(exit) mutex.unlock();
+
+			e = (cast(Allocator*) &this).allocPagesImpl(pages, mask);
+		}
+
+		if (e !is null) {
+			emap.remap(e);
+		}
+
+		return e;
 	}
 
 	void freePages(Extent* e) shared {
@@ -45,6 +58,10 @@ public:
 
 		uint n = ((cast(size_t) e.addr) / PageSize) % PageCount;
 		uint pages = (e.size / PageSize) & uint.max;
+
+		// Once we get to this point, the program considers the extent freed,
+		// so we can safely remove it from the emap before locking.
+		emap.clear(e);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -78,7 +95,6 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto hpd = e.hpd;
-
 		if (!hpd.full) {
 			auto index = getFreeSpaceClass(hpd.longestFreeRange);
 			heaps[index].remove(hpd);
@@ -128,28 +144,43 @@ unittest allocfree {
 	allocator.base = &base;
 	allocator.hpa = &hpa;
 
+	import d.gc.emap;
+	static shared ExtentMap emap;
+	emap.tree.base = &base;
+	allocator.emap = &emap;
+
 	auto e0 = allocator.allocPages(1);
 	assert(e0 !is null);
 	assert(e0.size == PageSize);
+	auto pd0 = emap.lookup(e0.addr);
+	assert(pd0.extent is e0);
 
 	auto e1 = allocator.allocPages(2);
 	assert(e1 !is null);
 	assert(e1.size == 2 * PageSize);
 	assert(e1.addr is e0.addr + e0.size);
+	auto pd1 = emap.lookup(e1.addr);
+	assert(pd1.extent is e1);
 
 	allocator.freePages(e0);
+	auto pdf = emap.lookup(e0.addr);
+	assert(pdf.extent is null);
 
 	// Do not reuse the free slot is there is no room.
 	auto e2 = allocator.allocPages(3);
 	assert(e2 !is null);
 	assert(e2.size == 3 * PageSize);
 	assert(e2.addr is e1.addr + e1.size);
+	auto pd2 = emap.lookup(e2.addr);
+	assert(pd2.extent is e2);
 
 	// But do reuse that free slot if there isn't.
 	auto e3 = allocator.allocPages(1);
 	assert(e3 !is null);
 	assert(e3.size == PageSize);
 	assert(e3.addr is e0.addr);
+	auto pd3 = emap.lookup(e3.addr);
+	assert(pd3.extent is e3);
 }
 
 ubyte getAllocClass(uint pages) {

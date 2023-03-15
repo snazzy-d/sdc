@@ -12,7 +12,7 @@ private:
 	RTree!PageDescriptor tree;
 
 public:
-	auto lookup(void* addr) shared {
+	PageDescriptor lookup(void* addr) shared {
 		auto leaf = tree.get(addr);
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
@@ -62,6 +62,10 @@ public:
 	}
 
 	@property
+	Extent* extent() {
+		return cast(Extent*) (data & ~0x01);
+	}
+
 	bool isSlab() const {
 		return (data & 0x01) != 0;
 	}
