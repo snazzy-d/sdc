@@ -34,6 +34,41 @@ extern(C) void _tl_gc_collect() {
 Arena tl;
 
 struct Arena {
+	// FIXME: All of this is shared, but ultimately,
+	// the arena is what needs to be shared.
+	import d.gc.base;
+	shared Base base;
+
+	import d.gc.allocator;
+	shared Allocator _allocator;
+
+	@property
+	shared(Allocator)* allocator() {
+		auto a = &_allocator;
+
+		if (a.hpa is null) {
+			import d.gc.hpa;
+			a.hpa = gHugePageAllocator;
+
+			import d.gc.emap;
+			a.emap = gExtentMap;
+		}
+
+		return a;
+	}
+
+	/**
+	 * Legacy Arena.
+	 *
+	 * The arena is being migrated from being thread unsafe
+	 * and use the Chunk based allocator to being thread safe
+	 * and use the huge page allocator.
+	 *
+	 * In order to keep everythign working as we go, the legacy
+	 * mechanism are left as this and the code migrated path by path.
+	 * Once everything is migrated, everythign in that section
+	 * will be removed.
+	 */
 	import d.sync.mutex;
 	shared Mutex chunkMutex;
 
@@ -88,6 +123,16 @@ struct Arena {
 	}
 
 	void free(void* ptr) {
+		import d.gc.util;
+		if (isAligned(ptr, PageSize)) {
+			auto a = allocator;
+			auto pd = a.emap.lookup(ptr);
+			if (pd.extent !is null) {
+				a.freePages(pd.extent);
+				return;
+			}
+		}
+
 		auto c = findChunk(ptr);
 		if (c !is null) {
 			// This is not a huge alloc, assert we own the arena.
@@ -114,6 +159,34 @@ struct Arena {
 		// TODO: Try in place resize for large/huge.
 		auto oldBinID = newBinID;
 
+		import d.gc.util;
+		if (isAligned(ptr, PageSize)) {
+			auto a = allocator;
+			auto pd = a.emap.lookup(ptr);
+			if (pd.extent is null) {
+				goto Legacy;
+			}
+
+			assert(pd.extent.addr is ptr);
+			auto esize = pd.extent.size;
+			if (alignUp(size, PageSize) == esize) {
+				return ptr;
+			}
+
+			auto newPtr = alloc(size);
+			if (newPtr is null) {
+				return null;
+			}
+
+			import d.gc.util;
+			auto cpySize = min(size, esize);
+			memcpy(newPtr, ptr, cpySize);
+
+			free(ptr);
+			return newPtr;
+		}
+
+	Legacy:
 		auto c = findChunk(ptr);
 		if (c !is null) {
 			// This is not a huge alloc, assert we own the arena.
@@ -199,8 +272,16 @@ private:
 	 * Large allocation facilities.
 	 */
 	void* allocLarge(size_t size, bool zero) {
-		// TODO: in contracts
+		// FIXME: in contracts.
 		assert(size > SizeClass.Small && size <= SizeClass.Large);
+
+		if (size < HugePageSize / 2) {
+			// Use the huge page allocator.
+			import d.gc.util;
+			uint pages = (alignUp(size, PageSize) >> LgPageSize) & uint.max;
+			auto e = allocator.allocPages(&base, pages);
+			return e.addr;
+		}
 
 		auto run = allocateLargeRun(getAllocSize(size), zero);
 		if (run is null) {
