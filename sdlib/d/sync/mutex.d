@@ -40,6 +40,10 @@ public:
 		return word.casWeak(current, current | LockBit, MemoryOrder.Acquire);
 	}
 
+	bool isHeld() {
+		return (cast(shared(Mutex)*) &this).isHeld();
+	}
+
 	bool isHeld() shared {
 		return (word.load() & LockBit) != 0;
 	}
