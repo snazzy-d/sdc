@@ -96,7 +96,7 @@ public:
 
 		allocatedPages.clearRange(index, pages);
 		auto start = allocatedPages.findSetBackward(index) + 1;
-		auto stop = allocatedPages.findSet(index + pages);
+		auto stop = allocatedPages.findSet(index + pages - 1);
 
 		allocCount--;
 		usedCount -= pages;
@@ -163,7 +163,7 @@ unittest hugePageDescriptor {
 
 	checkRangeState(PageCount / 4, PageCount, 0);
 
-	// Release int he middle.
+	// Release in the middle.
 	hpd.release(100, 4);
 	checkRangeState(PageCount / 4 - 1, PageCount - 4, 4);
 
@@ -180,4 +180,11 @@ unittest hugePageDescriptor {
 
 	hpd.release(108, 4);
 	checkRangeState(PageCount / 4 - 5, PageCount - 20, 20);
+
+	// Release first and last.
+	hpd.release(0, 4);
+	checkRangeState(PageCount / 4 - 6, PageCount - 24, 20);
+
+	hpd.release(PageCount - 4, 4);
+	checkRangeState(PageCount / 4 - 7, PageCount - 28, 20);
 }
