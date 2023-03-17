@@ -29,10 +29,16 @@ public:
 	}
 
 	uint findSet(uint index) const {
+		// FIXME: in contracts.
+		assert(index < N);
+
 		return findValue!true(index);
 	}
 
 	uint findClear(uint index) const {
+		// FIXME: in contracts.
+		assert(index < N);
+
 		return findValue!false(index);
 	}
 
@@ -66,10 +72,16 @@ public:
 	}
 
 	int findSetBackward(uint index) const {
+		// FIXME: in contracts.
+		assert(index < N);
+
 		return findValueBackward!true(index);
 	}
 
 	int findClearBackward(uint index) const {
+		// FIXME: in contracts.
+		assert(index < N);
+
 		return findValueBackward!false(index);
 	}
 
