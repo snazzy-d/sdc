@@ -1,5 +1,6 @@
 module d.gc.allocator;
 
+import d.gc.base;
 import d.gc.extent;
 import d.gc.hpd;
 import d.gc.spec;
@@ -7,9 +8,6 @@ import d.gc.util;
 
 struct Allocator {
 private:
-	import d.gc.base;
-	shared(Base)* base;
-
 	import d.gc.hpa;
 	shared(HugePageAllocator)* hpa;
 
@@ -29,7 +27,7 @@ private:
 	Heap!(HugePageDescriptor, generationHPDCmp)[HeapCount] heaps;
 
 public:
-	Extent* allocPages(uint pages) shared {
+	Extent* allocPages(shared(Base)* base, uint pages) shared {
 		assert(pages > 0 && pages <= PageCount, "Invalid page count!");
 		auto mask = ulong.max << getAllocClass(pages);
 
@@ -39,7 +37,7 @@ public:
 			mutex.lock();
 			scope(exit) mutex.unlock();
 
-			e = (cast(Allocator*) &this).allocPagesImpl(pages, mask);
+			e = (cast(Allocator*) &this).allocPagesImpl(base, pages, mask);
 		}
 
 		if (e !is null) {
@@ -63,14 +61,16 @@ public:
 		// so we can safely remove it from the emap before locking.
 		emap.clear(e);
 
+		// FIXME: Save the extent for resuse later instead of leaking.
+
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(Allocator*) &this).freePagesImpl(e, n, pages);
+		(cast(Allocator*) &this).freePagesImpl(e.hpd, n, pages);
 	}
 
 private:
-	Extent* allocPagesImpl(uint pages, ulong mask) {
+	Extent* allocPagesImpl(shared(Base)* base, uint pages, ulong mask) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto e = base.allocExtent();
@@ -78,7 +78,7 @@ private:
 			return null;
 		}
 
-		auto hpd = extractHPD(pages, mask);
+		auto hpd = extractHPD(base, pages, mask);
 		auto n = hpd.reserve(pages);
 		if (!hpd.full) {
 			registerHPD(hpd);
@@ -91,10 +91,9 @@ private:
 		return e;
 	}
 
-	void freePagesImpl(Extent* e, uint n, uint pages) {
+	void freePagesImpl(HugePageDescriptor* hpd, uint n, uint pages) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto hpd = e.hpd;
 		if (!hpd.full) {
 			auto index = getFreeSpaceClass(hpd.longestFreeRange);
 			heaps[index].remove(hpd);
@@ -105,7 +104,7 @@ private:
 		registerHPD(hpd);
 	}
 
-	HugePageDescriptor* extractHPD(uint pages, ulong mask) {
+	HugePageDescriptor* extractHPD(shared(Base)* base, uint pages, ulong mask) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto acfilter = filter & mask;
@@ -141,7 +140,6 @@ unittest allocfree {
 	hpa.base = &base;
 
 	shared Allocator allocator;
-	allocator.base = &base;
 	allocator.hpa = &hpa;
 
 	import d.gc.emap;
@@ -149,13 +147,13 @@ unittest allocfree {
 	emap.tree.base = &base;
 	allocator.emap = &emap;
 
-	auto e0 = allocator.allocPages(1);
+	auto e0 = allocator.allocPages(&base, 1);
 	assert(e0 !is null);
 	assert(e0.size == PageSize);
 	auto pd0 = emap.lookup(e0.addr);
 	assert(pd0.extent is e0);
 
-	auto e1 = allocator.allocPages(2);
+	auto e1 = allocator.allocPages(&base, 2);
 	assert(e1 !is null);
 	assert(e1.size == 2 * PageSize);
 	assert(e1.addr is e0.addr + e0.size);
@@ -167,7 +165,7 @@ unittest allocfree {
 	assert(pdf.extent is null);
 
 	// Do not reuse the free slot is there is no room.
-	auto e2 = allocator.allocPages(3);
+	auto e2 = allocator.allocPages(&base, 3);
 	assert(e2 !is null);
 	assert(e2.size == 3 * PageSize);
 	assert(e2.addr is e1.addr + e1.size);
@@ -175,7 +173,7 @@ unittest allocfree {
 	assert(pd2.extent is e2);
 
 	// But do reuse that free slot if there isn't.
-	auto e3 = allocator.allocPages(1);
+	auto e3 = allocator.allocPages(&base, 1);
 	assert(e3 !is null);
 	assert(e3.size == PageSize);
 	assert(e3.addr is e0.addr);
