@@ -31,7 +31,7 @@ enum Level1Size = 1UL << Levels[1].bits;
 struct RTree(T) {
 private:
 	import d.gc.base;
-	Base* base;
+	shared(Base)* base;
 
 	import d.sync.mutex;
 	Mutex initMutex;
