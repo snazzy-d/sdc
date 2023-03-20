@@ -1,5 +1,7 @@
 module d.gc.arena;
 
+import d.gc.spec;
+
 extern(C) void* __sd_gc_tl_malloc(size_t size) {
 	return tl.alloc(size);
 }
@@ -169,7 +171,6 @@ private:
 		assert(binID < ClassCount.Small);
 		assert(bins[binID].current is null);
 
-		import d.gc.spec;
 		uint needPages = binInfos[binID].needPages;
 		auto runBinID = getSizeClass(needPages << LgPageSize);
 
@@ -357,7 +358,6 @@ private:
 		auto base = cast(void*) &c.datas[runID];
 		assert(ptr is base);
 
-		import d.gc.spec;
 		auto pages = cast(uint) (getSizeFromClass(binID) >> LgPageSize);
 		freeRun(c, runID, pages);
 	}
@@ -395,7 +395,6 @@ private:
 			}
 		}
 
-		import d.gc.spec;
 		auto runBinID =
 			cast(ubyte) (getSizeClass((pages << LgPageSize) + 1) - 1);
 
@@ -452,7 +451,6 @@ private:
 
 	Extent* extractHugeExtent(void* ptr) {
 		// XXX: in contracts
-		import d.gc.spec;
 		assert(((cast(size_t) ptr) & ChunkAlignMask) == 0);
 		assert(hugeMutex.isHeld(), "Mutex not held!");
 
@@ -603,7 +601,6 @@ private:
 		foreach (ptr; range) {
 			auto iptr = cast(size_t) ptr;
 
-			import d.gc.spec;
 			auto c = findChunk(ptr);
 			if (c !is null && chunkSet.test(c)) {
 				newPtr = c.mark(ptr) || newPtr;
@@ -695,7 +692,6 @@ struct ChunkSet {
 		// FIXME: in contract
 		assert(c !is null);
 
-		import d.gc.spec;
 		auto k = (cast(size_t) c) >> LgChunkSize;
 		auto mask = (1 << lgChunkSetSize) - 1;
 
@@ -733,7 +729,6 @@ private:
 	void insert(Chunk* c) {
 		auto mask = (1 << lgChunkSetSize) - 1;
 
-		import d.gc.spec;
 		auto k = (cast(size_t) c) >> LgChunkSize;
 		auto p = (cast(uint) k) & mask;
 
@@ -773,7 +768,6 @@ private:
 		lgChunkSetSize++;
 		assert(lgChunkSetSize <= 32);
 
-		import d.gc.spec;
 		// auto newChunks = cast(Chunk**) arena.calloc(Chunk*.sizeof << lgChunkSetSize);
 		auto newChunks =
 			cast(Chunk**) arena.calloc(size_t.sizeof << lgChunkSetSize);
