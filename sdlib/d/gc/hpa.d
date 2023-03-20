@@ -7,6 +7,18 @@ import d.gc.util;
 // Reserve memory in blocks of 1GB.
 enum RefillSize = 1024 * 1024 * 1024;
 
+@property
+shared(HugePageAllocator)* gHugePageAllocator() {
+	static shared HugePageAllocator hpa;
+
+	if (hpa.base is null) {
+		import d.gc.base;
+		hpa.base = &gBase;
+	}
+
+	return &hpa;
+}
+
 struct HugePageAllocator {
 private:
 	import d.gc.base;

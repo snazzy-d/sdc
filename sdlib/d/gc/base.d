@@ -4,6 +4,8 @@ import d.gc.extent;
 import d.gc.spec;
 import d.gc.util;
 
+shared Base gBase;
+
 /**
  * Bump the pointer style allocator.
  *

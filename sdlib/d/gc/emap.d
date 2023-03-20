@@ -4,7 +4,17 @@ import d.gc.extent;
 import d.gc.spec;
 import d.gc.util;
 
-shared ExtentMap extentMap;
+@property
+shared(ExtentMap)* gExtentMap() {
+	static shared ExtentMap emap;
+
+	if (emap.tree.base is null) {
+		import d.gc.base;
+		emap.tree.base = &gBase;
+	}
+
+	return &emap;
+}
 
 struct ExtentMap {
 private:
