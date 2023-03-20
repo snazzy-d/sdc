@@ -357,7 +357,7 @@ struct Chunk {
 			return false;
 		}
 
-		// Mark and add to worklist
+		// Mark and add to worklist.
 		bitmapPtr[index / 32] = elementBitmap | mask;
 
 		auto workLength = header.worklist.length + 1;
@@ -374,7 +374,7 @@ struct Chunk {
 	}
 
 	bool scan() {
-		auto newPtr = false;
+		bool newPtr = false;
 
 		while (header.worklist.length > 0) {
 			auto ptrs = header.worklist;
