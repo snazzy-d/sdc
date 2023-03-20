@@ -56,6 +56,8 @@ public:
 	}
 }
 
+static assert(Extent.Size <= Extent.Align, "Unexpected extent size!");
+
 ptrdiff_t identityExtentCmp(Extent* lhs, Extent* rhs) {
 	auto l = cast(size_t) lhs;
 	auto r = cast(size_t) rhs;
