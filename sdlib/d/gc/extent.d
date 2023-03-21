@@ -39,6 +39,9 @@ private:
 
 	Links _links;
 
+	import d.gc.bitmap;
+	Bitmap!512 _slabData;
+
 public:
 	this(Arena* arena, void* addr, size_t size) {
 		this(arena, addr, size, cast(ubyte) ClassCount.Total);
@@ -70,9 +73,21 @@ public:
 	ref RBNode rbnode() {
 		return _links.rbnode;
 	}
+
+	bool isSlab() const {
+		return (bits & 0x01) != 0;
+	}
+
+	@property
+	ref Bitmap!512 slabData() {
+		// FIXME: in contract.
+		assert(isSlab(), "slabData accessed on non slab!");
+
+		return _slabData;
+	}
 }
 
-static assert(Extent.Size <= Extent.Align, "Unexpected extent size!");
+static assert(Extent.Size == Extent.Align, "Unexpected extent size!");
 
 ptrdiff_t identityExtentCmp(Extent* lhs, Extent* rhs) {
 	auto l = cast(size_t) lhs;

@@ -685,7 +685,7 @@ auto computeDataPages() {
 		auto runDescEnd = computeRunDescEnd(dataPages);
 		auto requiredMetaPages = ((runDescEnd - 1) >> LgPageSize) + 1;
 
-		if (requiredMetaPages == metaPages) {
+		if (requiredMetaPages <= metaPages) {
 			return dataPages;
 		}
 	}
