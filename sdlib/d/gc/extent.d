@@ -1,12 +1,19 @@
 module d.gc.extent;
 
+import d.gc.heap;
 import d.gc.rbtree;
 import d.gc.sizeclass;
 import d.gc.util;
 
 alias ExtentTree = RBTree!(Extent, addrRangeExtentCmp);
 
+alias PHNode = heap.Node!Extent;
+alias RBNode = rbtree.Node!Extent;
+
 struct Extent {
+	enum Align = 128;
+	enum Size = alignUp(Extent.sizeof, Align);
+
 private:
 	ulong bits;
 
@@ -22,16 +29,15 @@ public:
 
 	// Not necesserly unique, as splitting an Extent
 	// Will create two extent with the same serial.
-	size_t serialNumber;
+	// size_t serialNumber;
 
-	// TODO: Various links for tree, heaps, etc...
-	import d.gc.rbtree;
-	Node!Extent rbnode;
+private:
+	union Links {
+		PHNode phnode;
+		RBNode rbnode;
+	}
 
-	// TODO: slab data and/or stats.
-
-	enum Align = 128;
-	enum Size = alignUp(Extent.sizeof, Align);
+	Links _links;
 
 public:
 	this(Arena* arena, void* addr, size_t size) {
@@ -53,6 +59,16 @@ public:
 		// FIXME: out contract.
 		assert(sc < ClassCount.Total);
 		return sc;
+	}
+
+	@property
+	ref PHNode phnode() {
+		return _links.phnode;
+	}
+
+	@property
+	ref RBNode rbnode() {
+		return _links.rbnode;
 	}
 }
 

@@ -28,9 +28,9 @@ private:
 	Block* blockFreeList;
 
 	// Available extents ready to be recycled.
-	import d.gc.rbtree, d.gc.extent;
-	alias AvailableExtentTree = RBTree!(Extent, identityExtentCmp);
-	AvailableExtentTree availableExtents;
+	import d.gc.heap;
+	alias AvailableExtentHeap = Heap!(Extent, identityExtentCmp);
+	AvailableExtentHeap availableExtents;
 
 	enum BlockPerExtent = Extent.Size / alignUp(Block.sizeof, Quantum);
 	static assert(BlockPerExtent == 5, "For documentation purpose.");
@@ -97,7 +97,7 @@ private:
 	auto allocExtentImpl() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto extent = availableExtents.extractAny();
+		auto extent = availableExtents.pop();
 		if (extent !is null) {
 			return extent;
 		}
