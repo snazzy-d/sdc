@@ -124,13 +124,18 @@ struct Arena {
 
 	void free(void* ptr) {
 		import d.gc.util;
-		if (isAligned(ptr, PageSize)) {
-			auto a = allocator;
-			auto pd = a.emap.lookup(ptr);
-			if (pd.extent !is null) {
+		auto aptr = alignDown(ptr, PageSize);
+
+		auto a = allocator;
+		auto pd = a.emap.lookup(aptr);
+		if (pd.extent !is null) {
+			assert(isAligned(ptr, PageSize) || pd.isSlab());
+
+			if (!pd.isSlab() || bins[pd.sizeClass].free(&this, ptr, pd)) {
 				a.freePages(pd.extent);
-				return;
 			}
+
+			return;
 		}
 
 		auto c = findChunk(ptr);
@@ -154,17 +159,22 @@ struct Arena {
 			return alloc(size);
 		}
 
-		auto newBinID = getSizeClass(size);
+		auto newSizeClass = getSizeClass(size);
 
 		// TODO: Try in place resize for large/huge.
-		auto oldBinID = newBinID;
+		auto oldSizeClass = newSizeClass;
 
 		import d.gc.util;
-		if (isAligned(ptr, PageSize)) {
-			auto a = allocator;
-			auto pd = a.emap.lookup(ptr);
-			if (pd.extent is null) {
-				goto Legacy;
+		auto aptr = alignDown(ptr, PageSize);
+
+		auto a = allocator;
+		auto pd = a.emap.lookup(aptr);
+		if (pd.extent !is null) {
+			assert(isAligned(ptr, PageSize) || pd.isSlab());
+
+			if (pd.isSlab()) {
+				oldSizeClass = pd.sizeClass;
+				goto Resize;
 			}
 
 			assert(pd.extent.addr is ptr);
@@ -184,27 +194,28 @@ struct Arena {
 
 			a.freePages(pd.extent);
 			return newPtr;
-		}
-
-	Legacy:
-		auto c = findChunk(ptr);
-		if (c !is null) {
-			// This is not a huge alloc, assert we own the arena.
-			assert(c.header.arena is &this);
-			oldBinID = c.pages[c.getRunID(ptr)].binID;
 		} else {
-			hugeMutex.lock();
-			scope(exit) hugeMutex.unlock();
+			// Legacy chunk codepath.
+			auto c = findChunk(ptr);
+			if (c !is null) {
+				// This is not a huge alloc, assert we own the arena.
+				assert(c.header.arena is &this);
+				oldSizeClass = c.pages[c.getRunID(ptr)].binID;
+			} else {
+				hugeMutex.lock();
+				scope(exit) hugeMutex.unlock();
 
-			auto e = extractHugeExtent(ptr);
-			assert(e !is null);
+				auto e = extractHugeExtent(ptr);
+				assert(e !is null);
 
-			// We need to keep it alive for now.
-			hugeTree.insert(e);
-			oldBinID = getSizeClass(e.size);
+				// We need to keep it alive for now.
+				hugeTree.insert(e);
+				oldSizeClass = getSizeClass(e.size);
+			}
 		}
 
-		if (newBinID == oldBinID) {
+	Resize:
+		if (newSizeClass == oldSizeClass) {
 			return ptr;
 		}
 
@@ -213,8 +224,9 @@ struct Arena {
 			return null;
 		}
 
-		auto cpySize =
-			(newBinID > oldBinID) ? getSizeFromClass(oldBinID) : size;
+		auto cpySize = (newSizeClass > oldSizeClass)
+			? getSizeFromClass(oldSizeClass)
+			: size;
 
 		memcpy(newPtr, ptr, cpySize);
 
@@ -236,36 +248,7 @@ private:
 		auto binID = getSizeClass(size);
 		assert(binID < ClassCount.Small);
 
-		return bins[binID].allocSmall(&this, binID);
-	}
-
-	RunDesc* allocateSmallRun(ubyte binID) {
-		// XXX: in contract.
-		assert(binID < ClassCount.Small);
-		assert(bins[binID].current is null);
-
-		uint needPages = binInfos[binID].needPages;
-		auto runBinID = getSizeClass(needPages << LgPageSize);
-
-		chunkMutex.lock();
-		scope(exit) chunkMutex.unlock();
-
-		auto run = extractFreeRun(runBinID);
-		if (run is null) {
-			return null;
-		}
-
-		auto c = run.chunk;
-		auto i = run.runID;
-
-		assert(run.chunk.pages[run.runID].free);
-		auto rem = c.splitSmallRun(i, binID);
-		if (rem) {
-			assert(c.pages[rem].free);
-			freeRunTree.insert(&c.runs[rem]);
-		}
-
-		return run;
+		return bins[binID].alloc(&this, binID);
 	}
 
 	/**
@@ -384,51 +367,9 @@ private:
 		auto runID = c.getRunID(ptr);
 		auto pd = c.pages[runID];
 		assert(pd.allocated);
+		assert(!pd.small);
 
-		if (pd.small) {
-			freeSmall(ptr, c, pd.binID, runID);
-		} else {
-			freeLarge(ptr, c, pd.binID, runID);
-		}
-	}
-
-	void freeSmall(void* ptr, Chunk* c, uint binID, uint runID) {
-		// XXX: in contract.
-		assert(binID < ClassCount.Small);
-
-		auto offset = (cast(size_t) ptr) - (cast(size_t) &c.datas[runID]);
-
-		auto binInfo = &binInfos[binID];
-		auto size = binInfo.itemSize;
-		auto index = binInfo.computeIndex(offset);
-
-		// Sanity check: no intern pointer.
-		auto base = cast(void*) &c.datas[runID];
-		assert(ptr is (base + size * index));
-
-		bins[binID].mutex.lock();
-		scope(exit) bins[binID].mutex.unlock();
-
-		auto run = &c.runs[runID];
-		run.small.free(index);
-
-		auto freeSlots = run.small.freeSlots;
-		if (freeSlots == binInfo.slots) {
-			if (run is bins[binID].current) {
-				bins[binID].current = null;
-			} else if (binInfo.slots > 1) {
-				// When we only have one slot in the run,
-				// it is never added to the tree.
-				bins[binID].runTree.remove(run);
-			}
-
-			bins[binID].mutex.unlock();
-			scope(exit) bins[binID].mutex.lock();
-
-			freeRun(c, runID, binInfo.needPages);
-		} else if (freeSlots == 1 && run !is bins[binID].current) {
-			bins[binID].runTree.insert(run);
-		}
+		freeLarge(ptr, c, pd.binID, runID);
 	}
 
 	void freeLarge(void* ptr, Chunk* c, uint binID, uint runID) {
@@ -786,6 +727,10 @@ struct ChunkSet {
 	}
 
 	Chunk*[] cloneChunks() {
+		if (chunks is null) {
+			return [];
+		}
+
 		auto oldLgChunkSetSize = lgChunkSetSize;
 		auto allocSize = size_t.sizeof << lgChunkSetSize;
 		auto buf = cast(Chunk**) arena.alloc(allocSize);

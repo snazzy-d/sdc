@@ -110,10 +110,10 @@ void main() {
 	assert(r0 !is r1);
 
 	r1 = _tl_gc_realloc(r1, 34 * 4096);
-	assert(r1 is r0);
+	assert(r1 !is r0);
 
 	r1 = _tl_gc_realloc(r1, 35 * 4096);
-	assert(r1 !is r0);
+	assert(r1 is r0);
 
 	// Huge realloc
 	r0 = _tl_gc_realloc(r1, 34 * 1024 * 1024);

@@ -1,6 +1,7 @@
 module d.gc.bin;
 
 import d.gc.arena;
+import d.gc.emap;
 import d.gc.spec;
 
 enum InvalidBinID = 0xff;
@@ -13,91 +14,128 @@ struct Bin {
 	import d.sync.mutex;
 	shared Mutex mutex;
 
-	import d.gc.run;
-	RunDesc* current;
+	import d.gc.extent;
+	Extent* current;
 
-	import d.gc.rbtree;
-	RBTree!(RunDesc, addrRunCmp) runTree;
+	import d.gc.heap;
+	Heap!(Extent, addrExtentCmp) slabs;
 
-	void* allocSmall(Arena* arena, ubyte binID) {
-		assert(binID < ClassCount.Small);
-		assert(&arena.bins[binID] == &this, "Invalid arena or binID");
+	void* alloc(Arena* arena, ubyte sizeClass) {
+		assert(sizeClass < ClassCount.Small);
+		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		auto run = getRun(arena, binID);
-		if (run is null) {
+		// Load eagerly as prefetching.
+		auto size = binInfos[sizeClass].itemSize;
+
+		auto slab = getSlab(arena, sizeClass);
+		if (slab is null) {
 			return null;
 		}
 
-		// Load eagerly as prefetching.
-		auto size = binInfos[binID].itemSize;
-		auto index = run.small.allocate();
-		auto base = cast(void*) &run.chunk.datas[run.runID];
+		auto index = slab.allocate();
+		return slab.addr + size * index;
+	}
 
-		return base + size * index;
+	bool free(Arena* arena, void* ptr, PageDescriptor pd) {
+		assert(pd.extent !is null, "Extent is null!");
+		assert(pd.isSlab(), "Expected a slab!");
+		assert(pd.extent.contains(ptr), "ptr not in slab!");
+		assert(&arena.bins[pd.sizeClass] == &this,
+		       "Invalid arena or sizeClass!");
+
+		// FIXME: Find a way to find the offset withotu dereferencing.
+		// FIXME: Implement pointer difference.
+		auto e = pd.extent;
+		auto base = e.addr;
+		auto offset = cast(size_t) ptr - cast(size_t) base;
+		auto sc = pd.sizeClass;
+		auto index = binInfos[sc].computeIndex(offset);
+
+		assert(ptr is base + index * binInfos[sc].itemSize);
+		e.free(index);
+
+		auto nfree = e.freeSlots;
+		auto slots = binInfos[sc].slots;
+
+		if (nfree == slots) {
+			if (e is current) {
+				current = null;
+				return true;
+			}
+
+			// If we only had one slot, we never got added to the heap.
+			if (slots > 1) {
+				slabs.remove(e);
+			}
+
+			return true;
+		}
+
+		if (nfree == 1 && e !is current) {
+			// Newly non empty.
+			assert(slots > 1);
+			slabs.insert(e);
+		}
+
+		return false;
 	}
 
 private:
-	auto tryGetRun() {
+	auto tryGetSlab() {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		// If the current run still have free slots, go for it.
-		if (current !is null && current.small.freeSlots != 0) {
+		// If the current slab still have free slots, go for it.
+		if (current !is null && current.freeSlots != 0) {
 			return current;
 		}
 
-		// We ran out of free slots, ditch the current run and try
-		// to find a new one in the tree.
-		auto run = runTree.bestfit(null);
-		if (run !is null) {
-			// TODO: Extract node in one step.
-			runTree.remove(run);
-		}
-
-		current = run;
-		return run;
+		current = slabs.pop();
+		return current;
 	}
 
-	auto getRun(Arena* arena, ubyte binID) {
+	auto getSlab(Arena* arena, ubyte sizeClass) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto run = tryGetRun();
-		if (run !is null) {
-			return run;
+		auto slab = tryGetSlab();
+		if (slab !is null) {
+			return slab;
 		}
 
 		{
-			// Release the lock while we allocate a run.
+			// Release the lock while we allocate a slab.
 			mutex.unlock();
 			scope(exit) mutex.lock();
 
-			// We don't have a suitable run, so allocate one.
-			run = arena.allocateSmallRun(binID);
+			// We don't have a suitable slab, so allocate one.
+			auto a = arena.allocator;
+			slab =
+				a.allocPages(arena, binInfos[sizeClass].needPages, sizeClass);
 		}
 
-		if (run is null) {
+		if (slab is null) {
 			// Another thread might have been successful
 			// while we did not hold the lock.
-			return tryGetRun();
+			return tryGetSlab();
 		}
 
-		// We may have allocated the run we need when allocating metadata.
-		if (current is null || current.small.freeSlots == 0) {
-			current = run;
-			return run;
+		// We may have allocated the slab we need when the lock was released.
+		if (current is null || current.freeSlots == 0) {
+			current = slab;
+			return slab;
 		}
 
-		// If we haven, then free the run we just allocated.
-		assert(run !is current);
-		assert(current.small.freeSlots > 0);
+		// If we have, then free the run we just allocated.
+		assert(slab !is current);
+		assert(current.freeSlots > 0);
 
 		// In which case we put the free run back in the tree.
-		assert(run.small.freeSlots == binInfos[binID].slots);
-		arena.freeRun(run.chunk, run.runID, binInfos[binID].needPages);
+		assert(slab.freeSlots == binInfos[sizeClass].slots);
+		arena.allocator.freePages(slab);
 
 		// And use the metadata run.
 		return current;
