@@ -35,15 +35,15 @@ public:
 		assert(countBits(0, N) < N, "Bitmap is full!");
 
 		foreach (i; 0 .. NimbleCount) {
-			auto n = bits[i];
-			if (~n == 0) {
+			auto n = bits[i] + 1;
+			if (n == 0) {
 				continue;
 			}
 
-			bits[i] |= (n + 1);
+			bits[i] |= n;
 
 			uint ret = i * NimbleSize;
-			ret += countTrailingZeros(~n);
+			ret += countTrailingZeros(n);
 
 			return ret;
 		}
