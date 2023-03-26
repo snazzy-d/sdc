@@ -20,6 +20,9 @@ public:
 	}
 
 	uint setFirst() {
+		// FIXME: in contract
+		assert(countBits(0, N) < N, "Bitmap is full!");
+
 		foreach (i; 0 .. NimbleCount) {
 			auto n = bits[i];
 			if (~n == 0) {
