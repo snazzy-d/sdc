@@ -182,7 +182,7 @@ struct Arena {
 			auto cpySize = min(size, esize);
 			memcpy(newPtr, ptr, cpySize);
 
-			free(ptr);
+			a.freePages(pd.extent);
 			return newPtr;
 		}
 
