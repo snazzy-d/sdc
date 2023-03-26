@@ -80,6 +80,10 @@ public:
 		return _links.rbnode;
 	}
 
+	bool contains(void* ptr) const {
+		return ptr >= addr && ptr < addr + size;
+	}
+
 	/**
 	 * Slab features.
 	 */
@@ -175,4 +179,20 @@ ptrdiff_t sizeAddrExtentCmp(Extent* lhs, Extent* rhs) {
 	}
 
 	return (lAddr > rAddr) - (lAddr < rAddr);
+}
+
+unittest contains {
+	auto base = cast(void*) 0x56789abcd000;
+	enum Size = 1234;
+
+	Extent e;
+	e.addr = base;
+	e.size = Size;
+
+	assert(!e.contains(base - 1));
+	assert(!e.contains(base + Size));
+
+	foreach (i; 0 .. Size) {
+		assert(e.contains(base + i));
+	}
 }
