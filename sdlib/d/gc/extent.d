@@ -121,6 +121,15 @@ public:
 		return slabData.setFirst();
 	}
 
+	void free(uint index) {
+		// FIXME: in contract.
+		assert(isSlab(), "slabData accessed on non slab!");
+		assert(slabData.valueAt(index), "Slot is already free!");
+
+		bits += (1UL << 48);
+		slabData.clearBit(index);
+	}
+
 	@property
 	ref Bitmap!512 slabData() {
 		// FIXME: in contract.
@@ -195,4 +204,37 @@ unittest contains {
 	foreach (i; 0 .. Size) {
 		assert(e.contains(base + i));
 	}
+}
+
+unittest allocfree {
+	import d.gc.spec;
+	auto e = Extent(null, null, PageSize, null, ubyte(0));
+
+	assert(e.isSlab());
+	assert(e.sizeClass == 0);
+	assert(e.freeSlots == 512);
+
+	assert(e.allocate() == 0);
+	assert(e.freeSlots == 511);
+
+	assert(e.allocate() == 1);
+	assert(e.freeSlots == 510);
+
+	assert(e.allocate() == 2);
+	assert(e.freeSlots == 509);
+
+	e.free(1);
+	assert(e.freeSlots == 510);
+
+	assert(e.allocate() == 1);
+	assert(e.freeSlots == 509);
+
+	assert(e.allocate() == 3);
+	assert(e.freeSlots == 508);
+
+	e.free(0);
+	e.free(3);
+	e.free(2);
+	e.free(1);
+	assert(e.freeSlots == 512);
 }
