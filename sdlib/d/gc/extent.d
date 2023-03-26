@@ -43,16 +43,25 @@ private:
 	Bitmap!512 _slabData;
 
 public:
-	this(Arena* arena, void* addr, size_t size) {
-		this(arena, addr, size, cast(ubyte) ClassCount.Total);
-	}
-
-	this(Arena* arena, void* addr, size_t size, ubyte sizeClass) {
-		this.bits = ulong(sizeClass) << 56;
-
+	this(Arena* arena, void* addr, size_t size, HugePageDescriptor* hpd,
+	     bool slab, ubyte sizeClass) {
 		this.arena = arena;
 		this.addr = addr;
 		this.size = size;
+		this.hpd = hpd;
+
+		bits = slab;
+		bits |= ulong(sizeClass) << 56;
+	}
+
+	this(Arena* arena, void* addr, size_t size, HugePageDescriptor* hpd) {
+		// FIXME: Overload resolution doesn't cast this properly.
+		this(arena, addr, size, hpd, false, ubyte(0));
+	}
+
+	this(Arena* arena, void* addr, size_t size, HugePageDescriptor* hpd,
+	     ubyte sizeClass) {
+		this(arena, addr, size, hpd, true, sizeClass);
 	}
 
 	@property

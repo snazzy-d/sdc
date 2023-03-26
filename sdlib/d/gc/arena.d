@@ -279,7 +279,7 @@ private:
 			// Use the huge page allocator.
 			import d.gc.util;
 			uint pages = (alignUp(size, PageSize) >> LgPageSize) & uint.max;
-			auto e = allocator.allocPages(&base, pages);
+			auto e = allocator.allocPages(&this, pages);
 			return e.addr;
 		}
 

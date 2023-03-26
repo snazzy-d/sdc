@@ -1,5 +1,6 @@
 module d.gc.allocator;
 
+import d.gc.arena;
 import d.gc.base;
 import d.gc.extent;
 import d.gc.hpd;
@@ -27,7 +28,8 @@ private:
 	Heap!(HugePageDescriptor, generationHPDCmp)[HeapCount] heaps;
 
 public:
-	Extent* allocPages(shared(Base)* base, uint pages) shared {
+	Extent* allocPages(shared(Arena)* arena, uint pages, bool slab,
+	                   ubyte sizeClass) shared {
 		assert(pages > 0 && pages <= PageCount, "Invalid page count!");
 		auto mask = ulong.max << getAllocClass(pages);
 
@@ -37,7 +39,8 @@ public:
 			mutex.lock();
 			scope(exit) mutex.unlock();
 
-			e = (cast(Allocator*) &this).allocPagesImpl(base, pages, mask);
+			e = (cast(Allocator*) &this)
+				.allocPagesImpl(arena, pages, mask, slab, sizeClass);
 		}
 
 		if (e !is null) {
@@ -45,6 +48,16 @@ public:
 		}
 
 		return e;
+	}
+
+	Extent* allocPages(shared(Arena)* arena, uint pages) shared {
+		// FIXME: Overload resolution doesn't cast this properly.
+		return allocPages(arena, pages, false, ubyte(0));
+	}
+
+	Extent* allocPages(shared(Arena)* arena, uint pages,
+	                   ubyte sizeClass) shared {
+		return allocPages(arena, pages, true, sizeClass);
 	}
 
 	void freePages(Extent* e) shared {
@@ -70,9 +83,11 @@ public:
 	}
 
 private:
-	Extent* allocPagesImpl(shared(Base)* base, uint pages, ulong mask) {
+	Extent* allocPagesImpl(shared(Arena)* arena, uint pages, ulong mask,
+	                       bool slab, ubyte sizeClass) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
+		auto base = &arena.base;
 		auto e = base.allocExtent();
 		if (e is null) {
 			return null;
@@ -84,10 +99,10 @@ private:
 			registerHPD(hpd);
 		}
 
-		e.addr = hpd.address + n * PageSize;
-		e.size = pages * PageSize;
-		e.hpd = hpd;
+		auto addr = hpd.address + n * PageSize;
+		auto size = pages * PageSize;
 
+		*e = Extent(cast(Arena*) arena, addr, size, hpd, slab, sizeClass);
 		return e;
 	}
 
@@ -131,29 +146,31 @@ private:
 }
 
 unittest allocfree {
-	import d.gc.base;
-	shared Base base;
+	import d.gc.arena;
+	Arena arena;
+
+	auto base = &arena.base;
 	scope(exit) base.clear();
 
 	import d.gc.hpa;
 	shared HugePageAllocator hpa;
-	hpa.base = &base;
+	hpa.base = base;
 
 	shared Allocator allocator;
 	allocator.hpa = &hpa;
 
 	import d.gc.emap;
 	static shared ExtentMap emap;
-	emap.tree.base = &base;
+	emap.tree.base = base;
 	allocator.emap = &emap;
 
-	auto e0 = allocator.allocPages(&base, 1);
+	auto e0 = allocator.allocPages(&arena, 1);
 	assert(e0 !is null);
 	assert(e0.size == PageSize);
 	auto pd0 = emap.lookup(e0.addr);
 	assert(pd0.extent is e0);
 
-	auto e1 = allocator.allocPages(&base, 2);
+	auto e1 = allocator.allocPages(&arena, 2);
 	assert(e1 !is null);
 	assert(e1.size == 2 * PageSize);
 	assert(e1.addr is e0.addr + e0.size);
@@ -165,7 +182,7 @@ unittest allocfree {
 	assert(pdf.extent is null);
 
 	// Do not reuse the free slot is there is no room.
-	auto e2 = allocator.allocPages(&base, 3);
+	auto e2 = allocator.allocPages(&arena, 3);
 	assert(e2 !is null);
 	assert(e2.size == 3 * PageSize);
 	assert(e2.addr is e1.addr + e1.size);
@@ -173,7 +190,7 @@ unittest allocfree {
 	assert(pd2.extent is e2);
 
 	// But do reuse that free slot if there isn't.
-	auto e3 = allocator.allocPages(&base, 1);
+	auto e3 = allocator.allocPages(&arena, 1);
 	assert(e3 !is null);
 	assert(e3.size == PageSize);
 	assert(e3.addr is e0.addr);
