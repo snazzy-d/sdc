@@ -396,11 +396,11 @@ private:
 		// XXX: in contract.
 		assert(binID < ClassCount.Small);
 
-		auto offset = (cast(uint) ptr) - (cast(uint) &c.datas[runID]);
+		auto offset = (cast(size_t) ptr) - (cast(size_t) &c.datas[runID]);
 
-		auto binInfo = binInfos[binID];
+		auto binInfo = &binInfos[binID];
 		auto size = binInfo.itemSize;
-		auto index = offset / size;
+		auto index = binInfo.computeIndex(offset);
 
 		// Sanity check: no intern pointer.
 		auto base = cast(void*) &c.datas[runID];

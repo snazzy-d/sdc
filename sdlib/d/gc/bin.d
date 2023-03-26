@@ -1,6 +1,7 @@
 module d.gc.bin;
 
 import d.gc.arena;
+import d.gc.spec;
 
 enum InvalidBinID = 0xff;
 
@@ -131,8 +132,11 @@ struct BinInfo {
 		this.mul = mulIndices[tag];
 	}
 
-	uint computeIndex(uint offset) const {
-		return (offset * mul) >> shift;
+	uint computeIndex(size_t offset) const {
+		// FIXME: in contract.
+		assert(offset < needPages * PageSize, "Offset out of bounds!");
+
+		return cast(uint) ((offset * mul) >> shift);
 	}
 }
 
