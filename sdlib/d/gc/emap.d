@@ -106,7 +106,8 @@ public:
 
 	@property
 	Extent* extent() {
-		return cast(Extent*) (data & ~0x01);
+		enum Mask = AddressSpace - Extent.Align;
+		return cast(Extent*) (data & Mask);
 	}
 
 	bool isSlab() const {
