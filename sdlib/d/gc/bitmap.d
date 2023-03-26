@@ -2,6 +2,8 @@ module d.gc.bitmap;
 
 import d.gc.util;
 
+import sdc.intrinsics;
+
 struct Bitmap(uint N) {
 private:
 	enum uint NimbleSize = 8 * ulong.sizeof;
@@ -17,15 +19,22 @@ public:
 		}
 	}
 
-	bool clearLowestBit() {
+	uint setFirst() {
 		foreach (i; 0 .. NimbleCount) {
-			if (bits[i] != 0) {
-				bits[i] &= (bits[i] - 1);
-				return true;
+			auto n = bits[i];
+			if (~n == 0) {
+				continue;
 			}
+
+			bits[i] |= (n + 1);
+
+			uint ret = i * NimbleSize;
+			ret += countTrailingZeros(~n);
+
+			return ret;
 		}
 
-		return false;
+		return -1;
 	}
 
 	uint findSet(uint index) const {
@@ -61,7 +70,6 @@ public:
 			current = bits[i++] ^ flip;
 		}
 
-		import sdc.intrinsics;
 		uint ret = countTrailingZeros(current);
 		ret += (i - 1) * NimbleSize;
 		if (DeadBits > 0) {
@@ -106,7 +114,6 @@ public:
 			current = bits[i--] ^ flip;
 		}
 
-		import sdc.intrinsics;
 		int clz = countLeadingZeros(current);
 		return (i + 2) * NimbleSize - clz - 1;
 	}
@@ -187,7 +194,6 @@ public:
 		auto i = index / NimbleSize;
 		auto offset = index % NimbleSize;
 
-		import sdc.intrinsics;
 		if (length <= NimbleSize - offset) {
 			// The whole count fit within one nimble.
 			auto shift = NimbleSize - length;
@@ -213,6 +219,30 @@ public:
 
 		return count;
 	}
+}
+
+unittest setFirst {
+	Bitmap!256 bmp;
+	bmp.bits = [~0x80, ~0x80, ~0x80, ~0x80];
+
+	void checkBitmap(ulong a, ulong b, ulong c, ulong d) {
+		assert(bmp.bits[0] == a);
+		assert(bmp.bits[1] == b);
+		assert(bmp.bits[2] == c);
+		assert(bmp.bits[3] == d);
+	}
+
+	bmp.setFirst();
+	checkBitmap(~0, ~0x80, ~0x80, ~0x80);
+
+	bmp.setFirst();
+	checkBitmap(~0, ~0, ~0x80, ~0x80);
+
+	bmp.setFirst();
+	checkBitmap(~0, ~0, ~0, ~0x80);
+
+	bmp.setFirst();
+	checkBitmap(~0, ~0, ~0, ~0);
 }
 
 unittest findValue {
