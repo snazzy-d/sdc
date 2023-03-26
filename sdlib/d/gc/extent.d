@@ -44,14 +44,20 @@ private:
 
 public:
 	this(Arena* arena, void* addr, size_t size, HugePageDescriptor* hpd,
-	     bool slab, ubyte sizeClass) {
+	     bool is_slab, ubyte sizeClass) {
+		// FIXME: in contract.
+		assert(sizeClass < ClassCount.Small,
+		       "Invalid size class for small extent!");
+
 		this.arena = arena;
 		this.addr = addr;
 		this.size = size;
 		this.hpd = hpd;
 
-		bits = slab;
-		bits |= ulong(sizeClass) << 56;
+		import d.gc.bin;
+		bits = is_slab;
+		bits |= ulong(sizeClass) << 58;
+		bits |= ulong(binInfos[sizeClass].slots) << 48;
 	}
 
 	this(Arena* arena, void* addr, size_t size, HugePageDescriptor* hpd) {
@@ -65,15 +71,6 @@ public:
 	}
 
 	@property
-	ubyte sizeClass() const {
-		ubyte sc = bits >> 56;
-
-		// FIXME: out contract.
-		assert(sc < ClassCount.Total);
-		return sc;
-	}
-
-	@property
 	ref PHNode phnode() {
 		return _links.phnode;
 	}
@@ -83,8 +80,41 @@ public:
 		return _links.rbnode;
 	}
 
+	/**
+	 * Slab features.
+	 */
 	bool isSlab() const {
 		return (bits & 0x01) != 0;
+	}
+
+	@property
+	ubyte sizeClass() const {
+		// FIXME: in contract.
+		assert(isSlab(), "slabData accessed on non slab!");
+
+		ubyte sc = bits >> 58;
+
+		// FIXME: out contract.
+		assert(sc < ClassCount.Small);
+		return sc;
+	}
+
+	@property
+	uint freeSlots() const {
+		// FIXME: in contract.
+		assert(isSlab(), "slabData accessed on non slab!");
+
+		enum Mask = (1 << 10) - 1;
+		return (bits >> 48) & Mask;
+	}
+
+	uint allocate() {
+		// FIXME: in contract.
+		assert(isSlab(), "slabData accessed on non slab!");
+		assert(freeSlots > 0, "Slab is full!");
+
+		scope(success) bits -= (1UL << 48);
+		return slabData.setFirst();
 	}
 
 	@property

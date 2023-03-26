@@ -22,29 +22,44 @@ private:
 	RTree!PageDescriptor tree;
 
 public:
-	PageDescriptor lookup(void* addr) shared {
-		auto leaf = tree.get(addr);
+	PageDescriptor lookup(void* address) shared {
+		auto leaf = tree.get(address);
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
+	void remap(Extent* extent, bool is_slab, ubyte sizeClass) shared {
+		batchMapImpl(extent.addr, extent.size,
+		             PageDescriptor(extent, is_slab, sizeClass));
+	}
+
+	void remap(Extent* extent, ubyte sizeClass) shared {
+		// FIXME: in contract.
+		assert(extent.isSlab(), "Extent is expected to be a slab!");
+		assert(extent.sizeClass == sizeClass, "Invalid size class!");
+
+		remap(extent, true, sizeClass);
+	}
+
 	void remap(Extent* extent) shared {
-		batchMapImpl(extent, PageDescriptor(extent, false));
+		// FIXME: in contract.
+		assert(!extent.isSlab(), "Extent is a slab!");
+
+		// FIXME: Overload resolution doesn't cast this properly.
+		remap(extent, false, ubyte(0));
 	}
 
 	void clear(Extent* extent) shared {
-		batchMapImpl(extent, PageDescriptor(0));
+		batchMapImpl(extent.addr, extent.size, PageDescriptor(0));
 	}
 
 private:
-	void batchMapImpl(Extent* extent, PageDescriptor pd) shared {
+	void batchMapImpl(void* address, size_t size, PageDescriptor pd) shared {
 		// FIXME: in contract.
-		assert(isAligned(extent.addr, PageSize),
-		       "Incorrectly aligned extent.addr!");
-		assert(isAligned(extent.size, PageSize),
-		       "Incorrectly aligned extent.size!");
+		assert(isAligned(address, PageSize), "Incorrectly aligned address!");
+		assert(isAligned(size, PageSize), "Incorrectly aligned size!");
 
-		auto start = extent.addr;
-		auto stop = start + extent.size;
+		auto start = address;
+		auto stop = start + size;
 
 		for (auto ptr = start; ptr < stop; ptr += PageSize) {
 			// FIXME: batch set, so we don't need L0 lookup again and again.
@@ -63,8 +78,26 @@ package:
 	}
 
 public:
-	this(Extent* extent, bool is_slab) {
-		this(is_slab | cast(ulong) extent);
+	this(Extent* extent, bool is_slab, ubyte sizeClass) {
+		data = is_slab;
+		data |= cast(size_t) extent;
+		data |= ulong(sizeClass) << 58;
+	}
+
+	this(Extent* extent, ubyte sizeClass) {
+		// FIXME: in contract.
+		assert(extent.isSlab(), "Extent is expected to be a slab!");
+		assert(extent.sizeClass == sizeClass, "Invalid size class!");
+
+		this(extent, true, sizeClass);
+	}
+
+	this(Extent* extent) {
+		// FIXME: in contract.
+		assert(!extent.isSlab(), "Extent is a slab!");
+
+		// FIXME: Overload resolution doesn't cast this properly.
+		this(extent, false, ubyte(0));
 	}
 
 	auto toLeafPayload() const {
@@ -78,6 +111,19 @@ public:
 
 	bool isSlab() const {
 		return (data & 0x01) != 0;
+	}
+
+	@property
+	ubyte sizeClass() const {
+		// FIXME: in contract.
+		assert(isSlab(), "slabData accessed on non slab!");
+
+		ubyte sc = data >> 58;
+
+		// FIXME: out contract.
+		import d.gc.sizeclass;
+		assert(sc < ClassCount.Small);
+		return sc;
 	}
 }
 
@@ -99,7 +145,7 @@ unittest ExtentMap {
 
 	// Map a range.
 	emap.remap(&e);
-	auto pd = PageDescriptor(&e, false);
+	auto pd = PageDescriptor(&e);
 
 	auto end = ptr + e.size;
 	for (auto p = ptr; p < end; p += PageSize) {

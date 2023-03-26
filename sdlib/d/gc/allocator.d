@@ -28,7 +28,7 @@ private:
 	Heap!(HugePageDescriptor, generationHPDCmp)[HeapCount] heaps;
 
 public:
-	Extent* allocPages(shared(Arena)* arena, uint pages, bool slab,
+	Extent* allocPages(shared(Arena)* arena, uint pages, bool is_slab,
 	                   ubyte sizeClass) shared {
 		assert(pages > 0 && pages <= PageCount, "Invalid page count!");
 		auto mask = ulong.max << getAllocClass(pages);
@@ -40,11 +40,11 @@ public:
 			scope(exit) mutex.unlock();
 
 			e = (cast(Allocator*) &this)
-				.allocPagesImpl(arena, pages, mask, slab, sizeClass);
+				.allocPagesImpl(arena, pages, mask, is_slab, sizeClass);
 		}
 
 		if (e !is null) {
-			emap.remap(e);
+			emap.remap(e, is_slab, sizeClass);
 		}
 
 		return e;
@@ -84,7 +84,7 @@ public:
 
 private:
 	Extent* allocPagesImpl(shared(Arena)* arena, uint pages, ulong mask,
-	                       bool slab, ubyte sizeClass) {
+	                       bool is_slab, ubyte sizeClass) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto base = &arena.base;
@@ -102,7 +102,7 @@ private:
 		auto addr = hpd.address + n * PageSize;
 		auto size = pages * PageSize;
 
-		*e = Extent(cast(Arena*) arena, addr, size, hpd, slab, sizeClass);
+		*e = Extent(cast(Arena*) arena, addr, size, hpd, is_slab, sizeClass);
 		return e;
 	}
 
