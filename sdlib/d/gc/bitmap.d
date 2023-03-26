@@ -19,6 +19,17 @@ public:
 		}
 	}
 
+	bool valueAt(uint index) const {
+		// FIXME: in contracts.
+		assert(index < N);
+
+		auto i = index / NimbleSize;
+		auto o = index % NimbleSize;
+		auto n = bits[i] >> o;
+
+		return (n & 0x01) != 0;
+	}
+
 	uint setFirst() {
 		// FIXME: in contract
 		assert(countBits(0, N) < N, "Bitmap is full!");
@@ -136,6 +147,29 @@ public:
 		return true;
 	}
 
+	void setBit(uint index) {
+		setBitValue!true(index);
+	}
+
+	void clearBit(uint index) {
+		setBitValue!false(index);
+	}
+
+	void setBitValue(bool V)(uint index) {
+		// FIXME: in contracts.
+		assert(index < N);
+
+		auto i = index / NimbleSize;
+		auto o = index % NimbleSize;
+		auto b = ulong(1) << o;
+
+		if (V) {
+			bits[i] |= b;
+		} else {
+			bits[i] &= ~b;
+		}
+	}
+
 	void setRange(uint index, uint length) {
 		setRangeValue!true(index, length);
 	}
@@ -224,6 +258,39 @@ public:
 	}
 }
 
+unittest valueAt {
+	Bitmap!256 bmp;
+	bmp.bits = [~0x80, ~0x80, ~0x80, ~0x80];
+
+	foreach (i; 0 .. 7) {
+		assert(bmp.valueAt(i));
+	}
+
+	assert(!bmp.valueAt(7));
+
+	foreach (i; 8 .. 71) {
+		assert(bmp.valueAt(i));
+	}
+
+	assert(!bmp.valueAt(71));
+
+	foreach (i; 72 .. 135) {
+		assert(bmp.valueAt(i));
+	}
+
+	assert(!bmp.valueAt(135));
+
+	foreach (i; 136 .. 199) {
+		assert(bmp.valueAt(i));
+	}
+
+	assert(!bmp.valueAt(199));
+
+	foreach (i; 200 .. 256) {
+		assert(bmp.valueAt(i));
+	}
+}
+
 unittest setFirst {
 	Bitmap!256 bmp;
 	bmp.bits = [~0x80, ~0x80, ~0x80, ~0x80];
@@ -234,6 +301,8 @@ unittest setFirst {
 		assert(bmp.bits[2] == c);
 		assert(bmp.bits[3] == d);
 	}
+
+	checkBitmap(~0x80, ~0x80, ~0x80, ~0x80);
 
 	bmp.setFirst();
 	checkBitmap(~0, ~0x80, ~0x80, ~0x80);
@@ -316,6 +385,48 @@ unittest nextFreeRange {
 	// The last one return false because
 	// there is no remaining free range.
 	assert(!bmp.nextFreeRange(index + length, index, length));
+}
+
+unittest setBit {
+	Bitmap!256 bmp;
+
+	void checkBitmap(ulong a, ulong b, ulong c, ulong d) {
+		assert(bmp.bits[0] == a);
+		assert(bmp.bits[1] == b);
+		assert(bmp.bits[2] == c);
+		assert(bmp.bits[3] == d);
+	}
+
+	checkBitmap(0, 0, 0, 0);
+
+	bmp.setBit(0);
+	checkBitmap(1, 0, 0, 0);
+
+	// Dobule set does nothing.
+	bmp.setBit(0);
+	checkBitmap(1, 0, 0, 0);
+
+	bmp.setBit(3);
+	checkBitmap(9, 0, 0, 0);
+
+	bmp.setBit(42);
+	checkBitmap(0x0000040000000009, 0, 0, 0);
+
+	bmp.setBit(63);
+	checkBitmap(0x8000040000000009, 0, 0, 0);
+
+	bmp.clearBit(0);
+	checkBitmap(0x8000040000000008, 0, 0, 0);
+
+	// Double clear does nothing.
+	bmp.clearBit(0);
+	checkBitmap(0x8000040000000008, 0, 0, 0);
+
+	bmp.setBit(64);
+	checkBitmap(0x8000040000000008, 1, 0, 0);
+
+	bmp.setBit(255);
+	checkBitmap(0x8000040000000008, 1, 0, 0x8000000000000000);
 }
 
 unittest setRange {
