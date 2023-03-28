@@ -46,9 +46,9 @@ struct Arena {
 	shared(Allocator)* allocator() {
 		auto a = &_allocator;
 
-		if (a.hpa is null) {
-			import d.gc.hpa;
-			a.hpa = gHugePageAllocator;
+		if (a.regionAllocator is null) {
+			import d.gc.region;
+			a.regionAllocator = gRegionAllocator;
 
 			import d.gc.emap;
 			a.emap = gExtentMap;

@@ -10,8 +10,8 @@ import d.gc.util;
 
 struct Allocator {
 private:
-	import d.gc.hpa;
-	shared(HugePageAllocator)* hpa;
+	import d.gc.region;
+	shared(RegionAllocator)* regionAllocator;
 
 	import d.gc.emap;
 	shared(ExtentMap)* emap;
@@ -125,7 +125,7 @@ private:
 
 		auto acfilter = filter & mask;
 		if (acfilter == 0) {
-			return hpa.extract(base);
+			return regionAllocator.extract(base);
 		}
 
 		import sdc.intrinsics;
@@ -153,12 +153,12 @@ unittest allocfree {
 	auto base = &arena.base;
 	scope(exit) base.clear();
 
-	import d.gc.hpa;
-	shared HugePageAllocator hpa;
-	hpa.base = base;
+	import d.gc.region;
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = base;
 
 	shared Allocator allocator;
-	allocator.hpa = &hpa;
+	allocator.regionAllocator = &regionAllocator;
 
 	import d.gc.emap;
 	static shared ExtentMap emap;
