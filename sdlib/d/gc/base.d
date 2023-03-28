@@ -32,9 +32,6 @@ private:
 	alias AvailableExtentHeap = Heap!(Extent, identityExtentCmp);
 	AvailableExtentHeap availableExtents;
 
-	enum BlockPerExtent = Extent.Size / alignUp(Block.sizeof, Quantum);
-	static assert(BlockPerExtent == 5, "For documentation purpose.");
-
 public:
 	void clear() shared {
 		mutex.lock();
@@ -196,6 +193,10 @@ private:
 		assert(availableMetadatSlots > 0, "No Metadata slot available!");
 		assert(isAligned(nextMetadataAddr, Extent.Align),
 		       "Invalid nextMetadataAddr alignment!");
+		assert(blockFreeList is null, "There are blocks in the freelist!");
+
+		enum BlockPerExtent = Extent.Size / alignUp(Block.sizeof, Quantum);
+		static assert(BlockPerExtent == 5, "For documentation purposes.");
 
 		auto ret = cast(Block*) nextMetadataAddr;
 		nextMetadataAddr += Extent.Size;
@@ -203,10 +204,10 @@ private:
 
 		foreach (i; 2 .. BlockPerExtent) {
 			ret[i - 1].next = &ret[i];
+			ret[i].next = null;
 		}
 
 		if (BlockPerExtent > 1) {
-			ret[BlockPerExtent - 1].next = blockFreeList;
 			blockFreeList = &ret[1];
 		}
 
