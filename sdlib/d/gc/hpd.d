@@ -14,11 +14,12 @@ import d.gc.util;
 struct HugePageDescriptor {
 private:
 	void* address;
-	ulong generation;
+	ulong epoch;
 
 	uint allocCount;
 	uint usedCount;
 	uint longestFreeRange = PageCount;
+	ubyte generation;
 
 	import d.gc.heap;
 	Node!HugePageDescriptor phnode;
@@ -28,10 +29,16 @@ private:
 	import d.gc.bitmap;
 	Bitmap!PageCount allocatedPages;
 
-public:
-	this(void* address, ulong generation) {
+	this(void* address, ulong epoch, ubyte generation = 0) {
 		this.address = address;
+		this.epoch = epoch;
 		this.generation = generation;
+	}
+
+public:
+	HugePageDescriptor* at(void* ptr, ulong epoch) {
+		this = HugePageDescriptor(ptr, epoch, generation);
+		return &this;
 	}
 
 	@property
@@ -104,11 +111,23 @@ public:
 	}
 }
 
-ptrdiff_t generationHPDCmp(HugePageDescriptor* lhs, HugePageDescriptor* rhs) {
-	auto lg = lhs.generation;
-	auto rg = rhs.generation;
+ptrdiff_t epochHPDCmp(HugePageDescriptor* lhs, HugePageDescriptor* rhs) {
+	auto lg = lhs.epoch;
+	auto rg = rhs.epoch;
 
 	return (lg > rg) - (lg < rg);
+}
+
+ptrdiff_t unusedHPDCmp(HugePageDescriptor* lhs, HugePageDescriptor* rhs) {
+	static assert(LgAddressSpace <= 56, "Address space too large!");
+
+	auto l = ulong(lhs.generation) << 56;
+	auto r = ulong(rhs.generation) << 56;
+
+	l |= cast(size_t) lhs;
+	r |= cast(size_t) rhs;
+
+	return (l > r) - (l < r);
 }
 
 unittest hugePageDescriptor {

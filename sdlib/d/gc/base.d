@@ -74,13 +74,6 @@ public:
 		return (cast(Base*) &this).allocExtentImpl();
 	}
 
-	auto allocHugePageDescriptor() shared {
-		import d.gc.hpd;
-		static assert(HugePageDescriptor.sizeof <= Extent.Size);
-
-		return cast(HugePageDescriptor*) allocExtent();
-	}
-
 	void* reserveAddressSpace(size_t size) shared {
 		// Bump the alignement to huge page size if apropriate.
 		auto alignment =

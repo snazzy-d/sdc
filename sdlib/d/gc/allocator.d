@@ -4,6 +4,7 @@ import d.gc.allocclass;
 import d.gc.arena;
 import d.gc.base;
 import d.gc.extent;
+import d.gc.heap;
 import d.gc.hpd;
 import d.gc.spec;
 import d.gc.util;
@@ -19,14 +20,15 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
+	Heap!(HugePageDescriptor, unusedHPDCmp) unusedHPDs;
+
 	ulong filter;
 
 	enum PageCount = HugePageDescriptor.PageCount;
 	enum HeapCount = getAllocClass(PageCount) + 1;
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
-	import d.gc.heap;
-	Heap!(HugePageDescriptor, generationHPDCmp)[HeapCount] heaps;
+	Heap!(HugePageDescriptor, epochHPDCmp)[HeapCount] heaps;
 
 public:
 	Extent* allocPages(shared(Arena)* arena, uint pages, bool is_slab,
@@ -125,7 +127,7 @@ private:
 
 		auto acfilter = filter & mask;
 		if (acfilter == 0) {
-			return regionAllocator.extract(base);
+			return allocateHPD(base);
 		}
 
 		import sdc.intrinsics;
@@ -134,6 +136,31 @@ private:
 		filter &= ~(ulong(heaps[index].empty) << index);
 
 		return hpd;
+	}
+
+	HugePageDescriptor* allocateHPD(shared(Base)* base) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto hpd = unusedHPDs.pop();
+		if (hpd is null) {
+			static assert(HugePageDescriptor.sizeof <= Extent.Size,
+			              "Unexpected HugePageDescriptor size!");
+
+			auto slot = base.allocSlot();
+			hpd = cast(HugePageDescriptor*) slot.address;
+			if (hpd is null) {
+				return null;
+			}
+
+			*hpd = HugePageDescriptor(null, 0, slot.generation);
+		}
+
+		if (regionAllocator.extract(hpd)) {
+			return hpd;
+		}
+
+		unusedHPDs.insert(hpd);
+		return null;
 	}
 
 	void registerHPD(HugePageDescriptor* hpd) {

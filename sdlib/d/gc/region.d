@@ -38,7 +38,7 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	ulong nextGeneration;
+	ulong nextEpoch;
 
 	// Free regions we can allocate from.
 	ClassTree regionsByClass;
@@ -48,15 +48,15 @@ private:
 	Heap!(Region, unusedRegionCmp) unusedRegions;
 
 public:
-	HugePageDescriptor* extract(shared(Base)* allocatorBase) shared {
+	bool extract(HugePageDescriptor* hpd) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(RegionAllocator*) &this).extractImpl(allocatorBase);
+		return (cast(RegionAllocator*) &this).extractImpl(hpd);
 	}
 
 private:
-	HugePageDescriptor* extractImpl(shared(Base)* allocatorBase) {
+	bool extractImpl(HugePageDescriptor* hpd) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto rr = Region(null, HugePageSize);
@@ -65,7 +65,7 @@ private:
 		if (r is null) {
 			r = refillAddressSpace();
 			if (r is null) {
-				return null;
+				return false;
 			}
 		} else {
 			regionsByRange.remove(r);
@@ -76,26 +76,18 @@ private:
 		assert(r.size >= HugePageSize && isAligned(r.size, HugePageSize),
 		       "Invalid size!");
 
-		scope(success) {
-			if (r.size > 0) {
-				regionsByClass.insert(r);
-				regionsByRange.insert(r);
-			} else {
-				unusedRegions.insert(r);
-			}
+		hpd.at(r.address, nextEpoch++);
+
+		auto newSize = r.size - HugePageSize;
+		if (newSize == 0) {
+			unusedRegions.insert(r);
+			return true;
 		}
 
-		auto hpd = allocatorBase.allocHugePageDescriptor();
-		if (hpd is null) {
-			return null;
-		}
-
-		scope(success) {
-			r.at(r.address + HugePageSize, r.size - HugePageSize);
-		}
-
-		*hpd = HugePageDescriptor(r.address, nextGeneration++);
-		return hpd;
+		r.at(r.address + HugePageSize, newSize);
+		regionsByClass.insert(r);
+		regionsByRange.insert(r);
+		return true;
 	}
 
 	Region* refillAddressSpace() {
@@ -126,6 +118,9 @@ private:
 		              "Unexpected Region size!");
 
 		auto slot = base.allocSlot();
+		if (slot.address is null) {
+			return null;
+		}
 
 		auto r0 = cast(Region*) slot.address;
 		*r0 = Region(null, 0, slot.generation);
@@ -146,13 +141,16 @@ unittest extract {
 	shared RegionAllocator regionAllocator;
 	regionAllocator.base = &base;
 
-	ulong expectedGeneration = 0;
-	auto hpd0 = regionAllocator.extract(&base);
-	assert(hpd0.generation == expectedGeneration++);
+	ulong expectedEpoch = 0;
+	HugePageDescriptor hpd0;
+
+	assert(regionAllocator.extract(&hpd0));
+	assert(hpd0.epoch == expectedEpoch++);
 
 	foreach (i; 1 .. RefillSize / HugePageSize) {
-		auto hpd = regionAllocator.extract(&base);
-		assert(hpd.generation == expectedGeneration++);
+		HugePageDescriptor hpd;
+		assert(regionAllocator.extract(&hpd));
+		assert(hpd.epoch == expectedEpoch++);
 		assert(hpd.address is hpd0.address + i * HugePageSize);
 	}
 }
