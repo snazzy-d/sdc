@@ -166,30 +166,6 @@ ptrdiff_t addrRangeExtentCmp(Extent* lhs, Extent* rhs) {
 	return (l >= rend) - (l < rstart);
 }
 
-ptrdiff_t sizeAddrExtentCmp(Extent* lhs, Extent* rhs) {
-	auto rAddr = cast(size_t) rhs.addr;
-	int rSizeClass = rhs.sizeClass;
-
-	int lSizeClass;
-	size_t lAddr;
-	auto l = cast(size_t) lhs;
-
-	import d.gc.spec;
-	if (l & ~PageMask) {
-		lAddr = cast(size_t) lhs.addr;
-		lSizeClass = lhs.sizeClass;
-	} else {
-		lAddr = 0;
-		lSizeClass = cast(int) (l & PageMask);
-	}
-
-	if (lSizeClass != rSizeClass) {
-		return lSizeClass - rSizeClass;
-	}
-
-	return (lAddr > rAddr) - (lAddr < rAddr);
-}
-
 unittest contains {
 	auto base = cast(void*) 0x56789abcd000;
 	enum Size = 1234;
