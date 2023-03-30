@@ -17,7 +17,9 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	// the slice of memory we have to allocate from.
+	ushort nextGeneration;
+
+	// The slice of memory we have to allocate from.
 	void* nextMetadataAddr;
 	size_t availableMetadatSlots;
 
@@ -26,11 +28,6 @@ private:
 
 	// Free list of block headers to be reserved.
 	Block* blockFreeList;
-
-	// Available extents ready to be recycled.
-	import d.gc.heap;
-	alias AvailableExtentHeap = Heap!(Extent, identityExtentCmp);
-	AvailableExtentHeap availableExtents;
 
 public:
 	void clear() shared {
@@ -45,13 +42,6 @@ public:
 		scope(exit) mutex.unlock();
 
 		return (cast(Base*) &this).allocExtentImpl();
-	}
-
-	void freeExtent(Extent* extent) shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		(cast(Base*) &this).freeExtentImpl(extent);
 	}
 
 	auto allocHugePageDescriptor() shared {
@@ -88,16 +78,10 @@ private:
 		head.clearAll();
 		head = null;
 		blockFreeList = null;
-		availableExtents.clear();
 	}
 
-	auto allocExtentImpl() {
+	Extent* allocExtentImpl() {
 		assert(mutex.isHeld(), "Mutex not held!");
-
-		auto extent = availableExtents.pop();
-		if (extent !is null) {
-			return extent;
-		}
 
 		if (!refillMetadataSpace()) {
 			return null;
@@ -107,17 +91,11 @@ private:
 		assert(isAligned(nextMetadataAddr, Extent.Align),
 		       "Invalid nextMetadataAddr alignment!");
 
-		extent = cast(Extent*) nextMetadataAddr;
+		auto extent = cast(Extent*) nextMetadataAddr;
 		nextMetadataAddr += Extent.Size;
 		availableMetadatSlots -= 1;
 
 		return extent;
-	}
-
-	auto freeExtentImpl(Extent* extent) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		availableExtents.insert(extent);
 	}
 
 	void* reserveAddressSpaceImpl(size_t size, size_t alignment) {
@@ -295,12 +273,5 @@ unittest base {
 	auto e0 = base.allocExtent();
 	auto e1 = base.allocExtent();
 	assert(e0 !is e1);
-	assert(base.availableMetadatSlots == 16381);
-
-	// We can also free extents.
-	base.freeExtent(e0);
-	base.freeExtent(e1);
-	assert(base.allocExtent() is e0);
-	assert(base.allocExtent() is e1);
 	assert(base.availableMetadatSlots == 16381);
 }
