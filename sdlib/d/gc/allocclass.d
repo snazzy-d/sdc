@@ -1,6 +1,6 @@
 module d.gc.allocclass;
 
-ubyte getAllocClass(uint pages) {
+ubyte getAllocClass(size_t pages) {
 	if (pages <= 8) {
 		auto ret = pages - 1;
 
@@ -37,7 +37,7 @@ unittest getAllocClass {
 	}
 }
 
-ubyte getFreeSpaceClass(uint pages) {
+ubyte getFreeSpaceClass(size_t pages) {
 	return (getAllocClass(pages + 1) - 1) & 0xff;
 }
 
