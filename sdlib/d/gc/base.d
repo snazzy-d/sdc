@@ -17,7 +17,7 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	ushort nextGeneration;
+	ubyte currentGeneration;
 
 	// The slice of memory we have to allocate from.
 	void* nextMetadataAddr;
@@ -35,6 +35,36 @@ public:
 		scope(exit) mutex.unlock();
 
 		(cast(Base*) &this).clearImpl();
+	}
+
+	static assert(LgAddressSpace <= 48, "Address space too large!");
+
+	struct Slot {
+	private:
+		ulong data;
+
+		this(void* ptr, ubyte generation) {
+			data = cast(size_t) ptr;
+			data |= ulong(generation) << 56;
+		}
+
+	public:
+		@property
+		void* address() {
+			return cast(void*) (data & AddressMask);
+		}
+
+		@property
+		ubyte generation() {
+			return data >> 56;
+		}
+	}
+
+	Slot allocSlot() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(Base*) &this).allocSlotImpl();
 	}
 
 	Extent* allocExtent() shared {
@@ -78,6 +108,25 @@ private:
 		head.clearAll();
 		head = null;
 		blockFreeList = null;
+	}
+
+	Slot allocSlotImpl() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		if (!refillMetadataSpace()) {
+			return Slot(null, 0);
+		}
+
+		assert(availableMetadatSlots > 0, "No Metadata slot available!");
+		assert(isAligned(nextMetadataAddr, Extent.Align),
+		       "Invalid nextMetadataAddr alignment!");
+
+		scope(success) {
+			nextMetadataAddr += Extent.Size;
+			availableMetadatSlots -= 1;
+		}
+
+		return Slot(nextMetadataAddr, currentGeneration);
 	}
 
 	Extent* allocExtentImpl() {
@@ -211,21 +260,26 @@ private:
 			return true;
 		}
 
+		// Allocate exponentially more space for metadata.
+		auto shift = currentGeneration++;
+		auto size = HugePageSize << shift;
+
 		import d.gc.pages;
-		auto ptr = pages_map(null, HugePageSize, HugePageSize);
+		auto ptr = pages_map(null, size, size);
 		if (ptr is null) {
 			return false;
 		}
 
+		enum SlotPerHugePage = HugePageSize / Extent.Size;
 		nextMetadataAddr = ptr;
-		availableMetadatSlots = HugePageSize / Extent.Size;
+		availableMetadatSlots = SlotPerHugePage << shift;
 
 		// We expect this allocation to always succeed as we just
 		// reserved a ton of address space.
 		auto block = getOrAllocateBlock();
 		assert(block !is null, "Failed to allocate a block!");
 
-		registerBlock(block, ptr, HugePageSize);
+		registerBlock(block, ptr, size);
 		return true;
 	}
 }

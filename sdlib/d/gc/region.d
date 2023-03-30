@@ -90,8 +90,11 @@ private:
 			return null;
 		}
 
+		scope(success) {
+			r.at(r.address + HugePageSize, r.size - HugePageSize);
+		}
+
 		*hpd = HugePageDescriptor(r.address, nextGeneration++);
-		*r = Region(r.address + HugePageSize, r.size - HugePageSize);
 		return hpd;
 	}
 
@@ -109,8 +112,7 @@ private:
 			return null;
 		}
 
-		*r = Region(ptr, RefillSize);
-		return r;
+		return r.at(ptr, RefillSize);
 	}
 
 	Region* getOrAllocateRegion() {
@@ -122,10 +124,17 @@ private:
 		import d.gc.extent;
 		static assert(Extent.Size / Region.sizeof == 2,
 		              "Unexpected Region size!");
-		r = cast(Region*) base.allocExtent();
 
-		unusedRegions.insert(r + 1);
-		return r;
+		auto slot = base.allocSlot();
+
+		auto r0 = cast(Region*) slot.address;
+		*r0 = Region(null, 0, slot.generation);
+
+		auto r1 = r0 + 1;
+		*r1 = Region(null, 0, slot.generation);
+
+		unusedRegions.insert(r1);
+		return r0;
 	}
 }
 
@@ -150,7 +159,10 @@ unittest extract {
 
 struct Region {
 	void* address;
-	size_t data;
+	size_t size;
+
+	ubyte allocClass;
+	ubyte generation;
 
 	struct UsedLinks {
 		ClassNode rbClass;
@@ -164,14 +176,21 @@ struct Region {
 
 	Links _links;
 
-public:
-	this(void* ptr, size_t size) {
+	this(void* ptr, size_t size, ubyte generation = 0) {
 		assert(isAligned(ptr, HugePageSize), "Invalid ptr alignment!");
 		assert(isAligned(size, HugePageSize), "Invalid size!");
 
 		address = ptr;
-		data = size;
-		data |= getFreeSpaceClass(hugePageCount);
+		this.size = size;
+		this.generation = generation;
+
+		allocClass = getFreeSpaceClass(hugePageCount);
+	}
+
+public:
+	Region* at(void* ptr, size_t size) {
+		this = Region(ptr, size, generation);
+		return &this;
 	}
 
 	@property
@@ -190,25 +209,16 @@ public:
 	}
 
 	@property
-	ubyte allocClass() const {
-		return data & 0xff;
-	}
-
-	@property
 	size_t hugePageCount() const {
-		return data / HugePageSize;
-	}
-
-	@property
-	size_t size() const {
-		return hugePageCount * HugePageSize;
+		return size / HugePageSize;
 	}
 }
 
 ptrdiff_t addrRangeRegionCmp(Region* lhs, Region* rhs) {
 	auto lstart = cast(size_t) lhs.address;
-	auto lend = lstart + lhs.size;
 	auto rstart = cast(size_t) rhs.address;
+
+	auto lend = lstart + lhs.size;
 	auto rend = rstart + rhs.size;
 
 	return (lstart > rend) - (lend < rstart);
@@ -234,7 +244,7 @@ unittest rangeTree {
 }
 
 ptrdiff_t classAddrRegionCmp(Region* lhs, Region* rhs) {
-	static assert(LgAddressSpace <= 56, "");
+	static assert(LgAddressSpace <= 56, "Address space too large!");
 
 	auto l = ulong(lhs.allocClass) << 56;
 	auto r = ulong(rhs.allocClass) << 56;
@@ -246,8 +256,13 @@ ptrdiff_t classAddrRegionCmp(Region* lhs, Region* rhs) {
 }
 
 ptrdiff_t unusedRegionCmp(Region* lhs, Region* rhs) {
-	auto l = cast(size_t) lhs;
-	auto r = cast(size_t) rhs;
+	static assert(LgAddressSpace <= 56, "Address space too large!");
+
+	auto l = ulong(lhs.generation) << 56;
+	auto r = ulong(rhs.generation) << 56;
+
+	l |= cast(size_t) lhs;
+	r |= cast(size_t) rhs;
 
 	return (l > r) - (l < r);
 }
