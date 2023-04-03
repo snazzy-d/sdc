@@ -48,15 +48,22 @@ private:
 	Heap!(Region, unusedRegionCmp) unusedRegions;
 
 public:
-	bool extract(HugePageDescriptor* hpd) shared {
+	bool acquire(HugePageDescriptor* hpd) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(RegionAllocator*) &this).extractImpl(hpd);
+		return (cast(RegionAllocator*) &this).acquireImpl(hpd);
+	}
+
+	void release(HugePageDescriptor* hpd) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(RegionAllocator*) &this).releaseImpl(hpd);
 	}
 
 private:
-	bool extractImpl(HugePageDescriptor* hpd) {
+	bool acquireImpl(HugePageDescriptor* hpd) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto rr = Region(null, HugePageSize);
@@ -87,6 +94,14 @@ private:
 		r.at(r.address + HugePageSize, newSize);
 		registerRegion(r);
 		return true;
+	}
+
+	void releaseImpl(HugePageDescriptor* hpd) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto r = getOrAllocateRegion();
+		r.at(hpd.address, HugePageSize);
+		registerRegion(r);
 	}
 
 	void registerRegion(Region* toRegister) {
@@ -156,7 +171,7 @@ private:
 	}
 }
 
-unittest extract {
+unittest acquire_release {
 	import d.gc.base;
 	shared Base base;
 	scope(exit) base.clear();
@@ -164,17 +179,48 @@ unittest extract {
 	shared RegionAllocator regionAllocator;
 	regionAllocator.base = &base;
 
+	// To snoop in.
+	auto ra = cast(RegionAllocator*) &regionAllocator;
+
 	ulong expectedEpoch = 0;
 	HugePageDescriptor hpd0;
 
-	assert(regionAllocator.extract(&hpd0));
+	assert(regionAllocator.acquire(&hpd0));
 	assert(hpd0.epoch == expectedEpoch++);
 
 	foreach (i; 1 .. RefillSize / HugePageSize) {
 		HugePageDescriptor hpd;
-		assert(regionAllocator.extract(&hpd));
+		assert(regionAllocator.acquire(&hpd));
 		assert(hpd.epoch == expectedEpoch++);
 		assert(hpd.address is hpd0.address + i * HugePageSize);
+	}
+
+	foreach (i; 5 .. RefillSize / HugePageSize) {
+		HugePageDescriptor hpd;
+		hpd.at(hpd0.address + i * HugePageSize, 0);
+		regionAllocator.release(&hpd);
+	}
+
+	{
+		auto r = ra.regionsByClass.extractAny();
+		scope(exit) ra.regionsByClass.insert(r);
+
+		assert(r.address is hpd0.address + 5 * HugePageSize);
+		assert(r.size == RefillSize - 5 * HugePageSize);
+	}
+
+	foreach (i; 0 .. 5) {
+		HugePageDescriptor hpd;
+		hpd.at(hpd0.address + i * HugePageSize, 0);
+		regionAllocator.release(&hpd);
+	}
+
+	{
+		auto r = ra.regionsByClass.extractAny();
+		scope(exit) ra.regionsByClass.insert(r);
+
+		assert(r.address is hpd0.address);
+		assert(r.size == RefillSize);
 	}
 }
 

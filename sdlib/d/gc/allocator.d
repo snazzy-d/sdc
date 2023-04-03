@@ -25,7 +25,7 @@ private:
 	ulong filter;
 
 	enum PageCount = HugePageDescriptor.PageCount;
-	enum HeapCount = getAllocClass(PageCount) + 1;
+	enum HeapCount = getAllocClass(PageCount);
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
 	Heap!(HugePageDescriptor, epochHPDCmp)[HeapCount] heaps;
@@ -119,7 +119,12 @@ private:
 		}
 
 		hpd.release(n, pages);
-		registerHPD(hpd);
+
+		if (hpd.empty) {
+			releaseHPD(hpd);
+		} else {
+			registerHPD(hpd);
+		}
 	}
 
 	HugePageDescriptor* extractHPD(shared(Base)* base, uint pages, ulong mask) {
@@ -155,7 +160,7 @@ private:
 			*hpd = HugePageDescriptor(null, 0, slot.generation);
 		}
 
-		if (regionAllocator.extract(hpd)) {
+		if (regionAllocator.acquire(hpd)) {
 			return hpd;
 		}
 
@@ -166,10 +171,19 @@ private:
 	void registerHPD(HugePageDescriptor* hpd) {
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(!hpd.full, "HPD is full!");
+		assert(!hpd.empty, "HPD is empty!");
 
 		auto index = getFreeSpaceClass(hpd.longestFreeRange);
 		heaps[index].insert(hpd);
 		filter |= ulong(1) << index;
+	}
+
+	void releaseHPD(HugePageDescriptor* hpd) {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(hpd.empty, "HPD is not empty!");
+
+		regionAllocator.release(hpd);
+		unusedHPDs.insert(hpd);
 	}
 }
 
@@ -224,4 +238,9 @@ unittest allocfree {
 	assert(e3.addr is e0.addr);
 	auto pd3 = emap.lookup(e3.addr);
 	assert(pd3.extent is e3);
+
+	// Free everything.
+	allocator.freePages(e1);
+	allocator.freePages(e2);
+	allocator.freePages(e3);
 }
