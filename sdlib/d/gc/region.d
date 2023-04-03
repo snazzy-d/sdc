@@ -85,9 +85,32 @@ private:
 		}
 
 		r.at(r.address + HugePageSize, newSize);
-		regionsByClass.insert(r);
-		regionsByRange.insert(r);
+		registerRegion(r);
 		return true;
+	}
+
+	void registerRegion(Region* toRegister) {
+		Region r = *toRegister;
+		unusedRegions.insert(toRegister);
+
+		// First, merge adjacent ranges.
+		while (true) {
+			auto adjacent = regionsByRange.extract(&r);
+			if (adjacent is null) {
+				break;
+			}
+
+			r.merge(adjacent);
+			regionsByClass.remove(adjacent);
+			unusedRegions.insert(adjacent);
+		}
+
+		toRegister = unusedRegions.pop();
+
+		assert(toRegister !is null);
+		toRegister.clone(&r);
+		regionsByClass.insert(toRegister);
+		regionsByRange.insert(toRegister);
 	}
 
 	Region* refillAddressSpace() {
@@ -189,6 +212,26 @@ public:
 	Region* at(void* ptr, size_t size) {
 		this = Region(ptr, size, generation);
 		return &this;
+	}
+
+	Region* clone(Region* r) {
+		address = r.address;
+		this.size = r.size;
+		this.allocClass = r.allocClass;
+
+		assert(allocClass == getFreeSpaceClass(hugePageCount),
+		       "Invalid alloc class!");
+
+		return &this;
+	}
+
+	Region* merge(Region* r) {
+		assert(address is (r.address + r.size) || r.address is (address + size),
+		       "Regions are not adjacent!");
+
+		import d.gc.util;
+		auto a = min(address, r.address);
+		return at(a, size + r.size);
 	}
 
 	@property
