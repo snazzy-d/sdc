@@ -47,27 +47,37 @@ private:
 	Heap!(Region, unusedRegionCmp) unusedRegions;
 
 public:
-	bool acquire(HugePageDescriptor* hpd) shared {
+	bool acquire(HugePageDescriptor* hpd, uint extraHugePages = 0) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(RegionAllocator*) &this).acquireImpl(hpd);
+		return (cast(RegionAllocator*) &this).acquireImpl(hpd, extraHugePages);
 	}
 
 	void release(HugePageDescriptor* hpd) shared {
+		release(hpd, hpd.address, 1);
+	}
+
+	void release(HugePageDescriptor* hpd, void* ptr, uint pages) shared {
+		assert(pages > 0, "Invalid number of pages!");
+		assert(hpd.address is ptr + (pages - 1) * HugePageSize, "Invalid HDP!");
+
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(RegionAllocator*) &this).releaseImpl(hpd);
+		(cast(RegionAllocator*) &this).releaseImpl(ptr, pages);
 	}
 
 private:
-	bool acquireImpl(HugePageDescriptor* hpd) {
+	bool acquireImpl(HugePageDescriptor* hpd, uint extraHugePages = 0) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto rr = Region(null, HugePageSize);
-		auto r = regionsByClass.extractBestFit(&rr);
+		auto totalHugePages = extraHugePages + 1;
 
+		Region rr;
+		rr.allocClass = getAllocClass(totalHugePages);
+
+		auto r = regionsByClass.extractBestFit(&rr);
 		if (r is null) {
 			r = refillAddressSpace();
 			if (r is null) {
@@ -82,24 +92,27 @@ private:
 		assert(r.size >= HugePageSize && isAligned(r.size, HugePageSize),
 		       "Invalid size!");
 
-		hpd.at(r.address, nextEpoch++);
+		auto ptr = r.address;
+		auto extraSize = extraHugePages * HugePageSize;
+		hpd.at(ptr + extraSize, nextEpoch++);
 
-		auto newSize = r.size - HugePageSize;
+		auto allocSize = totalHugePages * HugePageSize;
+		auto newSize = r.size - allocSize;
 		if (newSize == 0) {
 			unusedRegions.insert(r);
 			return true;
 		}
 
-		r.at(r.address + HugePageSize, newSize);
+		r.at(ptr + allocSize, newSize);
 		registerRegion(r);
 		return true;
 	}
 
-	void releaseImpl(HugePageDescriptor* hpd) {
+	void releaseImpl(void* ptr, uint pages) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto r = getOrAllocateRegion();
-		r.at(hpd.address, HugePageSize);
+		r.at(ptr, pages * HugePageSize);
 		registerRegion(r);
 	}
 
@@ -216,6 +229,39 @@ unittest acquire_release {
 		assert(r.address is hpd0.address);
 		assert(r.size == RefillSize);
 	}
+}
+
+unittest extra_pages {
+	shared Base base;
+	scope(exit) base.clear();
+
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = &base;
+
+	HugePageDescriptor hpd0;
+	assert(regionAllocator.acquire(&hpd0));
+
+	HugePageDescriptor hpd1;
+	assert(regionAllocator.acquire(&hpd1, 1));
+	assert(hpd1.address is hpd0.address + 2 * HugePageSize);
+
+	HugePageDescriptor hpd2;
+	assert(regionAllocator.acquire(&hpd2, 5));
+	assert(hpd2.address is hpd1.address + 6 * HugePageSize);
+
+	// Release 3 huge pages. We now have 2 regions.
+	regionAllocator.release(&hpd0);
+	regionAllocator.release(&hpd1, hpd0.address + HugePageSize, 2);
+
+	// Too big too fit.
+	HugePageDescriptor hpd3;
+	assert(regionAllocator.acquire(&hpd3, 3));
+	assert(hpd3.address is hpd2.address + 4 * HugePageSize);
+
+	// Small enough, so we reuse freed regions.
+	HugePageDescriptor hpd4;
+	assert(regionAllocator.acquire(&hpd4, 2));
+	assert(hpd4.address is hpd0.address + 2 * HugePageSize);
 }
 
 struct Region {
