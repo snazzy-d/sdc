@@ -101,7 +101,7 @@ struct Arena {
 			return allocSmall(size);
 		}
 
-		if (size <= SizeClass.Large) {
+		if (size < HugePageSize / 2) {
 			return allocLarge(size, false);
 		}
 
@@ -115,7 +115,7 @@ struct Arena {
 			return ret;
 		}
 
-		if (size <= SizeClass.Large) {
+		if (size < HugePageSize / 2) {
 			return allocLarge(size, true);
 		}
 
@@ -139,14 +139,8 @@ struct Arena {
 		}
 
 		auto c = findChunk(ptr);
-		if (c !is null) {
-			// This is not a huge alloc, assert we own the arena.
-			assert(c.header.arena is &this);
-
-			freeInChunk(ptr, c);
-		} else {
-			freeHuge(ptr);
-		}
+		assert(c is null);
+		freeHuge(ptr);
 	}
 
 	void* realloc(void* ptr, size_t size) {
@@ -256,134 +250,17 @@ private:
 	 */
 	void* allocLarge(size_t size, bool zero) {
 		// FIXME: in contracts.
-		assert(size > SizeClass.Small && size <= SizeClass.Large);
+		assert(size > SizeClass.Small && size < HugePageSize / 2);
 
-		if (size < HugePageSize / 2) {
-			// Use the huge page allocator.
-			import d.gc.util;
-			uint pages = (alignUp(size, PageSize) >> LgPageSize) & uint.max;
-			auto e = allocator.allocPages(&this, pages);
-			return e.addr;
-		}
-
-		auto run = allocateLargeRun(getAllocSize(size), zero);
-		if (run is null) {
-			return null;
-		}
-
-		return cast(void*) &run.chunk.datas[run.runID];
-	}
-
-	RunDesc* allocateLargeRun(size_t size, bool zero) {
-		// TODO: in contracts
-		assert(size > SizeClass.Small && size <= SizeClass.Large);
-		assert(size == getAllocSize(size));
-
-		auto binID = getSizeClass(size);
-		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
-
-		chunkMutex.lock();
-		scope(exit) chunkMutex.unlock();
-
-		auto run = extractFreeRun(binID);
-		if (run is null) {
-			return null;
-		}
-
-		auto c = run.chunk;
-		auto i = run.runID;
-
-		auto rem = c.splitLargeRun(size, i, binID, zero);
-		if (rem) {
-			assert(c.pages[rem].free);
-			freeRunTree.insert(&c.runs[rem]);
-		}
-
-		return run;
-	}
-
-	/**
-	 * Extract free run from an existing or newly allocated chunk.
-	 * The run will not be present in the freeRunTree.
-	 */
-	RunDesc* extractFreeRun(ubyte binID) {
-		// FIXME: in contract.
-		assert(chunkMutex.isHeld(), "Mutex not held!");
-
-		while (true) {
-			auto run = freeRunTree.extractBestFit(cast(RunDesc*) binID);
-			if (run !is null) {
-				return run;
-			}
-
-			if (spare !is null) {
-				// If we have a spare chunk, use that.
-				assert(!spare.pages[0].allocated, "Spare Chunk is not clean!");
-				scope(success) spare = null;
-				return &spare.runs[0];
-			}
-
-			auto c = Chunk.allocate(&this);
-			if (c is null) {
-				// XXX: In the multithreaded version, we should
-				// retry reuse as one run can have been freed
-				// while we tried to allocate the chunk.
-				return null;
-			}
-
-			assert(c.header.arena is &this);
-			assert(c.header.addr is cast(void*) c);
-
-			// Adding the chunk as spare so metadata can be allocated
-			// from it. For instance, this is useful if the chunk set
-			// needs to be resized to register this chunk.
-			assert(spare is null);
-			spare = c;
-
-			// Maintaining the chunk set might require allocation,
-			// so we release the lock.
-			chunkMutex.unlock();
-			scope(exit) chunkMutex.lock();
-
-			// If we failed to register the chunk, free and bail out.
-			if (chunkSet.register(c)) {
-				c.free();
-				return null;
-			}
-
-			// Because we released the mutex, all bets are off,
-			// so we have to start again from the begining.
-			continue;
-		}
-
-		// FIXME: Unsure control flow analysis detects this.
-		assert(0, "Unreachable.");
+		import d.gc.util;
+		uint pages = (alignUp(size, PageSize) >> LgPageSize) & uint.max;
+		auto e = allocator.allocPages(&this, pages);
+		return e.addr;
 	}
 
 	/**
 	 * Free in chunk.
 	 */
-	void freeInChunk(void* ptr, Chunk* c) {
-		auto runID = c.getRunID(ptr);
-		auto pd = c.pages[runID];
-		assert(pd.allocated);
-		assert(!pd.small);
-
-		freeLarge(ptr, c, pd.binID, runID);
-	}
-
-	void freeLarge(void* ptr, Chunk* c, uint binID, uint runID) {
-		// TODO: in contracts
-		assert(binID >= ClassCount.Small && binID < ClassCount.Large);
-
-		// Sanity check: no interior pointer.
-		auto base = cast(void*) &c.datas[runID];
-		assert(ptr is base);
-
-		auto pages = cast(uint) (getSizeFromClass(binID) >> LgPageSize);
-		freeRun(c, runID, pages);
-	}
-
 	void freeRun(Chunk* c, uint runID, uint pages) {
 		// XXX: in contract.
 		auto pd = c.pages[runID];
@@ -438,7 +315,7 @@ private:
 	 */
 	void* allocHuge(size_t size) {
 		// TODO: in contracts
-		assert(size > SizeClass.Large);
+		assert(size >= HugePageSize / 2);
 
 		size = getAllocSize(size);
 		if (size == 0) {

@@ -36,7 +36,6 @@ import d.gc.util;
 enum ClassCount {
 	Tiny = getTinyClassCount(),
 	Small = getSmallClassCount(),
-	Large = getLargeClassCount(),
 	Total = getTotalClassCount(),
 	Lookup = getLookupClassCount(),
 }
@@ -44,7 +43,6 @@ enum ClassCount {
 enum SizeClass {
 	Tiny = getSizeFromClass(ClassCount.Tiny - 1),
 	Small = getSizeFromClass(ClassCount.Small - 1),
-	Large = getSizeFromClass(ClassCount.Large - 1),
 }
 
 enum MaxTinySize = ClassCount.Tiny * Quantum;
@@ -115,17 +113,16 @@ unittest getSizeClass {
 }
 
 size_t getSizeFromClass(uint sizeClass) {
-	size_t ret;
 	if (sizeClass < ClassCount.Small) {
 		import d.gc.bin;
-		ret = binInfos[sizeClass].itemSize;
-	} else {
-		auto largeSizeClass = sizeClass - ClassCount.Small;
-		auto shift = largeSizeClass / 4 + LgPageSize;
-		size_t bits = (largeSizeClass % 4) | 0x04;
-
-		ret = bits << shift;
+		return binInfos[sizeClass].itemSize;
 	}
+
+	auto largeSizeClass = sizeClass - ClassCount.Small;
+	auto shift = largeSizeClass / 4 + LgPageSize;
+	size_t bits = (largeSizeClass % 4) | 0x04;
+
+	auto ret = bits << shift;
 
 	// XXX: out contract
 	assert(sizeClass == getSizeClass(ret));
@@ -152,7 +149,7 @@ auto getBinInfos() {
 		// XXX: 1UL is useless here, but there is a bug in type
 		// promotion for >= so we need it.
 		auto s = (1UL << grp) + (ndelta << delta);
-		if (s >= (1UL << LgSizeClass.LgSmall)) {
+		if (s >= (4UL << LgPageSize)) {
 			return;
 		}
 
@@ -181,11 +178,6 @@ auto getBinInfos() {
 
 private:
 
-enum LgSizeClass {
-	LgSmall = LgPageSize + 2,
-	LgLarge = LgSmall + 7,
-}
-
 auto getTotalClassCount() {
 	uint count = 0;
 
@@ -197,7 +189,7 @@ auto getTotalClassCount() {
 }
 
 auto getTinyClassCount() {
-	uint count = 0;
+	uint count = 1;
 
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
 		if (delta <= LgQuantum) {
@@ -212,24 +204,12 @@ auto getSmallClassCount() {
 	uint count = 0;
 
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
-		if (grp < LgSizeClass.LgSmall) {
+		if (grp < LgPageSize + 2) {
 			count++;
 		}
 	});
 
 	return count;
-}
-
-auto getLargeClassCount() {
-	uint count = 0;
-
-	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
-		if (grp < LgSizeClass.LgLarge) {
-			count++;
-		}
-	});
-
-	return count + 1;
 }
 
 auto getLookupClassCount() {
@@ -279,8 +259,8 @@ void main() {
 	});
 
 	import core.stdc.stdio;
-	printf("total: %d\tsmall: %d\tlarge: %d\tlookup: %d\n", ClassCount.Total,
-	       ClassCount.Small, ClassCount.Large, ClassCount.Lookup);
+	printf("total: %d\tsmall: %d\tlookup: %d\n", ClassCount.Total,
+	       ClassCount.Small, ClassCount.Lookup);
 
 	auto bins = getBinInfos();
 
