@@ -239,10 +239,10 @@ private:
 			return null;
 		}
 
-		auto binID = getSizeClass(size);
-		assert(binID < ClassCount.Small);
+		auto sizeClass = getSizeClass(size);
+		assert(sizeClass < ClassCount.Small);
 
-		return bins[binID].alloc(&this, binID);
+		return bins[sizeClass].alloc(&this, sizeClass);
 	}
 
 	/**
