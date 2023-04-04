@@ -117,8 +117,7 @@ private:
 			return e;
 		}
 
-		auto base = &arena.base;
-		auto slot = base.allocSlot();
+		auto slot = arena.base.allocSlot();
 		if (slot.address is null) {
 			return null;
 		}
