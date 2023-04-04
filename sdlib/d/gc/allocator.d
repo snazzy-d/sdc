@@ -89,14 +89,12 @@ private:
 	                       bool is_slab, ubyte sizeClass) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto base = &arena.base;
-		auto slot = base.allocSlot();
-		if (slot.address is null) {
+		auto e = getOrAllocateExtent(arena);
+		if (e is null) {
 			return null;
 		}
 
-		auto e = Extent.fromSlot(cast(Arena*) arena, slot);
-		auto hpd = extractHPD(base, pages, mask);
+		auto hpd = extractHPD(&arena.base, pages, mask);
 		if (hpd is null) {
 			unusedExtents.insert(e);
 			return null;
@@ -111,6 +109,21 @@ private:
 		auto size = pages * PageSize;
 
 		return e.at(addr, size, hpd, is_slab, sizeClass);
+	}
+
+	auto getOrAllocateExtent(shared(Arena)* arena) {
+		auto e = unusedExtents.pop();
+		if (e !is null) {
+			return e;
+		}
+
+		auto base = &arena.base;
+		auto slot = base.allocSlot();
+		if (slot.address is null) {
+			return null;
+		}
+
+		return Extent.fromSlot(cast(Arena*) arena, slot);
 	}
 
 	void freePagesImpl(Extent* e, uint n, uint pages) {
@@ -225,6 +238,7 @@ unittest allocfree {
 	auto pd1 = emap.lookup(e1.addr);
 	assert(pd1.extent is e1);
 
+	auto e0Addr = e0.addr;
 	allocator.freePages(e0);
 	auto pdf = emap.lookup(e0.addr);
 	assert(pdf.extent is null);
@@ -241,7 +255,7 @@ unittest allocfree {
 	auto e3 = allocator.allocPages(&arena, 1);
 	assert(e3 !is null);
 	assert(e3.size == PageSize);
-	assert(e3.addr is e0.addr);
+	assert(e3.addr is e0Addr);
 	auto pd3 = emap.lookup(e3.addr);
 	assert(pd3.extent is e3);
 
