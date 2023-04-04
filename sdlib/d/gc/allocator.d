@@ -54,14 +54,14 @@ public:
 		return e;
 	}
 
-	Extent* allocPages(shared(Arena)* arena, uint pages) shared {
-		// FIXME: Overload resolution doesn't cast this properly.
-		return allocPages(arena, pages, false, ubyte(0));
-	}
-
 	Extent* allocPages(shared(Arena)* arena, uint pages,
 	                   ubyte sizeClass) shared {
 		return allocPages(arena, pages, true, sizeClass);
+	}
+
+	Extent* allocPages(shared(Arena)* arena, uint pages) shared {
+		// FIXME: Overload resolution doesn't cast this properly.
+		return allocPages(arena, pages, false, ubyte(0));
 	}
 
 	void freePages(Extent* e) shared {

@@ -39,7 +39,6 @@ private:
 	import d.gc.bitmap;
 	Bitmap!512 _slabData;
 
-public:
 	this(Arena* arena, void* addr, size_t size, ubyte generation,
 	     HugePageDescriptor* hpd, bool is_slab, ubyte sizeClass) {
 		// FIXME: in contract.
@@ -59,20 +58,21 @@ public:
 		bits |= ulong(binInfos[sizeClass].slots) << 48;
 	}
 
+public:
 	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd, bool is_slab,
 	           ubyte sizeClass) {
 		this = Extent(arena, ptr, size, generation, hpd, is_slab, sizeClass);
 		return &this;
 	}
 
-	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd) {
-		// FIXME: Overload resolution doesn't cast this properly.
-		return at(ptr, size, hpd, false, ubyte(0));
-	}
-
 	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd,
 	           ubyte sizeClass) {
 		return at(ptr, size, hpd, true, sizeClass);
+	}
+
+	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd) {
+		// FIXME: Overload resolution doesn't cast this properly.
+		return at(ptr, size, hpd, false, ubyte(0));
 	}
 
 	static fromSlot(Arena* arena, Base.Slot slot) {
