@@ -96,8 +96,14 @@ private:
 			return null;
 		}
 
-		auto e = cast(Extent*) slot.address;
+		auto e = Extent.fromSlot(slot);
+
 		auto hpd = extractHPD(base, pages, mask);
+		if (hpd is null) {
+			// FIXME: Save the extent for resuse later instead of leaking.
+			return null;
+		}
+
 		auto n = hpd.reserve(pages);
 		if (!hpd.full) {
 			registerHPD(hpd);
@@ -153,12 +159,11 @@ private:
 			              "Unexpected HugePageDescriptor size!");
 
 			auto slot = base.allocSlot();
-			hpd = cast(HugePageDescriptor*) slot.address;
-			if (hpd is null) {
+			if (slot.address is null) {
 				return null;
 			}
 
-			*hpd = HugePageDescriptor(null, 0, slot.generation);
+			hpd = HugePageDescriptor.fromSlot(slot);
 		}
 
 		if (regionAllocator.acquire(hpd)) {

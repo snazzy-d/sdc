@@ -1,5 +1,6 @@
 module d.gc.hpd;
 
+import d.gc.base;
 import d.gc.spec;
 import d.gc.util;
 
@@ -39,6 +40,15 @@ public:
 	HugePageDescriptor* at(void* ptr, ulong epoch) {
 		this = HugePageDescriptor(ptr, epoch, generation);
 		return &this;
+	}
+
+	static fromSlot(Base.Slot slot) {
+		// FIXME: in contract
+		assert(slot.address !is null, "Slot is empty!");
+
+		auto hpd = cast(HugePageDescriptor*) slot.address;
+		*hpd = HugePageDescriptor(null, 0, slot.generation);
+		return hpd;
 	}
 
 	@property

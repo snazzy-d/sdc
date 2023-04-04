@@ -70,6 +70,16 @@ public:
 		this(arena, addr, size, hpd, true, sizeClass);
 	}
 
+	static fromSlot(Base.Slot slot) {
+		// FIXME: in contract
+		assert(slot.address !is null, "Slot is empty!");
+		assert(isAligned(slot.address, Extent.Align),
+		       "Invalid slot alignement!");
+
+		auto e = cast(Extent*) slot.address;
+		return e;
+	}
+
 	@property
 	ref PHNode phnode() {
 		return _links.phnode;

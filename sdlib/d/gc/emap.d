@@ -144,7 +144,7 @@ unittest ExtentMap {
 	assert(emap.lookup(ptr).data == 0);
 
 	auto slot = base.allocSlot();
-	auto e = cast(Extent*) slot.address;
+	auto e = Extent.fromSlot(slot);
 	e.addr = ptr;
 	e.size = 5 * PageSize;
 

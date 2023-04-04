@@ -1,6 +1,7 @@
 module d.gc.region;
 
 import d.gc.allocclass;
+import d.gc.base;
 import d.gc.heap;
 import d.gc.hpd;
 import d.gc.rbtree;
@@ -23,7 +24,6 @@ shared(RegionAllocator)* gRegionAllocator() {
 	static shared RegionAllocator regionAllocator;
 
 	if (regionAllocator.base is null) {
-		import d.gc.base;
 		regionAllocator.base = &gBase;
 	}
 
@@ -32,7 +32,6 @@ shared(RegionAllocator)* gRegionAllocator() {
 
 struct RegionAllocator {
 private:
-	import d.gc.base;
 	shared(Base)* base;
 
 	import d.sync.mutex;
@@ -151,19 +150,16 @@ private:
 			return r;
 		}
 
-		static assert(MetadataSlotSize / Region.sizeof == 2,
-		              "Unexpected Region size!");
-
 		auto slot = base.allocSlot();
 		if (slot.address is null) {
 			return null;
 		}
 
-		auto r0 = cast(Region*) slot.address;
-		*r0 = Region(null, 0, slot.generation);
+		static assert(MetadataSlotSize / Region.sizeof == 2,
+		              "Unexpected Region size!");
 
-		auto r1 = r0 + 1;
-		*r1 = Region(null, 0, slot.generation);
+		auto r0 = Region.fromSlot(slot, 0);
+		auto r1 = Region.fromSlot(slot, 1);
 
 		unusedRegions.insert(r1);
 		return r0;
@@ -171,7 +167,6 @@ private:
 }
 
 unittest acquire_release {
-	import d.gc.base;
 	shared Base base;
 	scope(exit) base.clear();
 
@@ -257,6 +252,16 @@ public:
 	Region* at(void* ptr, size_t size) {
 		this = Region(ptr, size, generation);
 		return &this;
+	}
+
+	static fromSlot(Base.Slot slot, uint i) {
+		// FIXME: in contract
+		assert(slot.address !is null, "Slot is empty!");
+		assert(i < MetadataSlotSize / Region.sizeof, "Invalid index!");
+
+		auto r = (cast(Region*) slot.address) + i;
+		*r = Region(null, 0, slot.generation);
+		return r;
 	}
 
 	Region* clone(Region* r) {
