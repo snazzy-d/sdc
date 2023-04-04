@@ -1,5 +1,6 @@
 module d.gc.extent;
 
+import d.gc.base;
 import d.gc.heap;
 import d.gc.rbtree;
 import d.gc.sizeclass;
@@ -11,8 +12,7 @@ alias PHNode = heap.Node!Extent;
 alias RBNode = rbtree.Node!Extent;
 
 struct Extent {
-	enum Align = 128;
-	enum Size = alignUp(Extent.sizeof, Align);
+	enum Align = MetadataSlotSize;
 
 private:
 	ulong bits;
@@ -139,7 +139,8 @@ public:
 	}
 }
 
-static assert(Extent.Size == Extent.Align, "Unexpected extent size!");
+static assert(Extent.sizeof == Extent.Align, "Unexpected Extent size!");
+static assert(Extent.sizeof == MetadataSlotSize, "Extent got too large!");
 
 ptrdiff_t identityExtentCmp(Extent* lhs, Extent* rhs) {
 	auto l = cast(size_t) lhs;

@@ -151,8 +151,7 @@ private:
 			return r;
 		}
 
-		import d.gc.extent;
-		static assert(Extent.Size / Region.sizeof == 2,
+		static assert(MetadataSlotSize / Region.sizeof == 2,
 		              "Unexpected Region size!");
 
 		auto slot = base.allocSlot();

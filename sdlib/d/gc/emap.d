@@ -79,6 +79,9 @@ package:
 
 public:
 	this(Extent* extent, bool is_slab, ubyte sizeClass) {
+		// FIXME: in contract.
+		assert(isAligned(extent, Extent.Align), "Invalid Extent alignment!");
+
 		data = is_slab;
 		data |= cast(size_t) extent;
 		data |= ulong(sizeClass) << 58;
@@ -140,13 +143,14 @@ unittest ExtentMap {
 	auto ptr = cast(void*) 0x56789abcd000;
 	assert(emap.lookup(ptr).data == 0);
 
-	Extent e;
+	auto slot = base.allocSlot();
+	auto e = cast(Extent*) slot.address;
 	e.addr = ptr;
 	e.size = 5 * PageSize;
 
 	// Map a range.
-	emap.remap(&e);
-	auto pd = PageDescriptor(&e);
+	emap.remap(e);
+	auto pd = PageDescriptor(e);
 
 	auto end = ptr + e.size;
 	for (auto p = ptr; p < end; p += PageSize) {
@@ -156,7 +160,7 @@ unittest ExtentMap {
 	assert(emap.lookup(end).data == 0);
 
 	// Clear a range.
-	emap.clear(&e);
+	emap.clear(e);
 	for (auto p = ptr; p < end; p += PageSize) {
 		assert(emap.lookup(p).data == 0);
 	}

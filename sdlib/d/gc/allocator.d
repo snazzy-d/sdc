@@ -91,11 +91,12 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto base = &arena.base;
-		auto e = base.allocExtent();
-		if (e is null) {
+		auto slot = base.allocSlot();
+		if (slot.address is null) {
 			return null;
 		}
 
+		auto e = cast(Extent*) slot.address;
 		auto hpd = extractHPD(base, pages, mask);
 		auto n = hpd.reserve(pages);
 		if (!hpd.full) {
@@ -148,7 +149,7 @@ private:
 
 		auto hpd = unusedHPDs.pop();
 		if (hpd is null) {
-			static assert(HugePageDescriptor.sizeof <= Extent.Size,
+			static assert(HugePageDescriptor.sizeof <= MetadataSlotSize,
 			              "Unexpected HugePageDescriptor size!");
 
 			auto slot = base.allocSlot();

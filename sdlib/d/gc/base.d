@@ -1,10 +1,11 @@
 module d.gc.base;
 
-import d.gc.extent;
 import d.gc.spec;
 import d.gc.util;
 
 shared Base gBase;
+
+enum MetadataSlotSize = 128;
 
 /**
  * Bump the pointer style allocator.
@@ -67,12 +68,6 @@ public:
 		return (cast(Base*) &this).allocSlotImpl();
 	}
 
-	Extent* allocExtent() shared {
-		auto slot = allocSlot();
-
-		return cast(Extent*) slot.address;
-	}
-
 	void* reserveAddressSpace(size_t size) shared {
 		// Bump the alignement to huge page size if apropriate.
 		auto alignment =
@@ -110,11 +105,11 @@ private:
 		}
 
 		assert(availableMetadatSlots > 0, "No Metadata slot available!");
-		assert(isAligned(nextMetadataAddr, Extent.Align),
+		assert(isAligned(nextMetadataAddr, MetadataSlotSize),
 		       "Invalid nextMetadataAddr alignment!");
 
 		scope(success) {
-			nextMetadataAddr += Extent.Size;
+			nextMetadataAddr += MetadataSlotSize;
 			availableMetadatSlots -= 1;
 		}
 
@@ -192,15 +187,15 @@ private:
 		}
 
 		assert(availableMetadatSlots > 0, "No Metadata slot available!");
-		assert(isAligned(nextMetadataAddr, Extent.Align),
+		assert(isAligned(nextMetadataAddr, MetadataSlotSize),
 		       "Invalid nextMetadataAddr alignment!");
 		assert(blockFreeList is null, "There are blocks in the freelist!");
 
-		enum BlockPerExtent = Extent.Size / alignUp(Block.sizeof, Quantum);
+		enum BlockPerExtent = MetadataSlotSize / alignUp(Block.sizeof, Quantum);
 		static assert(BlockPerExtent == 5, "For documentation purposes.");
 
 		auto ret = cast(Block*) nextMetadataAddr;
-		nextMetadataAddr += Extent.Size;
+		nextMetadataAddr += MetadataSlotSize;
 		availableMetadatSlots -= 1;
 
 		foreach (i; 2 .. BlockPerExtent) {
@@ -244,7 +239,7 @@ private:
 			return false;
 		}
 
-		enum SlotPerHugePage = HugePageSize / Extent.Size;
+		enum SlotPerHugePage = HugePageSize / MetadataSlotSize;
 		nextMetadataAddr = ptr;
 		availableMetadatSlots = SlotPerHugePage << shift;
 
@@ -259,8 +254,7 @@ private:
 }
 
 private:
-static assert(Block.sizeof <= Extent.Size,
-              "The block structure got too large!");
+static assert(Block.sizeof <= MetadataSlotSize, "Block got too large!");
 
 struct Block {
 	void* addr;
@@ -297,9 +291,10 @@ unittest base {
 	assert(base.allocBlock() is b0);
 	assert(base.availableMetadatSlots == 16383);
 
-	// Now allocate extents.
-	auto e0 = base.allocExtent();
-	auto e1 = base.allocExtent();
-	assert(e0 !is e1);
+	// Now allocate slots.
+	auto s0 = base.allocSlot();
+	auto s1 = base.allocSlot();
+	assert(s0.address !is s1.address);
+	assert(s0.generation == s1.generation);
 	assert(base.availableMetadatSlots == 16381);
 }
