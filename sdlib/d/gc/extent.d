@@ -92,6 +92,10 @@ public:
 		return sizeAndGen & ~PageMask;
 	}
 
+	bool isHuge() const {
+		return size > HugePageSize;
+	}
+
 	@property
 	ubyte generation() const {
 		return sizeAndGen & 0xff;

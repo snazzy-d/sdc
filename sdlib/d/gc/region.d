@@ -56,12 +56,13 @@ public:
 
 	void release(HugePageDescriptor* hpd) shared {
 		// FIXME: assert the hpd is not borrowed.
-		release(hpd, hpd.address, 1);
+		assert(hpd.empty, "HPD is not empty!");
+
+		release(hpd.address, 1);
 	}
 
-	void release(HugePageDescriptor* hpd, void* ptr, uint pages) shared {
+	void release(void* ptr, uint pages) shared {
 		assert(pages > 0, "Invalid number of pages!");
-		assert(hpd.address is ptr + (pages - 1) * HugePageSize, "Invalid HDP!");
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -252,7 +253,7 @@ unittest extra_pages {
 
 	// Release 3 huge pages. We now have 2 regions.
 	regionAllocator.release(&hpd0);
-	regionAllocator.release(&hpd1, hpd0.address + HugePageSize, 2);
+	regionAllocator.release(hpd0.address + HugePageSize, 2);
 
 	// Too big too fit.
 	HugePageDescriptor hpd3;

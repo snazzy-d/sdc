@@ -60,23 +60,54 @@ public:
 	}
 
 	Extent* allocPages(shared(Arena)* arena, uint pages) shared {
+		if (pages > PageCount) {
+			return allocHuge(arena, pages);
+		}
+
 		// FIXME: Overload resolution doesn't cast this properly.
 		return allocPages(arena, pages, false, ubyte(0));
+	}
+
+	Extent* allocHuge(shared(Arena)* arena, uint pages) shared {
+		assert(pages > PageCount, "Invalid page count!");
+
+		uint extraPages = (pages - 1) / PageCount;
+		pages = (pages - 1) % PageCount + 1;
+
+		Extent* e;
+
+		{
+			mutex.lock();
+			scope(exit) mutex.unlock();
+
+			e = (cast(Allocator*) &this)
+				.allocHugeImpl(arena, pages, extraPages);
+		}
+
+		if (e !is null) {
+			emap.remap(e);
+		}
+
+		return e;
 	}
 
 	void freePages(Extent* e) shared {
 		assert(isAligned(e.addr, PageSize), "Invalid extent addr!");
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
-		assert(e.hpd !is null, "Missing hpd!");
-		assert(e.hpd.address is alignDown(e.addr, HugePageSize),
-		       "Invalid hpd!");
-
-		uint n = ((cast(size_t) e.addr) / PageSize) % PageCount;
-		uint pages = (e.size / PageSize) & uint.max;
 
 		// Once we get to this point, the program considers the extent freed,
 		// so we can safely remove it from the emap before locking.
 		emap.clear(e);
+
+		uint n = 0;
+		if (!e.isHuge()) {
+			assert(e.hpd.address is alignDown(e.addr, HugePageSize),
+			       "Invalid hpd!");
+
+			n = ((cast(size_t) e.addr) / PageSize) % PageCount;
+		}
+
+		uint pages = (e.size / PageSize) % PageCount;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -111,20 +142,6 @@ private:
 		return e.at(addr, size, hpd, is_slab, sizeClass);
 	}
 
-	auto getOrAllocateExtent(shared(Arena)* arena) {
-		auto e = unusedExtents.pop();
-		if (e !is null) {
-			return e;
-		}
-
-		auto slot = arena.base.allocSlot();
-		if (slot.address is null) {
-			return null;
-		}
-
-		return Extent.fromSlot(cast(Arena*) arena, slot);
-	}
-
 	HugePageDescriptor* extractHPD(shared(Base)* base, uint pages, ulong mask) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
@@ -141,7 +158,49 @@ private:
 		return hpd;
 	}
 
-	HugePageDescriptor* allocateHPD(shared(Base)* base) {
+	Extent* allocHugeImpl(shared(Arena)* arena, uint pages, uint extraPages) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto e = getOrAllocateExtent(arena);
+		if (e is null) {
+			return null;
+		}
+
+		auto hpd = allocateHPD(&arena.base, extraPages);
+		if (hpd is null) {
+			unusedExtents.insert(e);
+			return null;
+		}
+
+		auto n = hpd.reserve(pages);
+		assert(n == 0, "Unexpected page allocated!");
+
+		if (!hpd.full) {
+			registerHPD(hpd);
+		}
+
+		auto leadSize = extraPages * HugePageSize;
+		auto addr = hpd.address - leadSize;
+		auto size = leadSize + pages * PageSize;
+
+		return e.at(addr, size, hpd);
+	}
+
+	auto getOrAllocateExtent(shared(Arena)* arena) {
+		auto e = unusedExtents.pop();
+		if (e !is null) {
+			return e;
+		}
+
+		auto slot = arena.base.allocSlot();
+		if (slot.address is null) {
+			return null;
+		}
+
+		return Extent.fromSlot(cast(Arena*) arena, slot);
+	}
+
+	HugePageDescriptor* allocateHPD(shared(Base)* base, uint extraPages = 0) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto hpd = unusedHPDs.pop();
@@ -157,7 +216,7 @@ private:
 			hpd = HugePageDescriptor.fromSlot(slot);
 		}
 
-		if (regionAllocator.acquire(hpd)) {
+		if (regionAllocator.acquire(hpd, extraPages)) {
 			return hpd;
 		}
 
@@ -179,6 +238,12 @@ private:
 		if (hpd.empty) {
 			releaseHPD(e, hpd);
 		} else {
+			// If the extent is huge, we need to release the concerned region.
+			if (e.isHuge()) {
+				uint size = (e.size / HugePageSize) & uint.max;
+				regionAllocator.release(e.addr, size);
+			}
+
 			registerHPD(hpd);
 		}
 
@@ -200,16 +265,15 @@ private:
 		assert(hpd.empty, "HPD is not empty!");
 		assert(e.hpd is hpd, "Invalid HPD!");
 
-		// FIXME: Make sure we handle the case where allocation live in the
-		// borrowed huge page.
 		auto ptr = alignDown(e.addr, HugePageSize);
 		uint pages = (alignUp(e.size, HugePageSize) / HugePageSize) & uint.max;
-		regionAllocator.release(hpd, ptr, pages);
+		regionAllocator.release(ptr, pages);
+
 		unusedHPDs.insert(hpd);
 	}
 }
 
-unittest allocfree {
+unittest allocLarge {
 	import d.gc.arena;
 	Arena arena;
 
@@ -266,4 +330,81 @@ unittest allocfree {
 	allocator.freePages(e1);
 	allocator.freePages(e2);
 	allocator.freePages(e3);
+}
+
+unittest allocHuge {
+	import d.gc.arena;
+	Arena arena;
+
+	auto base = &arena.base;
+	scope(exit) base.clear();
+
+	import d.gc.region;
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = base;
+
+	shared Allocator allocator;
+	allocator.regionAllocator = &regionAllocator;
+
+	import d.gc.emap;
+	static shared ExtentMap emap;
+	emap.tree.base = base;
+	allocator.emap = &emap;
+
+	enum uint PageCount = Allocator.PageCount;
+	enum uint AllocSize = PageCount + 1;
+
+	// Allocate a huge extent.
+	auto e0 = allocator.allocPages(&arena, AllocSize);
+	assert(e0 !is null);
+	assert(e0.size == AllocSize * PageSize);
+	auto pd0 = emap.lookup(e0.addr);
+	assert(pd0.extent is e0);
+
+	// Free the huge extent.
+	auto e0Addr = e0.addr;
+	allocator.freePages(e0);
+
+	// Reallocating the same run will yield the same memory back.
+	e0 = allocator.allocPages(&arena, AllocSize);
+	assert(e0 !is null);
+	assert(e0.addr is e0Addr);
+	assert(e0.size == AllocSize * PageSize);
+	pd0 = emap.lookup(e0.addr);
+	assert(pd0.extent is e0);
+
+	// Allocate one page on the borrowed huge page.
+	auto e1 = allocator.allocPages(&arena, 1);
+	assert(e1 !is null);
+	assert(e1.size == PageSize);
+	assert(e1.addr is e0.addr + e0.size);
+	auto pd1 = emap.lookup(e1.addr);
+	assert(pd1.extent is e1);
+
+	// Now, freeing the huge extent will leave a page behind.
+	allocator.freePages(e0);
+
+	// Allocating another huge extent will use a new range.
+	auto e2 = allocator.allocPages(&arena, AllocSize);
+	assert(e2 !is null);
+	assert(e2.addr is alignUp(e1.addr, HugePageSize));
+	assert(e2.size == AllocSize * PageSize);
+	auto pd2 = emap.lookup(e2.addr);
+	assert(pd2.extent is e2);
+
+	// Allocating new small extents fill the borrowed page.
+	auto e3 = allocator.allocPages(&arena, 1);
+	assert(e3 !is null);
+	assert(e3.addr is alignDown(e1.addr, HugePageSize));
+	assert(e3.size == PageSize);
+	auto pd3 = emap.lookup(e3.addr);
+	assert(pd3.extent is e3);
+
+	// But allocating just the right size will reuse the region.
+	auto e4 = allocator.allocPages(&arena, PageCount);
+	assert(e4 !is null);
+	assert(e4.addr is e0Addr);
+	assert(e4.size == PageCount * PageSize);
+	auto pd4 = emap.lookup(e4.addr);
+	assert(pd4.extent is e4);
 }
