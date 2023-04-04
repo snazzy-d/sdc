@@ -55,6 +55,7 @@ public:
 	}
 
 	void release(HugePageDescriptor* hpd) shared {
+		// FIXME: assert the hpd is not borrowed.
 		release(hpd, hpd.address, 1);
 	}
 

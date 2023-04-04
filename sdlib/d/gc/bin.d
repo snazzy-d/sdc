@@ -17,6 +17,8 @@ struct Bin {
 	import d.gc.extent;
 	Extent* current;
 
+	// XXX: We might want to consider targeting Extents
+	// on old huge pages instead of just address.
 	import d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 

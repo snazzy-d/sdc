@@ -201,6 +201,8 @@ private:
 		assert(hpd.empty, "HPD is not empty!");
 		assert(e.hpd is hpd, "Invalid HPD!");
 
+		// FIXME: Make sure we handle the case where allocation live in the
+		// borrowed huge page.
 		auto ptr = alignDown(e.addr, HugePageSize);
 		uint pages = (alignUp(e.size, HugePageSize) / HugePageSize) & uint.max;
 		regionAllocator.release(hpd, ptr, pages);
