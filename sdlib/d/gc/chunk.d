@@ -185,8 +185,7 @@ struct Chunk {
 		}
 
 		c.arena = a;
-		c.addr = c;
-		c.size = ChunkSize;
+		c.header.extent.at(c, ChunkSize, null);
 		c.bitmap = null;
 
 		// FIXME: empty array not supported.

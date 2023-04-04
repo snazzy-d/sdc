@@ -20,6 +20,7 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
+	Heap!(Extent, unusedExtentCmp) unusedExtents;
 	Heap!(HugePageDescriptor, unusedHPDCmp) unusedHPDs;
 
 	ulong filter;
@@ -77,12 +78,10 @@ public:
 		// so we can safely remove it from the emap before locking.
 		emap.clear(e);
 
-		// FIXME: Save the extent for resuse later instead of leaking.
-
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(Allocator*) &this).freePagesImpl(e.hpd, n, pages);
+		(cast(Allocator*) &this).freePagesImpl(e, n, pages);
 	}
 
 private:
@@ -96,11 +95,10 @@ private:
 			return null;
 		}
 
-		auto e = Extent.fromSlot(slot);
-
+		auto e = Extent.fromSlot(cast(Arena*) arena, slot);
 		auto hpd = extractHPD(base, pages, mask);
 		if (hpd is null) {
-			// FIXME: Save the extent for resuse later instead of leaking.
+			unusedExtents.insert(e);
 			return null;
 		}
 
@@ -112,12 +110,14 @@ private:
 		auto addr = hpd.address + n * PageSize;
 		auto size = pages * PageSize;
 
-		*e = Extent(cast(Arena*) arena, addr, size, hpd, is_slab, sizeClass);
-		return e;
+		return e.at(addr, size, hpd, is_slab, sizeClass);
 	}
 
-	void freePagesImpl(HugePageDescriptor* hpd, uint n, uint pages) {
+	void freePagesImpl(Extent* e, uint n, uint pages) {
 		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto hpd = e.hpd;
+		unusedExtents.insert(e);
 
 		if (!hpd.full) {
 			auto index = getFreeSpaceClass(hpd.longestFreeRange);

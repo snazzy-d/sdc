@@ -460,8 +460,7 @@ private:
 			return null;
 		}
 
-		e.addr = ret;
-		e.size = size;
+		e.at(ret, size, null);
 
 		hugeMutex.lock();
 		scope(exit) hugeMutex.unlock();

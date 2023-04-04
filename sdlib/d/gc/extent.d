@@ -4,6 +4,7 @@ import d.gc.base;
 import d.gc.heap;
 import d.gc.rbtree;
 import d.gc.sizeclass;
+import d.gc.spec;
 import d.gc.util;
 
 alias ExtentTree = RBTree!(Extent, addrRangeExtentCmp);
@@ -22,14 +23,10 @@ public:
 	Arena* arena;
 
 	void* addr;
-	size_t size;
+	size_t sizeAndGen;
 
 	import d.gc.hpd;
 	HugePageDescriptor* hpd;
-
-	// Not necesserly unique, as splitting an Extent
-	// Will create two extent with the same serial.
-	// size_t serialNumber;
 
 private:
 	union Links {
@@ -43,15 +40,17 @@ private:
 	Bitmap!512 _slabData;
 
 public:
-	this(Arena* arena, void* addr, size_t size, HugePageDescriptor* hpd,
-	     bool is_slab, ubyte sizeClass) {
+	this(Arena* arena, void* addr, size_t size, ubyte generation,
+	     HugePageDescriptor* hpd, bool is_slab, ubyte sizeClass) {
 		// FIXME: in contract.
 		assert(sizeClass < ClassCount.Small,
 		       "Invalid size class for small extent!");
+		assert(isAligned(addr, PageSize), "Invalid alignment!");
+		assert(isAligned(size, PageSize), "Invalid size!");
 
 		this.arena = arena;
 		this.addr = addr;
-		this.size = size;
+		this.sizeAndGen = size | generation;
 		this.hpd = hpd;
 
 		import d.gc.bin;
@@ -60,24 +59,42 @@ public:
 		bits |= ulong(binInfos[sizeClass].slots) << 48;
 	}
 
-	this(Arena* arena, void* addr, size_t size, HugePageDescriptor* hpd) {
+	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd, bool is_slab,
+	           ubyte sizeClass) {
+		this = Extent(arena, ptr, size, generation, hpd, is_slab, sizeClass);
+		return &this;
+	}
+
+	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd) {
 		// FIXME: Overload resolution doesn't cast this properly.
-		this(arena, addr, size, hpd, false, ubyte(0));
+		return at(ptr, size, hpd, false, ubyte(0));
 	}
 
-	this(Arena* arena, void* addr, size_t size, HugePageDescriptor* hpd,
-	     ubyte sizeClass) {
-		this(arena, addr, size, hpd, true, sizeClass);
+	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd,
+	           ubyte sizeClass) {
+		return at(ptr, size, hpd, true, sizeClass);
 	}
 
-	static fromSlot(Base.Slot slot) {
+	static fromSlot(Arena* arena, Base.Slot slot) {
 		// FIXME: in contract
 		assert(slot.address !is null, "Slot is empty!");
 		assert(isAligned(slot.address, Extent.Align),
 		       "Invalid slot alignement!");
 
 		auto e = cast(Extent*) slot.address;
+		e.arena = arena;
+		e.sizeAndGen = slot.generation;
 		return e;
+	}
+
+	@property
+	size_t size() const {
+		return sizeAndGen & ~PageMask;
+	}
+
+	@property
+	ubyte generation() const {
+		return sizeAndGen & 0xff;
 	}
 
 	@property
@@ -177,13 +194,25 @@ ptrdiff_t addrRangeExtentCmp(Extent* lhs, Extent* rhs) {
 	return (l >= rend) - (l < rstart);
 }
 
+ptrdiff_t unusedExtentCmp(Extent* lhs, Extent* rhs) {
+	static assert(LgAddressSpace <= 56, "Address space too large!");
+
+	auto l = ulong(lhs.generation) << 56;
+	auto r = ulong(rhs.generation) << 56;
+
+	l |= cast(size_t) lhs;
+	r |= cast(size_t) rhs;
+
+	return (l > r) - (l < r);
+}
+
 unittest contains {
 	auto base = cast(void*) 0x56789abcd000;
-	enum Size = 1234;
+	enum Size = 13 * PageSize;
 
 	Extent e;
 	e.addr = base;
-	e.size = Size;
+	e.sizeAndGen = Size;
 
 	assert(!e.contains(base - 1));
 	assert(!e.contains(base + Size));
@@ -194,8 +223,8 @@ unittest contains {
 }
 
 unittest allocfree {
-	import d.gc.spec;
-	auto e = Extent(null, null, PageSize, null, ubyte(0));
+	Extent e;
+	e.at(null, PageSize, null, ubyte(0));
 
 	assert(e.isSlab());
 	assert(e.sizeClass == 0);
