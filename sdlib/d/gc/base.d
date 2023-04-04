@@ -68,10 +68,9 @@ public:
 	}
 
 	Extent* allocExtent() shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		auto slot = allocSlot();
 
-		return (cast(Base*) &this).allocExtentImpl();
+		return cast(Extent*) slot.address;
 	}
 
 	void* reserveAddressSpace(size_t size) shared {
@@ -120,24 +119,6 @@ private:
 		}
 
 		return Slot(nextMetadataAddr, currentGeneration);
-	}
-
-	Extent* allocExtentImpl() {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		if (!refillMetadataSpace()) {
-			return null;
-		}
-
-		assert(availableMetadatSlots > 0, "No Metadata slot available!");
-		assert(isAligned(nextMetadataAddr, Extent.Align),
-		       "Invalid nextMetadataAddr alignment!");
-
-		auto extent = cast(Extent*) nextMetadataAddr;
-		nextMetadataAddr += Extent.Size;
-		availableMetadatSlots -= 1;
-
-		return extent;
 	}
 
 	void* reserveAddressSpaceImpl(size_t size, size_t alignment) {
