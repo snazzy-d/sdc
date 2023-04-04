@@ -169,14 +169,6 @@ public:
 static assert(Extent.sizeof == Extent.Align, "Unexpected Extent size!");
 static assert(Extent.sizeof == MetadataSlotSize, "Extent got too large!");
 
-ptrdiff_t identityExtentCmp(Extent* lhs, Extent* rhs) {
-	auto l = cast(size_t) lhs;
-	auto r = cast(size_t) rhs;
-
-	// We need to compare that way to avoid integer overflow.
-	return (l > r) - (l < r);
-}
-
 ptrdiff_t addrExtentCmp(Extent* lhs, Extent* rhs) {
 	auto l = cast(size_t) lhs.addr;
 	auto r = cast(size_t) rhs.addr;
