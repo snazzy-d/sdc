@@ -124,7 +124,7 @@ void main() {
 	assert(r0 !is r1);
 
 	r1 = _tl_gc_realloc(r0, 35 * 1024 * 1024);
-	assert(r1 is r0);
+	assert(r1 !is r0);
 
 	_tl_gc_collect();
 }

@@ -101,11 +101,7 @@ struct Arena {
 			return allocSmall(size);
 		}
 
-		if (size < HugePageSize / 2) {
-			return allocLarge(size, false);
-		}
-
-		return allocHuge(size);
+		return allocLarge(size, false);
 	}
 
 	void* calloc(size_t size) {
@@ -115,32 +111,25 @@ struct Arena {
 			return ret;
 		}
 
-		if (size < HugePageSize / 2) {
-			return allocLarge(size, true);
-		}
-
-		return allocHuge(size);
+		return allocLarge(size, true);
 	}
 
 	void free(void* ptr) {
+		if (ptr is null) {
+			return;
+		}
+
 		import d.gc.util;
 		auto aptr = alignDown(ptr, PageSize);
 
 		auto a = allocator;
 		auto pd = a.emap.lookup(aptr);
-		if (pd.extent !is null) {
-			assert(isAligned(ptr, PageSize) || pd.isSlab());
+		assert(pd.extent !is null);
+		assert(pd.isSlab() || ptr is pd.extent.addr);
 
-			if (!pd.isSlab() || bins[pd.sizeClass].free(&this, ptr, pd)) {
-				a.freePages(pd.extent);
-			}
-
-			return;
+		if (!pd.isSlab() || bins[pd.sizeClass].free(&this, ptr, pd)) {
+			a.freePages(pd.extent);
 		}
-
-		auto c = findChunk(ptr);
-		assert(c is null);
-		freeHuge(ptr);
 	}
 
 	void* realloc(void* ptr, size_t size) {
@@ -153,64 +142,34 @@ struct Arena {
 			return alloc(size);
 		}
 
-		auto newSizeClass = getSizeClass(size);
-
-		// TODO: Try in place resize for large/huge.
-		auto oldSizeClass = newSizeClass;
-
 		import d.gc.util;
 		auto aptr = alignDown(ptr, PageSize);
 
 		auto a = allocator;
 		auto pd = a.emap.lookup(aptr);
-		if (pd.extent !is null) {
-			assert(isAligned(ptr, PageSize) || pd.isSlab());
+		assert(pd.extent !is null);
+		assert(pd.isSlab() || ptr is pd.extent.addr);
 
-			if (pd.isSlab()) {
-				oldSizeClass = pd.sizeClass;
-				goto Resize;
+		auto copySize = size;
+		if (pd.isSlab()) {
+			auto newSizeClass = getSizeClass(size);
+			auto oldSizeClass = pd.sizeClass;
+			if (newSizeClass == oldSizeClass) {
+				return ptr;
 			}
 
-			assert(pd.extent.addr is ptr);
+			if (newSizeClass > oldSizeClass) {
+				copySize = getSizeFromClass(oldSizeClass);
+			}
+		} else {
 			auto esize = pd.extent.size;
 			if (alignUp(size, PageSize) == esize) {
 				return ptr;
 			}
 
-			auto newPtr = alloc(size);
-			if (newPtr is null) {
-				return null;
-			}
-
+			// TODO: Try to extend/shrink in place.
 			import d.gc.util;
-			auto cpySize = min(size, esize);
-			memcpy(newPtr, ptr, cpySize);
-
-			a.freePages(pd.extent);
-			return newPtr;
-		} else {
-			// Legacy chunk codepath.
-			auto c = findChunk(ptr);
-			if (c !is null) {
-				// This is not a huge alloc, assert we own the arena.
-				assert(c.header.arena is &this);
-				oldSizeClass = c.pages[c.getRunID(ptr)].binID;
-			} else {
-				hugeMutex.lock();
-				scope(exit) hugeMutex.unlock();
-
-				auto e = extractHugeExtent(ptr);
-				assert(e !is null);
-
-				// We need to keep it alive for now.
-				hugeTree.insert(e);
-				oldSizeClass = getSizeClass(e.size);
-			}
-		}
-
-	Resize:
-		if (newSizeClass == oldSizeClass) {
-			return ptr;
+			copySize = min(size, esize);
 		}
 
 		auto newPtr = alloc(size);
@@ -218,13 +177,12 @@ struct Arena {
 			return null;
 		}
 
-		auto cpySize = (newSizeClass > oldSizeClass)
-			? getSizeFromClass(oldSizeClass)
-			: size;
+		memcpy(newPtr, ptr, copySize);
 
-		memcpy(newPtr, ptr, cpySize);
+		if (!pd.isSlab() || bins[pd.sizeClass].free(&this, ptr, pd)) {
+			a.freePages(pd.extent);
+		}
 
-		free(ptr);
 		return newPtr;
 	}
 
@@ -250,7 +208,7 @@ private:
 	 */
 	void* allocLarge(size_t size, bool zero) {
 		// FIXME: in contracts.
-		assert(size > SizeClass.Small && size < HugePageSize / 2);
+		assert(size > SizeClass.Small);
 
 		import d.gc.util;
 		uint pages = (alignUp(size, PageSize) >> LgPageSize) & uint.max;
@@ -313,73 +271,6 @@ private:
 	/**
 	 * Huge alloc/free facilities.
 	 */
-	void* allocHuge(size_t size) {
-		// TODO: in contracts
-		assert(size >= HugePageSize / 2);
-
-		size = getAllocSize(size);
-		if (size == 0) {
-			// You can't reserve the whole address space.
-			return null;
-		}
-
-		// XXX: Consider having a run for extent.
-		// it should provide good locality for huge
-		// alloc lookup (for GC scan and huge free).
-		import d.gc.extent;
-		auto e = cast(Extent*) allocSmall(Extent.sizeof);
-		e.arena = &this;
-
-		import d.gc.pages, d.gc.spec;
-		auto ret = pages_map(null, size, ChunkSize);
-		if (ret is null) {
-			free(e);
-			return null;
-		}
-
-		e.at(ret, size, null);
-
-		hugeMutex.lock();
-		scope(exit) hugeMutex.unlock();
-
-		hugeTree.insert(e);
-
-		return ret;
-	}
-
-	Extent* extractHugeExtent(void* ptr) {
-		// XXX: in contracts
-		assert(((cast(size_t) ptr) & ChunkAlignMask) == 0);
-		assert(hugeMutex.isHeld(), "Mutex not held!");
-
-		Extent test;
-		test.addr = ptr;
-		auto e = hugeTree.extract(&test);
-		if (e is null) {
-			e = hugeLookupTree.extract(&test);
-		}
-
-		// FIXME: out contract.
-		if (e !is null) {
-			assert(e.addr is ptr);
-			assert(e.arena is &this);
-		}
-
-		return e;
-	}
-
-	void freeHuge(void* ptr) {
-		if (ptr is null) {
-			// free(null) is valid, we want to handle it properly.
-			return;
-		}
-
-		hugeMutex.lock();
-		scope(exit) hugeMutex.unlock();
-
-		freeExtent(extractHugeExtent(ptr));
-	}
-
 	void freeExtent(Extent* e) {
 		// FIXME: in contract
 		assert(e !is null);
