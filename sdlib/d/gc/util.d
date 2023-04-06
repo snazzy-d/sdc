@@ -70,6 +70,25 @@ unittest isPow2 {
 	assert(!isPow2(42));
 }
 
+T modUp(T)(T n, T mod) {
+	n += mod - 1;
+	return (n % mod) + 1;
+}
+
+unittest modUp {
+	assert(modUp(0, 1) == 1);
+	assert(modUp(1, 1) == 1);
+	assert(modUp(42, 64) == 42);
+	assert(modUp(127, 64) == 63);
+
+	foreach (x; 2 .. 256) {
+		assert(modUp(0, x) == x);
+		assert(modUp(1, x) == 1);
+		assert(modUp(x - 1, x) == x - 1);
+		assert(modUp(x, x) == x);
+	}
+}
+
 size_t alignDown(size_t size, size_t alignment) {
 	// FIXME: in contract.
 	assert(isPow2(alignment));
