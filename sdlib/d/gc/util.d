@@ -47,11 +47,11 @@ unittest log2floor {
 }
 
 bool isPow2(size_t x) {
-	return (x & (x - 1)) == 0;
+	import sdc.intrinsics;
+	return popCount(x) == 1;
 }
 
 unittest isPow2 {
-	assert(isPow2(0), "zero is a power of 2 according to this implementation.");
 	assert(isPow2(1));
 	assert(isPow2(2));
 	assert(isPow2(4));
@@ -64,6 +64,7 @@ unittest isPow2 {
 	assert(isPow2(512));
 	assert(isPow2(1024));
 
+	assert(!isPow2(0));
 	assert(!isPow2(3));
 	assert(!isPow2(-1));
 	assert(!isPow2(42));
@@ -71,7 +72,7 @@ unittest isPow2 {
 
 size_t alignDown(size_t size, size_t alignment) {
 	// FIXME: in contract.
-	assert(alignment > 0 && isPow2(alignment));
+	assert(isPow2(alignment));
 	auto ret = size & -alignment;
 
 	// FIXME: out contract.
@@ -81,7 +82,7 @@ size_t alignDown(size_t size, size_t alignment) {
 
 void* alignDown(void* ptr, size_t alignment) {
 	// FIXME: in contract.
-	assert(alignment > 0 && isPow2(alignment));
+	assert(isPow2(alignment));
 	return cast(void*) alignDown(cast(size_t) ptr, alignment);
 }
 
@@ -177,7 +178,7 @@ unittest alignDown {
 
 size_t alignUp(size_t size, size_t alignment) {
 	// FIXME: in contract.
-	assert(alignment > 0 && isPow2(alignment));
+	assert(isPow2(alignment));
 	auto ret = (size + alignment - 1) & (~alignment + 1);
 
 	// FIXME: out contract.
@@ -187,7 +188,7 @@ size_t alignUp(size_t size, size_t alignment) {
 
 void* alignUp(void* ptr, size_t alignment) {
 	// FIXME: in contract.
-	assert(alignment > 0 && isPow2(alignment));
+	assert(isPow2(alignment));
 	return cast(void*) alignUp(cast(size_t) ptr, alignment);
 }
 
