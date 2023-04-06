@@ -22,13 +22,13 @@ unittest max {
 	assert(max(123, 456) == 456);
 }
 
-size_t log2floor(size_t x) {
+ubyte log2floor(T)(T x) {
 	if (x == 0) {
 		return 0;
 	}
 
 	import sdc.intrinsics;
-	enum S = size_t.sizeof * 8;
+	enum S = T.sizeof * 8;
 	return S - countLeadingZeros(x) - 1;
 }
 
@@ -46,7 +46,7 @@ unittest log2floor {
 	assert(log2floor(32) == 5);
 }
 
-bool isPow2(size_t x) {
+bool isPow2(T)(T x) {
 	import sdc.intrinsics;
 	return popCount(x) == 1;
 }
