@@ -25,7 +25,7 @@ private:
 	import d.gc.heap;
 	Node!HugePageDescriptor phnode;
 
-	enum PageCount = HugePageSize / PageSize;
+	enum uint PageCount = HugePageSize / PageSize;
 
 	import d.gc.bitmap;
 	Bitmap!PageCount allocatedPages;

@@ -72,7 +72,7 @@ public:
 		assert(pages > PageCount, "Invalid page count!");
 
 		uint extraPages = (pages - 1) / PageCount;
-		pages = (pages - 1) % PageCount + 1;
+		pages = modUp(pages, PageCount);
 
 		Extent* e;
 
@@ -107,7 +107,7 @@ public:
 			n = ((cast(size_t) e.addr) / PageSize) % PageCount;
 		}
 
-		uint pages = (e.size / PageSize) % PageCount;
+		uint pages = modUp(e.size / PageSize, PageCount) & uint.max;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -226,6 +226,8 @@ private:
 
 	void freePagesImpl(Extent* e, uint n, uint pages) {
 		assert(mutex.isHeld(), "Mutex not held!");
+		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
+		assert(n <= PageCount - pages, "Invalid index!");
 
 		auto hpd = e.hpd;
 		if (!hpd.full) {
@@ -407,4 +409,10 @@ unittest allocHuge {
 	assert(e4.size == PageCount * PageSize);
 	auto pd4 = emap.lookup(e4.addr);
 	assert(pd4.extent is e4);
+
+	// Free everything.
+	allocator.freePages(e1);
+	allocator.freePages(e2);
+	allocator.freePages(e3);
+	allocator.freePages(e4);
 }
