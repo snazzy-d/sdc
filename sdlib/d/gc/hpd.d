@@ -63,7 +63,8 @@ public:
 
 	uint reserve(uint pages) {
 		// FIXME: in contract
-		assert(pages <= longestFreeRange);
+		assert(pages > 0 && pages <= longestFreeRange,
+		       "Invalid number of pages!");
 
 		uint bestIndex = uint.max;
 		uint bestLength = uint.max;
@@ -109,6 +110,8 @@ public:
 
 	void release(uint index, uint pages) {
 		// FIXME: in contract.
+		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
+		assert(index <= PageCount - pages, "Invalid index!");
 		assert(allocatedPages.findClear(index) >= index + pages);
 
 		allocatedPages.clearRange(index, pages);
