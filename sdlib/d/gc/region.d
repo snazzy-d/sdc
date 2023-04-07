@@ -81,7 +81,7 @@ private:
 
 		auto r = regionsByClass.extractBestFit(&rr);
 		if (r is null) {
-			r = refillAddressSpace();
+			r = refillAddressSpace(extraHugePages);
 			if (r is null) {
 				return false;
 			}
@@ -93,6 +93,8 @@ private:
 		       "Invalid address!");
 		assert(r.size >= HugePageSize && isAligned(r.size, HugePageSize),
 		       "Invalid size!");
+		assert(r.size > extraHugePages * HugePageSize,
+		       "Insuffiscient address space!");
 
 		auto ptr = r.address;
 		auto extraSize = extraHugePages * HugePageSize;
@@ -142,7 +144,7 @@ private:
 		regionsByRange.insert(toRegister);
 	}
 
-	Region* refillAddressSpace() {
+	Region* refillAddressSpace(uint extraHugePages) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto r = getOrAllocateRegion();
@@ -150,13 +152,16 @@ private:
 			return null;
 		}
 
-		auto ptr = base.reserveAddressSpace(RefillSize, HugePageSize);
+		auto pages = alignUp(extraHugePages + 1, RefillSize / HugePageSize);
+		auto size = pages * HugePageSize;
+
+		auto ptr = base.reserveAddressSpace(size, HugePageSize);
 		if (ptr is null) {
 			unusedRegions.insert(r);
 			return null;
 		}
 
-		return r.at(ptr, RefillSize);
+		return r.at(ptr, size);
 	}
 
 	Region* getOrAllocateRegion() {
@@ -264,6 +269,22 @@ unittest extra_pages {
 	HugePageDescriptor hpd4;
 	assert(regionAllocator.acquire(&hpd4, 2));
 	assert(hpd4.address is hpd0.address + 2 * HugePageSize);
+}
+
+unittest enormous {
+	shared Base base;
+	scope(exit) base.clear();
+
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = &base;
+
+	enum HugePages = 2048;
+	enum ExtraPages = HugePages - 1;
+
+	HugePageDescriptor hpd0;
+	assert(regionAllocator.acquire(&hpd0, ExtraPages));
+	regionAllocator
+		.release(hpd0.address - ExtraPages * HugePageSize, HugePages);
 }
 
 struct Region {

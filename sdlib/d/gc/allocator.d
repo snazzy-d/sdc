@@ -242,8 +242,8 @@ private:
 		} else {
 			// If the extent is huge, we need to release the concerned region.
 			if (e.isHuge()) {
-				uint size = (e.size / HugePageSize) & uint.max;
-				regionAllocator.release(e.addr, size);
+				uint count = (e.size / HugePageSize) & uint.max;
+				regionAllocator.release(e.addr, count);
 			}
 
 			registerHPD(hpd);
