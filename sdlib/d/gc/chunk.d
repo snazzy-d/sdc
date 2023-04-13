@@ -407,7 +407,7 @@ struct Chunk {
 				continue;
 			}
 
-			header.arena.freeRun(&this, runID, pages);
+			// header.arena.freeRun(&this, runID, pages);
 		}
 
 		// FIXME: It seems that there are some issue with alias this.

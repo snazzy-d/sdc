@@ -76,10 +76,6 @@ struct Arena {
 	import d.gc.chunk;
 	Chunk* spare;
 
-	// Free runs we can allocate from.
-	import d.gc.rbtree, d.gc.run;
-	RBTree!(RunDesc, sizeAddrRunCmp) freeRunTree;
-
 	// Set of chunks for GC lookup.
 	ChunkSet chunkSet;
 
@@ -214,58 +210,6 @@ private:
 		uint pages = (alignUp(size, PageSize) >> LgPageSize) & uint.max;
 		auto e = allocator.allocPages(&this, pages);
 		return e.addr;
-	}
-
-	/**
-	 * Free in chunk.
-	 */
-	void freeRun(Chunk* c, uint runID, uint pages) {
-		// XXX: in contract.
-		auto pd = c.pages[runID];
-		assert(pd.allocated && pd.offset == 0);
-		assert(pages > 0);
-
-		chunkMutex.lock();
-		scope(exit) chunkMutex.unlock();
-
-		// XXX: find a way to merge dirty and clean free runs.
-		if (runID > 0) {
-			auto previous = c.pages[runID - 1];
-			if (previous.free && previous.dirty) {
-				runID -= previous.pages;
-				pages += previous.pages;
-
-				assert(c.pages[runID].free);
-				freeRunTree.remove(&c.runs[runID]);
-			}
-		}
-
-		if (runID + pages < DataPages) {
-			auto nextID = runID + pages;
-			auto next = c.pages[nextID];
-
-			if (next.free && next.dirty) {
-				pages += next.pages;
-
-				assert(c.pages[nextID].free);
-				freeRunTree.remove(&c.runs[nextID]);
-			}
-		}
-
-		auto runBinID =
-			cast(ubyte) (getSizeClass((pages << LgPageSize) + 1) - 1);
-
-		// If we have remaining free space, keep track of it.
-		import d.gc.bin;
-		auto d = PageDescriptor(false, false, false, true, runBinID, pages);
-
-		c.pages[runID] = d;
-		c.pages[runID + pages - 1] = d;
-
-		assert(c.pages[runID].free);
-		freeRunTree.insert(&c.runs[runID]);
-
-		// XXX: remove dirty
 	}
 
 	/**
