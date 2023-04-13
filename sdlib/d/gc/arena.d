@@ -72,10 +72,6 @@ struct Arena {
 	import d.sync.mutex;
 	shared Mutex chunkMutex;
 
-	// Spare chunk to avoid churning too much.
-	import d.gc.chunk;
-	Chunk* spare;
-
 	// Set of chunks for GC lookup.
 	ChunkSet chunkSet;
 
@@ -334,6 +330,7 @@ private:
 		foreach (ptr; range) {
 			auto iptr = cast(size_t) ptr;
 
+			import d.gc.chunk;
 			auto c = findChunk(ptr);
 			if (c !is null && chunkSet.test(c)) {
 				newPtr = c.mark(ptr) || newPtr;
