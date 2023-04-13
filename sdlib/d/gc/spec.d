@@ -35,10 +35,3 @@ enum HugePageMask = HugePageSize - 1;
 enum LgAddressSpace = 48;
 enum AddressSpace = 1UL << LgAddressSpace;
 enum AddressMask = AddressSpace - 1;
-
-// A chunk is 1024 pages.
-enum LgChunkPageCount = 10;
-enum ChunkPageCount = 1UL << LgChunkPageCount;
-enum LgChunkSize = LgPageSize + LgChunkPageCount;
-enum ChunkSize = 1UL << LgChunkSize;
-enum ChunkAlignMask = ChunkSize - 1;
