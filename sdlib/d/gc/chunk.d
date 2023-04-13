@@ -285,24 +285,10 @@ struct Chunk {
 			}
 
 			auto binID = pages[i].binID;
-			if (pages[i].large) {
-				import d.gc.sizeclass;
-				i += cast(uint) (getSizeFromClass(binID) >> LgPageSize);
-				continue;
-			}
+			assert(pages[i].large);
 
-			// For small runs, we make sure we reserve some place in the chunk's bitmap.
-			assert(pages[i].offset == 0);
-			assert(runs[i].small.bitmapIndex == 0);
-			runs[i].small.bitmapIndex = nextBitmapIndex;
-
-			import d.gc.bin;
-			auto binInfo = binInfos[binID];
-			auto slots = binInfo.slots;
-
-			i += binInfo.needPages;
-			nextBitmapIndex +=
-				cast(ushort) (((slots - 1) / (uint.sizeof * 8)) + 1);
+			import d.gc.sizeclass;
+			i += cast(uint) (getSizeFromClass(binID) >> LgPageSize);
 		}
 
 		// FIXME: It seems that there are some issue with alias this.
@@ -326,28 +312,7 @@ struct Chunk {
 
 		auto pd = pages[runID];
 		auto index = runID;
-		if (pd.small) {
-			auto smallRun = &runs[runID].small;
-
-			// This run has been alocated after the start of the collection.
-			// We just consider it alive, no need to check for it.
-			auto bitmapIndex = smallRun.bitmapIndex;
-			if (bitmapIndex == 0) {
-				return false;
-			}
-
-			bitmapPtr = &bitmapPtr[bitmapIndex];
-
-			// This is duplicated with Arena.freeSmall, need refactoring.
-			auto offset = (cast(uint) ptr) - (cast(uint) &datas[runID]);
-
-			import d.gc.bin;
-			auto binInfo = binInfos[pd.binID];
-			index = binInfo.computeIndex(offset);
-			if (smallRun.isFree(index)) {
-				return false;
-			}
-		}
+		assert(!pd.small);
 
 		// Already marked
 		auto elementBitmap = bitmapPtr[index / 32];
@@ -400,18 +365,10 @@ struct Chunk {
 				const(void*)[] range;
 				size_t size;
 
-				if (pd.small) {
-					import d.gc.bin;
-					auto binInfo = binInfos[pd.binID];
-					size = binInfo.itemSize;
-					auto offset = (cast(uint) ptr) - (cast(uint) base);
-					auto index = binInfo.computeIndex(offset);
-					base =
-						cast(const(void*)*) ((cast(void*) base) + size * index);
-				} else {
-					import d.gc.sizeclass;
-					size = getSizeFromClass(pd.binID);
-				}
+				assert(!pd.small);
+
+				import d.gc.sizeclass;
+				size = getSizeFromClass(pd.binID);
 
 				range = base[0 .. size / size_t.sizeof];
 				newPtr = header.arena.scan(range) || newPtr;
@@ -437,59 +394,20 @@ struct Chunk {
 			auto pd = pages[i];
 			auto runID = i;
 			auto binID = pd.binID;
-			if (pd.large) {
-				import d.gc.sizeclass;
-				auto pages =
-					cast(uint) (getSizeFromClass(pd.binID) >> LgPageSize);
-				i += pages;
 
-				// Check if the run is alive.
-				auto bmp = header.bitmap[runID / 32];
-				auto mask = 1 << (runID % 32);
-				if (bmp & mask) {
-					continue;
-				}
+			assert(pd.large);
+			import d.gc.sizeclass;
+			auto pages = cast(uint) (getSizeFromClass(pd.binID) >> LgPageSize);
+			i += pages;
 
-				header.arena.freeRun(&this, runID, pages);
+			// Check if the run is alive.
+			auto bmp = header.bitmap[runID / 32];
+			auto mask = 1 << (runID % 32);
+			if (bmp & mask) {
 				continue;
 			}
 
-			assert(pd.offset == 0);
-
-			import d.gc.bin;
-			auto binInfo = binInfos[binID];
-			i += binInfo.needPages;
-
-			auto small = &runs[runID].small;
-			auto bmpIndex = small.bitmapIndex;
-			// This is a new run, dismiss.
-			if (bmpIndex == 0) {
-				continue;
-			}
-
-			auto bitmapPtr = &header.bitmap[bmpIndex];
-			auto headerBits = binInfo.slots / 32;
-			if (!headerBits) {
-				headerBits = 1;
-			} else {
-				assert((binInfo.slots % 32) == 0);
-			}
-
-			for (uint j = 0; j < headerBits; j++) {
-				auto liveBmp = bitmapPtr[j];
-
-				// Zero means allocated, so we flip bits.
-				auto oldBmp = small.bitmap[j];
-				auto newBmp = oldBmp | ~liveBmp;
-
-				auto freed = newBmp ^ oldBmp;
-				if (freed) {
-					import sdc.intrinsics;
-					small.freeSlots += popCount(freed);
-					small.header = cast(ushort) (small.header | (1 << i));
-					small.bitmap[j] = newBmp;
-				}
-			}
+			header.arena.freeRun(&this, runID, pages);
 		}
 
 		// FIXME: It seems that there are some issue with alias this.
