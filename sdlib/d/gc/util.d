@@ -99,7 +99,7 @@ size_t alignDown(size_t size, size_t alignment) {
 	return ret;
 }
 
-void* alignDown(void* ptr, size_t alignment) {
+void* alignDown(const void* ptr, size_t alignment) {
 	// FIXME: in contract.
 	assert(isPow2(alignment));
 	return cast(void*) alignDown(cast(size_t) ptr, alignment);
@@ -109,7 +109,7 @@ size_t alignDownOffset(size_t size, size_t alignment) {
 	return size - alignDown(size, alignment);
 }
 
-size_t alignDownOffset(void* ptr, size_t alignment) {
+size_t alignDownOffset(const void* ptr, size_t alignment) {
 	return alignDownOffset(cast(size_t) ptr, alignment);
 }
 
@@ -117,7 +117,7 @@ bool isAligned(size_t size, size_t alignment) {
 	return alignDown(size, alignment) == size;
 }
 
-bool isAligned(void* ptr, size_t alignment) {
+bool isAligned(const void* ptr, size_t alignment) {
 	return alignDown(ptr, alignment) is ptr;
 }
 
@@ -205,7 +205,7 @@ size_t alignUp(size_t size, size_t alignment) {
 	return ret;
 }
 
-void* alignUp(void* ptr, size_t alignment) {
+void* alignUp(const void* ptr, size_t alignment) {
 	// FIXME: in contract.
 	assert(isPow2(alignment));
 	return cast(void*) alignUp(cast(size_t) ptr, alignment);
@@ -215,7 +215,7 @@ size_t alignUpOffset(size_t size, size_t alignment) {
 	return alignUp(size, alignment) - size;
 }
 
-size_t alignUpOffset(void* ptr, size_t alignment) {
+size_t alignUpOffset(const void* ptr, size_t alignment) {
 	return alignUpOffset(cast(size_t) ptr, alignment);
 }
 
