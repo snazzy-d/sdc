@@ -17,6 +17,11 @@ final class ObjectReference {
 			object.resolve(Location.init, BuiltinName!"size_t");
 	}
 
+	auto getPtrDiffT() {
+		return cast(TypeAlias)
+			object.resolve(Location.init, BuiltinName!"ptrdiff_t");
+	}
+
 	private auto getClass(Name name) {
 		return cast(Class) object.resolve(Location.init, name);
 	}

@@ -185,7 +185,7 @@ uint getIntegralSize(BuiltinType t)
 
 uint getSize(BuiltinType t) {
 	final switch (t) with (BuiltinType) {
-		case Bool:
+		case Bool, Void:
 			return 1;
 
 		case Char, Wchar, Dchar:
@@ -197,7 +197,7 @@ uint getSize(BuiltinType t) {
 		case Float, Double:
 			return 1 << (t - Float + 2);
 
-		case None, Void, Real, Null:
+		case None, Real, Null:
 			import std.conv;
 			assert(0, "Use SizeofVisitor for " ~ t.to!string());
 	}

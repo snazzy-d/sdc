@@ -148,25 +148,70 @@ private:
 
 			case Assign:
 				return buildAssign(location, lhs, rhs);
-
+			//*
 			case Add, Sub:
-				auto c = lhs.type.getCanonical();
-				if (c.kind == TypeKind.Pointer) {
-					// FIXME: check that rhs is an integer.
-					if (op == Sub) {
-						rhs = build!UnaryExpression(rhs.location, rhs.type,
-						                            UnaryOp.Minus, rhs);
+				auto isSub = op == Sub;
+
+				auto lct = lhs.type.getCanonical();
+				auto rct = rhs.type.getCanonical();
+
+				auto isLPtr = lct.kind == TypeKind.Pointer;
+				auto isRPtr = rct.kind == TypeKind.Pointer;
+
+				if (!isLPtr) {
+					if (!isRPtr) {
+						goto TransparentBinaryOp;
 					}
 
-					auto i =
-						build!IndexExpression(location, c.element, lhs, rhs);
+					if (isSub) {
+						return getError(lhs, location, "Invalid operand types");
+					}
+
+					import std.algorithm;
+					swap(lhs, rhs);
+					swap(lct, rct);
+					swap(isLPtr, isRPtr);
+				}
+
+				if (!isRPtr) {
+					auto t = pass.object.getSizeT().type;
+					auto index = buildImplicitCast(pass, rhs.location, t, rhs);
+					if (isSub) {
+						index = build!UnaryExpression(rhs.location, t,
+						                              UnaryOp.Minus, index);
+					}
+
+					auto i = build!IndexExpression(location, lct.element, lhs,
+					                               index);
 					return build!UnaryExpression(location, lhs.type,
 					                             UnaryOp.AddressOf, i);
 				}
 
-				goto case;
+				if (!isSub) {
+					return new CompileError(location, "Invalid operand types")
+						.expression;
+				}
 
+				auto t = pass.object.getPtrDiffT().type;
+				lhs = buildExplicitCast(pass, lhs.location, t, lhs);
+				rhs = buildExplicitCast(pass, rhs.location, t, rhs);
+
+				auto d =
+					build!BinaryExpression(location, t, BinaryOp.Sub, lhs, rhs);
+
+				import d.semantic.typepromotion;
+				auto etype = getPromotedType(pass, location, lct, rct);
+
+				import d.semantic.sizeof;
+				auto isize = SizeofVisitor(pass).visit(etype.element);
+				auto esize = new IntegerLiteral(location, isize, t.builtin);
+
+				return build!BinaryExpression(location, t, BinaryOp.SDiv, d,
+				                              esize);
 			case Mul, Pow:
+				goto TransparentBinaryOp;
+
+			TransparentBinaryOp:
 				bop = cast(BinaryOp) op;
 				goto PromotedBinaryOp;
 
