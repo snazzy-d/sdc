@@ -22,26 +22,32 @@ struct Bin {
 	import d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 
-	void* alloc(Arena* arena, ubyte sizeClass) {
+	void* alloc(Arena* arena, ubyte sizeClass) shared {
 		assert(sizeClass < ClassCount.Small);
 		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
-
-		mutex.lock();
-		scope(exit) mutex.unlock();
 
 		// Load eagerly as prefetching.
 		auto size = binInfos[sizeClass].itemSize;
 
-		auto slab = getSlab(arena, sizeClass);
-		if (slab is null) {
-			return null;
+		Extent* slab;
+		uint index;
+
+		{
+			mutex.lock();
+			scope(exit) mutex.unlock();
+
+			slab = (cast(Bin*) &this).getSlab(arena, sizeClass);
+			if (slab is null) {
+				return null;
+			}
+
+			index = slab.allocate();
 		}
 
-		auto index = slab.allocate();
-		return slab.addr + size * index;
+		return slab.addr + index * size;
 	}
 
-	bool free(Arena* arena, void* ptr, PageDescriptor pd) {
+	bool free(Arena* arena, void* ptr, PageDescriptor pd) shared {
 		assert(pd.extent !is null, "Extent is null!");
 		assert(pd.isSlab(), "Expected a slab!");
 		assert(pd.extent.contains(ptr), "ptr not in slab!");
@@ -55,13 +61,24 @@ struct Bin {
 		auto offset = cast(size_t) ptr - cast(size_t) base;
 		auto sc = pd.sizeClass;
 		auto index = binInfos[sc].computeIndex(offset);
+		auto slots = binInfos[sc].slots;
 
 		assert(ptr is base + index * binInfos[sc].itemSize);
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(Bin*) &this).freeImpl(e, index, slots);
+	}
+
+private:
+	bool freeImpl(Extent* e, uint index, uint slots) {
+		// FIXME: in contract.
+		assert(mutex.isHeld(), "Mutex not held!");
+
 		e.free(index);
 
 		auto nfree = e.freeSlots;
-		auto slots = binInfos[sc].slots;
-
 		if (nfree == slots) {
 			if (e is current) {
 				current = null;
@@ -85,7 +102,6 @@ struct Bin {
 		return false;
 	}
 
-private:
 	auto tryGetSlab() {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");

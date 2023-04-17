@@ -61,7 +61,7 @@ struct Arena {
 	const(void*)[][] roots;
 
 	import d.gc.bin, d.gc.sizeclass;
-	Bin[ClassCount.Small] bins;
+	shared(Bin)[ClassCount.Small] bins;
 
 	void* alloc(size_t size) {
 		if (size <= SizeClass.Small) {
