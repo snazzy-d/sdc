@@ -698,6 +698,10 @@ struct SymbolDotIdentifierResolver {
 	Identifiable visit(TypeAlias a) {
 		return resolveAsType(a);
 	}
+
+	Identifiable visit(ErrorSymbol e) {
+		return Identifiable(e);
+	}
 }
 
 /**
@@ -858,6 +862,10 @@ struct ExpressionDotIdentifierResolver {
 	Identifiable resolveInType(Expression e) {
 		setThis(e);
 		return TypeDotIdentifierResolver(pass, location, name).visit(e.type);
+	}
+
+	Identifiable visit(ErrorExpression e) {
+		return Identifiable(e.error.symbol);
 	}
 }
 
