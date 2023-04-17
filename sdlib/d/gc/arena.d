@@ -1,6 +1,7 @@
 module d.gc.arena;
 
 import d.gc.spec;
+import d.gc.emap;
 
 extern(C) void* __sd_gc_tl_malloc(size_t size) {
 	return tl.alloc(size);
@@ -84,17 +85,8 @@ struct Arena {
 			return;
 		}
 
-		import d.gc.util;
-		auto aptr = alignDown(ptr, PageSize);
-
-		auto a = allocator;
-		auto pd = a.emap.lookup(aptr);
-		assert(pd.extent !is null);
-		assert(pd.isSlab() || ptr is pd.extent.addr);
-
-		if (!pd.isSlab() || bins[pd.sizeClass].free(&this, ptr, pd)) {
-			a.freePages(pd.extent);
-		}
+		auto pd = getPageDescriptor(ptr);
+		free(pd, ptr);
 	}
 
 	void* realloc(void* ptr, size_t size) shared {
@@ -107,15 +99,9 @@ struct Arena {
 			return alloc(size);
 		}
 
-		import d.gc.util;
-		auto aptr = alignDown(ptr, PageSize);
-
-		auto a = allocator;
-		auto pd = a.emap.lookup(aptr);
-		assert(pd.extent !is null);
-		assert(pd.isSlab() || ptr is pd.extent.addr);
-
 		auto copySize = size;
+		auto pd = getPageDescriptor(ptr);
+
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
@@ -128,12 +114,13 @@ struct Arena {
 			}
 		} else {
 			auto esize = pd.extent.size;
+
+			import d.gc.util;
 			if (alignUp(size, PageSize) == esize) {
 				return ptr;
 			}
 
 			// TODO: Try to extend/shrink in place.
-			import d.gc.util;
 			copySize = min(size, esize);
 		}
 
@@ -143,10 +130,7 @@ struct Arena {
 		}
 
 		memcpy(newPtr, ptr, copySize);
-
-		if (!pd.isSlab() || bins[pd.sizeClass].free(&this, ptr, pd)) {
-			a.freePages(pd.extent);
-		}
+		free(pd, ptr);
 
 		return newPtr;
 	}
@@ -179,6 +163,35 @@ private:
 		uint pages = (alignUp(size, PageSize) >> LgPageSize) & uint.max;
 		auto e = allocator.allocPages(&this, pages);
 		return e.addr;
+	}
+
+	/**
+	 * Deallocation facility.
+	 */
+	void free(PageDescriptor pd, void* ptr) shared {
+		assert(pd.extent !is null, "Extent is null!");
+		assert(pd.extent.contains(ptr), "invalid ptr!");
+		assert(pd.extent.arena is &this, "Invalid arena!");
+
+		import sdc.intrinsics;
+		if (unlikely(!pd.isSlab()) || bins[pd.sizeClass].free(&this, ptr, pd)) {
+			allocator.freePages(pd.extent);
+		}
+	}
+
+	/**
+	 * Utility functions.
+	 */
+	auto getPageDescriptor(void* ptr) shared {
+		import d.gc.util;
+		auto aptr = alignDown(ptr, PageSize);
+
+		auto a = allocator;
+		auto pd = a.emap.lookup(aptr);
+		assert(pd.extent !is null);
+		assert(pd.isSlab() || ptr is pd.extent.addr);
+
+		return pd;
 	}
 
 	/**
