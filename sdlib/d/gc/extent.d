@@ -20,7 +20,7 @@ private:
 
 public:
 	import d.gc.arena;
-	Arena* arena;
+	shared(Arena)* arena;
 
 	void* addr;
 	size_t sizeAndGen;
@@ -39,7 +39,7 @@ private:
 	import d.gc.bitmap;
 	Bitmap!512 _slabData;
 
-	this(Arena* arena, void* addr, size_t size, ubyte generation,
+	this(shared(Arena)* arena, void* addr, size_t size, ubyte generation,
 	     HugePageDescriptor* hpd, bool is_slab, ubyte sizeClass) {
 		// FIXME: in contract.
 		assert(sizeClass < ClassCount.Small,
@@ -75,7 +75,7 @@ public:
 		return at(ptr, size, hpd, false, ubyte(0));
 	}
 
-	static fromSlot(Arena* arena, Base.Slot slot) {
+	static fromSlot(shared(Arena)* arena, Base.Slot slot) {
 		// FIXME: in contract
 		assert(slot.address !is null, "Slot is empty!");
 		assert(isAligned(slot.address, Extent.Align),

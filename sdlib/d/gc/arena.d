@@ -20,30 +20,28 @@ extern(C) void* _tl_gc_realloc(void* ptr, size_t size) {
 
 extern(C) void _tl_gc_set_stack_bottom(const void* bottom) {
 	// tl.stackBottom = makeRange(bottom[]).ptr;
-	tl.stackBottom = makeRange(bottom[0 .. 0]).ptr;
+	// tl.stackBottom = makeRange(bottom[0 .. 0]).ptr;
 }
 
 extern(C) void _tl_gc_add_roots(const void[] range) {
-	tl.addRoots(range);
+	(cast(Arena*) &tl).addRoots(range);
 }
 
 extern(C) void _tl_gc_collect() {
-	tl.collect();
+	// tl.collect();
 }
 
-Arena tl;
+shared Arena tl;
 
 struct Arena {
-	// FIXME: All of this is shared, but ultimately,
-	// the arena is what needs to be shared.
 	import d.gc.base;
-	shared Base base;
+	Base base;
 
 	import d.gc.allocator;
-	shared Allocator _allocator;
+	Allocator _allocator;
 
 	@property
-	shared(Allocator)* allocator() {
+	shared(Allocator)* allocator() shared {
 		auto a = &_allocator;
 
 		if (a.regionAllocator is null) {
@@ -57,13 +55,13 @@ struct Arena {
 		return a;
 	}
 
-	const(void*)* stackBottom;
+	// const(void*)* stackBottom;
 	const(void*)[][] roots;
 
 	import d.gc.bin, d.gc.sizeclass;
-	shared(Bin)[ClassCount.Small] bins;
+	Bin[ClassCount.Small] bins;
 
-	void* alloc(size_t size) {
+	void* alloc(size_t size) shared {
 		if (size <= SizeClass.Small) {
 			return allocSmall(size);
 		}
@@ -71,7 +69,7 @@ struct Arena {
 		return allocLarge(size, false);
 	}
 
-	void* calloc(size_t size) {
+	void* calloc(size_t size) shared {
 		if (size <= SizeClass.Small) {
 			auto ret = allocSmall(size);
 			memset(ret, 0, size);
@@ -81,7 +79,7 @@ struct Arena {
 		return allocLarge(size, true);
 	}
 
-	void free(void* ptr) {
+	void free(void* ptr) shared {
 		if (ptr is null) {
 			return;
 		}
@@ -99,7 +97,7 @@ struct Arena {
 		}
 	}
 
-	void* realloc(void* ptr, size_t size) {
+	void* realloc(void* ptr, size_t size) shared {
 		if (size == 0) {
 			free(ptr);
 			return null;
@@ -157,7 +155,7 @@ private:
 	/**
 	 * Small allocation facilities.
 	 */
-	void* allocSmall(size_t size) {
+	void* allocSmall(size_t size) shared {
 		// TODO: in contracts
 		assert(size <= SizeClass.Small);
 		if (size == 0) {
@@ -173,7 +171,7 @@ private:
 	/**
 	 * Large allocation facilities.
 	 */
-	void* allocLarge(size_t size, bool zero) {
+	void* allocLarge(size_t size, bool zero) shared {
 		// FIXME: in contracts.
 		assert(size > SizeClass.Small);
 
@@ -191,8 +189,8 @@ private:
 		auto ptr = cast(void*) roots.ptr;
 
 		// We realloc everytime. It doesn't really matter at this point.
-		roots.ptr = cast(const(void*)[]*)
-			realloc(ptr, (roots.length + 1) * void*[].sizeof);
+		roots.ptr = cast(const(void*)[]*) (cast(shared(Arena)*) &this)
+			.realloc(ptr, (roots.length + 1) * void*[].sizeof);
 
 		// Using .ptr to bypass bound checking.
 		roots.ptr[roots.length] = makeRange(range);
@@ -220,7 +218,8 @@ private:
 		const(void*) p;
 
 		auto iptr = cast(size_t) &p;
-		auto iend = cast(size_t) stackBottom;
+		// auto iend = cast(size_t) stackBottom;
+		size_t iend = 0;
 		auto length = (iend - iptr) / size_t.sizeof;
 
 		auto range = (&p)[1 .. length];
@@ -228,6 +227,7 @@ private:
 	}
 
 	bool scan(const(void*)[] range) {
+		/*
 		bool newPtr;
 		foreach (ptr; range) {
 			enum PtrMask = ~(AddressSpace - 1);
@@ -253,6 +253,9 @@ private:
 		}
 
 		return newPtr;
+		/*/
+		return false;
+		// */
 	}
 }
 

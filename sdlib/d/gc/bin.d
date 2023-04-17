@@ -22,7 +22,7 @@ struct Bin {
 	import d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 
-	void* alloc(Arena* arena, ubyte sizeClass) shared {
+	void* alloc(shared(Arena)* arena, ubyte sizeClass) shared {
 		assert(sizeClass < ClassCount.Small);
 		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
 
@@ -47,7 +47,7 @@ struct Bin {
 		return slab.addr + index * size;
 	}
 
-	bool free(Arena* arena, void* ptr, PageDescriptor pd) shared {
+	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {
 		assert(pd.extent !is null, "Extent is null!");
 		assert(pd.isSlab(), "Expected a slab!");
 		assert(pd.extent.contains(ptr), "ptr not in slab!");
@@ -115,7 +115,7 @@ private:
 		return current;
 	}
 
-	auto getSlab(Arena* arena, ubyte sizeClass) {
+	auto getSlab(shared(Arena)* arena, ubyte sizeClass) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
