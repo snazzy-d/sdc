@@ -151,6 +151,7 @@ struct SymbolAnalyzer {
 		set(BuiltinName!"countTrailingZeros", Intrinsic.CountTrailingZeros);
 		set(BuiltinName!"bswap", Intrinsic.ByteSwap);
 		set(BuiltinName!"readCycleCounter", Intrinsic.ReadCycleCounter);
+		set(BuiltinName!"readFramePointer", Intrinsic.ReadFramePointer);
 	}
 
 	void analyze(FunctionDeclaration fd, Function f) {

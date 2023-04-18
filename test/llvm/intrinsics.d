@@ -75,3 +75,10 @@ ulong doReadCycleCounter() {
 // CHECK: ret i64 [[RET]]
 	return readCycleCounter();
 }
+
+void* doReadFramePointer() {
+// CHECK-LABEL: _D10intrinsics18doReadFramePointerFMZPv
+// CHECK:[[RET:%[a-z0-9\.]+]] = call i8* @llvm.frameaddress.p0i8(i32 0)
+// CHECK: ret i8* [[RET]]
+	return readFramePointer();
+}

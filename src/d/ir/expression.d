@@ -246,6 +246,7 @@ enum Intrinsic {
 	CountTrailingZeros,
 	ByteSwap,
 	ReadCycleCounter,
+	ReadFramePointer,
 }
 
 /**

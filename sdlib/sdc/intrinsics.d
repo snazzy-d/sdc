@@ -52,3 +52,4 @@ uint bswap(uint n);
 ulong bswap(ulong n);
 
 ulong readCycleCounter();
+void* readFramePointer();

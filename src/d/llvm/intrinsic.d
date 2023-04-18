@@ -61,6 +61,9 @@ struct IntrinsicGen {
 
 			case ReadCycleCounter:
 				return readCycleCounter(args);
+
+			case ReadFramePointer:
+				return readFramePointer(args);
 		}
 	}
 
@@ -237,6 +240,29 @@ struct IntrinsicGen {
 
 		auto i64 = LLVMInt64TypeInContext(llvmCtx);
 		auto type = LLVMFunctionType(i64, null, 0, false);
+		return cache[name] =
+			LLVMAddFunction(dmodule, name.toStringz(context), type);
+	}
+
+	LLVMValueRef readFramePointer(LLVMValueRef[] args)
+			in(args.length == 0, "Invalid argument count") {
+		auto fun = getReadFramePointer();
+		auto t = LLVMGlobalGetValueType(fun);
+
+		auto i32 = LLVMInt32TypeInContext(llvmCtx);
+		auto zero = LLVMConstInt(i32, 0, false);
+		return LLVMBuildCall2(builder, t, fun, &zero, 1, "");
+	}
+
+	auto getReadFramePointer() {
+		auto name = context.getName("llvm.frameaddress.p0i8");
+		if (auto fPtr = name in cache) {
+			return *fPtr;
+		}
+
+		auto ptr = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
+		auto i32 = LLVMInt32TypeInContext(llvmCtx);
+		auto type = LLVMFunctionType(ptr, &i32, 1, false);
 		return cache[name] =
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
 	}
