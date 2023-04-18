@@ -54,13 +54,11 @@ struct Bin {
 		assert(&arena.bins[pd.sizeClass] == &this,
 		       "Invalid arena or sizeClass!");
 
-		// FIXME: Find a way to find the offset withotu dereferencing.
-		// FIXME: Implement pointer difference.
+		// FIXME: Find a way to find the offset without dereferencing.
 		auto e = pd.extent;
 		auto base = e.addr;
-		auto offset = cast(size_t) ptr - cast(size_t) base;
 		auto sc = pd.sizeClass;
-		auto index = binInfos[sc].computeIndex(offset);
+		auto index = binInfos[sc].computeIndex(ptr - base);
 		auto slots = binInfos[sc].slots;
 
 		assert(ptr is base + index * binInfos[sc].itemSize);
