@@ -208,6 +208,7 @@ private:
 
 				return build!BinaryExpression(location, t, BinaryOp.SDiv, d,
 				                              esize);
+
 			case Mul, Pow:
 				goto TransparentBinaryOp;
 
