@@ -36,6 +36,19 @@ ThreadCache tc;
 
 struct ThreadCache {
 private:
+	import d.gc.emap;
+	shared(ExtentMap)* _emap;
+
+	@property
+	shared(ExtentMap)* emap() {
+		import sdc.intrinsics;
+		if (unlikely(_emap is null)) {
+			_emap = gExtentMap;
+		}
+
+		return _emap;
+	}
+
 	import d.gc.arena;
 	shared(Arena)* _arena;
 
@@ -55,20 +68,20 @@ private:
 public:
 	void* alloc(size_t size) {
 		if (size <= SizeClass.Small) {
-			return arena.allocSmall(size);
+			return arena.allocSmall(emap, size);
 		}
 
-		return arena.allocLarge(size, false);
+		return arena.allocLarge(emap, size, false);
 	}
 
 	void* calloc(size_t size) {
 		if (size <= SizeClass.Small) {
-			auto ret = arena.allocSmall(size);
+			auto ret = arena.allocSmall(emap, size);
 			memset(ret, 0, size);
 			return ret;
 		}
 
-		return arena.allocLarge(size, true);
+		return arena.allocLarge(emap, size, true);
 	}
 
 	void free(void* ptr) {
@@ -77,7 +90,7 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		pd.extent.arena.free(pd, ptr);
+		pd.extent.arena.free(emap, pd, ptr);
 	}
 
 	void* realloc(void* ptr, size_t size) {
@@ -120,7 +133,7 @@ public:
 		}
 
 		memcpy(newPtr, ptr, copySize);
-		pd.extent.arena.free(pd, ptr);
+		pd.extent.arena.free(emap, pd, ptr);
 
 		return newPtr;
 	}
@@ -207,11 +220,7 @@ private:
 	auto maybeGetPageDescriptor(const void* ptr) {
 		import d.gc.util;
 		auto aptr = alignDown(ptr, PageSize);
-
-		// FIXME: Pass the emap down to the arena instead of
-		// getting it from the arena.
-		auto a = arena.allocator;
-		return a.emap.lookup(aptr);
+		return emap.lookup(aptr);
 	}
 }
 

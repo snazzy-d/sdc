@@ -3,6 +3,7 @@ module d.gc.allocator;
 import d.gc.allocclass;
 import d.gc.arena;
 import d.gc.base;
+import d.gc.emap;
 import d.gc.extent;
 import d.gc.heap;
 import d.gc.hpd;
@@ -13,9 +14,6 @@ struct Allocator {
 private:
 	import d.gc.region;
 	shared(RegionAllocator)* regionAllocator;
-
-	import d.gc.emap;
-	shared(ExtentMap)* emap;
 
 	import d.sync.mutex;
 	Mutex mutex;
@@ -32,8 +30,8 @@ private:
 	Heap!(HugePageDescriptor, epochHPDCmp)[HeapCount] heaps;
 
 public:
-	Extent* allocPages(shared(Arena)* arena, uint pages, bool is_slab,
-	                   ubyte sizeClass) shared {
+	Extent* allocPages(shared(Arena)* arena, shared(ExtentMap)* emap,
+	                   uint pages, bool is_slab, ubyte sizeClass) shared {
 		assert(pages > 0 && pages <= PageCount, "Invalid page count!");
 		auto mask = ulong.max << getAllocClass(pages);
 
@@ -54,21 +52,23 @@ public:
 		return e;
 	}
 
-	Extent* allocPages(shared(Arena)* arena, uint pages,
-	                   ubyte sizeClass) shared {
-		return allocPages(arena, pages, true, sizeClass);
+	Extent* allocPages(shared(Arena)* arena, shared(ExtentMap)* emap,
+	                   uint pages, ubyte sizeClass) shared {
+		return allocPages(arena, emap, pages, true, sizeClass);
 	}
 
-	Extent* allocPages(shared(Arena)* arena, uint pages) shared {
+	Extent* allocPages(shared(Arena)* arena, shared(ExtentMap)* emap,
+	                   uint pages) shared {
 		if (pages > PageCount) {
-			return allocHuge(arena, pages);
+			return allocHuge(arena, emap, pages);
 		}
 
 		// FIXME: Overload resolution doesn't cast this properly.
-		return allocPages(arena, pages, false, ubyte(0));
+		return allocPages(arena, emap, pages, false, ubyte(0));
 	}
 
-	Extent* allocHuge(shared(Arena)* arena, uint pages) shared {
+	Extent* allocHuge(shared(Arena)* arena, shared(ExtentMap)* emap,
+	                  uint pages) shared {
 		assert(pages > PageCount, "Invalid page count!");
 
 		uint extraPages = (pages - 1) / PageCount;
@@ -91,7 +91,7 @@ public:
 		return e;
 	}
 
-	void freePages(Extent* e) shared {
+	void freePages(shared(ExtentMap)* emap, Extent* e) shared {
 		assert(isAligned(e.addr, PageSize), "Invalid extent addr!");
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
 
@@ -292,15 +292,14 @@ unittest allocLarge {
 	import d.gc.emap;
 	static shared ExtentMap emap;
 	emap.tree.base = base;
-	allocator.emap = &emap;
 
-	auto e0 = allocator.allocPages(&arena, 1);
+	auto e0 = allocator.allocPages(&arena, &emap, 1);
 	assert(e0 !is null);
 	assert(e0.size == PageSize);
 	auto pd0 = emap.lookup(e0.addr);
 	assert(pd0.extent is e0);
 
-	auto e1 = allocator.allocPages(&arena, 2);
+	auto e1 = allocator.allocPages(&arena, &emap, 2);
 	assert(e1 !is null);
 	assert(e1.size == 2 * PageSize);
 	assert(e1.addr is e0.addr + e0.size);
@@ -308,12 +307,12 @@ unittest allocLarge {
 	assert(pd1.extent is e1);
 
 	auto e0Addr = e0.addr;
-	allocator.freePages(e0);
+	allocator.freePages(&emap, e0);
 	auto pdf = emap.lookup(e0.addr);
 	assert(pdf.extent is null);
 
 	// Do not reuse the free slot is there is no room.
-	auto e2 = allocator.allocPages(&arena, 3);
+	auto e2 = allocator.allocPages(&arena, &emap, 3);
 	assert(e2 !is null);
 	assert(e2.size == 3 * PageSize);
 	assert(e2.addr is e1.addr + e1.size);
@@ -321,7 +320,7 @@ unittest allocLarge {
 	assert(pd2.extent is e2);
 
 	// But do reuse that free slot if there isn't.
-	auto e3 = allocator.allocPages(&arena, 1);
+	auto e3 = allocator.allocPages(&arena, &emap, 1);
 	assert(e3 !is null);
 	assert(e3.size == PageSize);
 	assert(e3.addr is e0Addr);
@@ -329,9 +328,9 @@ unittest allocLarge {
 	assert(pd3.extent is e3);
 
 	// Free everything.
-	allocator.freePages(e1);
-	allocator.freePages(e2);
-	allocator.freePages(e3);
+	allocator.freePages(&emap, e1);
+	allocator.freePages(&emap, e2);
+	allocator.freePages(&emap, e3);
 }
 
 unittest allocHuge {
@@ -351,13 +350,12 @@ unittest allocHuge {
 	import d.gc.emap;
 	static shared ExtentMap emap;
 	emap.tree.base = base;
-	allocator.emap = &emap;
 
 	enum uint PageCount = Allocator.PageCount;
 	enum uint AllocSize = PageCount + 1;
 
 	// Allocate a huge extent.
-	auto e0 = allocator.allocPages(&arena, AllocSize);
+	auto e0 = allocator.allocPages(&arena, &emap, AllocSize);
 	assert(e0 !is null);
 	assert(e0.size == AllocSize * PageSize);
 	auto pd0 = emap.lookup(e0.addr);
@@ -365,10 +363,10 @@ unittest allocHuge {
 
 	// Free the huge extent.
 	auto e0Addr = e0.addr;
-	allocator.freePages(e0);
+	allocator.freePages(&emap, e0);
 
 	// Reallocating the same run will yield the same memory back.
-	e0 = allocator.allocPages(&arena, AllocSize);
+	e0 = allocator.allocPages(&arena, &emap, AllocSize);
 	assert(e0 !is null);
 	assert(e0.addr is e0Addr);
 	assert(e0.size == AllocSize * PageSize);
@@ -376,7 +374,7 @@ unittest allocHuge {
 	assert(pd0.extent is e0);
 
 	// Allocate one page on the borrowed huge page.
-	auto e1 = allocator.allocPages(&arena, 1);
+	auto e1 = allocator.allocPages(&arena, &emap, 1);
 	assert(e1 !is null);
 	assert(e1.size == PageSize);
 	assert(e1.addr is e0.addr + e0.size);
@@ -384,10 +382,10 @@ unittest allocHuge {
 	assert(pd1.extent is e1);
 
 	// Now, freeing the huge extent will leave a page behind.
-	allocator.freePages(e0);
+	allocator.freePages(&emap, e0);
 
 	// Allocating another huge extent will use a new range.
-	auto e2 = allocator.allocPages(&arena, AllocSize);
+	auto e2 = allocator.allocPages(&arena, &emap, AllocSize);
 	assert(e2 !is null);
 	assert(e2.addr is alignUp(e1.addr, HugePageSize));
 	assert(e2.size == AllocSize * PageSize);
@@ -395,7 +393,7 @@ unittest allocHuge {
 	assert(pd2.extent is e2);
 
 	// Allocating new small extents fill the borrowed page.
-	auto e3 = allocator.allocPages(&arena, 1);
+	auto e3 = allocator.allocPages(&arena, &emap, 1);
 	assert(e3 !is null);
 	assert(e3.addr is alignDown(e1.addr, HugePageSize));
 	assert(e3.size == PageSize);
@@ -403,7 +401,7 @@ unittest allocHuge {
 	assert(pd3.extent is e3);
 
 	// But allocating just the right size will reuse the region.
-	auto e4 = allocator.allocPages(&arena, PageCount);
+	auto e4 = allocator.allocPages(&arena, &emap, PageCount);
 	assert(e4 !is null);
 	assert(e4.addr is e0Addr);
 	assert(e4.size == PageCount * PageSize);
@@ -411,8 +409,8 @@ unittest allocHuge {
 	assert(pd4.extent is e4);
 
 	// Free everything.
-	allocator.freePages(e1);
-	allocator.freePages(e2);
-	allocator.freePages(e3);
-	allocator.freePages(e4);
+	allocator.freePages(&emap, e1);
+	allocator.freePages(&emap, e2);
+	allocator.freePages(&emap, e3);
+	allocator.freePages(&emap, e4);
 }

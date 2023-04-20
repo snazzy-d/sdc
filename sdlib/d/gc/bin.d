@@ -22,7 +22,8 @@ struct Bin {
 	import d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 
-	void* alloc(shared(Arena)* arena, ubyte sizeClass) shared {
+	void* alloc(shared(Arena)* arena, shared(ExtentMap)* emap,
+	            ubyte sizeClass) shared {
 		assert(sizeClass < ClassCount.Small);
 		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
 
@@ -36,7 +37,7 @@ struct Bin {
 			mutex.lock();
 			scope(exit) mutex.unlock();
 
-			slab = (cast(Bin*) &this).getSlab(arena, sizeClass);
+			slab = (cast(Bin*) &this).getSlab(arena, emap, sizeClass);
 			if (slab is null) {
 				return null;
 			}
@@ -113,7 +114,8 @@ private:
 		return current;
 	}
 
-	auto getSlab(shared(Arena)* arena, ubyte sizeClass) {
+	auto getSlab(shared(Arena)* arena, shared(ExtentMap)* emap,
+	             ubyte sizeClass) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
@@ -129,8 +131,8 @@ private:
 
 			// We don't have a suitable slab, so allocate one.
 			auto a = arena.allocator;
-			slab =
-				a.allocPages(arena, binInfos[sizeClass].needPages, sizeClass);
+			slab = a.allocPages(arena, emap, binInfos[sizeClass].needPages,
+			                    sizeClass);
 		}
 
 		if (slab is null) {
@@ -151,7 +153,7 @@ private:
 
 		// In which case we put the free run back in the tree.
 		assert(slab.freeSlots == binInfos[sizeClass].slots);
-		arena.allocator.freePages(slab);
+		arena.allocator.freePages(emap, slab);
 
 		// And use the metadata run.
 		return current;
