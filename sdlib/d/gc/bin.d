@@ -130,8 +130,7 @@ private:
 			scope(exit) mutex.lock();
 
 			// We don't have a suitable slab, so allocate one.
-			slab = arena
-				.allocPages(emap, binInfos[sizeClass].needPages, sizeClass);
+			slab = arena.allocSlab(emap, sizeClass);
 		}
 
 		if (slab is null) {
@@ -152,7 +151,7 @@ private:
 
 		// In which case we put the free run back in the tree.
 		assert(slab.freeSlots == binInfos[sizeClass].slots);
-		arena.freePages(emap, slab);
+		arena.freeSlab(emap, slab);
 
 		// And use the metadata run.
 		return current;
