@@ -37,37 +37,19 @@ ThreadCache tc;
 struct ThreadCache {
 private:
 	import d.gc.emap;
-	shared(ExtentMap)* _emap;
-
-	@property
-	shared(ExtentMap)* emap() {
-		import sdc.intrinsics;
-		if (unlikely(_emap is null)) {
-			_emap = gExtentMap;
-		}
-
-		return _emap;
-	}
+	shared(ExtentMap)* emap;
 
 	import d.gc.arena;
-	shared(Arena)* _arena;
-
-	@property
-	shared(Arena)* arena() {
-		import sdc.intrinsics;
-		if (unlikely(_arena is null)) {
-			_arena = &gArena;
-		}
-
-		return _arena;
-	}
+	shared(Arena)* arena;
 
 	const(void)* stackBottom;
 	const(void*)[][] roots;
 
 public:
 	void* alloc(size_t size) {
-		if (size <= SizeClass.Small) {
+		initializeArena();
+
+		if (size > 0 && size <= Arena.MaxSmallAllocSize) {
 			return arena.allocSmall(emap, size);
 		}
 
@@ -75,7 +57,9 @@ public:
 	}
 
 	void* calloc(size_t size) {
-		if (size <= SizeClass.Small) {
+		initializeArena();
+
+		if (size > 0 && size <= Arena.MaxSmallAllocSize) {
 			auto ret = arena.allocSmall(emap, size);
 			memset(ret, 0, size);
 			return ret;
@@ -218,9 +202,33 @@ private:
 	}
 
 	auto maybeGetPageDescriptor(const void* ptr) {
+		initializeExtentMap();
+
 		import d.gc.util;
 		auto aptr = alignDown(ptr, PageSize);
 		return emap.lookup(aptr);
+	}
+
+	void initializeExtentMap() {
+		import sdc.intrinsics;
+		if (unlikely(emap is null)) {
+			emap = gExtentMap;
+		}
+	}
+
+	void initializeArena() {
+		import sdc.intrinsics;
+		if (likely(arena !is null)) {
+			return;
+		}
+
+		initializeExtentMap();
+
+		arena = &gArena;
+		if (arena.regionAllocator is null) {
+			import d.gc.region;
+			arena.regionAllocator = gRegionAllocator;
+		}
 	}
 }
 
