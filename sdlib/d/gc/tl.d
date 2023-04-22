@@ -39,27 +39,29 @@ private:
 	import d.gc.emap;
 	shared(ExtentMap)* emap;
 
-	import d.gc.arena;
-	shared(Arena)* arena;
-
 	const(void)* stackBottom;
 	const(void*)[][] roots;
 
 public:
 	void* alloc(size_t size) {
-		initializeArena();
-
-		if (size > 0 && size <= Arena.MaxSmallAllocSize) {
-			return arena.allocSmall(emap, size);
+		if (!isAllocatableSize(size)) {
+			return null;
 		}
 
-		return arena.allocLarge(emap, size, false);
+		auto arena = chooseArena();
+		return size <= SizeClass.Small
+			? arena.allocSmall(emap, size)
+			: arena.allocLarge(emap, size, false);
 	}
 
 	void* calloc(size_t size) {
-		initializeArena();
+		if (!isAllocatableSize(size)) {
+			return null;
+		}
 
-		if (size > 0 && size <= Arena.MaxSmallAllocSize) {
+		auto arena = chooseArena();
+
+		if (size <= SizeClass.Small) {
 			auto ret = arena.allocSmall(emap, size);
 			memset(ret, 0, size);
 			return ret;
@@ -78,7 +80,7 @@ public:
 	}
 
 	void* realloc(void* ptr, size_t size) {
-		if (size == 0) {
+		if (!isAllocatableSize(size)) {
 			free(ptr);
 			return null;
 		}
@@ -216,23 +218,38 @@ private:
 		}
 	}
 
-	void initializeArena() {
-		import sdc.intrinsics;
-		if (likely(arena !is null)) {
-			return;
-		}
-
+	auto chooseArena() {
 		initializeExtentMap();
 
-		arena = &gArena;
-		if (arena.regionAllocator is null) {
-			import d.gc.region;
-			arena.regionAllocator = gRegionAllocator;
-		}
+		/**
+		 * We assume this call is cheap.
+		 * This is true on modern linux with modern versions
+		 * of glibc thanks to rseqs, but we might want to find
+		 * an alternative on other systems.
+		 */
+		import sys.posix.sched;
+		int cpuid = sched_getcpu();
+
+		import d.gc.arena;
+		return Arena.get(emap, cpuid);
 	}
 }
 
 private:
+
+bool isAllocatableSize(size_t size) {
+	return size > 0 && size <= MaxAllocationSize;
+}
+
+unittest isAllocatableSize {
+	assert(!isAllocatableSize(0));
+	assert(isAllocatableSize(1));
+	assert(isAllocatableSize(42));
+	assert(isAllocatableSize(99999));
+	assert(isAllocatableSize(MaxAllocationSize));
+	assert(!isAllocatableSize(MaxAllocationSize + 1));
+	assert(!isAllocatableSize(size_t.max));
+}
 
 extern(C):
 version(OSX) {

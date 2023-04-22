@@ -8,7 +8,17 @@ import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
 
-shared Arena gArena;
+@property
+shared(Arena)* gArena() {
+	static shared Arena arena;
+
+	if (arena.regionAllocator is null) {
+		import d.gc.region;
+		arena.regionAllocator = gRegionAllocator;
+	}
+
+	return &arena;
+}
 
 struct Arena {
 private:
@@ -37,15 +47,43 @@ private:
 	Bin[ClassCount.Small] bins;
 
 public:
-	enum size_t MaxSmallAllocSize = SizeClass.Small;
-	enum size_t MaxLargeAllocSize = uint.max * PageSize;
+	static shared(Arena)* get(shared(ExtentMap)* emap, uint index) {
+		enum Count = 4096;
+		enum Mask = Count - 1;
+		index &= Mask;
+
+		static shared Mutex initMutex;
+		static shared Arena*[Count] arenas;
+
+		auto a = arenas[index];
+
+		import sdc.intrinsics;
+		if (likely(a !is null)) {
+			return a;
+		}
+
+		initMutex.lock();
+		scope(exit) initMutex.unlock();
+
+		a = arenas[index];
+		if (a !is null) {
+			return a;
+		}
+
+		import d.gc.region;
+		a = cast(shared(Arena)*) gArena.allocSmall(emap, Arena.sizeof);
+		a.regionAllocator = gRegionAllocator;
+
+		arenas[index] = a;
+		return a;
+	}
 
 	/**
 	 * Small allocation facilities.
 	 */
 	void* allocSmall(shared(ExtentMap)* emap, size_t size) shared {
 		// TODO: in contracts
-		assert(size > 0 && size <= MaxSmallAllocSize);
+		assert(size > 0 && size <= SizeClass.Small);
 
 		auto sizeClass = getSizeClass(size);
 		assert(sizeClass < ClassCount.Small);
@@ -58,9 +96,8 @@ public:
 	 */
 	void* allocLarge(shared(ExtentMap)* emap, size_t size,
 	                 bool zero = false) shared {
-		if (size <= MaxSmallAllocSize || size > MaxLargeAllocSize) {
-			return null;
-		}
+		// TODO: in contracts
+		assert(size > SizeClass.Small && size <= MaxAllocationSize);
 
 		auto computedPageCount = alignUp(size, PageSize) / PageSize;
 		uint pages = computedPageCount & uint.max;
@@ -342,12 +379,6 @@ unittest allocLarge {
 	regionAllocator.base = base;
 
 	arena.regionAllocator = &regionAllocator;
-
-	enum MinLargeAlloc = Arena.MaxSmallAllocSize + 1;
-	assert(arena.allocLarge(&emap, 0) is null);
-	assert(arena.allocLarge(&emap, MinLargeAlloc - 1) is null);
-	assert(arena.allocLarge(&emap, Arena.MaxLargeAllocSize + 1) is null);
-	assert(arena.allocLarge(&emap, size_t.max) is null);
 
 	auto ptr0 = arena.allocLarge(&emap, 4 * PageSize);
 	assert(ptr0 !is null);
