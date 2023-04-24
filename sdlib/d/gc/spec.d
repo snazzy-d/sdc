@@ -41,3 +41,8 @@ enum HugePageMask = HugePageSize - 1;
 enum LgAddressSpace = 48;
 enum AddressSpace = One << LgAddressSpace;
 enum AddressMask = AddressSpace - 1;
+
+// Allocator spêcific config.
+enum LgArenaCount = 12;
+enum ArenaCount = One << LgArenaCount;
+enum ArenaMask = ArenaCount - 1;

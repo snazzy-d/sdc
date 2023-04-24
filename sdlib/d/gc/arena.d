@@ -10,6 +10,8 @@ import d.gc.util;
 
 struct Arena {
 private:
+	ulong bits;
+
 	import d.gc.base;
 	Base base;
 
@@ -34,21 +36,42 @@ private:
 	import d.gc.bin;
 	Bin[ClassCount.Small] bins;
 
-public:
-	static get(shared(ExtentMap)* emap, uint index, bool containsPointer) {
-		enum Count = 4096;
-		enum Mask = Count - 1;
+package:
+	enum InitializedBit = 1UL << 63;
 
+	@property
+	bool initialized() shared {
+		return (bits & InitializedBit) != 0;
+	}
+
+	@property
+	bool containsPointers() shared {
+		return (bits & 0x01) != 0;
+	}
+
+	@property
+	uint index() shared {
+		return bits & ArenaMask;
+	}
+
+	static getArenaAddress(uint index) {
+		assert((index & ~ArenaMask) == 0, "Invalid index!");
+
+		// FIXME: align on cache lines.
+		enum ArenaSize = alignUp(Arena.sizeof, CacheLine);
+		static shared ulong[ArenaSize / ulong.sizeof][ArenaCount] arenaStore;
+
+		return cast(shared(Arena)*) arenaStore[index].ptr;
+	}
+
+	static getOrinitialize(uint index) {
 		// Compute the internal index.
-		index <<= 1;
-		index |= containsPointer;
-		index &= Mask;
+		index &= ArenaMask;
 
-		static shared Arena*[Count] arenas;
-		auto a = arenas[index];
+		auto a = getArenaAddress(index);
 
 		import sdc.intrinsics;
-		if (likely(a !is null)) {
+		if (a.initialized) {
 			return a;
 		}
 
@@ -56,24 +79,27 @@ public:
 		initMutex.lock();
 		scope(exit) initMutex.unlock();
 
-		a = arenas[index];
-		if (a !is null) {
+		// In case it was initialized while we were waiting on the lock.
+		if (a.initialized) {
 			return a;
 		}
 
-		// FIXME: align on cache lines.
-		enum ArenaSize = alignUp(Arena.sizeof, CacheLine);
-		static shared ulong[ArenaSize / ulong.sizeof][Count] arenaStore;
-
 		import d.gc.region;
-		a = cast(shared(Arena)*) arenaStore[index].ptr;
 		a.regionAllocator =
-			containsPointer ? gPointerRegionAllocator : gDataRegionAllocator;
+			(index & 0x01) ? gPointerRegionAllocator : gDataRegionAllocator;
 
-		arenas[index] = a;
+		// Mark as initialized and return.
+		a.bits = index | InitializedBit;
+
+		// Some sanity checks.
+		assert(a.initialized, "Arena was not initialized!");
+		assert(a.index == index, "Invalid index!");
+		assert(a.containsPointers == (index & 0x01), "Invalid pointer status!");
+
 		return a;
 	}
 
+public:
 	/**
 	 * Small allocation facilities.
 	 */

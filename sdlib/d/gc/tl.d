@@ -17,7 +17,7 @@ extern(C) void _tl_gc_free(void* ptr) {
 }
 
 extern(C) void* _tl_gc_realloc(void* ptr, size_t size) {
-	return tc.realloc(ptr, size);
+	return tc.realloc(ptr, size, true);
 }
 
 extern(C) void _tl_gc_set_stack_bottom(const void* bottom) {
@@ -43,23 +43,27 @@ private:
 	const(void*)[][] roots;
 
 public:
-	void* alloc(size_t size, bool containsPointer) {
+	void* alloc(size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
 			return null;
 		}
 
-		auto arena = chooseArena(containsPointer);
+		initializeExtentMap();
+
+		auto arena = chooseArena(containsPointers);
 		return size <= SizeClass.Small
 			? arena.allocSmall(emap, size)
 			: arena.allocLarge(emap, size, false);
 	}
 
-	void* calloc(size_t size, bool containsPointer) {
+	void* calloc(size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
 			return null;
 		}
 
-		auto arena = chooseArena(containsPointer);
+		initializeExtentMap();
+
+		auto arena = chooseArena(containsPointers);
 		if (size <= SizeClass.Small) {
 			auto ret = arena.allocSmall(emap, size);
 			memset(ret, 0, size);
@@ -78,15 +82,14 @@ public:
 		pd.extent.arena.free(emap, pd, ptr);
 	}
 
-	void* realloc(void* ptr, size_t size) {
+	void* realloc(void* ptr, size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
 			free(ptr);
 			return null;
 		}
 
 		if (ptr is null) {
-			// FIXME: Reuse the right value for containsPointer.
-			return alloc(size, true);
+			return alloc(size, containsPointers);
 		}
 
 		auto copySize = size;
@@ -113,8 +116,9 @@ public:
 			copySize = min(size, esize);
 		}
 
-		// FIXME: Reuse previous value of hasPointer.
-		auto newPtr = alloc(size, true);
+		containsPointers =
+			(containsPointers | pd.extent.arena.containsPointers) != 0;
+		auto newPtr = alloc(size, containsPointers);
 		if (newPtr is null) {
 			return null;
 		}
@@ -133,7 +137,7 @@ public:
 
 		// We realloc everytime. It doesn't really matter at this point.
 		roots.ptr = cast(const(void*)[]*)
-			realloc(ptr, (roots.length + 1) * void*[].sizeof);
+			realloc(ptr, (roots.length + 1) * void*[].sizeof, true);
 
 		// Using .ptr to bypass bound checking.
 		roots.ptr[roots.length] = makeRange(range);
@@ -219,9 +223,7 @@ private:
 		}
 	}
 
-	auto chooseArena(bool containsPointer) {
-		initializeExtentMap();
-
+	auto chooseArena(bool containsPointers) {
 		/**
 		 * We assume this call is cheap.
 		 * This is true on modern linux with modern versions
@@ -232,7 +234,7 @@ private:
 		int cpuid = sched_getcpu();
 
 		import d.gc.arena;
-		return Arena.get(emap, cpuid, containsPointer);
+		return Arena.getOrinitialize((cpuid << 1) | containsPointers);
 	}
 }
 
