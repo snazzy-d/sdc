@@ -5,7 +5,7 @@ import d.gc.spec;
 import d.gc.util;
 
 extern(C) void* __sd_gc_tl_malloc(size_t size) {
-	return tc.alloc(size);
+	return tc.alloc(size, true);
 }
 
 extern(C) void* __sd_gc_tl_array_alloc(size_t size) {
@@ -43,24 +43,23 @@ private:
 	const(void*)[][] roots;
 
 public:
-	void* alloc(size_t size) {
+	void* alloc(size_t size, bool containsPointer) {
 		if (!isAllocatableSize(size)) {
 			return null;
 		}
 
-		auto arena = chooseArena();
+		auto arena = chooseArena(containsPointer);
 		return size <= SizeClass.Small
 			? arena.allocSmall(emap, size)
 			: arena.allocLarge(emap, size, false);
 	}
 
-	void* calloc(size_t size) {
+	void* calloc(size_t size, bool containsPointer) {
 		if (!isAllocatableSize(size)) {
 			return null;
 		}
 
-		auto arena = chooseArena();
-
+		auto arena = chooseArena(containsPointer);
 		if (size <= SizeClass.Small) {
 			auto ret = arena.allocSmall(emap, size);
 			memset(ret, 0, size);
@@ -86,7 +85,8 @@ public:
 		}
 
 		if (ptr is null) {
-			return alloc(size);
+			// FIXME: Reuse the right value for containsPointer.
+			return alloc(size, true);
 		}
 
 		auto copySize = size;
@@ -113,7 +113,8 @@ public:
 			copySize = min(size, esize);
 		}
 
-		auto newPtr = alloc(size);
+		// FIXME: Reuse previous value of hasPointer.
+		auto newPtr = alloc(size, true);
 		if (newPtr is null) {
 			return null;
 		}
@@ -218,7 +219,7 @@ private:
 		}
 	}
 
-	auto chooseArena() {
+	auto chooseArena(bool containsPointer) {
 		initializeExtentMap();
 
 		/**
@@ -231,7 +232,7 @@ private:
 		int cpuid = sched_getcpu();
 
 		import d.gc.arena;
-		return Arena.get(emap, cpuid);
+		return Arena.get(emap, cpuid, containsPointer);
 	}
 }
 

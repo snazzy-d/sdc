@@ -20,7 +20,18 @@ alias PHNode = heap.Node!Region;
 enum RefillSize = 1024 * 1024 * 1024;
 
 @property
-shared(RegionAllocator)* gRegionAllocator() {
+shared(RegionAllocator)* gDataRegionAllocator() {
+	static shared RegionAllocator regionAllocator;
+
+	if (regionAllocator.base is null) {
+		regionAllocator.base = &gBase;
+	}
+
+	return &regionAllocator;
+}
+
+@property
+shared(RegionAllocator)* gPointerRegionAllocator() {
 	static shared RegionAllocator regionAllocator;
 
 	if (regionAllocator.base is null) {

@@ -14,7 +14,7 @@ shared(Arena)* gArena() {
 
 	if (arena.regionAllocator is null) {
 		import d.gc.region;
-		arena.regionAllocator = gRegionAllocator;
+		arena.regionAllocator = gDataRegionAllocator;
 	}
 
 	return &arena;
@@ -47,9 +47,13 @@ private:
 	Bin[ClassCount.Small] bins;
 
 public:
-	static shared(Arena)* get(shared(ExtentMap)* emap, uint index) {
+	static get(shared(ExtentMap)* emap, uint index, bool containsPointer) {
 		enum Count = 4096;
 		enum Mask = Count - 1;
+
+		// Compute the internal index.
+		index <<= 1;
+		index |= containsPointer;
 		index &= Mask;
 
 		static shared Mutex initMutex;
@@ -72,7 +76,8 @@ public:
 
 		import d.gc.region;
 		a = cast(shared(Arena)*) gArena.allocSmall(emap, Arena.sizeof);
-		a.regionAllocator = gRegionAllocator;
+		a.regionAllocator =
+			containsPointer ? gPointerRegionAllocator : gDataRegionAllocator;
 
 		arenas[index] = a;
 		return a;
