@@ -8,18 +8,6 @@ import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
 
-@property
-shared(Arena)* gArena() {
-	static shared Arena arena;
-
-	if (arena.regionAllocator is null) {
-		import d.gc.region;
-		arena.regionAllocator = gDataRegionAllocator;
-	}
-
-	return &arena;
-}
-
 struct Arena {
 private:
 	import d.gc.base;
@@ -56,9 +44,7 @@ public:
 		index |= containsPointer;
 		index &= Mask;
 
-		static shared Mutex initMutex;
 		static shared Arena*[Count] arenas;
-
 		auto a = arenas[index];
 
 		import sdc.intrinsics;
@@ -66,6 +52,7 @@ public:
 			return a;
 		}
 
+		static shared Mutex initMutex;
 		initMutex.lock();
 		scope(exit) initMutex.unlock();
 
@@ -74,8 +61,12 @@ public:
 			return a;
 		}
 
+		// FIXME: align on cache lines.
+		enum ArenaSize = alignUp(Arena.sizeof, CacheLine);
+		static shared ulong[ArenaSize / ulong.sizeof][Count] arenaStore;
+
 		import d.gc.region;
-		a = cast(shared(Arena)*) gArena.allocSmall(emap, Arena.sizeof);
+		a = cast(shared(Arena)*) arenaStore[index].ptr;
 		a.regionAllocator =
 			containsPointer ? gPointerRegionAllocator : gDataRegionAllocator;
 
