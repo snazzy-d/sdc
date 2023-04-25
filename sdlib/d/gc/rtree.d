@@ -179,10 +179,10 @@ unittest isValidAddress {
 	checkIsValid(0xfffffffffffff000, false);
 
 	foreach (i; 0 .. SignificantBits) {
-		auto addr = PageSize << i;
-		checkIsValid(addr - 1, false);
-		checkIsValid(addr, true);
-		checkIsValid(addr + 1, false);
+		auto address = PageSize << i;
+		checkIsValid(address - 1, false);
+		checkIsValid(address, true);
+		checkIsValid(address + 1, false);
 	}
 
 	checkIsValid(PageSize << SignificantBits, false);

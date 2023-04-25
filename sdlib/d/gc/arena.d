@@ -142,7 +142,7 @@ public:
 		}
 
 		emap.remap(e);
-		return e.addr;
+		return e.address;
 	}
 
 	/**
@@ -211,15 +211,15 @@ private:
 	}
 
 	void freePages(Extent* e) shared {
-		assert(isAligned(e.addr, PageSize), "Invalid extent addr!");
+		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
 
 		uint n = 0;
 		if (!e.isHuge()) {
-			assert(e.hpd.address is alignDown(e.addr, HugePageSize),
+			assert(e.hpd.address is alignDown(e.address, HugePageSize),
 			       "Invalid hpd!");
 
-			n = ((cast(size_t) e.addr) / PageSize) % PageCount;
+			n = ((cast(size_t) e.address) / PageSize) % PageCount;
 		}
 
 		auto computedPageCount = modUp(e.size / PageSize, PageCount);
@@ -253,10 +253,10 @@ private:
 			registerHPD(hpd);
 		}
 
-		auto addr = hpd.address + n * PageSize;
+		auto ptr = hpd.address + n * PageSize;
 		auto size = pages * PageSize;
 
-		return e.at(addr, size, hpd, ec);
+		return e.at(ptr, size, hpd, ec);
 	}
 
 	HugePageDescriptor* extractHPD(uint pages, ulong mask) {
@@ -297,10 +297,10 @@ private:
 		}
 
 		auto leadSize = extraPages * HugePageSize;
-		auto addr = hpd.address - leadSize;
+		auto ptr = hpd.address - leadSize;
 		auto size = leadSize + pages * PageSize;
 
-		return e.at(addr, size, hpd);
+		return e.at(ptr, size, hpd);
 	}
 
 	auto getOrAllocateExtent() {
@@ -359,7 +359,7 @@ private:
 			// If the extent is huge, we need to release the concerned region.
 			if (e.isHuge()) {
 				uint count = (e.size / HugePageSize) & uint.max;
-				regionAllocator.release(e.addr, count);
+				regionAllocator.release(e.address, count);
 			}
 
 			registerHPD(hpd);
@@ -383,7 +383,7 @@ private:
 		assert(hpd.empty, "HPD is not empty!");
 		assert(e.hpd is hpd, "Invalid HPD!");
 
-		auto ptr = alignDown(e.addr, HugePageSize);
+		auto ptr = alignDown(e.address, HugePageSize);
 		uint pages = (alignUp(e.size, HugePageSize) / HugePageSize) & uint.max;
 		regionAllocator.release(ptr, pages);
 
@@ -411,14 +411,14 @@ unittest allocLarge {
 	auto ptr0 = arena.allocLarge(&emap, 4 * PageSize);
 	assert(ptr0 !is null);
 	auto pd0 = emap.lookup(ptr0);
-	assert(pd0.extent.addr is ptr0);
+	assert(pd0.extent.address is ptr0);
 	assert(pd0.extent.size == 4 * PageSize);
 
 	auto ptr1 = arena.allocLarge(&emap, 12 * PageSize);
 	assert(ptr1 !is null);
 	assert(ptr1 is ptr0 + 4 * PageSize);
 	auto pd1 = emap.lookup(ptr1);
-	assert(pd1.extent.addr is ptr1);
+	assert(pd1.extent.address is ptr1);
 	assert(pd1.extent.size == 12 * PageSize);
 
 	arena.free(&emap, pd0, ptr0);
@@ -430,7 +430,7 @@ unittest allocLarge {
 	assert(ptr2 !is null);
 	assert(ptr2 is ptr1 + 12 * PageSize);
 	auto pd2 = emap.lookup(ptr2);
-	assert(pd2.extent.addr is ptr2);
+	assert(pd2.extent.address is ptr2);
 	assert(pd2.extent.size == 5 * PageSize);
 
 	// But do reuse that free slot if there isn't.
@@ -438,7 +438,7 @@ unittest allocLarge {
 	assert(ptr3 !is null);
 	assert(ptr3 is ptr0);
 	auto pd3 = emap.lookup(ptr3);
-	assert(pd3.extent.addr is ptr3);
+	assert(pd3.extent.address is ptr3);
 	assert(pd3.extent.size == 4 * PageSize);
 
 	// Free everything.
@@ -467,22 +467,22 @@ unittest allocPages {
 	auto e1 = arena.allocPages(2);
 	assert(e1 !is null);
 	assert(e1.size == 2 * PageSize);
-	assert(e1.addr is e0.addr + e0.size);
+	assert(e1.address is e0.address + e0.size);
 
-	auto e0Addr = e0.addr;
+	auto e0Addr = e0.address;
 	arena.freePages(e0);
 
 	// Do not reuse the free slot is there is no room.
 	auto e2 = arena.allocPages(3);
 	assert(e2 !is null);
 	assert(e2.size == 3 * PageSize);
-	assert(e2.addr is e1.addr + e1.size);
+	assert(e2.address is e1.address + e1.size);
 
 	// But do reuse that free slot if there isn't.
 	auto e3 = arena.allocPages(1);
 	assert(e3 !is null);
 	assert(e3.size == PageSize);
-	assert(e3.addr is e0Addr);
+	assert(e3.address is e0Addr);
 
 	// Free everything.
 	arena.freePages(e1);
@@ -512,20 +512,20 @@ unittest allocHuge {
 	assert(e0.size == AllocSize * PageSize);
 
 	// Free the huge extent.
-	auto e0Addr = e0.addr;
+	auto e0Addr = e0.address;
 	arena.freePages(e0);
 
 	// Reallocating the same run will yield the same memory back.
 	e0 = arena.allocPages(AllocSize);
 	assert(e0 !is null);
-	assert(e0.addr is e0Addr);
+	assert(e0.address is e0Addr);
 	assert(e0.size == AllocSize * PageSize);
 
 	// Allocate one page on the borrowed huge page.
 	auto e1 = arena.allocPages(1);
 	assert(e1 !is null);
 	assert(e1.size == PageSize);
-	assert(e1.addr is e0.addr + e0.size);
+	assert(e1.address is e0.address + e0.size);
 
 	// Now, freeing the huge extent will leave a page behind.
 	arena.freePages(e0);
@@ -533,19 +533,19 @@ unittest allocHuge {
 	// Allocating another huge extent will use a new range.
 	auto e2 = arena.allocPages(AllocSize);
 	assert(e2 !is null);
-	assert(e2.addr is alignUp(e1.addr, HugePageSize));
+	assert(e2.address is alignUp(e1.address, HugePageSize));
 	assert(e2.size == AllocSize * PageSize);
 
 	// Allocating new small extents fill the borrowed page.
 	auto e3 = arena.allocPages(1);
 	assert(e3 !is null);
-	assert(e3.addr is alignDown(e1.addr, HugePageSize));
+	assert(e3.address is alignDown(e1.address, HugePageSize));
 	assert(e3.size == PageSize);
 
 	// But allocating just the right size will reuse the region.
 	auto e4 = arena.allocPages(PageCount);
 	assert(e4 !is null);
-	assert(e4.addr is e0Addr);
+	assert(e4.address is e0Addr);
 	assert(e4.size == PageCount * PageSize);
 
 	// Free everything.

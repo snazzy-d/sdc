@@ -48,7 +48,7 @@ public:
 private:
 	void batchMapImpl(bool ComputeIndex)(Extent* extent,
 	                                     PageDescriptor pd) shared {
-		auto address = extent.addr;
+		auto address = extent.address;
 		auto size = extent.size;
 
 		// FIXME: in contract.

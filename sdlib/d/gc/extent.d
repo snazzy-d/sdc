@@ -80,7 +80,7 @@ private:
 	ulong bits;
 
 public:
-	void* addr;
+	void* address;
 	size_t sizeAndGen;
 
 	import d.gc.hpd;
@@ -101,14 +101,14 @@ private:
 	import d.gc.bitmap;
 	Bitmap!512 _slabData = void;
 
-	this(uint arenaIndex, void* addr, size_t size, ubyte generation,
+	this(uint arenaIndex, void* ptr, size_t size, ubyte generation,
 	     HugePageDescriptor* hpd, ExtentClass ec) {
 		// FIXME: in contract.
 		assert((arenaIndex & ~ArenaMask) == 0, "Invalid arena index!");
-		assert(isAligned(addr, PageSize), "Invalid alignment!");
+		assert(isAligned(ptr, PageSize), "Invalid alignment!");
 		assert(isAligned(size, PageSize), "Invalid size!");
 
-		this.addr = addr;
+		this.address = ptr;
 		this.sizeAndGen = size | generation;
 		this.hpd = hpd;
 
@@ -173,7 +173,7 @@ public:
 	}
 
 	bool contains(void* ptr) const {
-		return ptr >= addr && ptr < addr + size;
+		return ptr >= address && ptr < address + size;
 	}
 
 	/**
@@ -248,16 +248,16 @@ static assert(Extent.sizeof == ExtentSize, "Unexpected Extent size!");
 static assert(Extent.sizeof == ExtentAlign, "Unexpected Extent alignment!");
 
 ptrdiff_t addrExtentCmp(Extent* lhs, Extent* rhs) {
-	auto l = cast(size_t) lhs.addr;
-	auto r = cast(size_t) rhs.addr;
+	auto l = cast(size_t) lhs.address;
+	auto r = cast(size_t) rhs.address;
 
 	// We need to compare that way to avoid integer overflow.
 	return (l > r) - (l < r);
 }
 
 ptrdiff_t addrRangeExtentCmp(Extent* lhs, Extent* rhs) {
-	auto l = cast(size_t) lhs.addr;
-	auto rstart = cast(size_t) rhs.addr;
+	auto l = cast(size_t) lhs.address;
+	auto rstart = cast(size_t) rhs.address;
 	auto rend = rstart + rhs.size;
 
 	// We need to compare that way to avoid integer overflow.
@@ -281,7 +281,7 @@ unittest contains {
 	enum Size = 13 * PageSize;
 
 	Extent e;
-	e.addr = base;
+	e.address = base;
 	e.sizeAndGen = Size;
 
 	assert(!e.contains(base - 1));

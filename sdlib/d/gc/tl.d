@@ -202,7 +202,7 @@ private:
 	auto getPageDescriptor(void* ptr) {
 		auto pd = maybeGetPageDescriptor(ptr);
 		assert(pd.extent !is null);
-		assert(pd.isSlab() || ptr is pd.extent.addr);
+		assert(pd.isSlab() || ptr is pd.extent.address);
 
 		return pd;
 	}

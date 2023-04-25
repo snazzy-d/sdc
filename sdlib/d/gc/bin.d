@@ -45,7 +45,7 @@ struct Bin {
 			index = slab.allocate();
 		}
 
-		return slab.addr + index * size;
+		return slab.address + index * size;
 	}
 
 	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {
