@@ -59,6 +59,19 @@ private:
 
 struct PageDescriptor {
 private:
+	/**
+	 * The extent itself is 7 bits aligned and the address space 48 bits.
+	 * This leaves us with the low 7 bits and the high 16 bits int he extent's
+	 * pointer to play with.
+	 * 
+	 * We use these bits to pack the following data in the descriptor:
+	 *  - a: The arena index.
+	 *  - e: The extent class.
+	 *  - p: The extent pointer.
+	 * 
+	 * 63    56 55    48 47    40 39             8 7      0
+	 * ....aaaa aaaaaaaa pppppppp [extent pointer] p.eeeeee
+	 */
 	ulong data;
 
 package:

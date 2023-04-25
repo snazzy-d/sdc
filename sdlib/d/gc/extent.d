@@ -68,6 +68,15 @@ unittest ExtentClass {
 
 struct Extent {
 private:
+	/**
+	 * This is a bitfield containing the following elements:
+	 *  - e: The extent class.
+	 *  - a: The arena index.
+	 *  - n: The number of free slots.
+	 * 
+	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
+	 * nnnnnnnn nnnnnnnn ....aaaa aaaaaaaa ........ ........ ........ ..eeeeee
+	 */
 	ulong bits;
 
 public:
@@ -104,7 +113,7 @@ private:
 		this.hpd = hpd;
 
 		bits = ec.data;
-		bits |= ulong(arenaIndex) << 36;
+		bits |= ulong(arenaIndex) << 32;
 
 		if (ec.isSlab()) {
 			import d.gc.bin;
@@ -133,7 +142,7 @@ public:
 		       "Invalid slot alignement!");
 
 		auto e = cast(Extent*) slot.address;
-		e.bits = ulong(arenaIndex) << 36;
+		e.bits = ulong(arenaIndex) << 32;
 		e.sizeAndGen = slot.generation;
 
 		return e;
@@ -172,7 +181,7 @@ public:
 	 */
 	@property
 	uint arenaIndex() const {
-		return (bits >> 36) & ArenaMask;
+		return (bits >> 32) & ArenaMask;
 	}
 
 	@property
