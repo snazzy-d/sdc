@@ -28,21 +28,29 @@ public:
 	}
 
 	void remap(Extent* extent, ExtentClass ec) shared {
-		batchMapImpl(extent.addr, extent.size, PageDescriptor(extent, ec));
+		if (ec.isSlab()) {
+			batchMapImpl!true(extent, PageDescriptor(extent, ec));
+		} else {
+			remap(extent);
+		}
 	}
 
 	void remap(Extent* extent) shared {
 		// FIXME: in contract.
 		assert(!extent.isSlab(), "Extent is a slab!");
-		remap(extent, ExtentClass.large());
+		batchMapImpl!false(extent, PageDescriptor(extent, ExtentClass.large()));
 	}
 
 	void clear(Extent* extent) shared {
-		batchMapImpl(extent.addr, extent.size, PageDescriptor(0));
+		batchMapImpl!false(extent, PageDescriptor(0));
 	}
 
 private:
-	void batchMapImpl(void* address, size_t size, PageDescriptor pd) shared {
+	void batchMapImpl(bool ComputeIndex)(Extent* extent,
+	                                     PageDescriptor pd) shared {
+		auto address = extent.addr;
+		auto size = extent.size;
+
 		// FIXME: in contract.
 		assert(isAligned(address, PageSize), "Incorrectly aligned address!");
 		assert(isAligned(size, PageSize), "Incorrectly aligned size!");
@@ -53,6 +61,10 @@ private:
 		for (auto ptr = start; ptr < stop; ptr += PageSize) {
 			// FIXME: batch set, so we don't need L0 lookup again and again.
 			tree.set(ptr, pd);
+
+			if (ComputeIndex) {
+				pd = pd.next();
+			}
 		}
 	}
 }
@@ -65,12 +77,13 @@ private:
 	 * pointer to play with.
 	 * 
 	 * We use these bits to pack the following data in the descriptor:
+	 *  - i: The index within the extent, 4 bits truncated.
 	 *  - a: The arena index.
 	 *  - e: The extent class.
 	 *  - p: The extent pointer.
 	 * 
 	 * 63    56 55    48 47    40 39             8 7      0
-	 * ....aaaa aaaaaaaa pppppppp [extent pointer] p.eeeeee
+	 * iiiiaaaa aaaaaaaa pppppppp [extent pointer] p.eeeeee
 	 */
 	ulong data;
 
@@ -90,6 +103,12 @@ public:
 		data |= ulong(extent.arenaIndex) << 48;
 	}
 
+	this(Extent* extent) {
+		// FIXME: in contract.
+		assert(!extent.isSlab(), "Extent is a slab!");
+		this(extent, ExtentClass.large());
+	}
+
 	auto toLeafPayload() const {
 		return data;
 	}
@@ -100,21 +119,21 @@ public:
 	}
 
 	@property
-	auto extentClass() const {
-		return ExtentClass(data & ExtentClass.Mask);
+	uint index() const {
+		// FIXME: in contract.
+		assert(isSlab(), "Index is only supported for slabs!");
+
+		return data >> 60;
 	}
 
-	bool isSlab() const {
-		auto ec = extentClass;
-		return ec.isSlab();
+	auto next() const {
+		enum Increment = 1UL << 60;
+		return PageDescriptor(data + Increment);
 	}
 
-	@property
-	ubyte sizeClass() const {
-		auto ec = extentClass;
-		return ec.sizeClass;
-	}
-
+	/**
+	 * Arena.
+	 */
 	@property
 	uint arenaIndex() const {
 		return (data >> 48) & ArenaMask;
@@ -129,6 +148,25 @@ public:
 	auto arena() const {
 		import d.gc.arena;
 		return Arena.getInitialized(arenaIndex);
+	}
+
+	/**
+	 * Slab features.
+	 */
+	@property
+	auto extentClass() const {
+		return ExtentClass(data & ExtentClass.Mask);
+	}
+
+	bool isSlab() const {
+		auto ec = extentClass;
+		return ec.isSlab();
+	}
+
+	@property
+	ubyte sizeClass() const {
+		auto ec = extentClass;
+		return ec.sizeClass;
 	}
 }
 
@@ -150,7 +188,7 @@ unittest ExtentMap {
 
 	// Map a range.
 	emap.remap(e);
-	auto pd = PageDescriptor(e, e.extentClass);
+	auto pd = PageDescriptor(e);
 
 	auto end = ptr + e.size;
 	for (auto p = ptr; p < end; p += PageSize) {
@@ -163,5 +201,15 @@ unittest ExtentMap {
 	emap.clear(e);
 	for (auto p = ptr; p < end; p += PageSize) {
 		assert(emap.lookup(p).data == 0);
+	}
+
+	auto ec = ExtentClass.slab(0);
+	e.at(ptr, 5 * PageSize, null, ec);
+	emap.remap(e, ec);
+	pd = PageDescriptor(e, ec);
+
+	for (auto p = ptr; p < end; p += PageSize) {
+		assert(emap.lookup(p).data == pd.data);
+		pd = pd.next();
 	}
 }

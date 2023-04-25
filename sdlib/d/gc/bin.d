@@ -55,13 +55,15 @@ struct Bin {
 		assert(&arena.bins[pd.sizeClass] == &this,
 		       "Invalid arena or sizeClass!");
 
-		// FIXME: Find a way to find the offset without dereferencing.
 		auto e = pd.extent;
-		auto base = e.addr;
 		auto sc = pd.sizeClass;
-		auto index = binInfos[sc].computeIndex(ptr - base);
+
+		import d.gc.util;
+		auto offset = alignDownOffset(ptr, PageSize) + pd.index * PageSize;
+		auto index = binInfos[sc].computeIndex(offset);
 		auto slots = binInfos[sc].slots;
 
+		auto base = ptr - offset;
 		assert(ptr is base + index * binInfos[sc].itemSize);
 
 		mutex.lock();
