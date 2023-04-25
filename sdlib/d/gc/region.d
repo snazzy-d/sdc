@@ -186,7 +186,7 @@ private:
 			return null;
 		}
 
-		static assert(MetadataSlotSize / Region.sizeof == 2,
+		static assert(ExtentSize / Region.sizeof == 2,
 		              "Unexpected Region size!");
 
 		auto r0 = Region.fromSlot(slot, 0);
@@ -337,7 +337,7 @@ public:
 	static fromSlot(Base.Slot slot, uint i) {
 		// FIXME: in contract
 		assert(slot.address !is null, "Slot is empty!");
-		assert(i < MetadataSlotSize / Region.sizeof, "Invalid index!");
+		assert(i < ExtentSize / Region.sizeof, "Invalid index!");
 
 		auto r = (cast(Region*) slot.address) + i;
 		*r = Region(null, 0, slot.generation);

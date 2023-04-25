@@ -315,9 +315,6 @@ private:
 
 		auto hpd = unusedHPDs.pop();
 		if (hpd is null) {
-			static assert(HugePageDescriptor.sizeof <= MetadataSlotSize,
-			              "Unexpected HugePageDescriptor size!");
-
 			auto slot = base.allocSlot();
 			if (slot.address is null) {
 				return null;

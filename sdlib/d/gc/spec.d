@@ -43,6 +43,11 @@ enum AddressSpace = One << LgAddressSpace;
 enum AddressMask = AddressSpace - 1;
 
 // Allocator spêcific config.
+enum LgExtentSize = 7;
+enum ExtentSize = One << LgExtentSize;
+enum ExtentAlign = ExtentSize;
+enum ExtentMask = AddressSpace - ExtentAlign;
+
 enum LgArenaCount = 12;
 enum ArenaCount = One << LgArenaCount;
 enum ArenaMask = ArenaCount - 1;

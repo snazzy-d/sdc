@@ -13,8 +13,6 @@ alias PHNode = heap.Node!Extent;
 alias RBNode = rbtree.Node!Extent;
 
 struct Extent {
-	enum Align = MetadataSlotSize;
-
 private:
 	ulong bits;
 
@@ -78,7 +76,7 @@ public:
 	static fromSlot(shared(Arena)* arena, Base.Slot slot) {
 		// FIXME: in contract
 		assert(slot.address !is null, "Slot is empty!");
-		assert(isAligned(slot.address, Extent.Align),
+		assert(isAligned(slot.address, ExtentAlign),
 		       "Invalid slot alignement!");
 
 		auto e = cast(Extent*) slot.address;
@@ -170,8 +168,8 @@ public:
 	}
 }
 
-static assert(Extent.sizeof == Extent.Align, "Unexpected Extent size!");
-static assert(Extent.sizeof == MetadataSlotSize, "Extent got too large!");
+static assert(Extent.sizeof == ExtentSize, "Unexpected Extent size!");
+static assert(Extent.sizeof == ExtentAlign, "Unexpected Extent alignment!");
 
 ptrdiff_t addrExtentCmp(Extent* lhs, Extent* rhs) {
 	auto l = cast(size_t) lhs.addr;

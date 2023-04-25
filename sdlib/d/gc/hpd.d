@@ -46,6 +46,9 @@ public:
 		// FIXME: in contract
 		assert(slot.address !is null, "Slot is empty!");
 
+		static assert(HugePageDescriptor.sizeof <= ExtentSize,
+		              "Unexpected HugePageDescriptor size!");
+
 		auto hpd = cast(HugePageDescriptor*) slot.address;
 		*hpd = HugePageDescriptor(null, 0, slot.generation);
 		return hpd;

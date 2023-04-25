@@ -5,8 +5,6 @@ import d.gc.util;
 
 shared Base gBase;
 
-enum MetadataSlotSize = 128;
-
 /**
  * Bump the pointer style allocator.
  *
@@ -105,11 +103,11 @@ private:
 		}
 
 		assert(availableMetadatSlots > 0, "No Metadata slot available!");
-		assert(isAligned(nextMetadataAddr, MetadataSlotSize),
+		assert(isAligned(nextMetadataAddr, ExtentAlign),
 		       "Invalid nextMetadataAddr alignment!");
 
 		scope(success) {
-			nextMetadataAddr += MetadataSlotSize;
+			nextMetadataAddr += ExtentSize;
 			availableMetadatSlots -= 1;
 		}
 
@@ -187,15 +185,15 @@ private:
 		}
 
 		assert(availableMetadatSlots > 0, "No Metadata slot available!");
-		assert(isAligned(nextMetadataAddr, MetadataSlotSize),
+		assert(isAligned(nextMetadataAddr, ExtentAlign),
 		       "Invalid nextMetadataAddr alignment!");
 		assert(blockFreeList is null, "There are blocks in the freelist!");
 
-		enum BlockPerExtent = MetadataSlotSize / alignUp(Block.sizeof, Quantum);
+		enum BlockPerExtent = ExtentSize / alignUp(Block.sizeof, Quantum);
 		static assert(BlockPerExtent == 5, "For documentation purposes.");
 
 		auto ret = cast(Block*) nextMetadataAddr;
-		nextMetadataAddr += MetadataSlotSize;
+		nextMetadataAddr += ExtentSize;
 		availableMetadatSlots -= 1;
 
 		foreach (i; 2 .. BlockPerExtent) {
@@ -239,7 +237,7 @@ private:
 			return false;
 		}
 
-		enum SlotPerHugePage = HugePageSize / MetadataSlotSize;
+		enum SlotPerHugePage = HugePageSize / ExtentSize;
 		nextMetadataAddr = ptr;
 		availableMetadatSlots = SlotPerHugePage << shift;
 
@@ -254,7 +252,7 @@ private:
 }
 
 private:
-static assert(Block.sizeof <= MetadataSlotSize, "Block got too large!");
+static assert(Block.sizeof <= ExtentSize, "Block got too large!");
 
 struct Block {
 	void* addr;

@@ -80,7 +80,7 @@ package:
 public:
 	this(Extent* extent, bool is_slab, ubyte sizeClass) {
 		// FIXME: in contract.
-		assert(isAligned(extent, Extent.Align), "Invalid Extent alignment!");
+		assert(isAligned(extent, ExtentAlign), "Invalid Extent alignment!");
 
 		data = is_slab;
 		data |= cast(size_t) extent;
@@ -109,8 +109,7 @@ public:
 
 	@property
 	Extent* extent() {
-		enum Mask = AddressSpace - Extent.Align;
-		return cast(Extent*) (data & Mask);
+		return cast(Extent*) (data & ExtentMask);
 	}
 
 	bool isSlab() const {
