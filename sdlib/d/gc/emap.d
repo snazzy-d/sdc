@@ -143,7 +143,7 @@ unittest ExtentMap {
 	assert(emap.lookup(ptr).data == 0);
 
 	auto slot = base.allocSlot();
-	auto e = Extent.fromSlot(null, slot);
+	auto e = Extent.fromSlot(0, slot);
 	e.at(ptr, 5 * PageSize, null);
 
 	// Map a range.

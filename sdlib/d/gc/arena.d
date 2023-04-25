@@ -36,7 +36,6 @@ private:
 	import d.gc.bin;
 	Bin[ClassCount.Small] bins;
 
-package:
 	enum InitializedBit = 1UL << 63;
 
 	@property
@@ -64,7 +63,18 @@ package:
 		return cast(shared(Arena)*) arenaStore[index].ptr;
 	}
 
-	static getOrinitialize(uint index) {
+public:
+	static getInitialized(uint index) {
+		auto a = getArenaAddress(index);
+
+		assert(a.initialized, "Arena was not initialized!");
+		assert(a.index == index, "Invalid index!");
+		assert(a.containsPointers == (index & 0x01), "Invalid pointer status!");
+
+		return a;
+	}
+
+	static getOrInitialize(uint index) {
 		// Compute the internal index.
 		index &= ArenaMask;
 
@@ -141,7 +151,7 @@ public:
 	void free(shared(ExtentMap)* emap, PageDescriptor pd, void* ptr) shared {
 		assert(pd.extent !is null, "Extent is null!");
 		assert(pd.extent.contains(ptr), "Invalid ptr!");
-		assert(pd.extent.arena is &this, "Invalid arena!");
+		assert(pd.extent.arenaIndex == index, "Invalid arena index!");
 
 		import sdc.intrinsics;
 		if (unlikely(!pd.isSlab()) || bins[pd.sizeClass].free(&this, ptr, pd)) {
@@ -307,7 +317,7 @@ private:
 			return null;
 		}
 
-		return Extent.fromSlot(&this, slot);
+		return Extent.fromSlot(bits & ArenaMask, slot);
 	}
 
 	HugePageDescriptor* allocateHPD(uint extraPages = 0) {

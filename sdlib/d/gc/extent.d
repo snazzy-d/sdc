@@ -17,9 +17,6 @@ private:
 	ulong bits;
 
 public:
-	import d.gc.arena;
-	shared(Arena)* arena;
-
 	void* addr;
 	size_t sizeAndGen;
 
@@ -27,6 +24,10 @@ public:
 	HugePageDescriptor* hpd;
 
 private:
+	// TODO: Reuse this data to do something useful,
+	// like garbage collection :P
+	void* _pad;
+
 	union Links {
 		PHNode phnode;
 		RBNode rbnode;
@@ -37,29 +38,32 @@ private:
 	import d.gc.bitmap;
 	Bitmap!512 _slabData;
 
-	this(shared(Arena)* arena, void* addr, size_t size, ubyte generation,
+	this(uint arenaIndex, void* addr, size_t size, ubyte generation,
 	     HugePageDescriptor* hpd, bool is_slab, ubyte sizeClass) {
 		// FIXME: in contract.
+		assert((arenaIndex & ~ArenaMask) == 0, "Invalid arena index!");
 		assert(sizeClass < ClassCount.Small,
 		       "Invalid size class for small extent!");
 		assert(isAligned(addr, PageSize), "Invalid alignment!");
 		assert(isAligned(size, PageSize), "Invalid size!");
 
-		this.arena = arena;
 		this.addr = addr;
 		this.sizeAndGen = size | generation;
 		this.hpd = hpd;
 
-		import d.gc.bin;
 		bits = is_slab;
 		bits |= ulong(sizeClass) << 58;
+		bits |= ulong(arenaIndex) << 36;
+
+		import d.gc.bin;
 		bits |= ulong(binInfos[sizeClass].slots) << 48;
 	}
 
 public:
 	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd, bool is_slab,
 	           ubyte sizeClass) {
-		this = Extent(arena, ptr, size, generation, hpd, is_slab, sizeClass);
+		this =
+			Extent(arenaIndex, ptr, size, generation, hpd, is_slab, sizeClass);
 		return &this;
 	}
 
@@ -73,15 +77,17 @@ public:
 		return at(ptr, size, hpd, false, ubyte(0));
 	}
 
-	static fromSlot(shared(Arena)* arena, Base.Slot slot) {
+	static fromSlot(uint arenaIndex, Base.Slot slot) {
 		// FIXME: in contract
+		assert((arenaIndex & ~ArenaMask) == 0, "Invalid arena index!");
 		assert(slot.address !is null, "Slot is empty!");
 		assert(isAligned(slot.address, ExtentAlign),
 		       "Invalid slot alignement!");
 
 		auto e = cast(Extent*) slot.address;
-		e.arena = arena;
+		e.bits = ulong(arenaIndex) << 36;
 		e.sizeAndGen = slot.generation;
+
 		return e;
 	}
 
@@ -130,6 +136,22 @@ public:
 		// FIXME: out contract.
 		assert(sc < ClassCount.Small);
 		return sc;
+	}
+
+	@property
+	uint arenaIndex() const {
+		return (bits >> 36) & ArenaMask;
+	}
+
+	@property
+	bool containsPointers() const {
+		return (arenaIndex & 0x01) != 0;
+	}
+
+	@property
+	auto arena() const {
+		import d.gc.arena;
+		return Arena.getInitialized(arenaIndex);
 	}
 
 	@property

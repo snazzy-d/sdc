@@ -234,7 +234,7 @@ private:
 		int cpuid = sched_getcpu();
 
 		import d.gc.arena;
-		return Arena.getOrinitialize((cpuid << 1) | containsPointers);
+		return Arena.getOrInitialize((cpuid << 1) | containsPointers);
 	}
 }
 
