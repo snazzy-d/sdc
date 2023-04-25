@@ -80,16 +80,20 @@ package:
 public:
 	this(Extent* extent, bool is_slab, ubyte sizeClass) {
 		// FIXME: in contract.
+		import d.gc.sizeclass;
+		assert(sizeClass < (is_slab ? ClassCount.Small : 1),
+		       "Invalid size class!");
 		assert(isAligned(extent, ExtentAlign), "Invalid Extent alignment!");
 
-		data = is_slab;
+		data = sizeClass;
 		data |= cast(size_t) extent;
-		data |= ulong(sizeClass) << 58;
+		data |= ulong(is_slab) << 63;
+		data |= ulong(extent.arenaIndex) << 48;
 	}
 
 	this(Extent* extent, ubyte sizeClass) {
 		// FIXME: in contract.
-		assert(extent.isSlab(), "Extent is expected to be a slab!");
+		assert(extent.isSlab(), "Extent is not a slab!");
 		assert(extent.sizeClass == sizeClass, "Invalid size class!");
 
 		this(extent, true, sizeClass);
@@ -113,7 +117,7 @@ public:
 	}
 
 	bool isSlab() const {
-		return (data & 0x01) != 0;
+		return long(data) < 0;
 	}
 
 	@property
@@ -121,12 +125,32 @@ public:
 		// FIXME: in contract.
 		assert(isSlab(), "slabData accessed on non slab!");
 
-		ubyte sc = data >> 58;
+		enum Mask = (1 << 6) - 1;
+		ubyte sc = data & Mask;
+
+		import d.gc.sizeclass;
+		static assert(((ClassCount.Small - 1) & ~Mask) == 0,
+		              "size class doesn't fit on 6 bits!");
 
 		// FIXME: out contract.
-		import d.gc.sizeclass;
 		assert(sc < ClassCount.Small);
 		return sc;
+	}
+
+	@property
+	uint arenaIndex() const {
+		return (data >> 48) & ArenaMask;
+	}
+
+	@property
+	bool containsPointers() const {
+		return (arenaIndex & 0x01) != 0;
+	}
+
+	@property
+	auto arena() const {
+		import d.gc.arena;
+		return Arena.getInitialized(arenaIndex);
 	}
 }
 

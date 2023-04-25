@@ -79,7 +79,7 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		pd.extent.arena.free(emap, pd, ptr);
+		pd.arena.free(emap, pd, ptr);
 	}
 
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
@@ -116,15 +116,14 @@ public:
 			copySize = min(size, esize);
 		}
 
-		containsPointers =
-			(containsPointers | pd.extent.arena.containsPointers) != 0;
+		containsPointers = (containsPointers | pd.containsPointers) != 0;
 		auto newPtr = alloc(size, containsPointers);
 		if (newPtr is null) {
 			return null;
 		}
 
 		memcpy(newPtr, ptr, copySize);
-		pd.extent.arena.free(emap, pd, ptr);
+		pd.arena.free(emap, pd, ptr);
 
 		return newPtr;
 	}

@@ -149,12 +149,6 @@ public:
 	}
 
 	@property
-	auto arena() const {
-		import d.gc.arena;
-		return Arena.getInitialized(arenaIndex);
-	}
-
-	@property
 	uint freeSlots() const {
 		// FIXME: in contract.
 		assert(isSlab(), "slabData accessed on non slab!");
