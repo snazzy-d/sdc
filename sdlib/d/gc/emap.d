@@ -27,25 +27,14 @@ public:
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
-	void remap(Extent* extent, bool is_slab, ubyte sizeClass) shared {
-		batchMapImpl(extent.addr, extent.size,
-		             PageDescriptor(extent, is_slab, sizeClass));
-	}
-
-	void remap(Extent* extent, ubyte sizeClass) shared {
-		// FIXME: in contract.
-		assert(extent.isSlab(), "Extent is expected to be a slab!");
-		assert(extent.sizeClass == sizeClass, "Invalid size class!");
-
-		remap(extent, true, sizeClass);
+	void remap(Extent* extent, ExtentClass ec) shared {
+		batchMapImpl(extent.addr, extent.size, PageDescriptor(extent, ec));
 	}
 
 	void remap(Extent* extent) shared {
 		// FIXME: in contract.
 		assert(!extent.isSlab(), "Extent is a slab!");
-
-		// FIXME: Overload resolution doesn't cast this properly.
-		remap(extent, false, ubyte(0));
+		remap(extent, ExtentClass.large());
 	}
 
 	void clear(Extent* extent) shared {
@@ -78,33 +67,14 @@ package:
 	}
 
 public:
-	this(Extent* extent, bool is_slab, ubyte sizeClass) {
+	this(Extent* extent, ExtentClass ec) {
 		// FIXME: in contract.
-		import d.gc.sizeclass;
-		assert(sizeClass < (is_slab ? ClassCount.Small : 1),
-		       "Invalid size class!");
 		assert(isAligned(extent, ExtentAlign), "Invalid Extent alignment!");
+		assert(extent.extentClass.data == ec.data, "Invalid ExtentClass!");
 
-		data = sizeClass;
+		data = ec.data;
 		data |= cast(size_t) extent;
-		data |= ulong(is_slab) << 63;
 		data |= ulong(extent.arenaIndex) << 48;
-	}
-
-	this(Extent* extent, ubyte sizeClass) {
-		// FIXME: in contract.
-		assert(extent.isSlab(), "Extent is not a slab!");
-		assert(extent.sizeClass == sizeClass, "Invalid size class!");
-
-		this(extent, true, sizeClass);
-	}
-
-	this(Extent* extent) {
-		// FIXME: in contract.
-		assert(!extent.isSlab(), "Extent is a slab!");
-
-		// FIXME: Overload resolution doesn't cast this properly.
-		this(extent, false, ubyte(0));
 	}
 
 	auto toLeafPayload() const {
@@ -116,25 +86,20 @@ public:
 		return cast(Extent*) (data & ExtentMask);
 	}
 
+	@property
+	auto extentClass() const {
+		return ExtentClass(data & ExtentClass.Mask);
+	}
+
 	bool isSlab() const {
-		return long(data) < 0;
+		auto ec = extentClass;
+		return ec.isSlab();
 	}
 
 	@property
 	ubyte sizeClass() const {
-		// FIXME: in contract.
-		assert(isSlab(), "slabData accessed on non slab!");
-
-		enum Mask = (1 << 6) - 1;
-		ubyte sc = data & Mask;
-
-		import d.gc.sizeclass;
-		static assert(((ClassCount.Small - 1) & ~Mask) == 0,
-		              "size class doesn't fit on 6 bits!");
-
-		// FIXME: out contract.
-		assert(sc < ClassCount.Small);
-		return sc;
+		auto ec = extentClass;
+		return ec.sizeClass;
 	}
 
 	@property
@@ -172,7 +137,7 @@ unittest ExtentMap {
 
 	// Map a range.
 	emap.remap(e);
-	auto pd = PageDescriptor(e);
+	auto pd = PageDescriptor(e, e.extentClass);
 
 	auto end = ptr + e.size;
 	for (auto p = ptr; p < end; p += PageSize) {

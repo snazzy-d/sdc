@@ -162,9 +162,10 @@ public:
 
 package:
 	Extent* allocSlab(shared(ExtentMap)* emap, ubyte sizeClass) shared {
-		auto e = allocPages(binInfos[sizeClass].needPages, true, sizeClass);
+		auto ec = ExtentClass.slab(sizeClass);
+		auto e = allocPages(binInfos[sizeClass].needPages, ec);
 		if (e !is null) {
-			emap.remap(e, true, sizeClass);
+			emap.remap(e, ec);
 		}
 
 		return e;
@@ -178,15 +179,14 @@ package:
 	}
 
 private:
-	Extent* allocPages(uint pages, bool is_slab, ubyte sizeClass) shared {
+	Extent* allocPages(uint pages, ExtentClass ec) shared {
 		assert(pages > 0 && pages <= PageCount, "Invalid page count!");
 		auto mask = ulong.max << getAllocClass(pages);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Arena*) &this)
-			.allocPagesImpl(pages, mask, is_slab, sizeClass);
+		return (cast(Arena*) &this).allocPagesImpl(pages, mask, ec);
 	}
 
 	Extent* allocPages(uint pages) shared {
@@ -195,7 +195,7 @@ private:
 			return allocHuge(pages);
 		}
 
-		return allocPages(pages, false, ubyte(0));
+		return allocPages(pages, ExtentClass.large());
 	}
 
 	Extent* allocHuge(uint pages) shared {
@@ -234,8 +234,7 @@ private:
 	}
 
 private:
-	Extent* allocPagesImpl(uint pages, ulong mask, bool is_slab,
-	                       ubyte sizeClass) {
+	Extent* allocPagesImpl(uint pages, ulong mask, ExtentClass ec) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto e = getOrAllocateExtent();
@@ -257,7 +256,7 @@ private:
 		auto addr = hpd.address + n * PageSize;
 		auto size = pages * PageSize;
 
-		return e.at(addr, size, hpd, is_slab, sizeClass);
+		return e.at(addr, size, hpd, ec);
 	}
 
 	HugePageDescriptor* extractHPD(uint pages, ulong mask) {

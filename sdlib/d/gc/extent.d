@@ -12,6 +12,60 @@ alias ExtentTree = RBTree!(Extent, addrRangeExtentCmp);
 alias PHNode = heap.Node!Extent;
 alias RBNode = rbtree.Node!Extent;
 
+struct ExtentClass {
+	ubyte data;
+
+	this(ubyte data) {
+		this.data = data;
+	}
+
+	enum Mask = (1 << 6) - 1;
+
+	import d.gc.sizeclass;
+	static assert((ClassCount.Small & ~Mask) == 0,
+	              "ExtentClass doesn't fit on 6 bits!");
+
+	static large() {
+		return ExtentClass(0);
+	}
+
+	static slab(ubyte sizeClass) {
+		// FIXME: in contract.
+		assert(sizeClass < ClassCount.Small, "Invalid size class!");
+
+		sizeClass += 1;
+		return ExtentClass(sizeClass);
+	}
+
+	bool isSlab() const {
+		return data != 0;
+	}
+
+	@property
+	ubyte sizeClass() const {
+		// FIXME: in contract.
+		assert(isSlab(), "Non slab do not have a size class!");
+		return (data - 1) & ubyte.max;
+	}
+}
+
+unittest ExtentClass {
+	auto l = ExtentClass.large();
+	assert(!l.isSlab());
+
+	auto s0 = ExtentClass.slab(0);
+	assert(s0.isSlab());
+	assert(s0.sizeClass == 0);
+
+	auto s9 = ExtentClass.slab(9);
+	assert(s9.isSlab());
+	assert(s9.sizeClass == 9);
+
+	auto smax = ExtentClass.slab(ClassCount.Small - 1);
+	assert(smax.isSlab());
+	assert(smax.sizeClass == ClassCount.Small - 1);
+}
+
 struct Extent {
 private:
 	ulong bits;
@@ -36,14 +90,12 @@ private:
 	Links _links;
 
 	import d.gc.bitmap;
-	Bitmap!512 _slabData;
+	Bitmap!512 _slabData = void;
 
 	this(uint arenaIndex, void* addr, size_t size, ubyte generation,
-	     HugePageDescriptor* hpd, bool is_slab, ubyte sizeClass) {
+	     HugePageDescriptor* hpd, ExtentClass ec) {
 		// FIXME: in contract.
 		assert((arenaIndex & ~ArenaMask) == 0, "Invalid arena index!");
-		assert(sizeClass < ClassCount.Small,
-		       "Invalid size class for small extent!");
 		assert(isAligned(addr, PageSize), "Invalid alignment!");
 		assert(isAligned(size, PageSize), "Invalid size!");
 
@@ -51,30 +103,26 @@ private:
 		this.sizeAndGen = size | generation;
 		this.hpd = hpd;
 
-		bits = is_slab;
-		bits |= ulong(sizeClass) << 58;
+		bits = ec.data;
 		bits |= ulong(arenaIndex) << 36;
 
-		import d.gc.bin;
-		bits |= ulong(binInfos[sizeClass].slots) << 48;
+		if (ec.isSlab()) {
+			import d.gc.bin;
+			bits |= ulong(binInfos[ec.sizeClass].slots) << 48;
+
+			slabData.clear();
+		}
 	}
 
 public:
-	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd, bool is_slab,
-	           ubyte sizeClass) {
-		this =
-			Extent(arenaIndex, ptr, size, generation, hpd, is_slab, sizeClass);
+	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd,
+	           ExtentClass ec) {
+		this = Extent(arenaIndex, ptr, size, generation, hpd, ec);
 		return &this;
 	}
 
-	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd,
-	           ubyte sizeClass) {
-		return at(ptr, size, hpd, true, sizeClass);
-	}
-
 	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd) {
-		// FIXME: Overload resolution doesn't cast this properly.
-		return at(ptr, size, hpd, false, ubyte(0));
+		return at(ptr, size, hpd, ExtentClass.large());
 	}
 
 	static fromSlot(uint arenaIndex, Base.Slot slot) {
@@ -120,24 +168,8 @@ public:
 	}
 
 	/**
-	 * Slab features.
+	 * Arena.
 	 */
-	bool isSlab() const {
-		return (bits & 0x01) != 0;
-	}
-
-	@property
-	ubyte sizeClass() const {
-		// FIXME: in contract.
-		assert(isSlab(), "slabData accessed on non slab!");
-
-		ubyte sc = bits >> 58;
-
-		// FIXME: out contract.
-		assert(sc < ClassCount.Small);
-		return sc;
-	}
-
 	@property
 	uint arenaIndex() const {
 		return (bits >> 36) & ArenaMask;
@@ -148,10 +180,29 @@ public:
 		return (arenaIndex & 0x01) != 0;
 	}
 
+	/**
+	 * Slab features.
+	 */
+	@property
+	auto extentClass() const {
+		return ExtentClass(bits & ExtentClass.Mask);
+	}
+
+	bool isSlab() const {
+		auto ec = extentClass;
+		return ec.isSlab();
+	}
+
+	@property
+	ubyte sizeClass() const {
+		auto ec = extentClass;
+		return ec.sizeClass;
+	}
+
 	@property
 	uint freeSlots() const {
 		// FIXME: in contract.
-		assert(isSlab(), "slabData accessed on non slab!");
+		assert(isSlab(), "freeSlots accessed on non slab!");
 
 		enum Mask = (1 << 10) - 1;
 		return (bits >> 48) & Mask;
@@ -159,7 +210,7 @@ public:
 
 	uint allocate() {
 		// FIXME: in contract.
-		assert(isSlab(), "slabData accessed on non slab!");
+		assert(isSlab(), "allocate accessed on non slab!");
 		assert(freeSlots > 0, "Slab is full!");
 
 		scope(success) bits -= (1UL << 48);
@@ -168,7 +219,7 @@ public:
 
 	void free(uint index) {
 		// FIXME: in contract.
-		assert(isSlab(), "slabData accessed on non slab!");
+		assert(isSlab(), "free accessed on non slab!");
 		assert(slabData.valueAt(index), "Slot is already free!");
 
 		bits += (1UL << 48);
@@ -234,7 +285,7 @@ unittest contains {
 
 unittest allocfree {
 	Extent e;
-	e.at(null, PageSize, null, ubyte(0));
+	e.at(null, PageSize, null, ExtentClass.slab(0));
 
 	assert(e.isSlab());
 	assert(e.sizeClass == 0);
