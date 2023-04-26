@@ -8,6 +8,8 @@ import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
 
+import sdc.intrinsics;
+
 struct Arena {
 private:
 	ulong bits;
@@ -79,9 +81,7 @@ public:
 		index &= ArenaMask;
 
 		auto a = getArenaAddress(index);
-
-		import sdc.intrinsics;
-		if (a.initialized) {
+		if (likely(a.initialized)) {
 			return a;
 		}
 
@@ -137,12 +137,17 @@ public:
 		assert(pages == computedPageCount, "Unexpected page count!");
 
 		auto e = allocPages(pages);
-		if (e is null) {
+		if (unlikely(e is null)) {
 			return null;
 		}
 
-		emap.remap(e);
-		return e.address;
+		if (likely(emap.remap(e))) {
+			return e.address;
+		}
+
+		// We failed to map the extent, unwind!
+		freePages(e);
+		return null;
 	}
 
 	/**
@@ -153,7 +158,6 @@ public:
 		assert(pd.extent.contains(ptr), "Invalid ptr!");
 		assert(pd.extent.arenaIndex == index, "Invalid arena index!");
 
-		import sdc.intrinsics;
 		if (unlikely(!pd.isSlab()) || bins[pd.sizeClass].free(&this, ptr, pd)) {
 			emap.clear(pd.extent);
 			freePages(pd.extent);
@@ -164,11 +168,17 @@ package:
 	Extent* allocSlab(shared(ExtentMap)* emap, ubyte sizeClass) shared {
 		auto ec = ExtentClass.slab(sizeClass);
 		auto e = allocPages(binInfos[sizeClass].needPages, ec);
-		if (e !is null) {
-			emap.remap(e, ec);
+		if (unlikely(e is null)) {
+			return null;
 		}
 
-		return e;
+		if (likely(emap.remap(e, ec))) {
+			return e;
+		}
+
+		// We failed to map the extent, unwind!
+		freePages(e);
+		return null;
 	}
 
 	void freeSlab(shared(ExtentMap)* emap, Extent* e) shared {
@@ -190,7 +200,6 @@ private:
 	}
 
 	Extent* allocPages(uint pages) shared {
-		import sdc.intrinsics;
 		if (unlikely(pages > PageCount)) {
 			return allocHuge(pages);
 		}
@@ -238,12 +247,12 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto e = getOrAllocateExtent();
-		if (e is null) {
+		if (unlikely(e is null)) {
 			return null;
 		}
 
 		auto hpd = extractHPD(pages, mask);
-		if (hpd is null) {
+		if (unlikely(hpd is null)) {
 			unusedExtents.insert(e);
 			return null;
 		}
@@ -267,7 +276,6 @@ private:
 			return allocateHPD();
 		}
 
-		import sdc.intrinsics;
 		auto index = countTrailingZeros(acfilter);
 		auto hpd = heaps[index].pop();
 		filter &= ~(ulong(heaps[index].empty) << index);
@@ -279,12 +287,12 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto e = getOrAllocateExtent();
-		if (e is null) {
+		if (unlikely(e is null)) {
 			return null;
 		}
 
 		auto hpd = allocateHPD(extraPages);
-		if (hpd is null) {
+		if (unlikely(hpd is null)) {
 			unusedExtents.insert(e);
 			return null;
 		}

@@ -27,18 +27,14 @@ public:
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
-	void remap(Extent* extent, ExtentClass ec) shared {
-		if (ec.isSlab()) {
-			batchMapImpl!true(extent, PageDescriptor(extent, ec));
-		} else {
-			remap(extent);
-		}
+	bool remap(Extent* extent, ExtentClass ec) shared {
+		return batchMapImpl!true(extent, PageDescriptor(extent, ec));
 	}
 
-	void remap(Extent* extent) shared {
+	bool remap(Extent* extent) shared {
 		// FIXME: in contract.
 		assert(!extent.isSlab(), "Extent is a slab!");
-		batchMapImpl!false(extent, PageDescriptor(extent, ExtentClass.large()));
+		return remap(extent, ExtentClass.large());
 	}
 
 	void clear(Extent* extent) shared {
@@ -46,7 +42,7 @@ public:
 	}
 
 private:
-	void batchMapImpl(bool ComputeIndex)(Extent* extent,
+	bool batchMapImpl(bool ComputeIndex)(Extent* extent,
 	                                     PageDescriptor pd) shared {
 		auto address = extent.address;
 		auto size = extent.size;
@@ -60,12 +56,16 @@ private:
 
 		for (auto ptr = start; ptr < stop; ptr += PageSize) {
 			// FIXME: batch set, so we don't need L0 lookup again and again.
-			tree.set(ptr, pd);
+			if (!tree.set(ptr, pd)) {
+				return false;
+			}
 
 			if (ComputeIndex) {
 				pd = pd.next();
 			}
 		}
+
+		return true;
 	}
 }
 
@@ -193,6 +193,7 @@ unittest ExtentMap {
 	auto end = ptr + e.size;
 	for (auto p = ptr; p < end; p += PageSize) {
 		assert(emap.lookup(p).data == pd.data);
+		pd = pd.next();
 	}
 
 	assert(emap.lookup(end).data == 0);
