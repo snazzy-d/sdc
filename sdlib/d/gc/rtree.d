@@ -4,6 +4,8 @@ import d.gc.spec;
 
 import d.sync.atomic;
 
+import sdc.intrinsics;
+
 static assert(LgAddressSpace <= 48, "Address space too large!");
 
 enum HighInsignificantBits = 8 * PointerSize - LgAddressSpace;
@@ -80,7 +82,7 @@ public:
 		assert(isValidAddress(address));
 
 		auto leaves = getOrAllocateLeaves(address);
-		if (leaves is null) {
+		if (unlikely(leaves is null)) {
 			return null;
 		}
 
@@ -92,11 +94,37 @@ public:
 		assert(isValidAddress(address));
 
 		auto leaf = getOrAllocate(address);
-		if (leaf is null) {
+		if (unlikely(leaf is null)) {
 			return false;
 		}
 
 		leaf.store(value);
+		return true;
+	}
+
+	bool setRange(void* address, size_t size, T value) shared {
+		auto start = address;
+		auto stop = start + size;
+
+		// FIXME: in contract.
+		assert(isValidAddress(start));
+		assert(isValidAddress(stop));
+
+		auto ptr = start;
+		while (ptr < stop) {
+			auto leaves = getOrAllocateLeaves(ptr);
+			if (unlikely(leaves is null)) {
+				return false;
+			}
+
+			auto key0 = subKey(ptr, 0);
+			while (ptr < stop && subKey(ptr, 0) == key0) {
+				(*leaves)[subKey(ptr, 1)].store(value);
+				ptr += PageSize;
+				value = value.next();
+			}
+		}
+
 		return true;
 	}
 
@@ -107,6 +135,33 @@ public:
 		auto leaf = get(address);
 		if (leaf !is null) {
 			leaf.store(T(0));
+		}
+	}
+
+	void clearRange(void* address, size_t size) shared {
+		auto start = address;
+		auto stop = address + size;
+
+		// FIXME: in contract.
+		assert(isValidAddress(start));
+		assert(isValidAddress(stop));
+
+		auto ptr = start;
+		while (ptr < stop) {
+			auto leaves = getLeaves(ptr);
+			if (leaves is null) {
+				enum Offset = size_t(1) << Levels[0].cumulativeBits;
+
+				import d.gc.util;
+				ptr = alignUp(ptr + 1, Offset);
+				continue;
+			}
+
+			auto key0 = subKey(ptr, 0);
+			while (ptr < stop && subKey(ptr, 0) == key0) {
+				(*leaves)[subKey(ptr, 1)].store(T(0));
+				ptr += PageSize;
+			}
 		}
 	}
 
@@ -153,12 +208,16 @@ ulong toLeafPayload(ulong x) {
 	return x;
 }
 
+ulong next(ulong x) {
+	// So that we can store integrals in the tree.
+	return x + 1;
+}
+
 bool isValidAddress(void* address) {
-	auto mask1 = size_t(-1) >> HighInsignificantBits;
-	auto mask2 = size_t(-1) << LgPageSize;
+	enum Mask = AddressSpace - PageSize;
 
 	auto a = cast(size_t) address;
-	return (a & mask1 & mask2) == a;
+	return (a & Mask) == a;
 }
 
 unittest isValidAddress {
@@ -293,4 +352,70 @@ unittest get_set_clear {
 	assert(rt.get(ptr2) is null);
 	rt.clear(ptr2);
 	assert(rt.get(ptr2) is null);
+}
+
+unittest set_clear_range {
+	import d.gc.base;
+	shared Base base;
+	scope(exit) base.clear();
+
+	static shared RTree!ulong rt;
+	rt.base = &base;
+
+	// Add one page descriptor in the tree.
+	auto ptr0 = cast(void*) 0x56789abcd000;
+	auto v0 = 0x0123456789abcdef;
+
+	assert(rt.get(ptr0) is null);
+	assert(rt.setRange(ptr0, PageSize, v0));
+	assert(rt.get(ptr0) !is null);
+	assert(rt.get(ptr0).load() == v0);
+
+	// Add a second page descriptor in the tree.
+	auto ptr1 = cast(void*) 0x789abcdef000;
+	auto v1 = 0x0123456789abcdef;
+
+	assert(rt.get(ptr1) is null);
+	assert(rt.setRange(ptr1, 12345 * PageSize, v1));
+	assert(rt.get(ptr1) !is null);
+	assert(rt.get(ptr1).load() == v1);
+
+	foreach (i; 0 .. 12345) {
+		auto v = v1 + i;
+		auto ptr = ptr1 + i * PageSize;
+
+		assert(rt.get(ptr) !is null);
+		assert(rt.get(ptr).load() == v);
+	}
+
+	rt.clearRange(ptr1, 1234 * PageSize);
+	foreach (i; 0 .. 1234) {
+		auto v = v1 + i;
+		auto ptr = ptr1 + i * PageSize;
+
+		assert(rt.get(ptr).load() == 0);
+	}
+
+	foreach (i; 1234 .. 12345) {
+		auto v = v1 + i;
+		auto ptr = ptr1 + i * PageSize;
+
+		assert(rt.get(ptr) !is null);
+		assert(rt.get(ptr).load() == v);
+	}
+
+	rt.clearRange(ptr1, 23456 * PageSize);
+	foreach (i; 0 .. 12817) {
+		auto v = v1 + i;
+		auto ptr = ptr1 + i * PageSize;
+
+		assert(rt.get(ptr).load() == 0);
+	}
+
+	foreach (i; 12817 .. 23456) {
+		auto v = v1 + i;
+		auto ptr = ptr1 + i * PageSize;
+
+		assert(rt.get(ptr) is null);
+	}
 }

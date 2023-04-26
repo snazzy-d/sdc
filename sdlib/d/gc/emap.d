@@ -28,7 +28,8 @@ public:
 	}
 
 	bool remap(Extent* extent, ExtentClass ec) shared {
-		return batchMapImpl!true(extent, PageDescriptor(extent, ec));
+		return tree
+			.setRange(extent.address, extent.size, PageDescriptor(extent, ec));
 	}
 
 	bool remap(Extent* extent) shared {
@@ -38,34 +39,7 @@ public:
 	}
 
 	void clear(Extent* extent) shared {
-		batchMapImpl!false(extent, PageDescriptor(0));
-	}
-
-private:
-	bool batchMapImpl(bool ComputeIndex)(Extent* extent,
-	                                     PageDescriptor pd) shared {
-		auto address = extent.address;
-		auto size = extent.size;
-
-		// FIXME: in contract.
-		assert(isAligned(address, PageSize), "Incorrectly aligned address!");
-		assert(isAligned(size, PageSize), "Incorrectly aligned size!");
-
-		auto start = address;
-		auto stop = start + size;
-
-		for (auto ptr = start; ptr < stop; ptr += PageSize) {
-			// FIXME: batch set, so we don't need L0 lookup again and again.
-			if (!tree.set(ptr, pd)) {
-				return false;
-			}
-
-			if (ComputeIndex) {
-				pd = pd.next();
-			}
-		}
-
-		return true;
+		tree.clearRange(extent.address, extent.size);
 	}
 }
 
