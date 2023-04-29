@@ -13,22 +13,22 @@ enum SignificantBits = LgAddressSpace - LgPageSize;
 
 struct Level {
 	uint bits;
-	uint cumulativeBits;
+	uint shift;
 
-	this(uint bits, uint cumulativeBits) {
+	this(uint bits, uint shift) {
 		this.bits = bits;
-		this.cumulativeBits = cumulativeBits;
+		this.shift = shift;
 	}
 }
 
-immutable Level[2] Levels = [
-	Level(SignificantBits / 2, HighInsignificantBits + SignificantBits / 2),
-	Level(SignificantBits / 2 + SignificantBits % 2,
-	      HighInsignificantBits + SignificantBits),
-];
+immutable Level[2] Levels =
+	[Level(SignificantBits / 2, LgAddressSpace - SignificantBits / 2),
+	 Level(SignificantBits / 2 + SignificantBits % 2, LgPageSize)];
 
-enum Level0Size = 1UL << Levels[0].bits;
-enum Level1Size = 1UL << Levels[1].bits;
+enum Level0Size = size_t(1) << Levels[0].bits;
+enum Level1Size = size_t(1) << Levels[1].bits;
+
+enum Level0Align = size_t(1) << Levels[0].shift;
 
 struct RTree(T) {
 private:
@@ -117,9 +117,13 @@ public:
 				return false;
 			}
 
-			auto key0 = subKey(ptr, 0);
-			while (ptr < stop && subKey(ptr, 0) == key0) {
-				(*leaves)[subKey(ptr, 1)].store(value);
+			import d.gc.util;
+			auto nextPtr = alignUp(ptr + 1, Level0Align);
+			auto key1 = subKey(ptr, 1);
+
+			auto subStop = stop < nextPtr ? stop : nextPtr;
+			while (ptr < subStop) {
+				(*leaves)[key1++].store(value);
 				ptr += PageSize;
 				value = value.next();
 			}
@@ -148,18 +152,22 @@ public:
 
 		auto ptr = start;
 		while (ptr < stop) {
+			import d.gc.util;
+			auto nextPtr = alignUp(ptr + 1, Level0Align);
+			assert(subKey(nextPtr, 0) == subKey(ptr, 0) + 1);
+
 			auto leaves = getLeaves(ptr);
 			if (leaves is null) {
-				enum Offset = size_t(1) << Levels[0].cumulativeBits;
-
 				import d.gc.util;
-				ptr = alignUp(ptr + 1, Offset);
+				ptr = nextPtr;
 				continue;
 			}
 
-			auto key0 = subKey(ptr, 0);
-			while (ptr < stop && subKey(ptr, 0) == key0) {
-				(*leaves)[subKey(ptr, 1)].store(T(0));
+			auto key1 = subKey(ptr, 1);
+
+			auto subStop = stop < nextPtr ? stop : nextPtr;
+			while (ptr < subStop) {
+				(*leaves)[key1++].store(T(0));
 				ptr += PageSize;
 			}
 		}
@@ -252,7 +260,7 @@ static subKey(void* ptr, uint level) {
 	assert(isValidAddress(ptr), "Invalid ptr!");
 
 	auto key = cast(size_t) ptr;
-	auto shift = 8 * PointerSize - Levels[level].cumulativeBits;
+	auto shift = Levels[level].shift;
 	auto mask = (size_t(1) << Levels[level].bits) - 1;
 
 	return (key >> shift) & mask;
