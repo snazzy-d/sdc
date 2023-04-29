@@ -372,31 +372,31 @@ unittest set_clear_range {
 	assert(rt.get(ptr0).load() == v0);
 
 	// Add a second page descriptor in the tree.
-	auto ptr1 = cast(void*) 0x789abcdef000;
+	auto ptr1 = cast(void*) 0x00003ffff000;
 	auto v1 = 0x0123456789abcdef;
 
 	assert(rt.get(ptr1) is null);
-	assert(rt.setRange(ptr1, 12345 * PageSize, v1));
+	assert(rt.setRange(ptr1, 1234 * PageSize, v1));
 	assert(rt.get(ptr1) !is null);
 	assert(rt.get(ptr1).load() == v1);
 
-	foreach (i; 0 .. 12345) {
-		auto v = v1 + i;
-		auto ptr = ptr1 + i * PageSize;
-
-		assert(rt.get(ptr) !is null);
-		assert(rt.get(ptr).load() == v);
-	}
-
-	rt.clearRange(ptr1, 1234 * PageSize);
 	foreach (i; 0 .. 1234) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
 
+		assert(rt.get(ptr) !is null);
+		assert(rt.get(ptr).load() == v);
+	}
+
+	rt.clearRange(ptr1, 910 * PageSize);
+	foreach (i; 0 .. 910) {
+		auto v = v1 + i;
+		auto ptr = ptr1 + i * PageSize;
+
 		assert(rt.get(ptr).load() == 0);
 	}
 
-	foreach (i; 1234 .. 12345) {
+	foreach (i; 910 .. 1234) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
 
@@ -404,15 +404,15 @@ unittest set_clear_range {
 		assert(rt.get(ptr).load() == v);
 	}
 
-	rt.clearRange(ptr1, 23456 * PageSize);
-	foreach (i; 0 .. 12817) {
+	rt.clearRange(ptr1, 345678 * PageSize);
+	foreach (i; 0 .. 262145) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
 
 		assert(rt.get(ptr).load() == 0);
 	}
 
-	foreach (i; 12817 .. 23456) {
+	foreach (i; 262145 .. 345678) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
 
