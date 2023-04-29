@@ -7,7 +7,7 @@ to compile your code.
 The project currently provides a collection of tools:
 
 - [sdc][1], the D compiler.
-- [sdunit][2], an utility to runt he unit tests in D modules.
+- [sdunit][2], an utility to run the unit tests in D modules.
 - [sdfmt][3], a code formatter for D.
 
 This compiler is based on [libd][4] for D code analysis. It uses [LLVM][5] and
@@ -53,7 +53,7 @@ You'll need `make` and the latest DMD installed and a recent version of LLVM.
 
 Run `make`.
 
-Then you can runt he test suite using `make check`. There should be no
+Then you can run the test suite using `make check`. There should be no
 regressions.
 
 SDC requires a recent version of LLVM. If the default llvm-config on your system
