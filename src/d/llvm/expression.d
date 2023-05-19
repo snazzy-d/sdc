@@ -456,22 +456,27 @@ struct ExpressionGen {
 		import std.algorithm, std.array;
 		auto args = e.args.map!(a => visit(a)).array();
 
-		auto type = TypeGen(pass.pass).visit(e.type);
-		LLVMValueRef size = LLVMSizeOf(
-			(e.type.kind == TypeKind.Class) ? LLVMGetElementType(type) : type);
+		auto ct = e.type.getCanonical();
+		bool isClass = ct.kind == TypeKind.Class;
+		auto eType = isClass
+			? TypeGen(pass.pass).getClassStructure(ct.dclass)
+			: TypeGen(pass.pass).visit(ct.element);
 
 		auto allocFun = declare(pass.object.getGCThreadLocalAlloc());
-		auto alloc = buildCall(allocFun, [size]);
-		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
+		auto alloc = buildCall(allocFun, [LLVMSizeOf(eType)]);
 
 		// XXX: This should be set on the alloc function instead of the callsite.
 		LLVMAddCallSiteAttribute(alloc, LLVMAttributeReturnIndex,
 		                         getAttribute("noalias"));
 
+		auto type = TypeGen(pass.pass).visit(e.type);
+		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
+
 		auto thisArg = visit(e.dinit);
 		auto thisType = LLVMTypeOf(LLVMGetFirstParam(ctor));
-		bool isClass = LLVMGetTypeKind(thisType) == LLVMTypeKind.Pointer;
-		if (isClass) {
+
+		bool isRefCtor = LLVMGetTypeKind(thisType) == LLVMTypeKind.Pointer;
+		if (isRefCtor) {
 			auto ptrType = LLVMPointerType(LLVMTypeOf(thisArg), 0);
 			auto thisPtr = LLVMBuildBitCast(builder, ptr, ptrType, "");
 			LLVMBuildStore(builder, thisArg, thisPtr);
@@ -480,7 +485,7 @@ struct ExpressionGen {
 
 		args = thisArg ~ args;
 		auto obj = buildCall(ctor, args);
-		if (!isClass) {
+		if (!isRefCtor) {
 			LLVMBuildStore(builder, obj, ptr);
 		}
 

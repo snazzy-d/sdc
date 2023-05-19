@@ -270,13 +270,13 @@ struct TypeGen {
 		return LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
 	}
 
-	LLVMTypeRef visit(Class c) in(c.step >= Step.Signed) {
+	LLVMTypeRef getClassStructure(Class c) in(c.step >= Step.Signed) {
 		// Ensure classInfo is built first.
 		if (!classInfoClass) {
 			classInfoClass = pass.object.getClassInfo();
 
 			if (c !is classInfoClass) {
-				visit(classInfoClass);
+				getClassStructure(classInfoClass);
 			}
 		}
 
@@ -287,8 +287,8 @@ struct TypeGen {
 		}
 
 		auto mangle = c.mangle.toString(context);
-		auto classStruct = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
-		auto classPtr = typeSymbols[c] = LLVMPointerType(classStruct, 0);
+		auto classBody =
+			typeSymbols[c] = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
 
 		import std.string;
 		auto metadataStruct =
@@ -296,7 +296,8 @@ struct TypeGen {
 		auto metadata = LLVMAddGlobal(dmodule, metadataStruct,
 		                              toStringz(mangle ~ "__vtbl"));
 
-		auto classInfoPtr = visit(classInfoClass);
+		auto classInfoStruct = getClassStructure(classInfoClass);
+		auto classInfoPtr = LLVMPointerType(classInfoStruct, 0);
 		typeInfos[c] = LLVMConstBitCast(metadata, classInfoPtr);
 		auto metadataPtr = LLVMPointerType(metadataStruct, 0);
 
@@ -313,8 +314,8 @@ struct TypeGen {
 			}
 		}
 
-		LLVMStructSetBody(classStruct, initTypes.ptr,
-		                  cast(uint) initTypes.length, false);
+		LLVMStructSetBody(classBody, initTypes.ptr, cast(uint) initTypes.length,
+		                  false);
 
 		import std.algorithm, std.array;
 		auto vtblTypes = methods.map!(m => LLVMTypeOf(m)).array();
@@ -322,7 +323,6 @@ struct TypeGen {
 			LLVMStructTypeInContext(llvmCtx, vtblTypes.ptr,
 			                        cast(uint) vtblTypes.length, false);
 
-		auto classInfoStruct = LLVMGetElementType(classInfoPtr);
 		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblStruct];
 		LLVMStructSetBody(metadataStruct, classMetadataElts.ptr,
 		                  classMetadataElts.length, false);
@@ -345,7 +345,12 @@ struct TypeGen {
 		LLVMSetGlobalConstant(metadata, true);
 		LLVMSetLinkage(metadata, LLVMLinkage.LinkOnceODR);
 
-		return classPtr;
+		return classBody;
+	}
+
+	LLVMTypeRef visit(Class c) {
+		auto classBody = getClassStructure(c);
+		return LLVMPointerType(classBody, 0);
 	}
 
 	LLVMTypeRef visit(Enum e) {
