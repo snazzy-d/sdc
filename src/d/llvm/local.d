@@ -127,7 +127,7 @@ struct LocalGen {
 			auto name = f.mangle.toStringz(pass.context);
 
 			import d.llvm.type;
-			auto type = LLVMGetElementType(TypeGen(pass).visit(f.type));
+			auto type = TypeGen(pass).getFunctionType(f.type);
 
 			// The method may have been defined when visiting the type.
 			if (auto funPtr = f in lookup) {
@@ -196,7 +196,8 @@ struct LocalGen {
 		// Handle parameters in the alloca block.
 		LLVMPositionBuilderAtEnd(builder, allocaBB);
 
-		auto funType = LLVMGetElementType(LLVMTypeOf(fun));
+		import d.llvm.type;
+		auto funType = TypeGen(pass).getFunctionType(f.type);
 
 		LLVMValueRef[] params;
 		LLVMTypeRef[] paramTypes;

@@ -426,19 +426,24 @@ struct TypeGen {
 		return t;
 	}
 
-	LLVMTypeRef visit(FunctionType f) {
+	LLVMTypeRef getFunctionType(FunctionType f) {
 		import std.algorithm, std.array;
 		auto params =
 			f.getFunction().parameters.map!(p => buildParamType(p)).array();
-		auto fun = LLVMPointerType(
-			LLVMFunctionType(buildParamType(f.returnType), params.ptr,
-			                 cast(uint) params.length, f.isVariadic),
-			0
-		);
+		return LLVMFunctionType(buildParamType(f.returnType), params.ptr,
+		                        cast(uint) params.length, f.isVariadic);
+	}
+
+	LLVMTypeRef visit(FunctionType f) {
+		auto fun = getFunctionType(f);
+		auto funPtr = LLVMPointerType(fun, 0);
 
 		auto contexts = f.contexts;
 		if (contexts.length == 0) {
-			return fun;
+			// XXX: This seems inconsistent with the case that
+			// contains contexts. Maybe a 1 element struct would
+			// be more apropriate?
+			return funPtr;
 		}
 
 		auto length = cast(uint) contexts.length;
@@ -447,10 +452,11 @@ struct TypeGen {
 		types.length = length + 1;
 
 		foreach (i, _; contexts) {
-			types[i] = params[i];
+			// XXX: That's a bit redundant, but will work.
+			types[i] = buildParamType(f.getFunction().parameters[i]);
 		}
 
-		types[length] = fun;
+		types[length] = funPtr;
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, length + 1, false);
 	}
 
