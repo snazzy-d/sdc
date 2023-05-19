@@ -1,38 +1,10 @@
-module d.gc.tl;
+module d.gc.tcache;
 
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
 
-extern(C) void* __sd_gc_tl_malloc(size_t size) {
-	return tc.alloc(size, true);
-}
-
-extern(C) void* __sd_gc_tl_array_alloc(size_t size) {
-	return __sd_gc_tl_malloc(size);
-}
-
-extern(C) void _tl_gc_free(void* ptr) {
-	tc.free(ptr);
-}
-
-extern(C) void* _tl_gc_realloc(void* ptr, size_t size) {
-	return tc.realloc(ptr, size, true);
-}
-
-extern(C) void _tl_gc_set_stack_bottom(const void* bottom) {
-	tc.stackBottom = makeRange(bottom[0 .. 0]).ptr;
-}
-
-extern(C) void _tl_gc_add_roots(const void[] range) {
-	tc.addRoots(range);
-}
-
-extern(C) void _tl_gc_collect() {
-	tc.collect();
-}
-
-ThreadCache tc;
+ThreadCache threadCache;
 
 struct ThreadCache {
 private:
