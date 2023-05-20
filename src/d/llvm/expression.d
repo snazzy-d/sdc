@@ -41,8 +41,8 @@ struct ExpressionGen {
 		return AddressOfGen(pass).visit(e);
 	}
 
-	private LLVMValueRef buildLoad(LLVMValueRef ptr, TypeQualifier q) {
-		auto type = LLVMGetElementType(LLVMTypeOf(ptr));
+	private LLVMValueRef buildLoad(LLVMValueRef ptr, LLVMTypeRef type,
+	                               TypeQualifier q) {
 		auto l = LLVMBuildLoad2(builder, type, ptr, "");
 		final switch (q) with (TypeQualifier) {
 			case Mutable, Inout, Const:
@@ -64,8 +64,9 @@ struct ExpressionGen {
 
 	private LLVMValueRef loadAddressOf(E)(E e) if (is(E : Expression))
 			in(e.isLvalue, "e must be an lvalue") {
-		auto q = e.type.qualifier;
-		return buildLoad(addressOf(e), q);
+		auto t = e.type.getCanonical();
+		auto type = TypeGen(pass.pass).visit(t);
+		return buildLoad(addressOf(e), type, t.qualifier);
 	}
 
 	private LLVMValueRef buildStore(LLVMValueRef ptr, LLVMValueRef val,
@@ -263,20 +264,21 @@ struct ExpressionGen {
 	}
 
 	private LLVMValueRef buildUnary(int Offset, bool IsPost)(Expression e) {
-		auto type = e.type.getCanonical();
+		auto t = e.type.getCanonical();
+		auto type = TypeGen(pass.pass).visit(t);
+
 		auto ptr = addressOf(e);
-		auto value = buildLoad(ptr, type.qualifier);
+		auto value = buildLoad(ptr, type, t.qualifier);
 		auto postRet = value;
 
-		auto eType = TypeGen(pass.pass).visit(type);
-		if (type.kind == TypeKind.Pointer) {
-			auto o =
-				LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), Offset, true);
-			auto gepType = TypeGen(pass.pass).visit(type.element);
+		if (t.kind == TypeKind.Pointer) {
+			auto i32 = LLVMInt32TypeInContext(llvmCtx);
+			auto o = LLVMConstInt(i32, Offset, true);
+			auto gepType = TypeGen(pass.pass).getElementType(t);
 			value = LLVMBuildInBoundsGEP2(builder, gepType, value, &o, 1, "");
 		} else {
-			value = LLVMBuildAdd(builder, value,
-			                     LLVMConstInt(eType, Offset, true), "");
+			auto o = LLVMConstInt(type, Offset, true);
+			value = LLVMBuildAdd(builder, value, o, "");
 		}
 
 		LLVMBuildStore(builder, value, ptr);
@@ -289,7 +291,9 @@ struct ExpressionGen {
 				return addressOf(e.expr);
 
 			case Dereference:
-				return buildLoad(visit(e.expr), e.type.qualifier);
+				auto t = e.type.getCanonical();
+				auto type = TypeGen(pass.pass).visit(t);
+				return buildLoad(visit(e.expr), type, t.qualifier);
 
 			case PreInc:
 				return buildUnary!(1, false)(e.expr);
