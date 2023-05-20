@@ -633,9 +633,9 @@ struct ExpressionGen {
 		auto otid = getTypeid(value);
 		auto ctid = getTypeid(c);
 
-		auto typeidType = LLVMTypeOf(ctid);
-		auto typeidStruct = LLVMGetElementType(typeidType);
-		auto pType = LLVMStructGetTypeAtIndex(typeidStruct, 1);
+		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
+		auto classInfoType = LLVMPointerType(classInfoStruct, 0);
+		auto pType = LLVMStructGetTypeAtIndex(classInfoStruct, 1);
 		auto dType = LLVMStructGetTypeAtIndex(pType, 0);
 		auto ptrType = LLVMStructGetTypeAtIndex(pType, 1);
 
@@ -648,14 +648,14 @@ struct ExpressionGen {
 		// If c is deeper in the hierarchy than the value,
 		// then it is impossible for the value to be of type c.
 		auto oPrimitives =
-			LLVMBuildStructGEP2(builder, typeidStruct, otid, 1, "");
+			LLVMBuildStructGEP2(builder, classInfoStruct, otid, 1, "");
 		auto oDepthPtr =
 			LLVMBuildStructGEP2(builder, pType, oPrimitives, 0, "");
 		auto oDepth = LLVMBuildLoad2(builder, dType, oDepthPtr, "");
 
 		// This should constant fold.
 		auto cPrimitives =
-			LLVMBuildStructGEP2(builder, typeidStruct, ctid, 1, "");
+			LLVMBuildStructGEP2(builder, classInfoStruct, ctid, 1, "");
 		auto cDepthPtr =
 			LLVMBuildStructGEP2(builder, pType, cPrimitives, 0, "");
 		auto cDepth = LLVMBuildLoad2(builder, dType, cDepthPtr, "");
@@ -680,9 +680,9 @@ struct ExpressionGen {
 		auto primitivesPtr =
 			LLVMBuildStructGEP2(builder, pType, oPrimitives, 1, "");
 		auto primitives = LLVMBuildLoad2(builder, ptrType, primitivesPtr, "");
-		auto parentPtr = LLVMBuildInBoundsGEP2(builder, typeidType, primitives,
-		                                       &index, 1, "");
-		auto parent = LLVMBuildLoad2(builder, typeidType, parentPtr, "");
+		auto parentPtr = LLVMBuildInBoundsGEP2(builder, classInfoType,
+		                                       primitives, &index, 1, "");
+		auto parent = LLVMBuildLoad2(builder, classInfoType, parentPtr, "");
 		auto typeCheck =
 			LLVMBuildICmp(builder, LLVMIntPredicate.EQ, parent, ctid, "");
 		auto downcast =
@@ -903,12 +903,12 @@ struct ExpressionGen {
 	}
 
 	private LLVMValueRef getTypeid(LLVMValueRef value) {
-		auto cType = LLVMGetElementType(LLVMTypeOf(value));
-		auto tidType = LLVMStructGetTypeAtIndex(cType, 0);
-		auto tid = LLVMBuildLoad2(builder, tidType, value, "");
+		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
+		auto classInfoType = LLVMPointerType(classInfoStruct, 0);
+		auto objType = LLVMPointerType(classInfoType, 0);
 
-		auto classInfo = TypeGen(pass.pass).visit(pass.object.getClassInfo());
-		return LLVMBuildBitCast(builder, tid, classInfo, "");
+		auto ptr = LLVMBuildPointerCast(builder, value, objType, "");
+		return LLVMBuildLoad2(builder, classInfoType, ptr, "");
 	}
 
 	LLVMValueRef visit(DynamicTypeidExpression e) {

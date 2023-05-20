@@ -279,16 +279,15 @@ struct TypeGen {
 		return LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
 	}
 
-	LLVMTypeRef getClassStructure(Class c) in(c.step >= Step.Signed) {
-		// Ensure classInfo is built first.
+	LLVMTypeRef getClassInfoStructure() {
 		if (!classInfoClass) {
 			classInfoClass = pass.object.getClassInfo();
-
-			if (c !is classInfoClass) {
-				getClassStructure(classInfoClass);
-			}
 		}
 
+		return getClassStructure(classInfoClass);
+	}
+
+	LLVMTypeRef getClassStructure(Class c) in(c.step >= Step.Signed) {
 		// We do so after generating ClassInfo in case
 		// we are generating a base of ClassInfo.
 		if (auto ct = c in typeSymbols) {
@@ -305,7 +304,7 @@ struct TypeGen {
 		auto metadata = LLVMAddGlobal(dmodule, metadataStruct,
 		                              toStringz(mangle ~ "__vtbl"));
 
-		auto classInfoStruct = getClassStructure(classInfoClass);
+		auto classInfoStruct = getClassInfoStructure();
 		auto classInfoPtr = LLVMPointerType(classInfoStruct, 0);
 		typeInfos[c] = LLVMConstBitCast(metadata, classInfoPtr);
 		auto metadataPtr = LLVMPointerType(metadataStruct, 0);
@@ -316,7 +315,10 @@ struct TypeGen {
 			if (auto m = cast(Method) member) {
 				import d.llvm.global;
 				methods ~= GlobalGen(pass).declare(m);
-			} else if (auto f = cast(Field) member) {
+				continue;
+			}
+
+			if (auto f = cast(Field) member) {
 				if (f.index > 0) {
 					initTypes ~= visit(f.value.type);
 				}
