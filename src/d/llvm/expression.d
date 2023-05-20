@@ -460,7 +460,7 @@ struct ExpressionGen {
 		LLVMValueRef size = LLVMSizeOf(
 			(e.type.kind == TypeKind.Class) ? LLVMGetElementType(type) : type);
 
-		auto allocFun = declare(pass.object.getGCThreadLocalAllow());
+		auto allocFun = declare(pass.object.getGCThreadLocalAlloc());
 		auto alloc = buildCall(allocFun, [size]);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
 
@@ -772,7 +772,7 @@ struct ExpressionGen {
 
 		if (count > 0) {
 			// We have a slice, we need to allocate.
-			auto allocFun = declare(pass.object.getGCThreadLocalAllow());
+			auto allocFun = declare(pass.object.getGCThreadLocalAlloc());
 			auto alloc = buildCall(allocFun, [LLVMSizeOf(type)]);
 			ptr = LLVMBuildPointerCast(builder, alloc, ptrType, "");
 
