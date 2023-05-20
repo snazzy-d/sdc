@@ -954,40 +954,43 @@ struct AddressOfGen {
 
 	LLVMValueRef visit(FieldExpression e) {
 		auto base = e.expr;
-		auto type = base.type.getCanonical();
+		auto t = base.type.getCanonical();
 
 		LLVMValueRef ptr;
-		switch (type.kind) with (TypeKind) {
+		LLVMTypeRef type;
+
+		switch (t.kind) with (TypeKind) {
 			case Slice, Struct, Union:
 				ptr = visit(base);
+				type = TypeGen(pass.pass).visit(t);
 				break;
 
 			// XXX: Remove pointer. libd do not dererefence as expected.
-			case Pointer, Class:
+			case Pointer:
 				ptr = valueOf(base);
+				type = TypeGen(pass.pass).getElementType(t);
+				break;
+
+			case Class:
+				ptr = valueOf(base);
+				type = TypeGen(pass.pass).getClassStructure(t.dclass);
 				break;
 
 			default:
 				assert(
 					0,
 					"Address of field only work on aggregate types, not "
-						~ type.toString(context)
+						~ t.toString(context)
 				);
 		}
 
-		// Make sure the type is not opaque.
-		// XXX: Find a factorized way to load and gep that ensure
-		// the indexed is not opaque and load metadata are correct.
-		TypeGen(pass.pass).visit(type);
-
-		auto baseType = LLVMGetElementType(LLVMTypeOf(ptr));
-		ptr = LLVMBuildStructGEP2(builder, baseType, ptr, e.field.index, "");
-		if (type.kind != TypeKind.Union) {
-			return ptr;
+		if (t.kind == TypeKind.Union) {
+			auto eType = TypeGen(pass.pass).visit(e.type);
+			auto ptrType = LLVMPointerType(eType, 0);
+			return LLVMBuildPointerCast(builder, ptr, ptrType, "");
 		}
 
-		auto eType = TypeGen(pass.pass).visit(e.type);
-		return LLVMBuildBitCast(builder, ptr, LLVMPointerType(eType, 0), "");
+		return LLVMBuildStructGEP2(builder, type, ptr, e.field.index, "");
 	}
 
 	LLVMValueRef visit(ContextExpression e)
@@ -996,12 +999,10 @@ struct AddressOfGen {
 		return pass.getContext(e.type.context);
 	}
 
-	LLVMValueRef visit(UnaryExpression e) {
-		if (e.op == UnaryOp.Dereference) {
-			return valueOf(e.expr);
-		}
-
-		assert(0, "not an lvalue ??");
+	LLVMValueRef visit(
+		UnaryExpression e
+	) in(e.op == UnaryOp.Dereference, "Only dereferences op are lvalues!") {
+		return valueOf(e.expr);
 	}
 
 	LLVMValueRef visit(CastExpression e) {
