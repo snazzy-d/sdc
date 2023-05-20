@@ -89,8 +89,8 @@ struct ConstantGen {
 					LLVMConstNamedStruct(t, elts.ptr, cast(uint) elts.length);
 
 			case Array:
-				return LLVMConstArray(LLVMGetElementType(t), elts.ptr,
-				                      cast(uint) elts.length);
+				auto et = TypeGen(pass).visit(e.type.element);
+				return LLVMConstArray(et, elts.ptr, cast(uint) elts.length);
 
 			default:
 				break;
