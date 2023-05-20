@@ -124,13 +124,22 @@ struct TypeGen {
 		}
 	}
 
-	LLVMTypeRef visitPointerOf(Type t) {
-		auto pointed =
-			(t.kind != TypeKind.Builtin || t.builtin != BuiltinType.Void)
-				? buildOpaque(t)
-				: LLVMInt8TypeInContext(llvmCtx);
+	private LLVMTypeRef genPointee(Type t) {
+		t = t.getCanonical();
+		if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.Void) {
+			// void* is represented as i8* in LLVM IR.
+			return LLVMInt8TypeInContext(llvmCtx);
+		}
 
-		return LLVMPointerType(pointed, 0);
+		return buildOpaque(t);
+	}
+
+	LLVMTypeRef getElementType(Type t) {
+		return genPointee(t.getCanonical().element);
+	}
+
+	LLVMTypeRef visitPointerOf(Type t) {
+		return LLVMPointerType(genPointee(t), 0);
 	}
 
 	LLVMTypeRef visitSliceOf(Type t) {

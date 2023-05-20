@@ -529,25 +529,35 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(SliceExpression e) {
 		auto t = e.sliced.type.getCanonical();
+		auto eType = TypeGen(pass.pass).getElementType(t);
+
 		auto i64 = LLVMInt64TypeInContext(llvmCtx);
 
 		LLVMValueRef length, ptr;
-		if (t.kind == TypeKind.Slice) {
-			auto slice = visit(e.sliced);
 
-			length = LLVMBuildExtractValue(builder, slice, 0, ".length");
-			ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
-		} else if (t.kind == TypeKind.Pointer) {
-			ptr = visit(e.sliced);
-		} else if (t.kind == TypeKind.Array) {
-			length = LLVMConstInt(i64, t.size, false);
-			ptr = addressOf(e.sliced);
+		switch (t.kind) with (TypeKind) {
+			case Slice:
+				auto slice = visit(e.sliced);
 
-			auto eType = TypeGen(pass.pass).visit(t.element);
-			auto ptrType = LLVMPointerType(eType, 0);
-			ptr = LLVMBuildBitCast(builder, ptr, ptrType, "");
-		} else {
-			assert(0, "Don't know how to slice " ~ e.type.toString(context));
+				length = LLVMBuildExtractValue(builder, slice, 0, ".length");
+				ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
+				break;
+
+			case Pointer:
+				ptr = visit(e.sliced);
+				break;
+
+			case Array:
+				length = LLVMConstInt(i64, t.size, false);
+				ptr = addressOf(e.sliced);
+
+				auto ptrType = LLVMPointerType(eType, 0);
+				ptr = LLVMBuildBitCast(builder, ptr, ptrType, "");
+				break;
+
+			default:
+				assert(0,
+				       "Don't know how to slice " ~ e.type.toString(context));
 		}
 
 		auto first = LLVMBuildZExt(builder, visit(e.first), i64, "");
@@ -568,8 +578,6 @@ struct ExpressionGen {
 
 		auto sub = LLVMBuildSub(builder, second, first, "");
 		slice = LLVMBuildInsertValue(builder, slice, sub, 0, "");
-
-		auto eType = LLVMGetElementType(LLVMTypeOf(ptr));
 		ptr = LLVMBuildInBoundsGEP2(builder, eType, ptr, &first, 1, "");
 		slice = LLVMBuildInsertValue(builder, slice, ptr, 1, "");
 
@@ -1028,53 +1036,50 @@ struct AddressOfGen {
 	auto computeIndexPtr(Location location, Expression indexed,
 	                     Expression index) {
 		auto t = indexed.type.getCanonical();
+		auto eType = TypeGen(pass.pass).getElementType(t);
+
+		LLVMValueRef ptr, length;
+
 		switch (t.kind) with (TypeKind) {
 			case Slice:
 				auto slice = valueOf(indexed);
-				auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
-				auto i = LLVMBuildZExt(builder, valueOf(index),
-				                       LLVMInt64TypeInContext(llvmCtx), "");
-				auto eType = LLVMGetElementType(LLVMTypeOf(ptr));
-
-				auto length =
-					LLVMBuildExtractValue(builder, slice, 0, ".length");
-				auto condition =
-					LLVMBuildICmp(builder, LLVMIntPredicate.ULT, i, length, "");
-				genBoundCheck(location, condition);
-
-				return LLVMBuildInBoundsGEP2(builder, eType, ptr, &i, 1, "");
+				ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
+				length = LLVMBuildExtractValue(builder, slice, 0, ".length");
+				break;
 
 			case Pointer:
-				auto ptr = valueOf(indexed);
-				auto i = valueOf(index);
-				auto eType = LLVMGetElementType(LLVMTypeOf(ptr));
-				return LLVMBuildInBoundsGEP2(builder, eType, ptr, &i, 1, "");
+				ptr = valueOf(indexed);
+				break;
 
 			case Array:
-				auto ptr = visit(indexed);
-				auto i = valueOf(index);
-				auto eType = LLVMGetElementType(LLVMTypeOf(ptr));
+				ptr = visit(indexed);
+
+				auto ptrType = LLVMPointerType(eType, 0);
+				ptr = LLVMBuildPointerCast(builder, ptr, ptrType, "");
 
 				auto i64 = LLVMInt64TypeInContext(llvmCtx);
-				auto condition = LLVMBuildICmp(
-					builder,
-					LLVMIntPredicate.ULT,
-					LLVMBuildZExt(builder, i, i64, ""),
-					LLVMConstInt(i64, t.size, false),
-					""
-				);
-
-				genBoundCheck(location, condition);
-
-				LLVMValueRef[2] indices = [LLVMConstInt(i64, 0, false), i];
-				return LLVMBuildInBoundsGEP2(builder, eType, ptr, indices.ptr,
-				                             indices.length, "");
+				length = LLVMConstInt(i64, t.size, false);
+				break;
 
 			default:
-				break;
+				assert(
+					0,
+					indexed.type.toString(context) ~ "is not an indexable type!"
+				);
 		}
 
-		assert(0, "Don't know how to index " ~ indexed.type.toString(context));
+		auto i = valueOf(index);
+		if (length) {
+			auto i64 = LLVMInt64TypeInContext(llvmCtx);
+			auto zi = LLVMBuildZExt(builder, i, i64, "");
+
+			auto condition =
+				LLVMBuildICmp(builder, LLVMIntPredicate.ULT, zi, length, "");
+
+			genBoundCheck(location, condition);
+		}
+
+		return LLVMBuildInBoundsGEP2(builder, eType, ptr, &i, 1, "");
 	}
 
 	auto genBoundCheck(Location location, LLVMValueRef condition) {
