@@ -16,6 +16,7 @@ private:
 
 	LLVMValueRef sdAssertFail;
 	LLVMValueRef sdAssertFailMsg;
+	LLVMValueRef sdArrayOutOfBounds;
 }
 
 struct RuntimeGen {
@@ -100,5 +101,31 @@ struct RuntimeGen {
 			? ExpressionGen(pass).callGlobal(getAssertFailMsgFunction(), args)
 			: ExpressionGen(pass)
 				.callGlobal(getAssertFailFunction(), args[1 .. $]);
+	}
+
+	private auto getArrayOutOfBoundsFunction() {
+		if (runtimeData.sdArrayOutOfBounds) {
+			return runtimeData.sdArrayOutOfBounds;
+		}
+
+		auto fun = runtimeData.sdArrayOutOfBounds =
+			declare(pass.object.getArrayOutOfBounds());
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex,
+		                        getAttribute("noreturn"));
+
+		return fun;
+	}
+
+	auto genArrayOutOfBounds(Location location) {
+		auto floc = location.getFullLocation(context);
+
+		LLVMValueRef[2] args = [
+			buildDString(floc.getSource().getFileName().toString()),
+			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx),
+			             floc.getStartLineNumber(), false),
+		];
+
+		return
+			ExpressionGen(pass).callGlobal(getArrayOutOfBoundsFunction(), args);
 	}
 }

@@ -510,15 +510,8 @@ struct ExpressionGen {
 		// Emit bound check fail code.
 		LLVMPositionBuilderAtEnd(builder, failBB);
 
-		auto floc = location.getFullLocation(context);
-
-		LLVMValueRef[2] args = [
-			buildDString(floc.getSource().getFileName().toString()),
-			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx),
-			             floc.getStartLineNumber(), false)
-		];
-
-		buildCall(pass.object.getArrayOutOfBounds(), args);
+		import d.llvm.runtime;
+		RuntimeGen(pass).genArrayOutOfBounds(location);
 		LLVMBuildUnreachable(builder);
 
 		// And continue regular program flow.
