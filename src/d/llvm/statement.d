@@ -160,59 +160,50 @@ struct StatementGen {
 					                     declare(pass.object.getPersonality()));
 				}
 
-				auto catchTable = fbody[b].catchTable;
-				if (catchTable is null) {
-				Resume:
-					if (auto lpBlock = fbody[b].landingpad) {
-						LLVMBuildBr(builder, genBasicBlock(lpBlock));
-					} else {
-						auto lp =
-							LLVMBuildLoad2(builder, lpType, lpContext, "");
-						LLVMBuildResume(builder, lp);
+				if (auto catchTable = fbody[b].catchTable) {
+					auto ptr =
+						LLVMBuildStructGEP2(builder, lpType, lpContext, 1, "");
+					auto actionType = LLVMStructGetTypeAtIndex(lpType, 1);
+					auto actionid =
+						LLVMBuildLoad2(builder, actionType, ptr, "actionid");
+					auto i8 = LLVMInt8TypeInContext(llvmCtx);
+					auto voidstar = LLVMPointerType(i8, 0);
+					foreach (c; catchTable.catches) {
+						auto nextUnwindBB =
+							LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
+
+						import d.llvm.type;
+						auto typeInfoType =
+							TypeGen(pass.pass).getTypeInfo(c.type);
+						LLVMValueRef[1] args = [
+							LLVMBuildBitCast(builder, typeInfoType, voidstar,
+							                 "")];
+
+						auto ehTypeidFor = getEhTypeidFor();
+						auto ehTypeidForType =
+							LLVMGlobalGetValueType(ehTypeidFor);
+
+						import d.llvm.expression;
+						auto ehForTypeid = ExpressionGen(pass)
+							.buildCall(ehTypeidFor, ehTypeidForType, args[]);
+
+						auto cmp = LLVMBuildICmp(builder, LLVMIntPredicate.EQ,
+						                         ehForTypeid, actionid, "");
+
+						LLVMBuildCondBr(builder, cmp, genBasicBlock(c.block),
+						                nextUnwindBB);
+						LLVMPositionBuilderAtEnd(builder, nextUnwindBB);
 					}
-
-					break;
 				}
 
-				auto ptr =
-					LLVMBuildStructGEP2(builder, lpType, lpContext, 1, "");
-				auto actionType = LLVMStructGetTypeAtIndex(lpType, 1);
-				auto actionid =
-					LLVMBuildLoad2(builder, actionType, ptr, "actionid");
-				auto i8 = LLVMInt8TypeInContext(llvmCtx);
-				auto voidstar = LLVMPointerType(i8, 0);
-				foreach (c; catchTable.catches) {
-					auto nextUnwindBB =
-						LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
-
-					import d.llvm.type;
-					auto typeinfo = LLVMBuildBitCast(
-						builder, TypeGen(pass.pass).getTypeInfo(c.type),
-						voidstar, "");
-
-					LLVMBuildCondBr(
-						builder,
-						LLVMBuildICmp(
-							builder,
-							LLVMIntPredicate.EQ,
-							genCall(getEhTypeidFor(), [typeinfo]),
-							actionid,
-							"",
-						),
-						genBasicBlock(c.block),
-						nextUnwindBB,
-					);
-
-					LLVMPositionBuilderAtEnd(builder, nextUnwindBB);
-				}
-
-				auto lpBlock = fbody[b].landingpad;
-				if (lpBlock) {
+				if (auto lpBlock = fbody[b].landingpad) {
 					LLVMBuildBr(builder, genBasicBlock(lpBlock));
-					break;
+				} else {
+					auto lp = LLVMBuildLoad2(builder, lpType, lpContext, "");
+					LLVMBuildResume(builder, lp);
 				}
 
-				goto Resume;
+				break;
 
 			case Halt:
 				LLVMValueRef message;
@@ -228,18 +219,16 @@ struct StatementGen {
 	}
 
 	private auto getEhTypeidFor() {
-		if (pass.statementGenData.llvmEhTypeIdFor !is null) {
-			return pass.statementGenData.llvmEhTypeIdFor;
+		if (statementGenData.llvmEhTypeIdFor !is null) {
+			return statementGenData.llvmEhTypeIdFor;
 		}
 
 		auto i32 = LLVMInt32TypeInContext(llvmCtx);
 		auto arg = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
+		auto type = LLVMFunctionType(i32, &arg, 1, false);
 
-		pass.statementGenData.llvmEhTypeIdFor =
-			LLVMAddFunction(dmodule, "llvm.eh.typeid.for".ptr,
-			                LLVMFunctionType(i32, &arg, 1, false));
-
-		return pass.statementGenData.llvmEhTypeIdFor;
+		return statementGenData.llvmEhTypeIdFor =
+			LLVMAddFunction(dmodule, "llvm.eh.typeid.for".ptr, type);
 	}
 
 	private auto genExpression(Expression e) {
@@ -334,10 +323,5 @@ struct StatementGen {
 		return basicBlocks[i] =
 			LLVMAppendBasicBlockInContext(llvmCtx, fun,
 			                              fbody[b].name.toStringz(context));
-	}
-
-	private auto genCall(LLVMValueRef callee, LLVMValueRef[] args) {
-		import d.llvm.expression;
-		return ExpressionGen(pass).buildCall(callee, args);
 	}
 }
