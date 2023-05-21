@@ -158,9 +158,7 @@ struct GlobalGen {
 		auto ret = TypeGen(pass).visit(s);
 
 		foreach (m; s.members) {
-			if (typeid(m) !is typeid(Field)) {
-				define(m);
-			}
+			define(m);
 		}
 
 		return ret;
@@ -180,9 +178,7 @@ struct GlobalGen {
 				continue;
 			}
 
-			if (typeid(m) !is typeid(Field)) {
-				define(m);
-			}
+			define(m);
 		}
 
 		return ret;
@@ -193,9 +189,7 @@ struct GlobalGen {
 		auto ret = TypeGen(pass).visit(u);
 
 		foreach (m; u.members) {
-			if (typeid(m) !is typeid(Field)) {
-				define(m);
-			}
+			define(m);
 		}
 
 		return ret;

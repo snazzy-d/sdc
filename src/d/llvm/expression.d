@@ -410,28 +410,29 @@ struct ExpressionGen {
 		assert(classType.kind == TypeKind.Class,
 		       "Virtual dispatch can only be done on classes");
 
-		auto thisType = LLVMStructGetTypeAtIndex(LLVMTypeOf(dg), m.hasContext);
-		auto metadataType =
-			LLVMStructGetTypeAtIndex(LLVMGetElementType(thisType), 0);
-
 		LLVMValueRef metadata;
+
 		auto c = classType.dclass;
 		if (c.isFinal) {
-			metadata =
-				LLVMBuildBitCast(builder, getTypeid(c), metadataType, "");
+			metadata = getTypeid(c);
 		} else {
 			auto thisPtr = LLVMBuildExtractValue(builder, dg, m.hasContext, "");
-			auto mdPtrType = LLVMPointerType(metadataType, 0);
-			auto metadataPtr =
-				LLVMBuildBitCast(builder, thisPtr, mdPtrType, "");
-			metadata = LLVMBuildLoad2(builder, metadataType, metadataPtr, "");
+			metadata = getTypeid(thisPtr);
 		}
 
-		auto mdStruct = LLVMGetElementType(metadataType);
-		auto vtbl = LLVMBuildStructGEP2(builder, mdStruct, metadata, 1, "vtbl");
-		auto vtblType = LLVMStructGetTypeAtIndex(mdStruct, 1);
-		auto funPtr = LLVMBuildStructGEP2(builder, vtblType, vtbl, m.index, "");
-		auto funType = LLVMStructGetTypeAtIndex(vtblType, m.index);
+		auto i32 = LLVMInt32TypeInContext(llvmCtx);
+		auto one = LLVMConstInt(i32, 1, true);
+
+		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
+		auto vtbl = LLVMBuildInBoundsGEP2(builder, classInfoStruct, metadata,
+		                                  &one, 1, "vtbl");
+
+		auto funType = TypeGen(pass.pass).visit(f.type);
+		auto funPtrType = LLVMPointerType(funType, 0);
+		vtbl = LLVMBuildPointerCast(builder, vtbl, funPtrType, "");
+
+		auto i = LLVMConstInt(i32, m.index, true);
+		auto funPtr = LLVMBuildInBoundsGEP2(builder, funType, vtbl, &i, 1, "");
 		return LLVMBuildLoad2(builder, funType, funPtr, "");
 	}
 
@@ -445,9 +446,9 @@ struct ExpressionGen {
 
 		auto dg = LLVMGetUndef(TypeGen(pass.pass).visit(type));
 
-		foreach (i, c; eCtxs) {
+		foreach (uint i, c; eCtxs) {
 			auto ctxValue = tCtxs[i].isRef ? addressOf(c) : visit(c);
-			dg = LLVMBuildInsertValue(builder, dg, ctxValue, cast(uint) i, "");
+			dg = LLVMBuildInsertValue(builder, dg, ctxValue, i, "");
 		}
 
 		auto m = genMethod(dg, eCtxs, e.method);
@@ -904,7 +905,9 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(DynamicTypeidExpression e) {
-		return getTypeid(visit(e.argument));
+		auto arg = visit(e.argument);
+		auto c = e.argument.type.getCanonical().dclass;
+		return c.isFinal ? getTypeid(c) : getTypeid(arg);
 	}
 
 	private LLVMValueRef getTypeid(Class c) {

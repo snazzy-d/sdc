@@ -305,6 +305,9 @@ struct TypeGen {
 			initTypes ~= visit(f.value.type);
 		}
 
+		LLVMStructSetBody(classBody, initTypes.ptr, cast(uint) initTypes.length,
+		                  false);
+
 		LLVMValueRef[] methods;
 		foreach (member; c.members) {
 			if (auto m = cast(Method) member) {
@@ -312,9 +315,6 @@ struct TypeGen {
 				methods ~= GlobalGen(pass).declare(m);
 			}
 		}
-
-		LLVMStructSetBody(classBody, initTypes.ptr, cast(uint) initTypes.length,
-		                  false);
 
 		import std.algorithm, std.array;
 		auto vtblTypes = methods.map!(m => LLVMTypeOf(m)).array();
