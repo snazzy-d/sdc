@@ -139,8 +139,8 @@ struct StatementGen {
 
 			case Throw:
 				if (bb.value) {
-					genCall(declare(pass.object.getThrow()),
-					        [genExpression(bb.value)]);
+					import d.llvm.runtime;
+					RuntimeGen(pass).genThrow(genExpression(bb.value));
 					LLVMBuildUnreachable(builder);
 					break;
 				}

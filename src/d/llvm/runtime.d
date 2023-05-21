@@ -1,5 +1,6 @@
 module d.llvm.runtime;
 
+import d.llvm.expression;
 import d.llvm.local;
 
 import d.ir.symbol;
@@ -9,6 +10,7 @@ import llvm.c.core;
 struct RuntimeData {
 private:
 	Function sdGCalloc;
+	Function sdThrow;
 }
 
 struct RuntimeGen {
@@ -32,10 +34,26 @@ struct RuntimeGen {
 	}
 
 	auto genGCalloc(LLVMTypeRef type) {
-		auto size = LLVMSizeOf(type);
-		auto args = (&size)[0 .. 1];
+		LLVMValueRef[1] args;
+		args[0] = LLVMSizeOf(type);
+		return ExpressionGen(pass).buildCall(getGCallocFunction(), args[]);
+	}
 
-		import d.llvm.expression;
-		return ExpressionGen(pass).buildCall(getGCallocFunction(), args);
+	private auto getThrowFunction() {
+		if (runtimeData.sdThrow) {
+			return runtimeData.sdThrow;
+		}
+
+		auto fun = runtimeData.sdThrow = pass.object.getThrow();
+		LLVMAddAttributeAtIndex(declare(fun), LLVMAttributeFunctionIndex,
+		                        getAttribute("noreturn"));
+
+		return fun;
+	}
+
+	auto genThrow(LLVMValueRef e) {
+		LLVMValueRef[1] args;
+		args[0] = e;
+		return ExpressionGen(pass).buildCall(getThrowFunction(), args[]);
 	}
 }
