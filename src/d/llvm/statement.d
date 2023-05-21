@@ -173,19 +173,13 @@ struct StatementGen {
 							LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 
 						import d.llvm.type;
-						auto typeInfoType =
-							TypeGen(pass.pass).getTypeInfo(c.type);
-						LLVMValueRef[1] args = [
-							LLVMBuildBitCast(builder, typeInfoType, voidstar,
-							                 "")];
-
-						auto ehTypeidFor = getEhTypeidFor();
-						auto ehTypeidForType =
-							LLVMGlobalGetValueType(ehTypeidFor);
+						auto typeInfo = TypeGen(pass.pass).getTypeInfo(c.type);
+						LLVMValueRef[1] args =
+							[LLVMBuildBitCast(builder, typeInfo, voidstar, "")];
 
 						import d.llvm.expression;
 						auto ehForTypeid = ExpressionGen(pass)
-							.buildCall(ehTypeidFor, ehTypeidForType, args[]);
+							.callGlobal(getEhTypeidFor(), args);
 
 						auto cmp = LLVMBuildICmp(builder, LLVMIntPredicate.EQ,
 						                         ehForTypeid, actionid, "");

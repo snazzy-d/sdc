@@ -483,7 +483,7 @@ struct ExpressionGen {
 		}
 
 		args = thisArg ~ args;
-		auto obj = buildCall(ctor, LLVMGlobalGetValueType(ctor), args);
+		auto obj = callGlobal(ctor, args);
 		if (!isRefCtor) {
 			LLVMBuildStore(builder, obj, ptr);
 		}
@@ -804,10 +804,13 @@ struct ExpressionGen {
 		return slice;
 	}
 
-	auto buildCall(Function f, LLVMValueRef[] args) {
-		auto fun = declare(f);
-		auto funType = LLVMGlobalGetValueType(fun);
-		return buildCall(fun, funType, args);
+	LLVMValueRef buildCall(Function f, LLVMValueRef[] args) {
+		return callGlobal(declare(f), args);
+	}
+
+	auto callGlobal(LLVMValueRef fun, LLVMValueRef[] args) {
+		auto type = LLVMGlobalGetValueType(fun);
+		return buildCall(fun, type, args);
 	}
 
 	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {

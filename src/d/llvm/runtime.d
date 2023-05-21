@@ -11,11 +11,11 @@ import llvm.c.core;
 
 struct RuntimeData {
 private:
-	Function sdGCalloc;
-	Function sdThrow;
+	LLVMValueRef sdGCalloc;
+	LLVMValueRef sdThrow;
 
-	Function sdAssertFail;
-	Function sdAssertFailMsg;
+	LLVMValueRef sdAssertFail;
+	LLVMValueRef sdAssertFailMsg;
 }
 
 struct RuntimeGen {
@@ -31,8 +31,8 @@ struct RuntimeGen {
 			return runtimeData.sdGCalloc;
 		}
 
-		auto fun = runtimeData.sdGCalloc = pass.object.getGCalloc();
-		LLVMAddAttributeAtIndex(declare(fun), LLVMAttributeReturnIndex,
+		auto fun = runtimeData.sdGCalloc = declare(pass.object.getGCalloc());
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeReturnIndex,
 		                        getAttribute("noalias"));
 
 		return fun;
@@ -40,7 +40,7 @@ struct RuntimeGen {
 
 	auto genGCalloc(LLVMTypeRef type) {
 		LLVMValueRef[1] args = [LLVMSizeOf(type)];
-		return ExpressionGen(pass).buildCall(getGCallocFunction(), args[]);
+		return ExpressionGen(pass).callGlobal(getGCallocFunction(), args);
 	}
 
 	private auto getThrowFunction() {
@@ -48,8 +48,8 @@ struct RuntimeGen {
 			return runtimeData.sdThrow;
 		}
 
-		auto fun = runtimeData.sdThrow = pass.object.getThrow();
-		LLVMAddAttributeAtIndex(declare(fun), LLVMAttributeFunctionIndex,
+		auto fun = runtimeData.sdThrow = declare(pass.object.getThrow());
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex,
 		                        getAttribute("noreturn"));
 
 		return fun;
@@ -57,7 +57,7 @@ struct RuntimeGen {
 
 	auto genThrow(LLVMValueRef e) {
 		LLVMValueRef[1] args = [e];
-		return ExpressionGen(pass).buildCall(getThrowFunction(), args[]);
+		return ExpressionGen(pass).callGlobal(getThrowFunction(), args);
 	}
 
 	private auto getAssertFailFunction() {
@@ -65,8 +65,9 @@ struct RuntimeGen {
 			return runtimeData.sdAssertFail;
 		}
 
-		auto fun = runtimeData.sdAssertFail = pass.object.getAssertFail();
-		LLVMAddAttributeAtIndex(declare(fun), LLVMAttributeFunctionIndex,
+		auto fun =
+			runtimeData.sdAssertFail = declare(pass.object.getAssertFail());
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex,
 		                        getAttribute("noreturn"));
 
 		return fun;
@@ -77,8 +78,9 @@ struct RuntimeGen {
 			return runtimeData.sdAssertFailMsg;
 		}
 
-		auto fun = runtimeData.sdAssertFailMsg = pass.object.getAssertFailMsg();
-		LLVMAddAttributeAtIndex(declare(fun), LLVMAttributeFunctionIndex,
+		auto fun = runtimeData.sdAssertFailMsg =
+			declare(pass.object.getAssertFailMsg());
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex,
 		                        getAttribute("noreturn"));
 
 		return fun;
@@ -95,8 +97,8 @@ struct RuntimeGen {
 		];
 
 		return message
-			? ExpressionGen(pass).buildCall(getAssertFailMsgFunction(), args[])
+			? ExpressionGen(pass).callGlobal(getAssertFailMsgFunction(), args)
 			: ExpressionGen(pass)
-				.buildCall(getAssertFailFunction(), args[1 .. $]);
+				.callGlobal(getAssertFailFunction(), args[1 .. $]);
 	}
 }
