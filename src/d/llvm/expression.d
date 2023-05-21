@@ -466,8 +466,8 @@ struct ExpressionGen {
 			? TypeGen(pass.pass).getClassStructure(ct.dclass)
 			: TypeGen(pass.pass).visit(ct.element);
 
-		auto allocFun = declare(pass.object.getGCThreadLocalAlloc());
-		auto alloc = buildCall(allocFun, [LLVMSizeOf(eType)]);
+		auto alloc =
+			buildCall(pass.object.getGCThreadLocalAlloc(), [LLVMSizeOf(eType)]);
 
 		// XXX: This should be set on the alloc function instead of the callsite.
 		LLVMAddCallSiteAttribute(alloc, LLVMAttributeReturnIndex,
@@ -488,7 +488,7 @@ struct ExpressionGen {
 		}
 
 		args = thisArg ~ args;
-		auto obj = buildCall(ctor, args);
+		auto obj = buildCall(ctor, LLVMGlobalGetValueType(ctor), args);
 		if (!isRefCtor) {
 			LLVMBuildStore(builder, obj, ptr);
 		}
@@ -523,8 +523,7 @@ struct ExpressionGen {
 			             floc.getStartLineNumber(), false)
 		];
 
-		buildCall(declare(pass.object.getArrayOutOfBounds()), args);
-
+		buildCall(pass.object.getArrayOutOfBounds(), args);
 		LLVMBuildUnreachable(builder);
 
 		// And continue regular program flow.
@@ -789,15 +788,15 @@ struct ExpressionGen {
 
 		if (count > 0) {
 			// We have a slice, we need to allocate.
-			auto allocFun = declare(pass.object.getGCThreadLocalAlloc());
-			auto alloc = buildCall(allocFun, [LLVMSizeOf(type)]);
-			ptr = LLVMBuildPointerCast(builder, alloc, ptrType, "");
+			auto alloc = buildCall(pass.object.getGCThreadLocalAlloc(),
+			                       [LLVMSizeOf(type)]);
 
 			// XXX: This should be set on the alloc function instead of the callsite.
 			LLVMAddCallSiteAttribute(alloc, LLVMAttributeReturnIndex,
 			                         getAttribute("noalias"));
 
 			// Store all the values on heap.
+			ptr = LLVMBuildPointerCast(builder, alloc, ptrType, "");
 			LLVMBuildStore(builder, array, ptr);
 		}
 
@@ -814,19 +813,28 @@ struct ExpressionGen {
 		return slice;
 	}
 
-	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
-		auto funType = LLVMGetElementType(LLVMTypeOf(callee));
+	auto buildCall(Function f, LLVMValueRef[] args) {
+		auto fun = declare(f);
+		auto funType = LLVMGlobalGetValueType(fun);
+		return buildCall(fun, funType, args);
+	}
 
+	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
+		auto type = LLVMGetElementType(LLVMTypeOf(callee));
+		return buildCall(callee, type, args);
+	}
+
+	auto buildCall(LLVMValueRef callee, LLVMTypeRef type, LLVMValueRef[] args) {
 		// Check if we need to invoke.
 		if (!lpBB) {
-			return LLVMBuildCall2(builder, funType, callee, args.ptr,
+			return LLVMBuildCall2(builder, type, callee, args.ptr,
 			                      cast(uint) args.length, "");
 		}
 
 		auto currentBB = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(currentBB);
 		auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
-		auto ret = LLVMBuildInvoke2(builder, funType, callee, args.ptr,
+		auto ret = LLVMBuildInvoke2(builder, type, callee, args.ptr,
 		                            cast(uint) args.length, thenBB, lpBB, "");
 
 		LLVMMoveBasicBlockAfter(thenBB, currentBB);
