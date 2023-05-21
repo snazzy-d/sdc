@@ -79,7 +79,10 @@ struct StatementGen {
 					}
 
 					assert(dtor, "Cannot find dtor");
-					genCall(declare(dtor), [declare(v)]);
+					LLVMValueRef[1] dtorArgs = [declare(v)];
+
+					import d.llvm.expression;
+					ExpressionGen(pass).buildCall(dtor, dtorArgs);
 					break;
 
 				case Evaluate:
