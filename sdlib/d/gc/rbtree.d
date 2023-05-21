@@ -732,7 +732,7 @@ unittest rbtree {
 
 	// 128 Mb to ramble through.
 	assert(Stuff.sizeof * Trees * Items <= 128 * 1024 * 1024);
-	nodes = cast(Stuff[Trees][Items]*) __sd_gc_tl_malloc(128 * 1024 * 1024);
+	nodes = cast(Stuff[Trees][Items]*) __sd_gc_alloc(128 * 1024 * 1024);
 	ulong prand = 365307287;
 
 	foreach (i; 0 .. Items) {

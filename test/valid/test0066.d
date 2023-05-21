@@ -3,7 +3,7 @@
 //T retval:0
 //? desc:Test aggregate foreach.
 
-extern(C) void* __sd_gc_tl_malloc(size_t size);
+extern(C) void* __sd_gc_alloc(size_t size);
 
 int main() {
 	string str = "foobar";
@@ -20,7 +20,7 @@ int main() {
 
 	assert(count == 2);
 
-	char* mem = cast(char*) __sd_gc_tl_malloc(str.length);
+	char* mem = cast(char*) __sd_gc_alloc(str.length);
 	foreach (size_t i, c; str) {
 		mem[i] = c;
 	}

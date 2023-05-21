@@ -293,8 +293,7 @@ struct LocalGen {
 
 			import d.llvm.expression;
 			auto alloc = ExpressionGen(&this)
-				.buildCall(pass.object.getGCThreadLocalAlloc(),
-				           [LLVMSizeOf(ctxType)]);
+				.buildCall(pass.object.getGCalloc(), [LLVMSizeOf(ctxType)]);
 
 			// XXX: This should be set on the alloc function instead of the callsite.
 			LLVMAddCallSiteAttribute(alloc, LLVMAttributeReturnIndex,

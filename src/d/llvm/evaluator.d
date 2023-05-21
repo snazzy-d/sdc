@@ -16,12 +16,12 @@ extern(C) {
 	/**
 	 * Memory allocation, forward to GC
 	 */
-	void* __sd_gc_tl_malloc(size_t size) {
+	void* __sd_gc_alloc(size_t size) {
 		import core.memory;
 		return GC.malloc(size);
 	}
 
-	void* __sd_gc_tl_array_alloc(size_t size) {
+	void* __sd_gc_array_alloc(size_t size) {
 		import core.memory;
 		return GC.malloc(size);
 	}

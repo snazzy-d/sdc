@@ -168,7 +168,7 @@ enum Prefill = [
 	"__sd_eh_personality",
 	"__sd_array_concat",
 	"__sd_array_outofbounds",
-	"__sd_gc_tl_malloc",
+	"__sd_gc_alloc",
 	// Generated symbols
 	"__ctx",
 	"__dg",

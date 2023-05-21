@@ -86,7 +86,7 @@ final class ObjectReference {
 			object.resolve(Location.init, BuiltinName!"__sd_array_concat");
 	}
 
-	auto getGCThreadLocalAlloc() {
-		return getFunction(BuiltinName!"__sd_gc_tl_malloc");
+	auto getGCalloc() {
+		return getFunction(BuiltinName!"__sd_gc_alloc");
 	}
 }

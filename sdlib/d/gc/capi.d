@@ -26,12 +26,12 @@ void* realloc(void* ptr, size_t size) {
 /**
  * SDC runtime API.
  */
-void* __sd_gc_tl_malloc(size_t size) {
+void* __sd_gc_alloc(size_t size) {
 	return threadCache.alloc(size, true);
 }
 
-void* __sd_gc_tl_array_alloc(size_t size) {
-	return __sd_gc_tl_malloc(size);
+void* __sd_gc_array_alloc(size_t size) {
+	return __sd_gc_alloc(size);
 }
 
 void _tl_gc_free(void* ptr) {

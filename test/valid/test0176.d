@@ -72,10 +72,10 @@ void main() {
 		}
 	}
 
-	auto b0 = __sd_gc_tl_malloc(25 * 1024 * 1024);
-	auto b1 = __sd_gc_tl_malloc(13 * 1024 * 1024);
-	auto b2 = __sd_gc_tl_malloc(52 * 1024 * 1024);
-	auto b3 = __sd_gc_tl_malloc(27 * 1024 * 1024);
+	auto b0 = __sd_gc_alloc(25 * 1024 * 1024);
+	auto b1 = __sd_gc_alloc(13 * 1024 * 1024);
+	auto b2 = __sd_gc_alloc(52 * 1024 * 1024);
+	auto b3 = __sd_gc_alloc(27 * 1024 * 1024);
 	_tl_gc_free(b0);
 	_tl_gc_free(b1);
 	_tl_gc_free(b2);
