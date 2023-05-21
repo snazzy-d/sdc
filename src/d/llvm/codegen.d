@@ -36,6 +36,9 @@ final class CodeGen {
 	import d.llvm.type;
 	TypeGenData typeGenData;
 
+	import d.llvm.runtime;
+	RuntimeData runtimeData;
+
 	private LLVMValueRef[string] stringLiterals;
 
 	import d.llvm.statement;

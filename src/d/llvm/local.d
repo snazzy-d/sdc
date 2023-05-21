@@ -291,13 +291,8 @@ struct LocalGen {
 
 			auto ctxType = contexts[$ - 1].type;
 
-			import d.llvm.expression;
-			auto alloc = ExpressionGen(&this)
-				.buildCall(pass.object.getGCalloc(), [LLVMSizeOf(ctxType)]);
-
-			// XXX: This should be set on the alloc function instead of the callsite.
-			LLVMAddCallSiteAttribute(alloc, LLVMAttributeReturnIndex,
-			                         getAttribute("noalias"));
+			import d.llvm.runtime;
+			auto alloc = RuntimeGen(&this).genGCalloc(ctxType);
 
 			LLVMReplaceAllUsesWith(
 				ctxAlloca,

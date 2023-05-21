@@ -466,12 +466,8 @@ struct ExpressionGen {
 			? TypeGen(pass.pass).getClassStructure(ct.dclass)
 			: TypeGen(pass.pass).visit(ct.element);
 
-		auto alloc = buildCall(pass.object.getGCalloc(), [LLVMSizeOf(eType)]);
-
-		// XXX: This should be set on the alloc function instead of the callsite.
-		LLVMAddCallSiteAttribute(alloc, LLVMAttributeReturnIndex,
-		                         getAttribute("noalias"));
-
+		import d.llvm.runtime;
+		auto alloc = RuntimeGen(pass).genGCalloc(eType);
 		auto type = TypeGen(pass.pass).visit(e.type);
 		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
 
@@ -787,12 +783,8 @@ struct ExpressionGen {
 
 		if (count > 0) {
 			// We have a slice, we need to allocate.
-			auto alloc =
-				buildCall(pass.object.getGCalloc(), [LLVMSizeOf(type)]);
-
-			// XXX: This should be set on the alloc function instead of the callsite.
-			LLVMAddCallSiteAttribute(alloc, LLVMAttributeReturnIndex,
-			                         getAttribute("noalias"));
+			import d.llvm.runtime;
+			auto alloc = RuntimeGen(pass).genGCalloc(type);
 
 			// Store all the values on heap.
 			ptr = LLVMBuildPointerCast(builder, alloc, ptrType, "");
