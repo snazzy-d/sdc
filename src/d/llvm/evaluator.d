@@ -386,23 +386,18 @@ struct JitRepacker {
 
 		CompileTimeExpression[] elements;
 
-		uint i = 0;
-		foreach (m; s.members) {
-			if (auto f = cast(Field) m) {
-				scope(success) i++;
+		foreach (uint i, f; s.fields) {
+			assert(f.index == i, "fields are out of order");
+			auto t = f.type;
 
-				assert(f.index == i, "fields are out of order");
-				auto t = f.type;
+			auto start = LLVMOffsetOfElement(targetData, type, i);
+			auto elementType = LLVMStructGetTypeAtIndex(type, i);
 
-				auto start = LLVMOffsetOfElement(targetData, type, i);
-				auto elementType = LLVMStructGetTypeAtIndex(type, i);
+			auto fieldSize = LLVMStoreSizeOfType(targetData, elementType);
+			auto end = start + fieldSize;
 
-				auto fieldSize = LLVMStoreSizeOfType(targetData, elementType);
-				auto end = start + fieldSize;
-
-				p = buf[start .. end];
-				elements ~= visit(t);
-			}
+			p = buf[start .. end];
+			elements ~= visit(t);
 		}
 
 		return new CompileTimeTupleExpression(location, Type.get(s), elements);

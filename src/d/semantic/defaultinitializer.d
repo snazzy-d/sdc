@@ -134,22 +134,20 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 
 			v = getTemporary(v);
 
-			import std.algorithm;
-			auto f = cast(Field)
-				s.members.filter!(m => m.name == BuiltinName!"__ctx").front;
+			auto ctxField = s.fields[0];
+			assert(ctxField.name == BuiltinName!"__ctx",
+			       "Expected context as first field!");
 
-			assert(f, "Context must be a field");
+			auto ctxType = ctxField.type;
+			assert(ctxType.kind == TypeKind.Pointer);
 
-			auto ft = f.type;
-			assert(ft.kind == TypeKind.Pointer);
-
-			auto ctx = new ContextExpression(location, ft.element.context);
+			auto ctx = new ContextExpression(location, ctxType.element.context);
 			auto assign = new BinaryExpression(
 				location,
-				ft,
+				ctxType,
 				BinaryOp.Assign,
-				new FieldExpression(location, v, f),
-				new UnaryExpression(location, ft, UnaryOp.AddressOf, ctx)
+				new FieldExpression(location, v, ctxField),
+				new UnaryExpression(location, ctxType, UnaryOp.AddressOf, ctx)
 			);
 
 			return new BinaryExpression(location, Type.get(s), BinaryOp.Comma,
@@ -168,10 +166,9 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			scheduler.require(c);
 
 			import std.algorithm, std.array;
-			auto fields = c.members.map!(m => cast(Field) m).filter!(f => !!f)
-			               .map!(function Expression(f) {
-				               return f.value;
-			               }).array();
+			auto fields = c.fields.map!(function Expression(f) {
+				return f.value;
+			}).array();
 
 			fields[0] = new StaticTypeidExpression(
 				location, Type.get(pass.object.getTypeInfo()), Type.get(c));
@@ -179,12 +176,9 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				import std.algorithm;
 				import source.name;
 				auto ctxr =
-					c.members.filter!(m => m.name == BuiltinName!"__ctx")
-					 .map!(m => cast(Field) m);
+					c.fields.filter!(f => f.name == BuiltinName!"__ctx");
 
 				foreach (f; ctxr) {
-					assert(f, "Context must be a field");
-
 					auto ft = f.type;
 					assert(ft.kind == TypeKind.Pointer);
 

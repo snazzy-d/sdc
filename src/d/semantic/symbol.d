@@ -283,11 +283,7 @@ struct SymbolAnalyzer {
 				import d.ast.statement;
 				Statement[] fieldDtors;
 
-				import std.algorithm;
-				auto fields =
-					a.members.map!(m => cast(Field) m).filter!(f => f !is null);
-
-				foreach (field; fields) {
+				foreach (field; a.fields) {
 					auto t = field.type.getCanonical();
 					if (t.kind != TypeKind.Struct) {
 						continue;
@@ -588,29 +584,26 @@ struct SymbolAnalyzer {
 			"_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 
 		s.addSymbol(init);
-		s.step = Step.Populated;
 
-		import std.algorithm, std.array;
-		auto otherSymbols = members.filter!((m) {
+		Symbol[] otherSymbols;
+		foreach (m; members) {
 			if (auto f = cast(Field) m) {
 				fields ~= f;
-				return false;
+			} else {
+				otherSymbols ~= m;
 			}
+		}
 
-			return true;
-		}).array();
-
-		scheduler.require(fields, Step.Signed);
-
-		s.members ~= init;
-		s.members ~= fields;
-
+		s.fields = fields;
+		s.step = Step.Populated;
 		scheduler.require(fields);
 
+		import std.algorithm, std.array;
 		init.step = Step.Processed;
 		init.value = new CompileTimeTupleExpression(
 			d.location, type,
 			fields.map!(f => cast(CompileTimeExpression) f.value).array());
+		s.members ~= init;
 
 		// If the struct has no dtor and only pod fields, it is a pod.
 		auto hasDtor = s.resolve(s.location, BuiltinName!"__dtor");
@@ -692,25 +685,22 @@ struct SymbolAnalyzer {
 		u.addSymbol(init);
 		u.step = Step.Populated;
 
-		import std.algorithm, std.array;
-		auto otherSymbols = members.filter!((m) {
+		Symbol[] otherSymbols;
+		foreach (m; members) {
 			if (auto f = cast(Field) m) {
 				fields ~= f;
-				return false;
+			} else {
+				otherSymbols ~= m;
 			}
+		}
 
-			return true;
-		}).array();
-
-		scheduler.require(fields, Step.Signed);
-
-		u.members ~= init;
-		u.members ~= fields;
-
+		u.fields = fields;
+		u.step = Step.Populated;
 		scheduler.require(fields);
 
 		init.value = new VoidInitializer(u.location, type);
 		init.step = Step.Processed;
+		u.members ~= init;
 
 		import std.algorithm;
 		u.hasIndirection = fields.any!(f => f.type.hasIndirection);
@@ -780,7 +770,7 @@ struct SymbolAnalyzer {
 			);
 		}
 
-		Field[] baseFields;
+		Field[] fields;
 		Method[] baseMethods;
 		uint fieldIndex = 0;
 		uint methodIndex = 0;
@@ -796,29 +786,29 @@ struct SymbolAnalyzer {
 
 			vtbl.step = Step.Processed;
 
-			baseFields = [vtbl];
+			fields = [vtbl];
 			fieldIndex = 1;
 		} else {
 			scheduler.require(c.base);
 			c.primaries = c.base.primaries ~ c;
 
-			fieldIndex = 0;
-			foreach (m; c.base.members) {
-				import std.algorithm;
-				if (auto field = cast(Field) m) {
-					baseFields ~= field;
-					fieldIndex = max(fieldIndex, field.index);
-
-					c.addSymbol(field);
-				} else if (auto method = cast(Method) m) {
-					baseMethods ~= method;
-					methodIndex = max(methodIndex, method.index + 1);
-
-					c.addOverloadableSymbol(method);
-				}
+			// Base class fields.
+			fields = c.base.fields;
+			fieldIndex = cast(uint) fields.length;
+			foreach (f; fields) {
+				c.addSymbol(f);
 			}
 
-			fieldIndex++;
+			// Base class methods.
+			foreach (m; c.base.members) {
+				if (auto method = cast(Method) m) {
+					baseMethods ~= method;
+					c.addOverloadableSymbol(method);
+
+					import std.algorithm;
+					methodIndex = max(methodIndex, method.index + 1);
+				}
+			}
 		}
 
 		if (c.hasContext) {
@@ -831,13 +821,27 @@ struct SymbolAnalyzer {
 				          new NullLiteral(c.location, ctxPtr));
 
 			ctx.step = Step.Processed;
-			baseFields ~= ctx;
+			fields ~= ctx;
 		}
 
 		auto members = DeclarationVisitor(pass)
 			.flatten(d.members, c, fieldIndex, methodIndex);
 
+		Symbol[] otherSymbols;
+		foreach (m; members) {
+			if (auto f = cast(Field) m) {
+				fields ~= f;
+			} else {
+				otherSymbols ~= m;
+			}
+		}
+
+		c.fields = fields;
+		c.step = Step.Populated;
+		scheduler.require(fields);
+
 		c.step = Step.Signed;
+		members = otherSymbols;
 
 		uint overloadCount = 0;
 		foreach (m; members) {
@@ -954,7 +958,6 @@ struct SymbolAnalyzer {
 			baseMethods = baseMethods[0 .. i];
 		}
 
-		c.members = cast(Symbol[]) baseFields;
 		c.members ~= baseMethods;
 		scheduler.require(members);
 		c.members ~= members;

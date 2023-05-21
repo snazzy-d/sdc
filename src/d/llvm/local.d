@@ -317,9 +317,8 @@ struct LocalGen {
 			}
 
 			import source.name, std.algorithm, std.range;
-			auto f =
-				retro(c.members).filter!(m => m.name == BuiltinName!"__ctx")
-				                .map!(m => cast(Field) m).front;
+			auto f = retro(c.fields).filter!(m => m.name == BuiltinName!"__ctx")
+			                        .front;
 
 			buildEmbededCaptures(thisPtr, c, f.index);
 		} else {

@@ -169,12 +169,8 @@ struct TypeGen {
 			return llvmStruct;
 		}
 
-		LLVMTypeRef[] types;
-		foreach (member; s.members) {
-			if (auto f = cast(Field) member) {
-				types ~= visit(f.type);
-			}
-		}
+		import std.algorithm, std.array;
+		auto types = s.fields.map!(f => visit(f.type)).array();
 
 		LLVMStructSetBody(llvmStruct, types.ptr, cast(uint) types.length,
 		                  false);
@@ -198,40 +194,35 @@ struct TypeGen {
 		}
 
 		auto hasContext = u.hasContext;
-		auto members = u.members;
 		assert(!hasContext, "Voldemort union not supported atm");
+
+		auto fields = u.fields;
+		bool hasFields = fields.length != 0;
 
 		LLVMTypeRef[3] types;
 		uint elementCount = 1 + hasContext;
 
-		uint firstindex, size, dalign;
-		foreach (i, m; members) {
-			if (auto f = cast(Field) m) {
-				types[hasContext] = visit(f.type);
+		uint size, dalign;
+		if (hasFields) {
+			types[hasContext] = visit(fields[0].type);
 
-				import llvm.c.target;
-				size = cast(uint)
-					LLVMStoreSizeOfType(targetData, types[hasContext]);
-				dalign = cast(uint)
-					LLVMABIAlignmentOfType(targetData, types[hasContext]);
-
-				firstindex = cast(uint) (i + 1);
-				break;
-			}
+			import llvm.c.target;
+			size =
+				cast(uint) LLVMStoreSizeOfType(targetData, types[hasContext]);
+			dalign = cast(uint)
+				LLVMABIAlignmentOfType(targetData, types[hasContext]);
 		}
 
 		uint extra;
-		foreach (m; members[firstindex .. $]) {
-			if (auto f = cast(Field) m) {
-				auto t = visit(f.type);
+		foreach (f; fields[hasFields .. $]) {
+			auto t = visit(f.type);
 
-				import llvm.c.target;
-				auto s = cast(uint) LLVMStoreSizeOfType(targetData, t);
-				auto a = cast(uint) LLVMABIAlignmentOfType(targetData, t);
+			import llvm.c.target;
+			auto s = cast(uint) LLVMStoreSizeOfType(targetData, t);
+			auto a = cast(uint) LLVMABIAlignmentOfType(targetData, t);
 
-				extra = ((size + extra) < s) ? s - size : extra;
-				dalign = (a > dalign) ? a : dalign;
-			}
+			extra = ((size + extra) < s) ? s - size : extra;
+			dalign = (a > dalign) ? a : dalign;
 		}
 
 		if (extra > 0) {
@@ -309,19 +300,16 @@ struct TypeGen {
 		typeInfos[c] = LLVMConstBitCast(metadata, classInfoPtr);
 		auto metadataPtr = LLVMPointerType(metadataStruct, 0);
 
-		LLVMValueRef[] methods;
 		LLVMTypeRef[] initTypes = [metadataPtr];
+		foreach (f; c.fields[1 .. $]) {
+			initTypes ~= visit(f.value.type);
+		}
+
+		LLVMValueRef[] methods;
 		foreach (member; c.members) {
 			if (auto m = cast(Method) member) {
 				import d.llvm.global;
 				methods ~= GlobalGen(pass).declare(m);
-				continue;
-			}
-
-			if (auto f = cast(Field) member) {
-				if (f.index > 0) {
-					initTypes ~= visit(f.value.type);
-				}
 			}
 		}
 

@@ -252,7 +252,7 @@ struct DeclarationVisitor {
 		auto stc = d.storageClass;
 		auto storage = getStorage(stc);
 
-		auto s = new Struct(d.location, currentScope, d.name, []);
+		auto s = new Struct(d.location, currentScope, d.name);
 
 		s.linkage = getLinkage(stc);
 		s.visibility = getVisibility(stc);
@@ -268,7 +268,7 @@ struct DeclarationVisitor {
 		auto stc = d.storageClass;
 		auto storage = getStorage(stc);
 
-		auto u = new Union(d.location, currentScope, d.name, []);
+		auto u = new Union(d.location, currentScope, d.name);
 
 		u.linkage = getLinkage(stc);
 		u.visibility = getVisibility(stc);
@@ -284,7 +284,7 @@ struct DeclarationVisitor {
 		auto stc = d.storageClass;
 		auto storage = getStorage(stc);
 
-		auto c = new Class(d.location, currentScope, d.name, []);
+		auto c = new Class(d.location, currentScope, d.name);
 
 		c.linkage = getLinkage(stc);
 		c.visibility = getVisibility(stc);
@@ -304,7 +304,7 @@ struct DeclarationVisitor {
 		auto stc = d.storageClass;
 		auto storage = getStorage(stc);
 
-		auto i = new Interface(d.location, currentScope, d.name, [], []);
+		auto i = new Interface(d.location, currentScope, d.name, []);
 
 		i.linkage = getLinkage(stc);
 		i.visibility = getVisibility(stc);

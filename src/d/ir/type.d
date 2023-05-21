@@ -537,7 +537,7 @@ unittest {
 unittest {
 	import source.location, source.name, d.ir.symbol;
 	auto m = new Module(Location.init, BuiltinName!"", null);
-	auto c = new Class(Location.init, m, BuiltinName!"", []);
+	auto c = new Class(Location.init, m, BuiltinName!"");
 	auto tc = Type.get(c);
 	assert(tc.isAggregate());
 	assert(tc.aggregate is c);

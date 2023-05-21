@@ -179,13 +179,13 @@ final:
  * Superclass for struct, class and interface.
  */
 abstract class Aggregate : ScopeSymbol {
+	Field[] fields;
+
 	Name[] aliasThis;
 	Symbol[] members;
 
-	this(Location location, Scope parentScope, Name name, Symbol[] members) {
+	this(Location location, Scope parentScope, Name name) {
 		super(location, parentScope, name);
-
-		this.members = members;
 	}
 }
 
@@ -516,8 +516,8 @@ class ValueAlias : ValueSymbol {
  * Struct
  */
 class Struct : Aggregate {
-	this(Location location, Scope parentScope, Name name, Symbol[] members) {
-		super(location, parentScope, name, members);
+	this(Location location, Scope parentScope, Name name) {
+		super(location, parentScope, name);
 	}
 
 	// XXX: std.bitmanip should really offer the possibility to create bitfield
@@ -579,8 +579,8 @@ class Struct : Aggregate {
  * Union
  */
 class Union : Aggregate {
-	this(Location location, Scope parentScope, Name name, Symbol[] members) {
-		super(location, parentScope, name, members);
+	this(Location location, Scope parentScope, Name name) {
+		super(location, parentScope, name);
 	}
 
 	@property
@@ -606,8 +606,8 @@ class Class : Aggregate {
 	Class[] primaries;
 	Interface[] interfaces;
 
-	this(Location location, Scope parentScope, Name name, Symbol[] members) {
-		super(location, parentScope, name, members);
+	this(Location location, Scope parentScope, Name name) {
+		super(location, parentScope, name);
 
 		this.name = name;
 	}
@@ -619,9 +619,8 @@ class Class : Aggregate {
 class Interface : Aggregate {
 	Interface[] bases;
 
-	this(Location location, Scope parentScope, Name name, Interface[] bases,
-	     Symbol[] members) {
-		super(location, parentScope, name, members);
+	this(Location location, Scope parentScope, Name name, Interface[] bases) {
+		super(location, parentScope, name);
 		this.bases = bases;
 	}
 }
