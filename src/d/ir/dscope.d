@@ -246,9 +246,8 @@ public:
 		addSymbol(new OverloadSet(s.location, s.name, [s]));
 	}
 
-	void addConditionalSymbol(Symbol s, ConditionalBranch[] cdBranches) in {
-		assert(cdBranches.length > 0, "No conditional branches supplied");
-	} do {
+	void addConditionalSymbol(Symbol s, ConditionalBranch[] cdBranches)
+			in(cdBranches.length > 0, "No conditional branches supplied") {
 		auto entry = ConditionalEntry(s, cdBranches);
 		if (auto csPtr = s.name in symbols) {
 			if (auto cs = cast(ConditionalSet) *csPtr) {
@@ -264,15 +263,13 @@ public:
 		hasConditional = true;
 	}
 
-	void setPoisoningMode() in {
-		assert(isPoisoning == false, "poisoning mode is already on.");
-	} do {
+	void setPoisoningMode()
+			in(isPoisoning == false, "poisoning mode is already on.") {
 		isPoisoning = true;
 	}
 
-	void clearPoisoningMode() in {
-		assert(isPoisoning == true, "poisoning mode is not on.");
-	} do {
+	void clearPoisoningMode()
+			in(isPoisoning == true, "poisoning mode is not on.") {
 		// XXX: Consider not removing tags on OverloadSet.
 		// That would allow to not pass over the AA most of the time.
 		foreach (n; symbols.keys) {
@@ -324,48 +321,50 @@ public:
 
 	// XXX: Use of smarter data structure can probably improve things here :D
 	import d.ast.conditional : StaticIfDeclaration;
-	void resolveConditional(StaticIfDeclaration sif, bool branch) in {
-		assert(isPoisoning,
-		       "You must be in poisoning mode when resolving static ifs.");
-	} do {
+	void resolveConditional(StaticIfDeclaration sif, bool branch)
+			in(isPoisoning,
+			   "You must be in poisoning mode when resolving static ifs.") {
 		foreach (s; symbols.values) {
-			if (auto cs = cast(ConditionalSet) s) {
-				ConditionalEntry[] newSet;
-				foreach (ce; cs.set) {
-					// This is not the symbol we are interested in, move on.
-					if (ce.cdBranches[0].sif !is sif) {
-						newSet ~= ce;
-						continue;
-					}
+			auto cs = cast(ConditionalSet) s;
+			if (cs is null) {
+				continue;
+			}
 
-					// If this is not the right branch, forget.
-					if (ce.cdBranches[0].branch != branch) {
-						continue;
-					}
-
-					// The top level static if is resolved, drop.
-					ce.cdBranches = ce.cdBranches[1 .. $];
-
-					// There are nested static ifs, put back in the set.
-					if (ce.cdBranches.length) {
-						newSet ~= ce;
-						continue;
-					}
-
-					// FIXME: Check if it is an overloadable symbol.
-					assert(cs.selected is null, "overload ? bug ?");
-
-					// We have a new symbol, select it.
-					if (cs.isPoisoned) {
-						import source.exception;
-						throw new CompileException(s.location, "Poisoned");
-					}
-
-					cs.selected = ce.entry;
+			ConditionalEntry[] newSet;
+			foreach (ce; cs.set) {
+				// This is not the symbol we are interested in, move on.
+				if (ce.cdBranches[0].sif !is sif) {
+					newSet ~= ce;
+					continue;
 				}
 
-				cs.set = newSet;
+				// If this is not the right branch, forget.
+				if (ce.cdBranches[0].branch != branch) {
+					continue;
+				}
+
+				// The top level static if is resolved, drop.
+				ce.cdBranches = ce.cdBranches[1 .. $];
+
+				// There are nested static ifs, put back in the set.
+				if (ce.cdBranches.length) {
+					newSet ~= ce;
+					continue;
+				}
+
+				// FIXME: Check if it is an overloadable symbol.
+				assert(cs.selected is null, "overload ? bug ?");
+
+				// We have a new symbol, select it.
+				if (cs.isPoisoned) {
+					import source.exception;
+					throw new CompileException(s.location, "Poisoned");
+				}
+
+				cs.selected = ce.entry;
 			}
+
+			cs.set = newSet;
 		}
 	}
 }
@@ -394,11 +393,15 @@ class NestedScope : Scope {
 	this(Scope s) {
 		if (auto n = cast(NestedScope) s) {
 			this(n);
-		} else if (auto f = cast(Function) s) {
-			this(f);
-		} else {
-			assert(0, "Parent scope must be a function or a nested scope");
+			return;
 		}
+
+		if (auto f = cast(Function) s) {
+			this(f);
+			return;
+		}
+
+		assert(0, "Parent scope must be a function or a nested scope");
 	}
 
 	Module getModule() {
