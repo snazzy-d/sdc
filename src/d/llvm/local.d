@@ -326,14 +326,23 @@ struct LocalGen {
 		}
 	}
 
-	private void buildEmbededCaptures(S)(LLVMValueRef thisPtr, S s, uint i)
-			if (is(S : Scope)) {
-		auto thisType = LLVMGetElementType(LLVMTypeOf(thisPtr));
-		auto rootPtr = LLVMBuildStructGEP2(builder, thisType, thisPtr, i, "");
-		auto rootType = LLVMStructGetTypeAtIndex(thisType, i);
+	private void buildEmbededCaptures(A)(LLVMValueRef thisPtr, A a, uint i)
+			if (is(A : Aggregate)) {
+		auto f = a.fields[i];
+		assert(f.index == i, "Invalid index!");
+
+		import d.llvm.type;
+		static if (is(A : Class)) {
+			auto baseStruct = TypeGen(pass).getClassStructure(a);
+		} else {
+			auto baseStruct = TypeGen(pass).visit(a);
+		}
+
+		auto rootPtr = LLVMBuildStructGEP2(builder, baseStruct, thisPtr, i, "");
+		auto rootType = LLVMStructGetTypeAtIndex(baseStruct, i);
 		auto root = LLVMBuildLoad2(builder, rootType, rootPtr, "");
-		buildCapturedVariables(root, localData.embededContexts[s],
-		                       s.getCaptures());
+		buildCapturedVariables(root, localData.embededContexts[a],
+		                       a.getCaptures());
 	}
 
 	private void buildCapturedVariables(LLVMValueRef root, Closure[] contexts,
