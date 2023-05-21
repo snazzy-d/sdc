@@ -806,11 +806,6 @@ struct ExpressionGen {
 		return buildCall(fun, type, args);
 	}
 
-	auto buildCall(LLVMValueRef callee, LLVMValueRef[] args) {
-		auto type = LLVMGetElementType(LLVMTypeOf(callee));
-		return buildCall(callee, type, args);
-	}
-
 	auto buildCall(LLVMValueRef callee, LLVMTypeRef type, LLVMValueRef[] args) {
 		// Check if we need to invoke.
 		if (!lpBB) {
@@ -862,7 +857,9 @@ struct ExpressionGen {
 			i++;
 		}
 
-		return buildCall(callee, args);
+		auto funType = c.callee.type.asFunctionType();
+		auto type = TypeGen(pass.pass).getFunctionType(funType);
+		return buildCall(callee, type, args);
 	}
 
 	LLVMValueRef visit(CallExpression c) {
