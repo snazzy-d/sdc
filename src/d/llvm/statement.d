@@ -212,7 +212,14 @@ struct StatementGen {
 				goto Resume;
 
 			case Halt:
-				genHalt(bb.location, bb.value);
+				LLVMValueRef message;
+				if (bb.value) {
+					message = genExpression(bb.value);
+				}
+
+				import d.llvm.runtime;
+				RuntimeGen(pass).genHalt(bb.location, message);
+				LLVMBuildUnreachable(builder);
 				break;
 		}
 	}
@@ -329,24 +336,5 @@ struct StatementGen {
 	private auto genCall(LLVMValueRef callee, LLVMValueRef[] args) {
 		import d.llvm.expression;
 		return ExpressionGen(pass).buildCall(callee, args);
-	}
-
-	void genHalt(Location location, Expression msg) {
-		auto floc = location.getFullLocation(context);
-
-		LLVMValueRef[3] args;
-		args[1] = buildDString(floc.getSource().getFileName().toString());
-		args[2] = LLVMConstInt(LLVMInt32TypeInContext(llvmCtx),
-		                       floc.getStartLineNumber(), false);
-
-		if (msg) {
-			args[0] = genExpression(msg);
-			genCall(declare(pass.object.getAssertFailMsg()), args[]);
-		} else {
-			genCall(declare(pass.object.getAssertFail()), args[1 .. $]);
-		}
-
-		// Conclude that block.
-		LLVMBuildUnreachable(builder);
 	}
 }
