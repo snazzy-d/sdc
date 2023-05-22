@@ -417,7 +417,7 @@ struct ExpressionGen {
 			metadata = getTypeid(c);
 		} else {
 			auto thisPtr = LLVMBuildExtractValue(builder, dg, m.hasContext, "");
-			metadata = getTypeid(thisPtr);
+			metadata = loadTypeid(thisPtr);
 		}
 
 		auto i32 = LLVMInt32TypeInContext(llvmCtx);
@@ -618,7 +618,7 @@ struct ExpressionGen {
 		auto bitcast = LLVMBuildBitCast(builder, value, type, "");
 		auto nullcast = LLVMConstNull(type);
 
-		auto otid = getTypeid(value);
+		auto otid = loadTypeid(value);
 		auto ctid = getTypeid(c);
 
 		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
@@ -895,7 +895,7 @@ struct ExpressionGen {
 		return tuple;
 	}
 
-	private LLVMValueRef getTypeid(LLVMValueRef value) {
+	private LLVMValueRef loadTypeid(LLVMValueRef value) {
 		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
 		auto classInfoType = LLVMPointerType(classInfoStruct, 0);
 		auto objType = LLVMPointerType(classInfoType, 0);
@@ -907,7 +907,7 @@ struct ExpressionGen {
 	LLVMValueRef visit(DynamicTypeidExpression e) {
 		auto arg = visit(e.argument);
 		auto c = e.argument.type.getCanonical().dclass;
-		return c.isFinal ? getTypeid(c) : getTypeid(arg);
+		return c.isFinal ? getTypeid(c) : loadTypeid(arg);
 	}
 
 	private LLVMValueRef getTypeid(Class c) {

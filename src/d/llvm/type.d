@@ -308,15 +308,19 @@ struct TypeGen {
 		LLVMStructSetBody(classBody, initTypes.ptr, cast(uint) initTypes.length,
 		                  false);
 
-		LLVMValueRef[] methods;
+		// FIXME: Provide a mthod fiel int he class that provide what we need.
+		Method[] classMethods;
 		foreach (member; c.members) {
 			if (auto m = cast(Method) member) {
-				import d.llvm.global;
-				methods ~= GlobalGen(pass).declare(m);
+				classMethods ~= m;
 			}
 		}
 
 		import std.algorithm, std.array;
+		import d.llvm.global;
+		auto methods =
+			classMethods.sort!((a, b) => a.index < b.index)
+			            .map!(m => GlobalGen(pass).declare(m)).array();
 		auto vtblTypes = methods.map!(m => LLVMTypeOf(m)).array();
 		auto vtblStruct =
 			LLVMStructTypeInContext(llvmCtx, vtblTypes.ptr,
