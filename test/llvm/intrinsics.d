@@ -1,18 +1,18 @@
-// RUN: %sdc %s -S --emit-llvm -o - | FileCheck %s
+// RUN: %sdc %s -O2 -S --emit-llvm -o - | FileCheck %s
 
 import sdc.intrinsics;
 
 bool likely(bool b) {
 	return expect(b, true);
 // CHECK-LABEL: _D10intrinsics6likelyFMbZb
-// CHECK: [[RET:%[a-z0-9\.]+]] = call i1 @llvm.expect.i1(i1 {{.*}}, i1 true)
+// CHECK: [[RET:%[a-z0-9\.]+]] = tail call i1 @llvm.expect.i1(i1 %arg.b, i1 true)
 // CHECK: ret i1 [[RET]]
 }
 
 bool unlikely(bool b) {
 	return expect(b, false);
 // CHECK-LABEL: _D10intrinsics8unlikelyFMbZb
-// CHECK: [[RET:%[a-z0-9\.]+]] = call i1 @llvm.expect.i1(i1 {{.*}}, i1 false)
+// CHECK: [[RET:%[a-z0-9\.]+]] = tail call i1 @llvm.expect.i1(i1 %arg.b, i1 false)
 // CHECK: ret i1 [[RET]]
 }
 
@@ -20,14 +20,18 @@ bool doCas(uint* ptr, uint old, uint val) {
 	auto cr = cas(ptr, old, val);
 	return cr.success;
 // CHECK-LABEL: _D10intrinsics5doCasFMPkkkZb
-// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg i32* {{.*}}, i32 {{.*}}, i32 {{.*}} seq_cst seq_cst
+// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg ptr %arg.ptr, i32 %arg.old, i32 %arg.val seq_cst seq_cst, align 4
+// CHECK: [[RET:%[a-z0-9\.]+]] = extractvalue { i32, i1 } [[CMPXCHG]], 1
+// CHECK: ret i1 [[RET]]
 }
 
 bool doCasWeak(uint* ptr, uint old, uint val) {
 	auto cr = casWeak(ptr, old, val);
 	return cr.success;
 // CHECK-LABEL: _D10intrinsics9doCasWeakFMPkkkZb
-// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg weak i32* {{.*}}, i32 {{.*}}, i32 {{.*}} seq_cst seq_cst
+// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg weak ptr %arg.ptr, i32 %arg.old, i32 %arg.val seq_cst seq_cst, align 4
+// CHECK: [[RET:%[a-z0-9\.]+]] = extractvalue { i32, i1 } [[CMPXCHG]], 1
+// CHECK: ret i1 [[RET]]
 }
 
 ulong doPopCount(ubyte n1, ushort n2, uint n3, ulong n4) {
@@ -71,14 +75,14 @@ ulong doBswap(ushort n1, uint n2, ulong n3) {
 
 ulong doReadCycleCounter() {
 // CHECK-LABEL: _D10intrinsics18doReadCycleCounterFMZm
-// CHECK:[[RET:%[a-z0-9\.]+]] = call i64 @llvm.readcyclecounter()
+// CHECK:[[RET:%[a-z0-9\.]+]] = tail call i64 @llvm.readcyclecounter()
 // CHECK: ret i64 [[RET]]
 	return readCycleCounter();
 }
 
 void* doReadFramePointer() {
 // CHECK-LABEL: _D10intrinsics18doReadFramePointerFMZPv
-// CHECK:[[RET:%[a-z0-9\.]+]] = call i8* @llvm.frameaddress.p0i8(i32 0)
-// CHECK: ret i8* [[RET]]
+// CHECK:[[RET:%[a-z0-9\.]+]] = tail call ptr @llvm.frameaddress.p0(i32 0)
+// CHECK: ret ptr [[RET]]
 	return readFramePointer();
 }

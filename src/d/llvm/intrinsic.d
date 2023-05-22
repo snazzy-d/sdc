@@ -255,7 +255,7 @@ struct IntrinsicGen {
 	}
 
 	auto getReadFramePointer() {
-		auto name = context.getName("llvm.frameaddress.p0i8");
+		auto name = context.getName("llvm.frameaddress.p0");
 		if (auto fPtr = name in cache) {
 			return *fPtr;
 		}
