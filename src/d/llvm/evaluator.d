@@ -204,9 +204,8 @@ final class LLVMEvaluator : Evaluator {
 		LLVMBuildRet(builder, LLVMConstInt(returnType, 0, false));
 
 		// Build the landing pad.
-		LLVMTypeRef[2] lpTypes =
-			[LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
-			 LLVMInt32TypeInContext(llvmCtx)];
+		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
+		LLVMTypeRef[2] lpTypes = [ptr, LLVMInt32TypeInContext(llvmCtx)];
 
 		auto lpType = LLVMStructTypeInContext(llvmCtx, lpTypes.ptr,
 		                                      lpTypes.length, false);
@@ -214,8 +213,7 @@ final class LLVMEvaluator : Evaluator {
 		LLVMPositionBuilderAtEnd(builder, lpBB);
 		auto landingPad = LLVMBuildLandingPad(builder, lpType, null, 1, "");
 
-		auto typeofNull = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
-		LLVMAddClause(landingPad, LLVMConstNull(typeofNull));
+		LLVMAddClause(landingPad, LLVMConstNull(ptr));
 
 		// We don't care about cleanup for now.
 		LLVMBuildRet(builder, LLVMConstInt(returnType, 1, false));

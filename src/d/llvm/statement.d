@@ -166,16 +166,13 @@ struct StatementGen {
 					auto actionType = LLVMStructGetTypeAtIndex(lpType, 1);
 					auto actionid =
 						LLVMBuildLoad2(builder, actionType, ptr, "actionid");
-					auto i8 = LLVMInt8TypeInContext(llvmCtx);
-					auto voidstar = LLVMPointerType(i8, 0);
 					foreach (c; catchTable.catches) {
 						auto nextUnwindBB =
 							LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 
 						import d.llvm.type;
-						auto typeInfo = TypeGen(pass.pass).getTypeInfo(c.type);
 						LLVMValueRef[1] args =
-							[LLVMBuildBitCast(builder, typeInfo, voidstar, "")];
+							[TypeGen(pass.pass).getTypeInfo(c.type)];
 
 						import d.llvm.expression;
 						auto ehForTypeid = ExpressionGen(pass)
@@ -218,7 +215,7 @@ struct StatementGen {
 		}
 
 		auto i32 = LLVMInt32TypeInContext(llvmCtx);
-		auto arg = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
+		auto arg = LLVMPointerTypeInContext(llvmCtx, 0);
 		auto type = LLVMFunctionType(i32, &arg, 1, false);
 
 		return statementGenData.llvmEhTypeIdFor =
@@ -231,9 +228,8 @@ struct StatementGen {
 	}
 
 	private auto getLpType() {
-		LLVMTypeRef[2] lpTypes =
-			[LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0),
-			 LLVMInt32TypeInContext(llvmCtx)];
+		LLVMTypeRef[2] lpTypes = [LLVMPointerTypeInContext(llvmCtx, 0),
+		                          LLVMInt32TypeInContext(llvmCtx)];
 
 		return LLVMStructTypeInContext(llvmCtx, lpTypes.ptr, lpTypes.length,
 		                               false);

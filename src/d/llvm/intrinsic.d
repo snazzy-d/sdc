@@ -260,7 +260,7 @@ struct IntrinsicGen {
 			return *fPtr;
 		}
 
-		auto ptr = LLVMPointerType(LLVMInt8TypeInContext(llvmCtx), 0);
+		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
 		auto i32 = LLVMInt32TypeInContext(llvmCtx);
 		auto type = LLVMFunctionType(ptr, &i32, 1, false);
 		return cache[name] =

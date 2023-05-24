@@ -427,13 +427,10 @@ struct ExpressionGen {
 		auto vtbl = LLVMBuildInBoundsGEP2(builder, classInfoStruct, metadata,
 		                                  &one, 1, "vtbl");
 
-		auto funType = TypeGen(pass.pass).visit(f.type);
-		auto funPtrType = LLVMPointerType(funType, 0);
-		vtbl = LLVMBuildPointerCast(builder, vtbl, funPtrType, "");
-
+		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
 		auto i = LLVMConstInt(i32, m.index, true);
-		auto funPtr = LLVMBuildInBoundsGEP2(builder, funType, vtbl, &i, 1, "");
-		return LLVMBuildLoad2(builder, funType, funPtr, "");
+		auto funPtr = LLVMBuildInBoundsGEP2(builder, ptr, vtbl, &i, 1, "");
+		return LLVMBuildLoad2(builder, ptr, funPtr, "");
 	}
 
 	LLVMValueRef visit(DelegateExpression e) {
@@ -468,19 +465,15 @@ struct ExpressionGen {
 			: TypeGen(pass.pass).visit(ct.element);
 
 		import d.llvm.runtime;
-		auto alloc = RuntimeGen(pass).genGCalloc(eType);
-		auto type = TypeGen(pass.pass).visit(e.type);
-		auto ptr = LLVMBuildPointerCast(builder, alloc, type, "");
+		auto ptr = RuntimeGen(pass).genGCalloc(eType);
 
 		auto thisArg = visit(e.dinit);
 		auto thisType = LLVMTypeOf(LLVMGetFirstParam(ctor));
 
 		bool isRefCtor = LLVMGetTypeKind(thisType) == LLVMTypeKind.Pointer;
 		if (isRefCtor) {
-			auto ptrType = LLVMPointerType(LLVMTypeOf(thisArg), 0);
-			auto thisPtr = LLVMBuildBitCast(builder, ptr, ptrType, "");
-			LLVMBuildStore(builder, thisArg, thisPtr);
-			thisArg = LLVMBuildBitCast(builder, ptr, thisType, "");
+			LLVMBuildStore(builder, thisArg, ptr);
+			thisArg = ptr;
 		}
 
 		args = thisArg ~ args;
@@ -542,9 +535,6 @@ struct ExpressionGen {
 			case Array:
 				length = LLVMConstInt(i64, t.size, false);
 				ptr = addressOf(e.sliced);
-
-				auto ptrType = LLVMPointerType(eType, 0);
-				ptr = LLVMBuildBitCast(builder, ptr, ptrType, "");
 				break;
 
 			default:
@@ -576,9 +566,13 @@ struct ExpressionGen {
 		return slice;
 	}
 
-	// FIXME: This is public because of intrinsic codegen.
-	// Once we support sequence return, we can make that private.
+	// FIXME: This is public because of intrinsic codegen in LocalGen.
 	LLVMValueRef buildBitCast(LLVMValueRef v, LLVMTypeRef t) {
+		// Short circuit when there is nothing to be done.
+		if (LLVMTypeOf(v) == t) {
+			return v;
+		}
+
 		auto k = LLVMGetTypeKind(t);
 		if (k != LLVMTypeKind.Struct) {
 			assert(k != LLVMTypeKind.Array);
@@ -614,24 +608,22 @@ struct ExpressionGen {
 	// FIXME: This should forward to a template in object.d
 	// instead of reimplenting the logic.
 	LLVMValueRef buildDownCast(LLVMValueRef value, Class c) {
-		auto type = TypeGen(pass.pass).visit(c);
-		auto bitcast = LLVMBuildBitCast(builder, value, type, "");
-		auto nullcast = LLVMConstNull(type);
+		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
+		auto nullcast = LLVMConstNull(ptr);
 
 		auto otid = loadTypeid(value);
 		auto ctid = getTypeid(c);
 
-		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
-		auto classInfoType = LLVMPointerType(classInfoStruct, 0);
-		auto pType = LLVMStructGetTypeAtIndex(classInfoStruct, 1);
-		auto dType = LLVMStructGetTypeAtIndex(pType, 0);
-		auto ptrType = LLVMStructGetTypeAtIndex(pType, 1);
-
 		if (c.isFinal) {
 			auto cmp =
 				LLVMBuildICmp(builder, LLVMIntPredicate.EQ, otid, ctid, "");
-			return LLVMBuildSelect(builder, cmp, bitcast, nullcast, "");
+			return LLVMBuildSelect(builder, cmp, value, nullcast, "");
 		}
+
+		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
+		auto pType = LLVMStructGetTypeAtIndex(classInfoStruct, 1);
+		auto dType = LLVMStructGetTypeAtIndex(pType, 0);
+		auto ptrType = LLVMStructGetTypeAtIndex(pType, 1);
 
 		// If c is deeper in the hierarchy than the value,
 		// then it is impossible for the value to be of type c.
@@ -668,19 +660,19 @@ struct ExpressionGen {
 		auto primitivesPtr =
 			LLVMBuildStructGEP2(builder, pType, oPrimitives, 1, "");
 		auto primitives = LLVMBuildLoad2(builder, ptrType, primitivesPtr, "");
-		auto parentPtr = LLVMBuildInBoundsGEP2(builder, classInfoType,
-		                                       primitives, &index, 1, "");
-		auto parent = LLVMBuildLoad2(builder, classInfoType, parentPtr, "");
+		auto parentPtr =
+			LLVMBuildInBoundsGEP2(builder, ptr, primitives, &index, 1, "");
+		auto parent = LLVMBuildLoad2(builder, ptr, parentPtr, "");
 		auto typeCheck =
 			LLVMBuildICmp(builder, LLVMIntPredicate.EQ, parent, ctid, "");
 		auto downcast =
-			LLVMBuildSelect(builder, typeCheck, bitcast, nullcast, "");
+			LLVMBuildSelect(builder, typeCheck, value, nullcast, "");
 
 		// Merge and generate Phi node.
 		LLVMBuildBr(builder, mergeBB);
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 
-		auto phiNode = LLVMBuildPhi(builder, type, "");
+		auto phiNode = LLVMBuildPhi(builder, ptr, "");
 
 		LLVMValueRef[2] incomingValues = [nullcast, downcast];
 		LLVMBasicBlockRef[2] incomingBlocks = [depthCheckBB, downCastBB];
@@ -772,16 +764,15 @@ struct ExpressionGen {
 			return array;
 		}
 
-		auto ptrType = LLVMPointerType(type, 0);
+		auto ptrType = LLVMPointerTypeInContext(llvmCtx, 0);
 		auto ptr = LLVMConstNull(ptrType);
 
 		if (count > 0) {
 			// We have a slice, we need to allocate.
 			import d.llvm.runtime;
-			auto alloc = RuntimeGen(pass).genGCalloc(type);
+			ptr = RuntimeGen(pass).genGCalloc(type);
 
 			// Store all the values on heap.
-			ptr = LLVMBuildPointerCast(builder, alloc, ptrType, "");
 			LLVMBuildStore(builder, array, ptr);
 		}
 
@@ -790,9 +781,6 @@ struct ExpressionGen {
 		auto llvmCount =
 			LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), count, false);
 		slice = LLVMBuildInsertValue(builder, slice, llvmCount, 0, "");
-
-		auto elPtrType = LLVMPointerType(eType, 0);
-		ptr = LLVMBuildPointerCast(builder, ptr, elPtrType, "");
 		slice = LLVMBuildInsertValue(builder, slice, ptr, 1, "");
 
 		return slice;
@@ -896,12 +884,8 @@ struct ExpressionGen {
 	}
 
 	private LLVMValueRef loadTypeid(LLVMValueRef value) {
-		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
-		auto classInfoType = LLVMPointerType(classInfoStruct, 0);
-		auto objType = LLVMPointerType(classInfoType, 0);
-
-		auto ptr = LLVMBuildPointerCast(builder, value, objType, "");
-		return LLVMBuildLoad2(builder, classInfoType, ptr, "");
+		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
+		return LLVMBuildLoad2(builder, ptr, value, "");
 	}
 
 	LLVMValueRef visit(DynamicTypeidExpression e) {
@@ -984,9 +968,7 @@ struct AddressOfGen {
 		}
 
 		if (t.kind == TypeKind.Union) {
-			auto eType = TypeGen(pass.pass).visit(e.type);
-			auto ptrType = LLVMPointerType(eType, 0);
-			return LLVMBuildPointerCast(builder, ptr, ptrType, "");
+			return ptr;
 		}
 
 		return LLVMBuildStructGEP2(builder, type, ptr, e.field.index, "");
@@ -1009,12 +991,8 @@ struct AddressOfGen {
 		auto value = visit(e.expr);
 
 		final switch (e.kind) with (CastKind) {
-			case Exact, Qual:
+			case Exact, Qual, Bit:
 				return value;
-
-			case Bit:
-				return LLVMBuildBitCast(builder, value,
-				                        LLVMPointerType(type, 0), "");
 
 			case Invalid, IntToPtr, PtrToInt, Down:
 			case IntToBool, Trunc, SPad, UPad:
@@ -1053,9 +1031,6 @@ struct AddressOfGen {
 
 			case Array:
 				ptr = visit(indexed);
-
-				auto ptrType = LLVMPointerType(eType, 0);
-				ptr = LLVMBuildPointerCast(builder, ptr, ptrType, "");
 
 				auto i64 = LLVMInt64TypeInContext(llvmCtx);
 				length = LLVMConstInt(i64, t.size, false);

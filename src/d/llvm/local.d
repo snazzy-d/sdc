@@ -293,12 +293,7 @@ struct LocalGen {
 
 			import d.llvm.runtime;
 			auto alloc = RuntimeGen(&this).genGCalloc(ctxType);
-
-			LLVMReplaceAllUsesWith(
-				ctxAlloca,
-				LLVMBuildPointerCast(builder, alloc,
-				                     LLVMPointerType(ctxType, 0), "")
-			);
+			LLVMReplaceAllUsesWith(ctxAlloca, alloc);
 		}
 	}
 
@@ -473,12 +468,11 @@ struct LocalGen {
 		auto value = ctxPtr;
 		foreach_reverse (i, c; contexts) {
 			if (value is null) {
-				return LLVMConstNull(LLVMPointerType(type, 0));
+				return LLVMConstNull(LLVMPointerTypeInContext(llvmCtx, 0));
 			}
 
 			if (c.type is type) {
-				auto ptrType = LLVMPointerType(type, 0);
-				return LLVMBuildPointerCast(builder, value, ptrType, "");
+				return value;
 			}
 
 			auto ctxPtr = LLVMBuildStructGEP2(builder, c.type, value, 0, "");
