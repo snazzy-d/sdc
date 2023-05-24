@@ -1,28 +1,33 @@
 name: Run all tests [Ubuntu]
 on: [push, pull_request]
 
+env:
+    LLVM_VERSION: "14"
+    LLVM_CONFIG: llvm-config-14
+
 jobs:
     test:
-        name: SDC Tests (should be split up eventually)
+        name: SDC Tests
         strategy:
             matrix:
                 os: [ubuntu-latest]
                 dc: [dmd-latest]
 
         runs-on: ${{ matrix.os }}
+
         steps:
+            - name: Checkout SDC
+              uses: actions/checkout@v2
             - name: Install D compiler
               uses: dlang-community/setup-dlang@v1
               with:
                   compiler: ${{ matrix.dc }}
             - name: Print D version
               run: dmd --version
-            - name: Install sdc deps
-              run: sudo apt install llvm nasm lld
+            - name: Install system dependencies
+              run: sudo apt install nasm lld llvm-${{ env.LLVM_VERSION }}-dev
             - name: Print LLVM version
-              run: llvm-config --version
-            - name: Checkout SDC
-              uses: actions/checkout@v2
+              run: ${{ env.LLVM_CONFIG }} --version
             # CI runners usually top out at 4 "cores", but things are often busy so -j6 is a happy medium.
             - name: Build
               run: make -j6
