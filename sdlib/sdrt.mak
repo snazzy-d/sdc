@@ -5,11 +5,8 @@ LIBSDRT_SYNC_SRC = $(wildcard sdlib/d/sync/*.d)
 
 LIBSDRT_GC_OBJ = $(LIBSDRT_GC_SRC:sdlib/d/gc/%.d=obj/gc/%.o)
 LIBSDRT_RT_OBJ = $(LIBSDRT_RT_SRC:sdlib/d/rt/%.d=obj/rt/%.o)
-LIBSDRT_STDC_OBJ = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=obj/stdc/%.o)
-LIBSDRT_SYNC_OBJ = $(LIBSDRT_SYNC_SRC:sdlib/d/sync/%.d=obj/sync/%.o)
 
 LIBSDRT_LINUX_SRC = $(wildcard sdlib/sys/linux/*.d)
-LIBSDRT_LINUX_OBJ = $(LIBSDRT_LINUX_SRC:sdlib/sys/linux/%.d=obj/linux/%.o)
 
 LIBSDRT_OSX_SRC_C = $(wildcard sdlib/sys/osx/*.c)
 LIBSDRT_OSX_SRC_D = $(wildcard sdlib/sys/osx/*.d)
@@ -21,10 +18,10 @@ LIBSDRT_X64_SRC = $(wildcard sdlib/sys/x64/*.asm)
 LIBSDRT_X64_OBJ = $(LIBSDRT_X64_SRC:sdlib/sys/x64/%.asm=obj/x64/%.o)
 
 LIBSDRT_DEPS = obj/object.o $(LIBSDRT_GC_OBJ) $(LIBSDRT_RT_OBJ) \
-	$(LIBSDRT_STDC_OBJ) $(LIBSDRT_SYNC_OBJ) $(LIBSDRT_X64_OBJ)
+	obj/sdlib/stdc.o obj/sdlib/sync.o $(LIBSDRT_X64_OBJ)
 
 ifeq ($(PLATFORM),Linux)
-	LIBSDRT_DEPS += $(LIBSDRT_LINUX_OBJ)
+	LIBSDRT_DEPS += obj/sdlib/linux.o
 endif
 
 ifeq ($(PLATFORM),Darwin)
@@ -48,17 +45,17 @@ obj/rt/%.o: sdlib/d/rt/%.d $(LIBSDRT_RT_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/rt
 	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
-obj/stdc/%.o: sdlib/core/stdc/%.d $(LIBSDRT_STDC_SRC) $(SDLIB_DEPS)
-	@mkdir -p obj/stdc
-	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+obj/sdlib/stdc.o: $(LIBSDRT_STDC_SRC) $(SDLIB_DEPS)
+	@mkdir -p obj/sdlib
+	$(SDC) -c -o $@ $(LIBSDRT_STDC_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
-obj/sync/%.o: sdlib/d/sync/%.d $(LIBSDRT_SYNC_SRC) $(SDLIB_DEPS)
-	@mkdir -p obj/sync
-	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+obj/sdlib/sync.o: $(LIBSDRT_SYNC_SRC) $(SDLIB_DEPS)
+	@mkdir -p obj/sdlib
+	$(SDC) -c -o $@ $(LIBSDRT_SYNC_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
-obj/linux/%.o: sdlib/sys/linux/%.d $(LIBSDRT_LINUX_SRC) $(SDLIB_DEPS)
-	@mkdir -p obj/linux
-	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+obj/sdlib/linux.o: $(LIBSDRT_LINUX_SRC) $(SDLIB_DEPS)
+	@mkdir -p obj/sdlib
+	$(SDC) -c -o $@ $(LIBSDRT_LINUX_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
 obj/osx/%.o: sdlib/sys/osx/%.c $(LIBSDRT_OSX_SRC_C) $(SDLIB_DEPS)
 	@mkdir -p obj/osx
