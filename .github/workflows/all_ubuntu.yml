@@ -2,8 +2,8 @@ name: Run all tests [Ubuntu]
 on: [push, pull_request]
 
 env:
-    LLVM_VERSION: "14"
-    LLVM_CONFIG: llvm-config-14
+    LLVM_VERSION: "15"
+    LLVM_CONFIG: llvm-config-15
 
 jobs:
     test:

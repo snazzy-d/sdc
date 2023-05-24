@@ -70,6 +70,7 @@ final class CodeGen {
 		globals.remove(null);
 
 		llvmCtx = LLVMContextCreate();
+		LLVMContextSetOpaquePointers(llvmCtx, false);
 
 		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
