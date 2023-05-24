@@ -314,19 +314,12 @@ struct TypeGen {
 			classMethods.sort!((a, b) => a.index < b.index)
 			            .map!(m => GlobalGen(pass).declare(m)).array();
 
-		// FIXME: Use an array of pointer.
-		auto vtblTypes = methods.map!(m => LLVMTypeOf(m)).array();
-		auto vtblStruct =
-			LLVMStructTypeInContext(llvmCtx, vtblTypes.ptr,
-			                        cast(uint) vtblTypes.length, false);
-
+		auto methodCount = cast(uint) methods.length;
 		auto classInfoStruct = getClassInfoStructure();
-		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblStruct];
+		auto vtblArray = LLVMArrayType(ptr, methodCount);
+		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblArray];
 		LLVMStructSetBody(metadataStruct, classMetadataElts.ptr,
 		                  classMetadataElts.length, false);
-
-		auto vtbl = LLVMConstStructInContext(llvmCtx, methods.ptr,
-		                                     cast(uint) methods.length, false);
 
 		LLVMValueRef[2] classInfoData =
 			[getTypeInfo(classInfoClass), genPrimaries(c, mangle)];
@@ -334,6 +327,7 @@ struct TypeGen {
 			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
 			                     classInfoData.length);
 
+		auto vtbl = LLVMConstArray(ptr, methods.ptr, methodCount);
 		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
 		auto metadataGen =
 			LLVMConstNamedStruct(metadataStruct, classDataData.ptr,

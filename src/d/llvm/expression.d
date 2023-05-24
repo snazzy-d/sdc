@@ -410,27 +410,22 @@ struct ExpressionGen {
 		assert(classType.kind == TypeKind.Class,
 		       "Virtual dispatch can only be done on classes");
 
-		LLVMValueRef metadata;
-
 		auto c = classType.dclass;
-		if (c.isFinal) {
-			metadata = getTypeid(c);
-		} else {
+		auto metadata = getTypeid(c);
+		auto mdStruct = LLVMGlobalGetValueType(metadata);
+
+		if (!c.isFinal) {
 			auto thisPtr = LLVMBuildExtractValue(builder, dg, m.hasContext, "");
 			metadata = loadTypeid(thisPtr);
 		}
 
-		auto i32 = LLVMInt32TypeInContext(llvmCtx);
-		auto one = LLVMConstInt(i32, 1, true);
+		auto vtbl = LLVMBuildStructGEP2(builder, mdStruct, metadata, 1, "vtbl");
 
-		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
-		auto vtbl = LLVMBuildInBoundsGEP2(builder, classInfoStruct, metadata,
-		                                  &one, 1, "vtbl");
+		auto vtblType = LLVMStructGetTypeAtIndex(mdStruct, 1);
+		auto entry = LLVMBuildStructGEP2(builder, vtblType, vtbl, m.index, "");
 
 		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
-		auto i = LLVMConstInt(i32, m.index, true);
-		auto funPtr = LLVMBuildInBoundsGEP2(builder, ptr, vtbl, &i, 1, "");
-		return LLVMBuildLoad2(builder, ptr, funPtr, "");
+		return LLVMBuildLoad2(builder, ptr, entry, "");
 	}
 
 	LLVMValueRef visit(DelegateExpression e) {
