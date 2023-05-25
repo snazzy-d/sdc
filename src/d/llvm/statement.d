@@ -214,10 +214,7 @@ struct StatementGen {
 			return statementGenData.llvmEhTypeIdFor;
 		}
 
-		auto i32 = LLVMInt32TypeInContext(llvmCtx);
-		auto arg = LLVMPointerTypeInContext(llvmCtx, 0);
-		auto type = LLVMFunctionType(i32, &arg, 1, false);
-
+		auto type = LLVMFunctionType(i32, &llvmPtr, 1, false);
 		return statementGenData.llvmEhTypeIdFor =
 			LLVMAddFunction(dmodule, "llvm.eh.typeid.for".ptr, type);
 	}
@@ -228,9 +225,7 @@ struct StatementGen {
 	}
 
 	private auto getLpType() {
-		LLVMTypeRef[2] lpTypes = [LLVMPointerTypeInContext(llvmCtx, 0),
-		                          LLVMInt32TypeInContext(llvmCtx)];
-
+		LLVMTypeRef[2] lpTypes = [llvmPtr, i32];
 		return LLVMStructTypeInContext(llvmCtx, lpTypes.ptr, lpTypes.length,
 		                               false);
 	}

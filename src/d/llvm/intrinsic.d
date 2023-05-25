@@ -85,10 +85,9 @@ struct IntrinsicGen {
 			return *fPtr;
 		}
 
-		auto i1 = LLVMInt1TypeInContext(llvmCtx);
 		LLVMTypeRef[2] params = [i1, i1];
-
 		auto type = LLVMFunctionType(i1, params.ptr, params.length, false);
+
 		return cache[name] =
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
 	}
@@ -156,8 +155,7 @@ struct IntrinsicGen {
 	}
 
 	LLVMValueRef ctlz(LLVMValueRef n) {
-		LLVMValueRef[2] args =
-			[n, LLVMConstInt(LLVMInt1TypeInContext(llvmCtx), false, false)];
+		LLVMValueRef[2] args = [n, LLVMConstInt(i1, false, false)];
 
 		auto bits = LLVMGetIntTypeWidth(LLVMTypeOf(n));
 		auto fun = getCtlz(bits);
@@ -182,8 +180,7 @@ struct IntrinsicGen {
 	}
 
 	LLVMValueRef cttz(LLVMValueRef n) {
-		LLVMValueRef[2] args =
-			[n, LLVMConstInt(LLVMInt1TypeInContext(llvmCtx), false, false)];
+		LLVMValueRef[2] args = [n, LLVMConstInt(i1, false, false)];
 
 		auto bits = LLVMGetIntTypeWidth(LLVMTypeOf(n));
 		auto fun = getCttz(bits);
@@ -238,7 +235,6 @@ struct IntrinsicGen {
 			return *fPtr;
 		}
 
-		auto i64 = LLVMInt64TypeInContext(llvmCtx);
 		auto type = LLVMFunctionType(i64, null, 0, false);
 		return cache[name] =
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
@@ -248,8 +244,6 @@ struct IntrinsicGen {
 			in(args.length == 0, "Invalid argument count") {
 		auto fun = getReadFramePointer();
 		auto t = LLVMGlobalGetValueType(fun);
-
-		auto i32 = LLVMInt32TypeInContext(llvmCtx);
 		auto zero = LLVMConstInt(i32, 0, false);
 		return LLVMBuildCall2(builder, t, fun, &zero, 1, "");
 	}
@@ -260,9 +254,7 @@ struct IntrinsicGen {
 			return *fPtr;
 		}
 
-		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
-		auto i32 = LLVMInt32TypeInContext(llvmCtx);
-		auto type = LLVMFunctionType(ptr, &i32, 1, false);
+		auto type = LLVMFunctionType(llvmPtr, &i32, 1, false);
 		return cache[name] =
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
 	}
@@ -275,8 +267,8 @@ private:
 
 	auto getFunctionTypeWithBool(uint bits) {
 		auto t = LLVMIntTypeInContext(llvmCtx, bits);
-		LLVMTypeRef[2] params = [t, LLVMInt1TypeInContext(llvmCtx)];
 
+		LLVMTypeRef[2] params = [t, i1];
 		return LLVMFunctionType(t, params.ptr, params.length, false);
 	}
 }

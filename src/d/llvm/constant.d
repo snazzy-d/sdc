@@ -59,8 +59,7 @@ struct ConstantGen {
 	}
 
 	LLVMValueRef visit(NullLiteral nl) {
-		import d.llvm.type;
-		return LLVMConstNull(TypeGen(pass).visit(nl.type));
+		return llvmNull;
 	}
 
 	LLVMValueRef visit(StringLiteral sl) {

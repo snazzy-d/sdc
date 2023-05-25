@@ -468,7 +468,7 @@ struct LocalGen {
 		auto value = ctxPtr;
 		foreach_reverse (i, c; contexts) {
 			if (value is null) {
-				return LLVMConstNull(LLVMPointerTypeInContext(llvmCtx, 0));
+				return llvmNull;
 			}
 
 			if (c.type is type) {

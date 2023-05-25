@@ -26,6 +26,18 @@ final class CodeGen {
 	LLVMContextRef llvmCtx;
 	LLVMModuleRef dmodule;
 
+	LLVMTypeRef llvmPtr;
+	LLVMTypeRef llvmSlice;
+	LLVMValueRef llvmNull;
+	LLVMTypeRef llvmVoid;
+
+	LLVMTypeRef i1;
+	LLVMTypeRef i8;
+	LLVMTypeRef i16;
+	LLVMTypeRef i32;
+	LLVMTypeRef i64;
+	LLVMTypeRef i128;
+
 	LLVMValueRef[ValueSymbol] globals;
 
 	import d.llvm.local;
@@ -72,6 +84,21 @@ final class CodeGen {
 		llvmCtx = LLVMContextCreate();
 		LLVMContextSetOpaquePointers(llvmCtx, true);
 
+		llvmPtr = LLVMPointerTypeInContext(llvmCtx, 0);
+		llvmNull = LLVMConstNull(llvmPtr);
+		llvmVoid = LLVMVoidTypeInContext(llvmCtx);
+
+		i1 = LLVMInt1TypeInContext(llvmCtx);
+		i8 = LLVMInt8TypeInContext(llvmCtx);
+		i16 = LLVMInt16TypeInContext(llvmCtx);
+		i32 = LLVMInt32TypeInContext(llvmCtx);
+		i64 = LLVMInt64TypeInContext(llvmCtx);
+		i128 = LLVMInt128TypeInContext(llvmCtx);
+
+		LLVMTypeRef[2] sliceElements = [i64, llvmPtr];
+		llvmSlice = LLVMStructTypeInContext(llvmCtx, sliceElements.ptr,
+		                                    sliceElements.length, false);
+
 		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 
@@ -82,9 +109,7 @@ final class CodeGen {
 		LLVMValueRef[3] branch_metadata = [
 			LLVMMDStringInContext(llvmCtx, branch_weights.ptr,
 			                      branch_weights.length),
-			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 65536, false),
-			LLVMConstInt(LLVMInt32TypeInContext(llvmCtx), 0, false),
-		];
+			LLVMConstInt(i32, 65536, false), LLVMConstInt(i32, 0, false), ];
 
 		unlikelyBranch = LLVMMDNodeInContext(llvmCtx, branch_metadata.ptr,
 		                                     branch_metadata.length);
@@ -124,21 +149,16 @@ final class CodeGen {
 		LLVMSetGlobalConstant(globalVar, true);
 		LLVMSetUnnamedAddr(globalVar, true);
 
-		auto zero = LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), 0, true);
+		auto zero = LLVMConstInt(i32, 0, true);
 		LLVMValueRef[2] indices = [zero, zero];
-
 		return
 			LLVMConstInBoundsGEP2(type, globalVar, indices.ptr, indices.length);
 	}
 
 	auto buildDString(string str) {
 		return stringLiterals.get(str, stringLiterals[str] = {
-			LLVMValueRef[2] slice = [
-				LLVMConstInt(LLVMInt64TypeInContext(llvmCtx), str.length,
-				             false),
-				buildCString(str)
-			];
-
+			LLVMValueRef[2] slice =
+				[LLVMConstInt(i64, str.length, false), buildCString(str)];
 			return LLVMConstStructInContext(llvmCtx, slice.ptr, slice.length,
 			                                false);
 		}());

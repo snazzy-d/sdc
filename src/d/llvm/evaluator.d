@@ -126,7 +126,7 @@ final class LLVMEvaluator : Evaluator {
 
 			import llvm.c.target;
 			auto size = LLVMStoreSizeOfType(targetData, type);
-			auto returnType = LLVMInt64TypeInContext(llvmCtx);
+			auto returnType = i64;
 		}
 
 		// Generate function signature
@@ -150,9 +150,7 @@ final class LLVMEvaluator : Evaluator {
 		} else {
 			LLVMBuildStore(builder, value, buffer);
 			// FIXME This is 64bit only code.
-			auto ptrToInt =
-				LLVMBuildPtrToInt(builder, buffer,
-				                  LLVMInt64TypeInContext(llvmCtx), "");
+			auto ptrToInt = LLVMBuildPtrToInt(builder, buffer, i64, "");
 
 			LLVMBuildRet(builder, ptrToInt);
 		}
@@ -186,8 +184,7 @@ final class LLVMEvaluator : Evaluator {
 		// Generate function's body. Warning: horrible hack.
 		auto builder = lg.builder;
 
-		auto returnType = LLVMInt64TypeInContext(llvmCtx);
-		auto funType = LLVMFunctionType(returnType, null, 0, false);
+		auto funType = LLVMFunctionType(i64, null, 0, false);
 		auto fun = LLVMAddFunction(dmodule, "__unittest", funType);
 
 		// Personality function to handle exceptions.
@@ -201,22 +198,20 @@ final class LLVMEvaluator : Evaluator {
 		LLVMBuildInvoke2(builder, funType, callee, null, 0, thenBB, lpBB, "");
 
 		LLVMPositionBuilderAtEnd(builder, thenBB);
-		LLVMBuildRet(builder, LLVMConstInt(returnType, 0, false));
+		LLVMBuildRet(builder, LLVMConstInt(i64, 0, false));
 
 		// Build the landing pad.
-		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
-		LLVMTypeRef[2] lpTypes = [ptr, LLVMInt32TypeInContext(llvmCtx)];
-
+		LLVMTypeRef[2] lpTypes = [llvmPtr, i32];
 		auto lpType = LLVMStructTypeInContext(llvmCtx, lpTypes.ptr,
 		                                      lpTypes.length, false);
 
 		LLVMPositionBuilderAtEnd(builder, lpBB);
 		auto landingPad = LLVMBuildLandingPad(builder, lpType, null, 1, "");
 
-		LLVMAddClause(landingPad, LLVMConstNull(ptr));
+		LLVMAddClause(landingPad, llvmNull);
 
 		// We don't care about cleanup for now.
-		LLVMBuildRet(builder, LLVMConstInt(returnType, 1, false));
+		LLVMBuildRet(builder, LLVMConstInt(i64, 1, false));
 
 		return fun;
 	}

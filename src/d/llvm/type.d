@@ -90,25 +90,25 @@ struct TypeGen {
 				assert(0, "Not Implemented");
 
 			case Void:
-				return LLVMVoidTypeInContext(llvmCtx);
+				return llvmVoid;
 
 			case Bool:
-				return LLVMInt1TypeInContext(llvmCtx);
+				return i1;
 
 			case Char, Ubyte, Byte:
-				return LLVMInt8TypeInContext(llvmCtx);
+				return i8;
 
 			case Wchar, Ushort, Short:
-				return LLVMInt16TypeInContext(llvmCtx);
+				return i16;
 
 			case Dchar, Uint, Int:
-				return LLVMInt32TypeInContext(llvmCtx);
+				return i32;
 
 			case Ulong, Long:
-				return LLVMInt64TypeInContext(llvmCtx);
+				return i64;
 
 			case Ucent, Cent:
-				return LLVMInt128TypeInContext(llvmCtx);
+				return i128;
 
 			case Float:
 				return LLVMFloatTypeInContext(llvmCtx);
@@ -120,7 +120,7 @@ struct TypeGen {
 				return LLVMX86FP80TypeInContext(llvmCtx);
 
 			case Null:
-				return LLVMPointerTypeInContext(llvmCtx, 0);
+				return llvmPtr;
 		}
 	}
 
@@ -128,21 +128,18 @@ struct TypeGen {
 		t = t.getCanonical().element.getCanonical();
 		if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.Void) {
 			// void* is represented as i8* in LLVM IR.
-			return LLVMInt8TypeInContext(llvmCtx);
+			return i8;
 		}
 
 		return buildOpaque(t);
 	}
 
 	LLVMTypeRef visitPointerOf(Type t) {
-		return LLVMPointerTypeInContext(llvmCtx, 0);
+		return llvmPtr;
 	}
 
 	LLVMTypeRef visitSliceOf(Type t) {
-		LLVMTypeRef[2] types =
-			[LLVMInt64TypeInContext(llvmCtx), visitPointerOf(t)];
-
-		return LLVMStructTypeInContext(llvmCtx, types.ptr, types.length, false);
+		return llvmSlice;
 	}
 
 	LLVMTypeRef visitArrayOf(uint size, Type t) {
@@ -223,7 +220,7 @@ struct TypeGen {
 
 		if (extra > 0) {
 			elementCount++;
-			types[1] = LLVMArrayType(LLVMInt8TypeInContext(llvmCtx), extra);
+			types[1] = LLVMArrayType(i8, extra);
 		}
 
 		LLVMStructSetBody(llvmStruct, types.ptr, elementCount, false);
@@ -237,22 +234,20 @@ struct TypeGen {
 
 	private LLVMValueRef genPrimaries(Class c, string mangle) {
 		auto count = cast(uint) c.primaries.length;
-		auto i64 = LLVMInt64TypeInContext(llvmCtx);
-		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
-		auto sizeType = LLVMConstInt(i64, count, false);
+		auto typeSize = LLVMConstInt(i64, count, false);
 
 		if (count == 0) {
-			LLVMValueRef[2] elts = [sizeType, LLVMConstNull(ptr)];
+			LLVMValueRef[2] elts = [typeSize, llvmNull];
 			return
 				LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
 		}
 
 		import std.algorithm, std.array;
 		auto parents = c.primaries.map!(p => getTypeInfo(p)).array();
-		auto gen = LLVMConstArray(ptr, parents.ptr, count);
+		auto gen = LLVMConstArray(llvmPtr, parents.ptr, count);
 
 		import std.string;
-		auto type = LLVMArrayType(ptr, count);
+		auto type = LLVMArrayType(llvmPtr, count);
 		auto primaries =
 			LLVMAddGlobal(dmodule, type, toStringz(mangle ~ "__primaries"));
 		LLVMSetInitializer(primaries, gen);
@@ -260,7 +255,7 @@ struct TypeGen {
 		LLVMSetUnnamedAddr(primaries, true);
 		LLVMSetLinkage(primaries, LLVMLinkage.LinkOnceODR);
 
-		LLVMValueRef[2] elts = [sizeType, primaries];
+		LLVMValueRef[2] elts = [typeSize, primaries];
 		return LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
 	}
 
@@ -291,8 +286,7 @@ struct TypeGen {
 
 		typeInfos[c] = metadata;
 
-		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
-		LLVMTypeRef[] initTypes = [ptr];
+		LLVMTypeRef[] initTypes = [llvmPtr];
 		foreach (f; c.fields[1 .. $]) {
 			initTypes ~= visit(f.value.type);
 		}
@@ -316,7 +310,7 @@ struct TypeGen {
 
 		auto methodCount = cast(uint) methods.length;
 		auto classInfoStruct = getClassInfoStructure();
-		auto vtblArray = LLVMArrayType(ptr, methodCount);
+		auto vtblArray = LLVMArrayType(llvmPtr, methodCount);
 		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblArray];
 		LLVMStructSetBody(metadataStruct, classMetadataElts.ptr,
 		                  classMetadataElts.length, false);
@@ -327,7 +321,7 @@ struct TypeGen {
 			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
 			                     classInfoData.length);
 
-		auto vtbl = LLVMConstArray(ptr, methods.ptr, methodCount);
+		auto vtbl = LLVMConstArray(llvmPtr, methods.ptr, methodCount);
 		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
 		auto metadataGen =
 			LLVMConstNamedStruct(metadataStruct, classDataData.ptr,
@@ -345,7 +339,7 @@ struct TypeGen {
 		// when we remove it, and fixing these would require even more
 		// spacial casing for classes, which would be a pain in the ass.
 		auto classBody = getClassStructure(c);
-		return LLVMPointerTypeInContext(llvmCtx, 0);
+		return llvmPtr;
 	}
 
 	LLVMTypeRef visit(Enum e) {
@@ -365,8 +359,7 @@ struct TypeGen {
 		auto llvmStruct =
 			typeSymbols[i] = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
 
-		LLVMTypeRef[2] elements = [visit(pass.object.getObject()),
-		                           LLVMPointerTypeInContext(llvmCtx, 0)];
+		LLVMTypeRef[2] elements = [llvmPtr, llvmPtr];
 		LLVMStructSetBody(llvmStruct, elements.ptr, elements.length, false);
 
 		return llvmStruct;
@@ -396,7 +389,7 @@ struct TypeGen {
 		ctxElts.length = count;
 
 		if (f.hasContext) {
-			ctxElts[0] = LLVMPointerTypeInContext(llvmCtx, 0);
+			ctxElts[0] = llvmPtr;
 		}
 
 		foreach (v, i; f.closure) {
@@ -408,9 +401,7 @@ struct TypeGen {
 	}
 
 	private auto buildParamType(ParamType pt) {
-		return pt.isRef
-			? LLVMPointerTypeInContext(llvmCtx, 0)
-			: visit(pt.getType());
+		return pt.isRef ? llvmPtr : visit(pt.getType());
 	}
 
 	LLVMTypeRef getFunctionType(FunctionType f) {
@@ -422,14 +413,12 @@ struct TypeGen {
 	}
 
 	LLVMTypeRef visit(FunctionType f) {
-		auto ptr = LLVMPointerTypeInContext(llvmCtx, 0);
-
 		auto contexts = f.contexts;
 		if (contexts.length == 0) {
 			// XXX: This seems inconsistent with the case that
 			// contains contexts. Maybe a 1 element struct would
 			// be more apropriate?
-			return ptr;
+			return llvmPtr;
 		}
 
 		auto length = cast(uint) contexts.length;
@@ -442,7 +431,7 @@ struct TypeGen {
 			types[i] = buildParamType(f.getFunction().parameters[i]);
 		}
 
-		types[length] = ptr;
+		types[length] = llvmPtr;
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, length + 1, false);
 	}
 
