@@ -707,6 +707,107 @@ struct SymbolAnalyzer {
 		u.step = Step.Processed;
 	}
 
+	private
+	auto generateVTable(Class c, Method[] baseMethods, Method[] newMethods) {
+		Method[] methods = baseMethods.dup;
+
+		NewMethodLoop: foreach (m; newMethods) {
+			scheduler.require(m, Step.Signed);
+
+			auto mt = m.type;
+			auto rt = mt.returnType;
+			auto ats = mt.parameters[1 .. $];
+
+			CandidatesLoop: foreach (i, candidate; baseMethods) {
+				if (!candidate || m.name != candidate.name) {
+					continue;
+				}
+
+				auto ct = candidate.type;
+				if (ct.isVariadic != mt.isVariadic) {
+					continue;
+				}
+
+				auto crt = ct.returnType;
+				auto cpts = ct.parameters[1 .. $];
+				if (ats.length != cpts.length || rt.isRef != crt.isRef) {
+					continue;
+				}
+
+				auto rk = implicitCastFrom(pass, rt.getType(), crt.getType());
+				if (rk < CastKind.Exact) {
+					continue;
+				}
+
+				import std.range;
+				foreach (at, cpt; lockstep(ats, cpts)) {
+					if (at.isRef != cpt.isRef) {
+						continue CandidatesLoop;
+					}
+
+					auto pk =
+						implicitCastFrom(pass, cpt.getType(), at.getType());
+					if (pk < CastKind.Exact) {
+						continue CandidatesLoop;
+					}
+				}
+
+				if (m.index != -1) {
+					import source.exception;
+					throw new CompileException(
+						m.location,
+						m.name.toString(context)
+							~ " overrides a base class method "
+							~ "but is not marked override."
+					);
+				}
+
+				if (candidate.isFinal) {
+					import source.exception;
+					throw new CompileException(
+						m.location,
+						m.name.toString(context) ~ " overrides a final method.",
+					);
+				}
+
+				m.index = candidate.index;
+
+				assert(candidate.index == i);
+				baseMethods[i] = null;
+				methods[i] = m;
+
+				// Remove candidate from scope.
+				auto os = cast(OverloadSet) c.resolve(c.location, m.name);
+				assert(os, "This must be an overload set");
+
+				uint k = 0;
+				while (os.set[k] !is candidate) {
+					k++;
+				}
+
+				foreach (s; os.set[k + 1 .. $]) {
+					os.set[k++] = s;
+				}
+
+				os.set = os.set[0 .. k];
+				continue NewMethodLoop;
+			}
+
+			if (m.index == -1) {
+				import source.exception;
+				throw new CompileException(
+					m.location,
+					"Override not found for " ~ m.name.toString(context)
+				);
+			}
+
+			assert(m.index == methods.length, "Invalid method index!");
+			methods ~= m;
+		}
+
+		return methods;
+	}
+
 	void analyze(ClassDeclaration d, Class c) {
 		auto oldManglePrefix = manglePrefix;
 		auto oldThisType = thisType;
@@ -840,102 +941,7 @@ struct SymbolAnalyzer {
 		scheduler.require(fields);
 		c.step = Step.Signed;
 
-		Method[] methods = baseMethods.dup;
-		NewMethodLoop: foreach (m; newMethods) {
-			scheduler.require(m, Step.Signed);
-
-			auto mt = m.type;
-			auto rt = mt.returnType;
-			auto ats = mt.parameters[1 .. $];
-
-			CandidatesLoop: foreach (i, candidate; baseMethods) {
-				if (!candidate || m.name != candidate.name) {
-					continue;
-				}
-
-				auto ct = candidate.type;
-				if (ct.isVariadic != mt.isVariadic) {
-					continue;
-				}
-
-				auto crt = ct.returnType;
-				auto cpts = ct.parameters[1 .. $];
-				if (ats.length != cpts.length || rt.isRef != crt.isRef) {
-					continue;
-				}
-
-				auto rk = implicitCastFrom(pass, rt.getType(), crt.getType());
-
-				if (rk < CastKind.Exact) {
-					continue;
-				}
-
-				import std.range;
-				foreach (at, cpt; lockstep(ats, cpts)) {
-					if (at.isRef != cpt.isRef) {
-						continue CandidatesLoop;
-					}
-
-					auto pk =
-						implicitCastFrom(pass, cpt.getType(), at.getType());
-					if (pk < CastKind.Exact) {
-						continue CandidatesLoop;
-					}
-				}
-
-				if (m.index != -1) {
-					import source.exception;
-					throw new CompileException(
-						m.location,
-						m.name.toString(context)
-							~ " overrides a base class method "
-							~ "but is not marked override."
-					);
-				}
-
-				if (candidate.isFinal) {
-					import source.exception;
-					throw new CompileException(
-						m.location,
-						m.name.toString(context) ~ " overrides a final method.",
-					);
-				}
-
-				m.index = candidate.index;
-
-				assert(candidate.index == i);
-				baseMethods[i] = null;
-				methods[i] = m;
-
-				// Remove candidate from scope.
-				auto os = cast(OverloadSet) c.resolve(c.location, m.name);
-				assert(os, "This must be an overload set");
-
-				uint k = 0;
-				while (os.set[k] !is candidate) {
-					k++;
-				}
-
-				foreach (s; os.set[k + 1 .. $]) {
-					os.set[k++] = s;
-				}
-
-				os.set = os.set[0 .. k];
-				continue NewMethodLoop;
-			}
-
-			if (m.index == -1) {
-				import source.exception;
-				throw new CompileException(
-					m.location,
-					"Override not found for " ~ m.name.toString(context)
-				);
-			}
-
-			assert(m.index == methods.length, "Invalid method index!");
-			methods ~= m;
-		}
-
+		auto methods = generateVTable(c, baseMethods, newMethods);
 		scheduler.require(methods);
 		c.methods = methods;
 
