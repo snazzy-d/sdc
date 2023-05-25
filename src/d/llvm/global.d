@@ -168,16 +168,14 @@ struct GlobalGen {
 		import d.llvm.type;
 		auto ret = TypeGen(pass).visit(c);
 
-		foreach (m; c.members) {
-			if (auto f = cast(Method) m) {
-				// We don't want to define inherited methods in childs.
-				if (!f.hasThis || f.type.parameters[0].getType().dclass is c) {
-					define(f);
-				}
-
-				continue;
+		foreach (m; c.methods) {
+			// We don't want to define inherited methods in childs.
+			if (!m.hasThis || m.type.parameters[0].getType().dclass is c) {
+				define(m);
 			}
+		}
 
+		foreach (m; c.members) {
 			define(m);
 		}
 

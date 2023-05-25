@@ -419,7 +419,6 @@ struct ExpressionGen {
 		}
 
 		auto vtbl = LLVMBuildStructGEP2(builder, mdStruct, metadata, 1, "vtbl");
-
 		auto vtblType = LLVMStructGetTypeAtIndex(mdStruct, 1);
 		auto entry = LLVMBuildStructGEP2(builder, vtblType, vtbl, m.index, "");
 

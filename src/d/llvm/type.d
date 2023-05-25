@@ -294,19 +294,9 @@ struct TypeGen {
 		LLVMStructSetBody(classBody, initTypes.ptr, cast(uint) initTypes.length,
 		                  false);
 
-		// FIXME: Provide a method field in the class that contains what we need.
-		Method[] classMethods;
-		foreach (member; c.members) {
-			if (auto m = cast(Method) member) {
-				classMethods ~= m;
-			}
-		}
-
 		import std.algorithm, std.array;
 		import d.llvm.global;
-		auto methods =
-			classMethods.sort!((a, b) => a.index < b.index)
-			            .map!(m => GlobalGen(pass).declare(m)).array();
+		auto methods = c.methods.map!(m => GlobalGen(pass).declare(m)).array();
 
 		auto methodCount = cast(uint) methods.length;
 		auto classInfoStruct = getClassInfoStructure();

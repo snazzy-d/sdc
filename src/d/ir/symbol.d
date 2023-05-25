@@ -605,6 +605,7 @@ class Class : Aggregate {
 
 	Class[] primaries;
 	Interface[] interfaces;
+	Method[] methods;
 
 	this(Location location, Scope parentScope, Name name) {
 		super(location, parentScope, name);

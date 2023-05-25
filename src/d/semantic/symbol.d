@@ -585,12 +585,11 @@ struct SymbolAnalyzer {
 
 		s.addSymbol(init);
 
-		Symbol[] otherSymbols;
 		foreach (m; members) {
 			if (auto f = cast(Field) m) {
 				fields ~= f;
 			} else {
-				otherSymbols ~= m;
+				s.members ~= m;
 			}
 		}
 
@@ -633,9 +632,7 @@ struct SymbolAnalyzer {
 		// of the process to get it signed, so we do it immediatly.
 		s.isSmall = (dataLayout.getSize(Type.get(s)) <= 32);
 
-		scheduler.require(otherSymbols);
-		s.members ~= otherSymbols;
-
+		scheduler.require(s.members);
 		s.step = Step.Processed;
 	}
 
@@ -685,12 +682,11 @@ struct SymbolAnalyzer {
 		u.addSymbol(init);
 		u.step = Step.Populated;
 
-		Symbol[] otherSymbols;
 		foreach (m; members) {
 			if (auto f = cast(Field) m) {
 				fields ~= f;
 			} else {
-				otherSymbols ~= m;
+				u.members ~= m;
 			}
 		}
 
@@ -707,9 +703,7 @@ struct SymbolAnalyzer {
 
 		u.step = Step.Signed;
 
-		scheduler.require(otherSymbols);
-		u.members ~= otherSymbols;
-
+		scheduler.require(u.members);
 		u.step = Step.Processed;
 	}
 
@@ -800,14 +794,12 @@ struct SymbolAnalyzer {
 			}
 
 			// Base class methods.
-			foreach (m; c.base.members) {
-				if (auto method = cast(Method) m) {
-					baseMethods ~= method;
-					c.addOverloadableSymbol(method);
+			baseMethods = c.base.methods.dup;
+			foreach (m; baseMethods) {
+				c.addOverloadableSymbol(m);
 
-					import std.algorithm;
-					methodIndex = max(methodIndex, method.index + 1);
-				}
+				import std.algorithm;
+				methodIndex = max(methodIndex, m.index + 1);
 			}
 		}
 
@@ -827,37 +819,37 @@ struct SymbolAnalyzer {
 		auto members = DeclarationVisitor(pass)
 			.flatten(d.members, c, fieldIndex, methodIndex);
 
-		Symbol[] otherSymbols;
-		foreach (m; members) {
-			if (auto f = cast(Field) m) {
+		Method[] newMethods;
+		foreach (member; members) {
+			if (auto f = cast(Field) member) {
 				fields ~= f;
-			} else {
-				otherSymbols ~= m;
+				continue;
 			}
+
+			if (auto m = cast(Method) member) {
+				newMethods ~= m;
+				continue;
+			}
+
+			c.members ~= member;
 		}
 
 		c.fields = fields;
 		c.step = Step.Populated;
+
 		scheduler.require(fields);
-
 		c.step = Step.Signed;
-		members = otherSymbols;
 
-		uint overloadCount = 0;
-		foreach (m; members) {
-			auto method = cast(Method) m;
-			if (method is null) {
-				continue;
-			}
+		Method[] methods = baseMethods.dup;
+		NewMethodLoop: foreach (m; newMethods) {
+			scheduler.require(m, Step.Signed);
 
-			scheduler.require(method, Step.Signed);
-
-			auto mt = method.type;
+			auto mt = m.type;
 			auto rt = mt.returnType;
 			auto ats = mt.parameters[1 .. $];
 
-			CandidatesLoop: foreach (ref candidate; baseMethods) {
-				if (!candidate || method.name != candidate.name) {
+			CandidatesLoop: foreach (i, candidate; baseMethods) {
+				if (!candidate || m.name != candidate.name) {
 					continue;
 				}
 
@@ -886,17 +878,16 @@ struct SymbolAnalyzer {
 
 					auto pk =
 						implicitCastFrom(pass, cpt.getType(), at.getType());
-
 					if (pk < CastKind.Exact) {
 						continue CandidatesLoop;
 					}
 				}
 
-				if (method.index != -1) {
+				if (m.index != -1) {
 					import source.exception;
 					throw new CompileException(
-						method.location,
-						method.name.toString(context)
+						m.location,
+						m.name.toString(context)
 							~ " overrides a base class method "
 							~ "but is not marked override."
 					);
@@ -905,63 +896,50 @@ struct SymbolAnalyzer {
 				if (candidate.isFinal) {
 					import source.exception;
 					throw new CompileException(
-						method.location,
-						method.name.toString(context)
-							~ " overrides a final method."
+						m.location,
+						m.name.toString(context) ~ " overrides a final method.",
 					);
 				}
 
-				method.index = candidate.index;
+				m.index = candidate.index;
+
+				assert(candidate.index == i);
+				baseMethods[i] = null;
+				methods[i] = m;
 
 				// Remove candidate from scope.
-				auto os = cast(OverloadSet) c.resolve(c.location, method.name);
+				auto os = cast(OverloadSet) c.resolve(c.location, m.name);
 				assert(os, "This must be an overload set");
 
-				uint i = 0;
-				while (os.set[i] !is candidate) {
-					i++;
+				uint k = 0;
+				while (os.set[k] !is candidate) {
+					k++;
 				}
 
-				foreach (s; os.set[i + 1 .. $]) {
-					os.set[i++] = s;
+				foreach (s; os.set[k + 1 .. $]) {
+					os.set[k++] = s;
 				}
 
-				os.set = os.set[0 .. i];
-
-				overloadCount++;
-				candidate = null;
-				break;
+				os.set = os.set[0 .. k];
+				continue NewMethodLoop;
 			}
 
-			if (method.index == -1) {
+			if (m.index == -1) {
 				import source.exception;
 				throw new CompileException(
-					method.location,
-					"Override not found for " ~ method.name.toString(context)
+					m.location,
+					"Override not found for " ~ m.name.toString(context)
 				);
 			}
+
+			assert(m.index == methods.length, "Invalid method index!");
+			methods ~= m;
 		}
 
-		// Remove overloaded base method.
-		if (overloadCount) {
-			uint i = 0;
-			while (baseMethods[i] !is null) {
-				i++;
-			}
+		scheduler.require(methods);
+		c.methods = methods;
 
-			foreach (baseMethod; baseMethods[i + 1 .. $]) {
-				if (baseMethod) {
-					baseMethods[i++] = baseMethod;
-				}
-			}
-
-			baseMethods = baseMethods[0 .. i];
-		}
-
-		c.members ~= baseMethods;
-		scheduler.require(members);
-		c.members ~= members;
-
+		scheduler.require(c.members);
 		c.step = Step.Processed;
 	}
 
