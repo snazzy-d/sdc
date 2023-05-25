@@ -814,11 +814,11 @@ struct SymbolAnalyzer {
 		if (c.hasContext) {
 			// XXX: check for duplicate.
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
+			auto nullCtxPtr = new NullLiteral(c.location, ctxPtr);
 
 			import source.name;
-			auto ctx =
-				new Field(c.location, fieldIndex++, ctxPtr, BuiltinName!"__ctx",
-				          new NullLiteral(c.location, ctxPtr));
+			auto ctx = new Field(c.location, fieldIndex++, ctxPtr,
+			                     BuiltinName!"__ctx", nullCtxPtr);
 
 			ctx.step = Step.Processed;
 			fields ~= ctx;
