@@ -124,8 +124,6 @@ struct LocalGen {
 		lookup = globals;
 
 		auto fun = lookup.get(f, {
-			auto name = f.mangle.toStringz(pass.context);
-
 			import d.llvm.type;
 			auto type = TypeGen(pass).getFunctionType(f.type);
 
@@ -135,8 +133,20 @@ struct LocalGen {
 			}
 
 			// Sanity check: do not declare multiple time.
-			assert(!LLVMGetNamedFunction(pass.dmodule, name),
-			       f.mangle.toString(pass.context) ~ " is already declared.");
+			auto name = f.mangle.toStringz(pass.context);
+			if (auto fun = LLVMGetNamedFunction(pass.dmodule, name)) {
+				if (type != LLVMGlobalGetValueType(fun)
+					    || (LLVMCountBasicBlocks(fun) > 0 && f.fbody)) {
+					import source.exception;
+					throw new CompileException(
+						f.location,
+						"Invalid redefinition of "
+							~ f.name.toString(pass.context)
+					);
+				}
+
+				return lookup[f] = fun;
+			}
 
 			return lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
 		}());
@@ -171,7 +181,7 @@ struct LocalGen {
 	private bool maybeDefine(Function f, LLVMValueRef fun)
 			in(f.step == Step.Processed, "f is not processed") {
 		auto countBB = LLVMCountBasicBlocks(fun);
-		if (countBB) {
+		if (countBB > 0) {
 			return false;
 		}
 

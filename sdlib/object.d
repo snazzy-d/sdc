@@ -45,7 +45,7 @@ extern(C) {
 	void __sd_assert_fail_msg(string, string, int);
 	void __sd_eh_throw(Throwable t);
 	int __sd_eh_personality(int, int, ulong, void*, void*);
-	int __sd_array_outofbounds(string, int);
+	void __sd_array_outofbounds(string, int);
 	void* __sd_gc_alloc(size_t);
 
 	// We should be using some dedicated array API instead of this.
