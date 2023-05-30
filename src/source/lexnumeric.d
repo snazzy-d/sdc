@@ -8,33 +8,55 @@ mixin template LexNumericImpl(
 	/**
 	 * Integral and float literals.
 	 */
-	Token lexIntegralSuffix(uint begin, ulong value) {
-		return lexLiteralSuffix!IntegralSuffixes(begin, value);
+	Token lexIntegralSuffix(uint begin, ulong value, bool overflow) {
+		return lexLiteralSuffix!IntegralSuffixes(begin, value, overflow);
 	}
 
-	Token getIntegerLiteral(string s)(Location location, ulong value) {
+	Token getIntegerLiteral(string s)(Location location, ulong value,
+	                                  bool overflow) {
+		if (overflow) {
+			return getError(location, "Integral too large to fit in 64 bits.");
+		}
+
 		return Token
 			.getIntegerLiteral(location, Token.PackedInt.get(context, value));
 	}
 
-	Token lexFloatSuffix(bool IsHex)(uint begin, ulong mantissa, int exponent) {
+	Token lexFloatSuffix(bool IsHex)(uint begin, ulong mantissa, bool overflow,
+	                                 int exponent) {
+		return lexLiteralSuffix!(FloatSuffixes, IsHex)(begin, mantissa,
+		                                               overflow, exponent);
+	}
+
+	Token lexDecimalFloatSuffix(uint begin, ulong mantissa, bool overflow,
+	                            int exponent) {
+		return lexFloatSuffix!false(begin, mantissa, overflow, exponent);
+	}
+
+	Token lexHexadecimalFloatSuffix(uint begin, ulong mantissa, bool overflow,
+	                                int exponent) {
+		return lexFloatSuffix!true(begin, mantissa, overflow, exponent);
+	}
+
+	Token getHexFloatLiteral()(Location location, ulong mantissa, bool overflow,
+	                           int exponent) {
 		return
-			lexLiteralSuffix!(FloatSuffixes, IsHex)(begin, mantissa, exponent);
-	}
-
-	Token lexDecimalFloatSuffix(uint begin, ulong mantissa, int exponent) {
-		return lexFloatSuffix!false(begin, mantissa, exponent);
-	}
-
-	Token lexHexadecimalFloatSuffix(uint begin, ulong mantissa, int exponent) {
-		return lexFloatSuffix!true(begin, mantissa, exponent);
+			getFloatLiteral!("", true)(location, mantissa, overflow, exponent);
 	}
 
 	Token getFloatLiteral(string s : "", bool IsHex)(
 		Location location,
 		ulong mantissa,
+		bool overflow,
 		int exponent,
 	) {
+		if (overflow) {
+			// FIXME: Decode floats with overflowing mantissa.
+			return getError(
+				location, "Floats with overflowing mantissa are not supported."
+			);
+		}
+
 		import source.packedfloat;
 		auto pf = IsHex
 			? Token.PackedFloat.fromHexadecimal(context, mantissa, exponent)
@@ -67,7 +89,7 @@ mixin template LexNumericImpl(
 
 		int exponent = 0;
 		ulong mantissa = 0;
-		popFun!decode(mantissa);
+		bool overflow = popFun!decode(mantissa);
 
 		bool isFloat = false;
 		bool hasExponent = false;
@@ -82,7 +104,9 @@ mixin template LexNumericImpl(
 			}
 
 			if (isFun(frontChar)) {
-				exponent -= popFun!decode(mantissa) * ExponentScaleFactor;
+				uint count = 0;
+				overflow |= popFun!decode(mantissa, count);
+				exponent -= count * ExponentScaleFactor;
 				isFloat = true;
 				goto LexExponent;
 			}
@@ -120,7 +144,12 @@ mixin template LexNumericImpl(
 			}
 
 			ulong value = 0;
-			popDecimal!decode(value);
+			if (popDecimal!decode(value) || value > int.max) {
+				// When the exponent overflows, we just make it very large
+				// in order to get an infinity after decoding.
+				exponent = 0;
+				value = int.max;
+			}
 
 			import util.math;
 			exponent += maybeNegate(value, neg);
@@ -131,12 +160,12 @@ mixin template LexNumericImpl(
 		}
 
 	LexIntegral:
-		return lexIntegralSuffix(begin, mantissa);
+		return lexIntegralSuffix(begin, mantissa, overflow);
 
 	LexFloat:
 		bool isDec = IsDec;
 		if (isDec) {
-			return lexDecimalFloatSuffix(begin, mantissa, exponent);
+			return lexDecimalFloatSuffix(begin, mantissa, overflow, exponent);
 		}
 
 		// Exponent is mandatory for hex floats.
@@ -145,14 +174,19 @@ mixin template LexNumericImpl(
 			                "An exponent is mandatory for hexadecimal floats.");
 		}
 
-		return lexHexadecimalFloatSuffix(begin, mantissa, exponent);
+		return lexHexadecimalFloatSuffix(begin, mantissa, overflow, exponent);
 	}
 
 	/**
 	 * Binary literals.
 	 */
-	uint popBinary(bool decode)(ref ulong result) {
+	bool popBinary(bool decode)(ref ulong result) {
 		uint count = 0;
+		return popBinary!decode(result, count);
+	}
+
+	bool popBinary(bool decode)(ref ulong result, ref uint count) {
+		uint overflow = 0;
 		while (true) {
 			while (frontChar == '_') {
 				popChar();
@@ -163,6 +197,7 @@ mixin template LexNumericImpl(
 			ulong state;
 			while (startsWith8BinDigits(remainingContent, state)) {
 				if (decode) {
+					overflow |= result >> 56;
 					result <<= 8;
 					result |= parseBinDigits(remainingContent);
 				}
@@ -174,6 +209,7 @@ mixin template LexNumericImpl(
 			if (hasMoreDigits(state)) {
 				auto digitCount = getDigitCount(state);
 				if (decode) {
+					overflow |= result >> (64 - digitCount);
 					result <<= digitCount;
 					result |= parseBinDigits(remainingContent, digitCount);
 				}
@@ -183,7 +219,7 @@ mixin template LexNumericImpl(
 			}
 
 			if (frontChar != '_') {
-				return count;
+				return overflow != 0;
 			}
 
 			popChar();
@@ -212,13 +248,10 @@ mixin template LexNumericImpl(
 		}
 
 		ulong value = 0;
-		if (decodeLiterals) {
-			popBinary!true(value);
-		} else {
-			popBinary!false(value);
-		}
+		auto overflow =
+			decodeLiterals ? popBinary!true(value) : popBinary!false(value);
 
-		return lexIntegralSuffix(begin, value);
+		return lexIntegralSuffix(begin, value, overflow);
 	}
 
 	/**
@@ -229,8 +262,13 @@ mixin template LexNumericImpl(
 		return (c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f');
 	}
 
-	uint popHexadecimal(bool decode)(ref ulong result) {
+	bool popHexadecimal(bool decode)(ref ulong result) {
 		uint count = 0;
+		return popHexadecimal!decode(result, count);
+	}
+
+	bool popHexadecimal(bool decode)(ref ulong result, ref uint count) {
+		uint overflow = 0;
 		while (true) {
 			while (frontChar == '_') {
 				popChar();
@@ -241,6 +279,7 @@ mixin template LexNumericImpl(
 			ulong state;
 			while (startsWith8HexDigits(remainingContent, state)) {
 				if (decode) {
+					overflow |= result >> 32;
 					result <<= 32;
 					result |= parseHexDigits!uint(remainingContent);
 				}
@@ -252,7 +291,9 @@ mixin template LexNumericImpl(
 			if (hasMoreDigits(state)) {
 				auto digitCount = getDigitCount(state);
 				if (decode) {
-					result <<= (4 * digitCount);
+					auto shift = 4 * digitCount;
+					overflow |= result >> (64 - shift);
+					result <<= shift;
 					result |= parseHexDigits(remainingContent, digitCount);
 				}
 
@@ -261,7 +302,7 @@ mixin template LexNumericImpl(
 			}
 
 			if (frontChar != '_') {
-				return count;
+				return overflow != 0;
 			}
 
 			popChar();
@@ -299,20 +340,29 @@ mixin template LexNumericImpl(
 		return c >= '0' && c <= '9';
 	}
 
-	uint popDecimal(bool decode)(ref ulong result) {
+	bool popDecimal(bool decode)(ref ulong result) {
 		uint count = 0;
+		return popDecimal!decode(result, count);
+	}
+
+	bool popDecimal(bool decode)(ref ulong result, ref uint count) {
+		ulong overflow = 0;
 		while (true) {
 			while (frontChar == '_') {
 				popChar();
 			}
 
-			import source.swar.dec;
+			import source.swar.dec, util.math;
 
 			ulong state;
 			while (startsWith8DecDigits(remainingContent, state)) {
 				if (decode) {
-					result *= 100000000;
-					result += parseDecDigits!uint(remainingContent);
+					auto scaled = result * 100000000;
+					auto next = parseDecDigits!uint(remainingContent);
+
+					overflow |= mulhi(result, 100000000);
+					result = next + scaled;
+					overflow |= result < scaled;
 				}
 
 				count += 8;
@@ -325,8 +375,13 @@ mixin template LexNumericImpl(
 
 				auto digitCount = getDigitCount(state);
 				if (decode) {
-					result *= POWERS_OF_10[digitCount];
-					result += parseDecDigits(remainingContent, digitCount);
+					auto p10 = POWERS_OF_10[digitCount];
+					auto scaled = result * p10;
+					auto next = parseDecDigits(remainingContent, digitCount);
+
+					overflow |= mulhi(result, p10);
+					result = next + scaled;
+					overflow |= result < scaled;
 				}
 
 				count += digitCount;
@@ -334,7 +389,7 @@ mixin template LexNumericImpl(
 			}
 
 			if (frontChar != '_') {
-				return count;
+				return overflow != 0;
 			}
 
 			popChar();
@@ -399,12 +454,7 @@ unittest {
 		lex.match(TokenType.Begin);
 
 		auto t = lex.match(TokenType.FloatLiteral);
-		assert(t.packedFloat.to!double(context) is expected || s.length > 19,
-		       s);
-
-		// FIXME: Handle the cases where the mantissa overflows an ulong.
-		assert(t.packedFloat.to!double(context) is expected || s.length > 19,
-		       s);
+		assert(t.packedFloat.to!double(context) is expected, s);
 
 		import std.conv;
 		try {
@@ -571,6 +621,40 @@ unittest {
 	checkLexIntegral("0x12345aBcDeF", 1251004370415);
 	checkLexIntegral("0x12345aBcDeF0", 20016069926640);
 
+	// Overflow.
+	checkLexIntegral("18446744073709551615", ulong.max);
+	checkLexInvalid("18446744073709551616",
+	                "Integral too large to fit in 64 bits.");
+	checkLexInvalid("1844674407370955161500000000",
+	                "Integral too large to fit in 64 bits.");
+
+	checkLexIntegral(
+		"0b1111111111111111111111111111111111111111111111111111111111111111",
+		ulong.max
+	);
+	checkLexInvalid(
+		"0b10000000000000000000000000000000000000000000000000000000000000000",
+		"Integral too large to fit in 64 bits.");
+	checkLexInvalid(
+		"0b111111111111111111111111111111111111111111111111111111111111111100000000",
+		"Integral too large to fit in 64 bits.");
+
+	checkLexIntegral("0xffffffffffffffff", ulong.max);
+	checkLexInvalid("0x10000000000000000",
+	                "Integral too large to fit in 64 bits.");
+	checkLexInvalid("0xffffffffffffffff00000000",
+	                "Integral too large to fit in 64 bits.");
+
+	checkLexFloat("1e2147483647", float.infinity);
+	checkLexFloat("1e2147483648", float.infinity);
+	checkLexFloat("1e18446744073709551615", float.infinity);
+	checkLexFloat("1e18446744073709551616", float.infinity);
+
+	checkLexFloat("1e-2147483647", 0);
+	checkLexFloat("1e-2147483648", 0);
+	checkLexFloat("1e-18446744073709551615", 0);
+	checkLexFloat("1e-18446744073709551615", 0);
+
 	// Decimal floats.
 	checkLexFloat("1.", 1);
 	checkLexFloat("1.0", 1);
@@ -619,10 +703,18 @@ unittest {
 	checkLexFloat("1234567.89", 1234567.89);
 	checkLexFloat("12.3456789", 12.3456789);
 
+	/*
 	checkLexFloat("3.141592653589793115997963468544185161590576171875",
 	              3.141592653589793115997963468544185161590576171875);
 	checkLexFloat("3.321928094887362181708567732130177319049835205078125",
 	              3.321928094887362181708567732130177319049835205078125);
+	/*/
+	// FIXME: Decode floats with overflowing mantissa.
+	checkLexInvalid("3.141592653589793115997963468544185161590576171875",
+	                "Floats with overflowing mantissa are not supported.");
+	checkLexInvalid("3.321928094887362181708567732130177319049835205078125",
+	                "Floats with overflowing mantissa are not supported.");
+	//*/
 
 	// Decimal floats with underscores.
 	checkLexFloat("1_234_567.89", 1234567.89);
@@ -739,10 +831,19 @@ unittest {
 	checkLexFloat("0xa.ap+1", 21.25);
 	checkLexFloat("0xa.ap-1", 5.3125);
 
+	/*
 	checkLexFloat("0x1.921fb54442d1846ap+1",
 	              3.141592653589793115997963468544185161590576171875);
 	checkLexFloat("0x1.a934f0979a3715fcp+1",
 	              3.321928094887362181708567732130177319049835205078125);
+	/*/
+	// FIXME: Decode floats with overflowing mantissa.
+	checkLexInvalid("0x1.921fb54442d1846ap+1",
+	                "Floats with overflowing mantissa are not supported.");
+	checkLexInvalid("0x1.a934f0979a3715fcp+1",
+	                "Floats with overflowing mantissa are not supported.");
+
+	//*/
 
 	checkLexFloat("0x123456.abcdefp0", 1193046.671111047267913818359375);
 	checkLexFloat("0x1_23_456.abc_defp0", 1193046.671111047267913818359375);

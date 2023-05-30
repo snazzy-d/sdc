@@ -403,32 +403,39 @@ struct DLexer {
 		"lU": "getIntegerLiteral",
 		"Lu": "getIntegerLiteral",
 		"LU": "getIntegerLiteral",
-		"f": "getFloatLiteral",
-		"F": "getFloatLiteral",
+		"f": "getIntegerFloatLiteral",
+		"F": "getIntegerFloatLiteral",
 	], [
-		"" : "getFloatLiteral",
-		"f": "getFloatLiteral",
-		"F": "getFloatLiteral",
-		"L": "getFloatLiteral",
-		"l": "getFloatLiteral",
+		"" : "getDFloatLiteral",
+		"f": "getDFloatLiteral",
+		"F": "getDFloatLiteral",
+		"L": "getDFloatLiteral",
+		"l": "getDFloatLiteral",
 	]);
 	// sdfmt on
 
-	auto getFloatLiteral(string s)(Location location, ulong value) {
+	auto getIntegerFloatLiteral(string s)(Location location, ulong value,
+	                                      bool overflow) {
+		if (overflow) {
+			return getHexFloatLiteral(location, value, overflow, 0);
+		}
+
 		auto pf = Token.PackedFloat.fromInt(context, value);
 		return Token.getFloatLiteral(location, pf);
 	}
 
-	auto getFloatLiteral(string s, bool IsHex)(Location location,
-	                                           ulong mantissa, int exponent) {
+	auto getDFloatLiteral(string s, bool IsHex)(
+		Location location,
+		ulong mantissa,
+		bool overflow,
+		int exponent,
+	) {
 		if (s == "l") {
 			return getError(location, "Use 'L' suffix instead of 'l'.");
 		}
 
-		auto pf = IsHex
-			? Token.PackedFloat.fromHexadecimal(context, mantissa, exponent)
-			: Token.PackedFloat.fromDecimal(context, mantissa, exponent);
-		return Token.getFloatLiteral(location, pf);
+		return
+			getFloatLiteral!("", IsHex)(location, mantissa, overflow, exponent);
 	}
 
 	/**
@@ -1197,14 +1204,39 @@ unittest {
 	{
 		auto lex = testlexer("0x1.921fb54442d1846ap+1L");
 		lex.match(TokenType.Begin);
+		/*
 		lex.match(TokenType.FloatLiteral);
+		/*/
+		// FIXME: Decode floats with overflowing mantissa.
+		lex.match(TokenType.Invalid);
+		// */
 		assert(lex.front.type == TokenType.End);
 	}
 
 	{
 		auto lex = testlexer("0x1.a934f0979a3715fcp+1L");
 		lex.match(TokenType.Begin);
+		/*
 		lex.match(TokenType.FloatLiteral);
+		/*/
+		// FIXME: Decode floats with overflowing mantissa.
+		lex.match(TokenType.Invalid);
+		// */
+		assert(lex.front.type == TokenType.End);
+	}
+
+	// Overflow.
+	{
+		auto lex = testlexer("18446744073709551615f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.FloatLiteral);
+		assert(lex.front.type == TokenType.End);
+	}
+
+	{
+		auto lex = testlexer("18446744073709551618f");
+		lex.match(TokenType.Begin);
+		lex.match(TokenType.Invalid);
 		assert(lex.front.type == TokenType.End);
 	}
 
