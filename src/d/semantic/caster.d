@@ -327,11 +327,16 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				bt = unsigned(bt);
 				if (ut == bt) {
 					return CastKind.Bit;
-				} else if (ut < bt) {
+				}
+
+				if (ut < bt) {
 					return isSigned(t) ? CastKind.SPad : CastKind.UPad;
-				} else static if (isExplicit) {
+				}
+
+				static if (isExplicit) {
 					return CastKind.Trunc;
 				} else {
+					// This will trigger VRP.
 					return bailout(t);
 				}
 
