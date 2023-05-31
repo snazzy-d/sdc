@@ -83,7 +83,7 @@ private ubyte computeValue(ulong v) {
 	return v >> 56;
 }
 
-ubyte parseBinDigits(string s) in(s.length >= 8) {
+ubyte decodeBinDigits(string s) in(s.length >= 8) {
 	import source.swar.util;
 	auto v = unalignedLoad!ulong(s);
 	return computeValue(v);
@@ -96,11 +96,11 @@ unittest {
 	) {
 		ulong state;
 		assert(startsWith8BinDigits(s, state), s);
-		assert(parseBinDigits(s) == v, s);
+		assert(decodeBinDigits(s) == v, s);
 	}
 }
 
-ubyte parseBinDigits(string s, uint count) in(count < 8 && s.length >= count) {
+ubyte decodeBinDigits(string s, uint count) in(count < 8 && s.length >= count) {
 	import source.swar.util;
 	auto v = read!ulong(s);
 
@@ -114,6 +114,6 @@ unittest {
 		ulong state;
 		assert(!startsWith8BinDigits(s, state), s);
 		assert(hasMoreDigits(state));
-		assert(parseBinDigits(s, getDigitCount(state)) == v, s);
+		assert(decodeBinDigits(s, getDigitCount(state)) == v, s);
 	}
 }

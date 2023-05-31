@@ -224,7 +224,7 @@ mixin template LexStringImpl(Token,
 			import std.meta;
 			alias I = AliasSeq!(ubyte, ushort, uint)[T.sizeof / 2];
 
-			result = parseHexDigits!I(rc);
+			result = decodeHexDigits!I(rc);
 			index += N;
 			return true;
 		}

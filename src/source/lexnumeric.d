@@ -199,7 +199,7 @@ mixin template LexNumericImpl(
 				if (decode) {
 					overflow |= result >> 56;
 					result <<= 8;
-					result |= parseBinDigits(remainingContent);
+					result |= decodeBinDigits(remainingContent);
 				}
 
 				count += 8;
@@ -211,7 +211,7 @@ mixin template LexNumericImpl(
 				if (decode) {
 					overflow |= result >> (64 - digitCount);
 					result <<= digitCount;
-					result |= parseBinDigits(remainingContent, digitCount);
+					result |= decodeBinDigits(remainingContent, digitCount);
 				}
 
 				count += digitCount;
@@ -281,7 +281,7 @@ mixin template LexNumericImpl(
 				if (decode) {
 					overflow |= result >> 32;
 					result <<= 32;
-					result |= parseHexDigits!uint(remainingContent);
+					result |= decodeHexDigits!uint(remainingContent);
 				}
 
 				count += 8;
@@ -294,7 +294,7 @@ mixin template LexNumericImpl(
 					auto shift = 4 * digitCount;
 					overflow |= result >> (64 - shift);
 					result <<= shift;
-					result |= parseHexDigits(remainingContent, digitCount);
+					result |= decodeHexDigits(remainingContent, digitCount);
 				}
 
 				count += digitCount;
@@ -358,7 +358,7 @@ mixin template LexNumericImpl(
 			while (startsWith8DecDigits(remainingContent, state)) {
 				if (decode) {
 					auto scaled = result * 100000000;
-					auto next = parseDecDigits!uint(remainingContent);
+					auto next = decodeDecDigits!uint(remainingContent);
 
 					overflow |= mulhi(result, 100000000);
 					result = next + scaled;
@@ -377,7 +377,7 @@ mixin template LexNumericImpl(
 				if (decode) {
 					auto p10 = POWERS_OF_10[digitCount];
 					auto scaled = result * p10;
-					auto next = parseDecDigits(remainingContent, digitCount);
+					auto next = decodeDecDigits(remainingContent, digitCount);
 
 					overflow |= mulhi(result, p10);
 					result = next + scaled;

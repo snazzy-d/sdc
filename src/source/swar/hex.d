@@ -169,7 +169,7 @@ private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
 	return computeValue(v);
 }
 
-ubyte parseHexDigits(T : ubyte)(string s) in(s.length >= 2) {
+ubyte decodeHexDigits(T : ubyte)(string s) in(s.length >= 2) {
 	auto v = loadBuffer!ushort(s);
 	return ((v << 4) | (v >> 8)) & 0xff;
 }
@@ -192,11 +192,11 @@ unittest {
 		"fE": 0xfe,
 	]) {
 		assert(startsWithHexDigits!2(s), s);
-		assert(parseHexDigits!ubyte(s) == v, s);
+		assert(decodeHexDigits!ubyte(s) == v, s);
 	}
 }
 
-ushort parseHexDigits(T : ushort)(string s) in(s.length >= 4) {
+ushort decodeHexDigits(T : ushort)(string s) in(s.length >= 4) {
 	// v = [a, b, c, d]
 	auto v = loadBuffer!uint(s);
 
@@ -225,7 +225,7 @@ unittest {
 		"F1ac": 0xf1ac,
 	]) {
 		assert(startsWithHexDigits!4(s), s);
-		assert(parseHexDigits!ushort(s) == v, s);
+		assert(decodeHexDigits!ushort(s) == v, s);
 	}
 }
 
@@ -245,7 +245,7 @@ private uint reduceValue(ulong v) {
 	return (a | b) >> 32;
 }
 
-uint parseHexDigits(T : uint)(string s) in(s.length >= 8) {
+uint decodeHexDigits(T : uint)(string s) in(s.length >= 8) {
 	auto v = loadBuffer!ulong(s);
 	return reduceValue(v);
 }
@@ -266,11 +266,11 @@ unittest {
 		"0D15EA5E": 0x0d15ea5e,
 	]) {
 		assert(startsWithHexDigits!8(s), s);
-		assert(parseHexDigits!uint(s) == v, s);
+		assert(decodeHexDigits!uint(s) == v, s);
 	}
 }
 
-uint parseHexDigits(string s, uint count)
+uint decodeHexDigits(string s, uint count)
 		in(count < 8 && count > 0 && s.length >= count) {
 	import source.swar.util;
 	auto v = read!ulong(s);
@@ -296,6 +296,6 @@ unittest {
 		ulong state;
 		assert(!startsWith8HexDigits(s, state), s);
 		assert(hasMoreDigits(state));
-		assert(parseHexDigits(s, getDigitCount(state)) == v, s);
+		assert(decodeHexDigits(s, getDigitCount(state)) == v, s);
 	}
 }
