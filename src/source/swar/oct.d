@@ -95,7 +95,7 @@ private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
 	return v - cast(T) 0x3030303030303030;
 }
 
-ubyte parseOctDigits(T : ubyte)(string s) in(s.length >= 2) {
+ubyte decodeOctDigits(T : ubyte)(string s) in(s.length >= 2) {
 	auto v = loadBuffer!ushort(s);
 	return ((v << 3) | (v >> 8)) & 0xff;
 }
@@ -107,11 +107,11 @@ unittest {
 		assert(!startsWith8OctDigits(s, state), s);
 		assert(hasMoreDigits(state));
 		assert(getDigitCount(state) == 2, s);
-		assert(parseOctDigits!ubyte(s) == v, s);
+		assert(decodeOctDigits!ubyte(s) == v, s);
 	}
 }
 
-ushort parseOctDigits(T : ushort)(string s) in(s.length >= 4) {
+ushort decodeOctDigits(T : ushort)(string s) in(s.length >= 4) {
 	// v = [a, b, c, d]
 	auto v = loadBuffer!uint(s);
 
@@ -130,7 +130,7 @@ unittest {
 		assert(!startsWith8OctDigits(s, state), s);
 		assert(hasMoreDigits(state));
 		assert(getDigitCount(state) == 4, s);
-		assert(parseOctDigits!ushort(s) == v, s);
+		assert(decodeOctDigits!ushort(s) == v, s);
 	}
 }
 
@@ -150,7 +150,7 @@ private uint reduceValue(ulong v) {
 	return (a | b) >> 32;
 }
 
-uint parseOctDigits(T : uint)(string s) in(s.length >= 8) {
+uint decodeOctDigits(T : uint)(string s) in(s.length >= 8) {
 	auto v = loadBuffer!ulong(s);
 	return reduceValue(v);
 }
@@ -161,11 +161,11 @@ unittest {
 		 "12345670": 2739128, "52350167": 11128951, "77777777": 16777215]) {
 		ulong state;
 		assert(startsWith8OctDigits(s, state), s);
-		assert(parseOctDigits!uint(s) == v, s);
+		assert(decodeOctDigits!uint(s) == v, s);
 	}
 }
 
-uint parseOctDigits(string s, uint count)
+uint decodeOctDigits(string s, uint count)
 		in(count < 8 && count > 0 && s.length >= count) {
 	import source.swar.util;
 	auto v = read!ulong(s);
@@ -182,6 +182,6 @@ unittest {
 		ulong state;
 		assert(!startsWith8OctDigits(s, state), s);
 		assert(hasMoreDigits(state));
-		assert(parseOctDigits(s, getDigitCount(state)) == v, s);
+		assert(decodeOctDigits(s, getDigitCount(state)) == v, s);
 	}
 }
