@@ -45,11 +45,17 @@ unittest {
 	}
 }
 
+version(LDC) {
+	// Due to a frontend bug, importing ldc.llvmasm sometime leads
+	// to linker errors, so we declare it manually.
+	pragma(LDC_inline_ir)
+	R __ir(string s, R, P...)(P params) @trusted nothrow @nogc;
+}
+
 // I have not figured out how to do this in a sensible way.
 // See: https://forum.dlang.org/post/zsaghidvbsdwqthadphx@forum.dlang.org
 ulong mulhi()(ulong a, ulong b) {
 	version(LDC) {
-		import ldc.llvmasm;
 		return __ir!(`
 			%a = zext i64 %0 to i128
 			%b = zext i64 %1 to i128
