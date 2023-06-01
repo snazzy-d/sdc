@@ -66,15 +66,18 @@ int main(string[] args) {
 		}
 
 		import format.writer;
-		auto o = chunks.write(conf);
+		const output = chunks.write(conf);
 
 		if (inPlace) {
-			// TODO: Only write if the file changed.
-			import std.file;
-			filename.write(o);
+			const input = base.getFullPosition(context).getSource().getContent();
+			import std.string : cmp;
+			if (!cmp(input, output)) {
+				import std.file : write;
+				filename.write(output);
+			}
 		} else {
-			import std.stdio;
-			write(o);
+			import std.stdio : write;
+			write(output);
 		}
 	}
 
