@@ -97,7 +97,7 @@ struct DeclarationVisitor {
 
 		linkage = dscope.linkage;
 
-		// What a mess !
+		// What a mess!
 		if (aggregateType > AggregateType.None) {
 			inTemplate = dscope.inTemplate;
 			addThis = true;
@@ -465,12 +465,13 @@ struct DeclarationVisitor {
 		}
 	}
 
-	private Storage getStorage(StorageClass stc) {
-		if (stc.isStatic && stc.isEnum) {
-			assert(0, "cannot be static AND enum");
-		} else if (stc.isStatic) {
+	private Storage getStorage(StorageClass stc)
+			in(!stc.isStatic || !stc.isEnum, "cannot be static AND enum") {
+		if (stc.isStatic) {
 			return Storage.Static;
-		} else if (stc.isEnum) {
+		}
+
+		if (stc.isEnum) {
 			return Storage.Enum;
 		}
 
@@ -842,7 +843,7 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 			pass,
 			a.condition.location,
 			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
-			ExpressionVisitor(pass).visit(a.message)
+			ExpressionVisitor(pass).visit(a.message),
 		));
 
 		throw new CompileException(a.location, "assertion failure: " ~ msg);
