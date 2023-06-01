@@ -148,7 +148,7 @@ private:
 
 			case Assign:
 				return buildAssign(location, lhs, rhs);
-			//*
+
 			case Add, Sub:
 				auto isSub = op == Sub;
 
@@ -376,7 +376,9 @@ public:
 		// For fucked up reasons, &funcname is a special case.
 		if (auto se = cast(FunctionExpression) expr) {
 			return expr;
-		} else if (auto pe = cast(PolysemousExpression) expr) {
+		}
+
+		if (auto pe = cast(PolysemousExpression) expr) {
 			import std.algorithm, std.array;
 			pe.expressions =
 				pe.expressions.map!(e => handleAddressOf(e)).array();
@@ -395,12 +397,6 @@ public:
 		final switch (op) with (UnaryOp) {
 			case AddressOf:
 				return handleAddressOf(expr);
-
-				// It could have been so simple :(
-				/+
-				type = expr.type.getPointer();
-				break;
-				+/
 
 			case Dereference:
 				auto c = expr.type.getCanonical();
