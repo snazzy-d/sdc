@@ -29,7 +29,7 @@ mixin template LexBaseUtils() {
 	}
 
 	bool reachedEOF() const {
-		return index >= content.length - 1;
+		return index + 1 >= content.length;
 	}
 
 	auto skip(string s)() {
@@ -212,6 +212,33 @@ private:
 
 	Token getError(uint begin, string message) {
 		return getError(base.getWithOffsets(begin, index), message);
+	}
+
+	auto getExpectedError(alias failWithError = getError)(
+		uint begin,
+		string expected,
+		bool consume = false,
+	) {
+		import std.format;
+		auto found = "the end of the file";
+
+		if (!reachedEOF()) {
+			auto start = index;
+			dchar[1] c;
+
+			import source.util.utf8;
+			if (!decode(content, index, c[0])) {
+				return failWithError(start, "Invalid UTF-8 sequence.");
+			}
+
+			found = format!"%(%s%)"(c);
+			if (!consume) {
+				index = start;
+			}
+		}
+
+		return failWithError(begin,
+		                     format!"Expected %s, not %s."(expected, found));
 	}
 
 	/**

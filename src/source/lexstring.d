@@ -9,51 +9,49 @@ mixin template LexStringImpl(Token,
 		uint l = s.length;
 		uint begin = index - l;
 
+		if (reachedEOF()) {
+			return getExpectedError(begin, "a character literal");
+		}
+
 		char c = frontChar;
 		const start = index;
 		auto dc = DecodedChar(c);
 
-		if (c == '\0') {
-			return getError(begin, "Unexpected end of file.");
-		}
+		switch (c) {
+			case '\'':
+				popChar();
+				return getError(begin, "Character literal cannot be empty.");
 
-		if (c == '\'') {
-			popChar();
-			return getError(begin, "Character literals cannot be empty.");
-		}
+			case '\\':
+				popChar();
 
-		if (c == '\\') {
-			popChar();
+				auto es = lexEscapeSequence(start);
+				if (es.type == SequenceType.Invalid) {
+					if (frontChar == '\'') {
+						popChar();
+					}
 
-			auto es = lexEscapeSequence(start);
-			if (es.type == SequenceType.Invalid) {
-				if (frontChar == '\'') {
-					popChar();
+					return getError(es.location, es.error);
 				}
 
-				return getError(es.location, es.error);
-			}
+				dc = es.decodedChar;
+				break;
 
-			dc = es.decodedChar;
-		} else {
-			dchar d;
+			default:
+				dchar d;
 
-			import source.util.utf8;
-			if (!decode(content, index, d)) {
-				return getError(start, "Invalid UTF-8 sequence.");
-			}
+				import source.util.utf8;
+				if (!decode(content, index, d)) {
+					return getError(start, "Invalid UTF-8 sequence.");
+				}
 
-			dc = DecodedChar(d);
+				dc = DecodedChar(d);
+				break;
 		}
 
 		c = frontChar;
 		if (c != '\'') {
-			import std.format;
-			return getError(
-				begin,
-				format!"Expected `\'` to end charatcter literal, not %(%s%)."(
-					(&c)[0 .. 1]),
-			);
+			return getExpectedError(begin, "`\'` to end character literal");
 		}
 
 		popChar();
@@ -85,13 +83,13 @@ mixin template LexStringImpl(Token,
 		size_t start = index;
 
 		auto c = frontChar;
-		while (c != Delimiter && c != '\0') {
+		while (c != Delimiter) {
+			if (reachedEOF()) {
+				return getError(begin, "Unexpected end of file.");
+			}
+
 			popChar();
 			c = frontChar;
-		}
-
-		if (c == '\0') {
-			return getError(begin, "Unexpected end of file.");
 		}
 
 		uint end = popChar();
@@ -113,7 +111,11 @@ mixin template LexStringImpl(Token,
 		string decoded;
 
 		auto c = frontChar;
-		while (c != Delimiter && c != '\0') {
+		while (c != Delimiter) {
+			if (reachedEOF()) {
+				return getError(begin, "Unexpected end of file.");
+			}
+
 			if (c != '\\') {
 				popChar();
 				c = frontChar;
@@ -154,10 +156,6 @@ mixin template LexStringImpl(Token,
 
 			decoded = es.appendTo(decoded);
 			c = frontChar;
-		}
-
-		if (c == '\0') {
-			return getError(begin, "Unexpected end of file.");
 		}
 
 		uint end = popChar();
@@ -326,25 +324,9 @@ mixin template LexStringImpl(Token,
 			case '&':
 				assert(0, "HTML5 named character references not implemented");
 
-			case '\0':
-				goto Error;
-
 			default:
-				import source.util.utf8;
-				if (!decode(content, index, c)) {
-					return getEscapeSequenceError(begin,
-					                              "Invalid UTF-8 sequence.");
-				}
-
-				goto Error;
-
-			Error:
-				import std.format;
-				return getEscapeSequenceError(
-					begin,
-					format!"%(%s%) is not a valid escape sequence."(
-						(&c)[0 .. 1])
-				);
+				return getExpectedError!getEscapeSequenceError(
+					begin, "a valid escape sequence", true);
 		}
 
 		popChar();
@@ -388,14 +370,15 @@ unittest {
 		assert(lex.index == s.length + 1);
 	}
 
-	auto checkLexInvalid(string s, string error) {
+	auto checkLexInvalid(string s, string expected) {
 		auto lex = makeTestLexer(s);
 
 		import source.parserutil;
 		lex.match(TokenType.Begin);
 
 		auto t = lex.match(TokenType.Invalid);
-		assert(t.error.toString(context) == error);
+		auto error = t.error.toString(context);
+		assert(error == expected, error);
 	}
 
 	auto checkTokenSequence(string s, TokenType[] tokenTypes) {
@@ -422,8 +405,8 @@ unittest {
 	checkTokenSequence(`'\'""`, [TokenType.Invalid, TokenType.StringLiteral]);
 
 	checkLexChar("'a'", 0x61);
-	checkLexInvalid(`''`, "Character literals cannot be empty.");
-	checkLexInvalid(`'aa'`, "Expected `'` to end charatcter literal, not 'a'.");
+	checkLexInvalid(`''`, "Character literal cannot be empty.");
+	checkLexInvalid(`'aa'`, "Expected `'` to end character literal, not 'a'.");
 	checkLexInvalid("'\xc0'", "Invalid UTF-8 sequence.");
 
 	checkTokenSequence(
@@ -434,9 +417,46 @@ unittest {
 	checkTokenSequence("'\\\xc0'``",
 	                   [TokenType.Invalid, TokenType.StringLiteral]);
 
-	// Invalid strings and characters.
+	// Invalid strings.
 	checkLexInvalid(`"`, "Unexpected end of file.");
-	checkLexInvalid(`'`, "Unexpected end of file.");
+
+	// ASCII characters.
+	checkLexChar("' '", 0x20);
+	checkLexChar("'!'", 0x21);
+	checkLexChar("'0'", 0x30);
+	checkLexChar("'9'", 0x39);
+	checkLexChar("'A'", 0x41);
+	checkLexChar("'Z'", 0x5a);
+	checkLexChar("'a'", 0x61);
+	checkLexChar("'z'", 0x7a);
+	checkLexChar("'~'", 0x7e);
+
+	checkLexChar("'\0'", 0);
+	checkLexChar("'\t'", 0x09);
+	checkLexChar("'\r'", 0x0d);
+	checkLexChar("'\n'", 0x0a);
+
+	// Unfinished characters.
+	checkLexInvalid(`'`,
+	                "Expected a character literal, not the end of the file.");
+	checkLexInvalid(
+		"'a", "Expected `'` to end character literal, not the end of the file."
+	);
+	checkLexInvalid("'aa", "Expected `'` to end character literal, not 'a'.");
+	checkLexInvalid("'a ", "Expected `'` to end character literal, not ' '.");
+	checkLexInvalid("'a\n",
+	                "Expected `'` to end character literal, not '\\n'.");
+	checkLexInvalid("'αa", "Expected `'` to end character literal, not 'a'.");
+	checkLexInvalid("'aα", "Expected `'` to end character literal, not 'α'.");
+	checkLexInvalid(
+		"'\0", "Expected `'` to end character literal, not the end of the file."
+	);
+	checkLexInvalid(
+		"'\\", "Expected a valid escape sequence, not the end of the file.");
+	checkLexInvalid("'\\\0", "Expected a valid escape sequence, not '\\0'.");
+	checkLexInvalid(
+		"'\\n",
+		"Expected `'` to end character literal, not the end of the file.");
 
 	// Check unicode support.
 	checkLexString(`"\U0001F0BD\u0393α\u1FD6\u03B1\U0001FA01🙈🙉🙊\U0001F71A"`,
@@ -473,10 +493,9 @@ unittest {
 
 	// Check other escaped characters.
 	checkLexString(`"\'\"\?\$\0\a\b\f\r\n\t\v"`, "\'\"\?$\0\a\b\f\r\n\t\v");
-	checkLexInvalid(`"\c"`, "'c' is not a valid escape sequence.");
-	checkLexInvalid(`"\α"`, "'α' is not a valid escape sequence.");
-
-	checkLexInvalid(`'\`, `'\0' is not a valid escape sequence.`);
+	checkLexInvalid(`"\c"`, "Expected a valid escape sequence, not 'c'.");
+	checkLexInvalid(`"\α"`, "Expected a valid escape sequence, not 'α'.");
+	checkLexInvalid("'\\\0'", "Expected a valid escape sequence, not '\\0'.");
 
 	checkLexChar(`'\"'`, 0x22);
 	checkLexChar(`'\''`, 0x27);
@@ -490,8 +509,8 @@ unittest {
 	checkLexChar(`'\v'`, 11);
 	checkLexChar(`'\f'`, 12);
 	checkLexChar(`'\r'`, 13);
-	checkLexInvalid(`'\c'`, "'c' is not a valid escape sequence.");
-	checkLexInvalid(`'\α'`, "'α' is not a valid escape sequence.");
+	checkLexInvalid(`'\c'`, "Expected a valid escape sequence, not 'c'.");
+	checkLexInvalid(`'\α'`, "Expected a valid escape sequence, not 'α'.");
 
 	checkTokenSequence(`'\0'"\0"`,
 	                   [TokenType.CharacterLiteral, TokenType.StringLiteral]);
@@ -536,9 +555,9 @@ unittest {
 	checkLexChar(`'\111'`, 0x49);
 	checkLexChar(`'\377'`, 0xff);
 	checkLexInvalid(`'\1111'`,
-	                "Expected `'` to end charatcter literal, not '1'.");
+	                "Expected `'` to end character literal, not '1'.");
 	checkLexInvalid(`'\378'`,
-	                "Expected `'` to end charatcter literal, not '8'.");
+	                "Expected `'` to end character literal, not '8'.");
 	checkLexInvalid(`'\400'`,
 	                `Escape octal sequence \400 is larger than \377.`);
 
