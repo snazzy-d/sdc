@@ -85,7 +85,9 @@ mixin template LexStringImpl(Token,
 		auto c = frontChar;
 		while (c != Delimiter) {
 			if (reachedEOF()) {
-				return getError(begin, "Unexpected end of file.");
+				import std.format;
+				enum E = format!"'%s' to end string literal"(Delimiter);
+				return getExpectedError(begin, E);
 			}
 
 			popChar();
@@ -113,7 +115,9 @@ mixin template LexStringImpl(Token,
 		auto c = frontChar;
 		while (c != Delimiter) {
 			if (reachedEOF()) {
-				return getError(begin, "Unexpected end of file.");
+				import std.format;
+				enum E = format!"'%s' to end string literal"(Delimiter);
+				return getExpectedError(begin, E);
 			}
 
 			if (c != '\\') {
@@ -418,7 +422,10 @@ unittest {
 	                   [TokenType.Invalid, TokenType.StringLiteral]);
 
 	// Invalid strings.
-	checkLexInvalid(`"`, "Unexpected end of file.");
+	checkLexInvalid(
+		`"`, `Expected '"' to end string literal, not the end of the file.`);
+	checkLexInvalid(
+		"`", "Expected '`' to end string literal, not the end of the file.");
 
 	// ASCII characters.
 	checkLexChar("' '", 0x20);
