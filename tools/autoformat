@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+cd "$SCRIPTDIR"
+
+ROOTDIR=$(git rev-parse --show-toplevel)
+cd "$ROOTDIR"
+
+FILES=$(git diff --name-only "$(git merge-base master HEAD^)" | grep -e "\.d$" || true)
+TOTAL=$(echo "${FILES}" | wc -w)
+
+if [[ "$TOTAL" == 0 ]]; then
+	echo "No files to format."
+	exit 0
+fi
+
+echo Building sdfmt...
+make -j bin/sdfmt
+
+COUNTER=0
+process_file() {
+	FILE=$1
+	echo "Formatting ${FILE}"
+
+	bin/sdfmt -i "$FILE"
+
+	if [[ -t 1 ]]; then
+		printf "%u/%u\r" $(( ++COUNTER )) "$TOTAL"
+	fi
+}
+
+export -f process_file
+parallel process_file ::: "$FILES"
