@@ -1,6 +1,8 @@
 module source.lexbase;
 
 mixin template LexBaseUtils() {
+private:
+
 	uint popChar(uint count = 1) in(index + count <= content.length) {
 		auto ret = index;
 		index += count;
@@ -28,7 +30,7 @@ mixin template LexBaseUtils() {
 		return content.ptr[index .. content.length];
 	}
 
-	bool reachedEOF() const {
+	public bool reachedEOF() const {
 		return index + 1 >= content.length;
 	}
 
@@ -144,12 +146,12 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 		return t.type == TokenType.End;
 	}
 
-private:
 	/**
 	 * Basic utilities.
 	 */
 	mixin LexBaseUtils;
 
+private:
 	/**
 	 * White spaces.
 	 */
