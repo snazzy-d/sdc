@@ -220,7 +220,8 @@ private:
 		bool consume = false,
 	) {
 		import std.format;
-		auto found = "the end of the file";
+		auto found =
+			base.isMixin() ? "the end of the input" : "the end of the file";
 
 		if (!reachedEOF()) {
 			auto start = index;

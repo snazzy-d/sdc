@@ -423,9 +423,9 @@ unittest {
 
 	// Invalid strings.
 	checkLexInvalid(
-		`"`, `Expected '"' to end string literal, not the end of the file.`);
+		`"`, `Expected '"' to end string literal, not the end of the input.`);
 	checkLexInvalid(
-		"`", "Expected '`' to end string literal, not the end of the file.");
+		"`", "Expected '`' to end string literal, not the end of the input.");
 
 	// ASCII characters.
 	checkLexChar("' '", 0x20);
@@ -445,9 +445,9 @@ unittest {
 
 	// Unfinished characters.
 	checkLexInvalid(`'`,
-	                "Expected a character literal, not the end of the file.");
+	                "Expected a character literal, not the end of the input.");
 	checkLexInvalid(
-		"'a", "Expected `'` to end character literal, not the end of the file."
+		"'a", "Expected `'` to end character literal, not the end of the input."
 	);
 	checkLexInvalid("'aa", "Expected `'` to end character literal, not 'a'.");
 	checkLexInvalid("'a ", "Expected `'` to end character literal, not ' '.");
@@ -456,14 +456,14 @@ unittest {
 	checkLexInvalid("'αa", "Expected `'` to end character literal, not 'a'.");
 	checkLexInvalid("'aα", "Expected `'` to end character literal, not 'α'.");
 	checkLexInvalid(
-		"'\0", "Expected `'` to end character literal, not the end of the file."
-	);
+		"'\0",
+		"Expected `'` to end character literal, not the end of the input.");
 	checkLexInvalid(
-		"'\\", "Expected a valid escape sequence, not the end of the file.");
+		"'\\", "Expected a valid escape sequence, not the end of the input.");
 	checkLexInvalid("'\\\0", "Expected a valid escape sequence, not '\\0'.");
 	checkLexInvalid(
 		"'\\n",
-		"Expected `'` to end character literal, not the end of the file.");
+		"Expected `'` to end character literal, not the end of the input.");
 
 	// Check unicode support.
 	checkLexString(`"\U0001F0BD\u0393α\u1FD6\u03B1\U0001FA01🙈🙉🙊\U0001F71A"`,
