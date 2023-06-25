@@ -26,3 +26,15 @@ class CompileException : Exception {
 		return location.getFullLocation(c);
 	}
 }
+
+class IncompleteInputException : CompileException {
+	import source.location;
+
+	this(Location loc, string message) {
+		super(loc, message);
+	}
+
+	this(Location loc, string message, CompileException more) {
+		super(loc, message, more);
+	}
+}
