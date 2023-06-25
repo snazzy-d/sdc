@@ -30,12 +30,13 @@ private:
 		return content.ptr[index .. content.length];
 	}
 
-	public bool reachedEOF() const {
-		return index + 1 >= content.length;
-	}
-
 	auto skip(string s)() {
 		// Just skip over whitespaces.
+	}
+
+public:
+	bool reachedEOF() const {
+		return index + 1 >= content.length;
 	}
 }
 
