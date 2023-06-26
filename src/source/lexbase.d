@@ -248,29 +248,13 @@ private:
 	/**
 	 * Fallback for invalid prefixes.
 	 */
-	static identifierPrefixLength(string s) {
-		// FIXME: Unicode start.
-		import source.util.ascii;
-		if (s == "" || !isAsciiIdStart(s[0])) {
-			return 0;
-		}
-
-		foreach (size_t i, dchar c; s) {
-			import std.uni;
-			if (c != '_' && !isAlphaNum(c)) {
-				return i;
-			}
-		}
-
-		return s.length;
-	}
-
 	auto lexDefaultFallback(string s)() {
 		if (s == "") {
 			return lexIdentifier();
 		}
 
-		enum PL = identifierPrefixLength(s);
+		import source.util.identifier;
+		enum PL = skipIdentifier(s ~ '\0');
 		enum Delta = s.length - PL;
 		index -= Delta;
 
@@ -306,58 +290,37 @@ private:
 	/**
 	 * Identifiers.
 	 */
-	static wantIdentifier(char c) {
-		import source.util.ascii;
-		return (c & 0x80) || isAsciiIdStart(c);
+	auto popIdentifier() {
+		import source.util.identifier;
+		auto count = skipIdentifier(remainingContent);
+
+		popChar(count);
+		return count;
 	}
 
-	auto popIdChars() {
-		const begin = index;
-		while (true) {
-			char c = frontChar;
-
-			if (c < 0x80) {
-				import source.util.ascii;
-				if (isAsciiIdContinue(c)) {
-					popChar();
-					continue;
-				}
-
-				break;
-			}
-
-			uint i = index;
-			dchar u;
-
-			import source.util.utf8;
-			if (!decode(content, i, u)) {
-				break;
-			}
-
-			import std.uni : isAlpha;
-			if (!isAlpha(u)) {
-				break;
-			}
-
-			index = i;
+	auto popIdentifierWithPrefix(string s)() {
+		if (s == "") {
+			return popIdentifier();
 		}
 
-		return begin - index;
+		uint begin = index;
+
+		import source.util.identifier;
+		index = skipIdContinue(content, index);
+
+		return index - begin;
 	}
 
 	auto lexIdentifier(string s = "")() {
-		static assert(identifierPrefixLength(s) == s.length,
+		import source.util.identifier;
+		static assert(skipIdentifier(s ~ '\0') == s.length,
 		              s ~ " must be an identifier.");
 
 		uint l = s.length;
 		uint begin = index - l;
 
-		if (s == "") {
-			if (!wantIdentifier(frontChar) || popIdChars() == 0) {
-				return lexInvalid();
-			}
-		} else {
-			popIdChars();
+		if (popIdentifierWithPrefix!s() == 0 && s == "") {
+			return lexInvalid();
 		}
 
 		auto location = base.getWithOffsets(begin, index);
@@ -386,7 +349,7 @@ private:
 
 		auto location = base.getWithOffsets(begin, index);
 
-		if (popIdChars() == 0) {
+		if (popIdentifierWithPrefix!s() == 0) {
 			return Token.getKeyword!s(location);
 		}
 
@@ -422,7 +385,7 @@ private:
 
 		private
 		Token fun(string s, T...)(uint begin, uint prefixStart, T args) {
-			if (popIdChars() != 0) {
+			if (popIdentifierWithPrefix!s() > 0) {
 				// We have something else.
 				import std.format;
 				return getError(

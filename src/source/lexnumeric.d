@@ -115,7 +115,9 @@ mixin template LexNumericImpl(
 
 			auto floatSavePoint = index;
 			popWhiteSpaces();
-			if (wantIdentifier(frontChar)) {
+
+			import source.util.identifier;
+			if (expectsIdentifier(remainingContent)) {
 				index = dotSavePoint;
 				goto LexIntegral;
 			}
