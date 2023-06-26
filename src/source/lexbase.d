@@ -249,7 +249,9 @@ private:
 	 * Fallback for invalid prefixes.
 	 */
 	static identifierPrefixLength(string s) {
-		if (s == "" || !wantIdentifier(s[0])) {
+		// FIXME: Unicode start.
+		import source.util.ascii;
+		if (s == "" || !isAsciiIdStart(s[0])) {
 			return 0;
 		}
 
@@ -305,8 +307,8 @@ private:
 	 * Identifiers.
 	 */
 	static wantIdentifier(char c) {
-		auto hc = c | 0x20;
-		return c == '_' || (c & 0x80) || (hc >= 'a' && hc <= 'z');
+		import source.util.ascii;
+		return (c & 0x80) || isAsciiIdStart(c);
 	}
 
 	auto popIdChars() {
@@ -314,13 +316,13 @@ private:
 		while (true) {
 			char c = frontChar;
 
-			import std.ascii : isAlphaNum;
-			while (c == '_' || isAlphaNum(c)) {
-				popChar();
-				c = frontChar;
-			}
-
 			if (c < 0x80) {
+				import source.util.ascii;
+				if (isAsciiIdContinue(c)) {
+					popChar();
+					continue;
+				}
+
 				break;
 			}
 

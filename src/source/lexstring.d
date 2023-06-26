@@ -231,7 +231,7 @@ mixin template LexStringImpl(Token,
 			return true;
 		}
 
-		import std.ascii;
+		import source.util.ascii;
 		for (size_t i = 0; i < N && isHexDigit(frontChar); i++) {
 			popChar();
 		}

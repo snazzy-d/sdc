@@ -42,20 +42,18 @@ unittest {
 
 	check("", 0);
 
-	static bool isDecChar(char c) {
-		return '0' <= c && c <= '9';
-	}
-
 	// Test all combinations of 2 characters.
 	foreach (char c0; 0 .. 256) {
 		immutable char[1] s0 = [c0];
-		auto isC0Dec = isDecChar(c0);
+
+		import source.util.ascii;
+		auto isC0Dec = isDecDigit(c0);
 
 		check(s0[], isC0Dec);
 
 		foreach (char c1; 0 .. 256) {
 			immutable char[2] s1 = [c0, c1];
-			auto isC1Dec = isDecChar(c1);
+			auto isC1Dec = isDecDigit(c1);
 
 			check(s1[], isC0Dec + (isC0Dec && isC1Dec));
 

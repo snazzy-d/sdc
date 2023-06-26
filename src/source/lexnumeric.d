@@ -74,11 +74,13 @@ mixin template LexNumericImpl(
 		enum IsDec = E == 'e';
 		enum IsHex = E == 'p';
 		static if (IsDec) {
-			alias isFun = isDecimal;
+			import source.util.ascii;
+			alias isFun = isDecDigit;
 			alias popFun = popDecimal;
 			enum ExponentScaleFactor = 1;
 		} else static if (IsHex) {
-			alias isFun = isHexadecimal;
+			import source.util.ascii;
+			alias isFun = isHexDigit;
 			alias popFun = popHexadecimal;
 			enum ExponentScaleFactor = 4;
 		} else {
@@ -139,7 +141,8 @@ mixin template LexNumericImpl(
 				popChar();
 			}
 
-			if (!isDecimal(frontChar)) {
+			import source.util.ascii;
+			if (!isDecDigit(frontChar)) {
 				return getError(begin, "Float literal is missing exponent.");
 			}
 
@@ -257,11 +260,6 @@ mixin template LexNumericImpl(
 	/**
 	 * Hexadecimal literals.
 	 */
-	static bool isHexadecimal(char c) {
-		auto hc = c | 0x20;
-		return (c >= '0' && c <= '9') || (hc >= 'a' && hc <= 'f');
-	}
-
 	bool popHexadecimal(bool decode)(ref ulong result) {
 		uint count = 0;
 		return popHexadecimal!decode(result, count);
@@ -321,7 +319,9 @@ mixin template LexNumericImpl(
 		}
 
 		auto c = frontChar;
-		if (isHexadecimal(c) || (c == '.' && isHexadecimal(nextChar))) {
+
+		import source.util.ascii;
+		if (isHexDigit(c) || (c == '.' && isHexDigit(nextChar))) {
 			return lexFloatLiteral!'p'(begin);
 		}
 
@@ -336,10 +336,6 @@ mixin template LexNumericImpl(
 	/**
 	 * Decimal literals.
 	 */
-	static bool isDecimal(char c) {
-		return c >= '0' && c <= '9';
-	}
-
 	bool popDecimal(bool decode)(ref ulong result) {
 		uint count = 0;
 		return popDecimal!decode(result, count);
@@ -396,13 +392,18 @@ mixin template LexNumericImpl(
 		}
 	}
 
-	auto lexNumeric(string s)() if (s.length == 1 && isDecimal(s[0])) {
+	auto lexNumeric(string s)() if (s.length == 1) {
+		import source.util.ascii;
+		static assert(isDecDigit(s[0]), "Expected Decimal character.");
+
 		index -= s.length;
 		return lexDecimal();
 	}
 
-	auto lexNumeric(string s)()
-			if (s.length == 2 && s[0] == '.' && isDecimal(s[1])) {
+	auto lexNumeric(string s)() if (s.length == 2 && s[0] == '.') {
+		import source.util.ascii;
+		static assert(isDecDigit(s[1]), "Expected Decimal character.");
+
 		index -= s.length;
 		return lexDecimal();
 	}

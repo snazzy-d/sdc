@@ -84,33 +84,17 @@ unittest {
 
 	check0("");
 
-	// Naive implementation for correcteness.
-	static bool isHexChar(char c) {
-		if ('0' <= c && c <= '9') {
-			return true;
-		}
-
-		if ('a' <= c && c <= 'f') {
-			return true;
-		}
-
-		if ('A' <= c && c <= 'F') {
-			return true;
-		}
-
-		return false;
-	}
-
 	// Test all combinations of 2 characters.
 	foreach (char c0; 0 .. 256) {
 		immutable char[1] s0 = [c0];
 		check0(s0[]);
 
-		auto isC0Hex = isHexChar(c0);
+		import source.util.ascii;
+		auto isC0Hex = isHexDigit(c0);
 		foreach (char c1; 0 .. 256) {
 			immutable char[2] s1 = [c0, c1];
 
-			auto isC1Hex = isHexChar(c1);
+			auto isC1Hex = isHexDigit(c1);
 			if (isC0Hex && isC1Hex) {
 				check2(s1[]);
 			} else {
