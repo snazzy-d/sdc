@@ -2,7 +2,6 @@ module source.lexbase;
 
 mixin template LexBaseUtils() {
 private:
-
 	uint popChar(uint count = 1) in(index + count <= content.length) {
 		auto ret = index;
 		index += count;
