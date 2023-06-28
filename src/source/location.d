@@ -90,6 +90,7 @@ package:
 		return *(cast(uint*) &this);
 	}
 
+public:
 	bool isFile() const {
 		return !_mixin;
 	}
@@ -98,7 +99,6 @@ package:
 		return _mixin;
 	}
 
-public:
 	Position getWithOffset(uint offset) const
 			out(result; result.isMixin() == isMixin(), "Position overflow") {
 		return Position(raw + offset);
