@@ -26,16 +26,17 @@ mixin template LexStringImpl(Token,
 				popChar();
 
 				auto es = lexEscapeSequence(start);
-				if (es.type == SequenceType.Invalid) {
-					if (frontChar == '\'') {
-						popChar();
-					}
-
-					return getError(es.location, es.error);
+				if (es.type == SequenceType.Character) {
+					dc = es.decodedChar;
+					break;
 				}
 
-				dc = es.decodedChar;
-				break;
+				assert(es.type == SequenceType.Invalid);
+				if (frontChar == '\'') {
+					popChar();
+				}
+
+				return getError(es.location, es.error);
 
 			default:
 				dchar d;
