@@ -498,7 +498,9 @@ struct DLexer {
 		return buildRawString(begin, start, index - 1);
 	}
 
-	Token lexQDelimintedString(char delimiter) in(delimiter != '"') {
+	private Token lexQDelimintedString(char Delimiter)() {
+		static assert(Delimiter != '"', "Delimiter cannot be '\"'");
+
 		uint begin = index - 3;
 		uint start = index;
 
@@ -507,14 +509,16 @@ struct DLexer {
 		char previous = frontChar;
 		char c = previous;
 
-		while (c != '\0' && (c != '"' || previous != delimiter)) {
+		while (c != '"' || previous != Delimiter) {
+			if (reachedEOF()) {
+				import std.format;
+				enum E = format!"`%s\"` to end string literal"(Delimiter);
+				return getExpectedError(begin, E);
+			}
+
 			popChar();
 			previous = c;
 			c = frontChar;
-		}
-
-		if (c == '\0') {
-			return getError(begin, "Unexpected end of file.");
 		}
 
 		popChar();
@@ -522,19 +526,19 @@ struct DLexer {
 	}
 
 	Token lexDString(string s : `q"(`)() {
-		return lexQDelimintedString(')');
+		return lexQDelimintedString!')'();
 	}
 
 	Token lexDString(string s : `q"[`)() {
-		return lexQDelimintedString(']');
+		return lexQDelimintedString!']'();
 	}
 
 	Token lexDString(string s : `q"{`)() {
-		return lexQDelimintedString('}');
+		return lexQDelimintedString!'}'();
 	}
 
 	Token lexDString(string s : `q"<`)() {
-		return lexQDelimintedString('>');
+		return lexQDelimintedString!'>'();
 	}
 
 	Token lexDString(string s : `q"`)() {
