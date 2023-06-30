@@ -553,57 +553,41 @@ struct DLexer {
 
 		auto id = content[idstart .. index];
 
-		if (frontChar == '\r') {
-			// Be nice to the Windows minions out there.
-			popChar();
-		}
-
-		if (frontChar != '\n') {
+		if (!popLineBreak()) {
 			return
-				getError(begin, "Identifier must be followed by a new line.");
+				getError(begin, "Identifier must be followed by a line break.");
 		}
-
-		popChar();
 
 		uint start = index;
 		char c = frontChar;
 
-		// Skip the inital chars where a match is not possible.
-		for (size_t i = 0; c != '\0' && i < id.length; i++) {
-			popChar();
-			c = frontChar;
-		}
-
 		while (true) {
-		ScanString:
-			while (c != '\0' && c != '"') {
-				popChar();
-				c = frontChar;
-			}
-
-			if (c == '\0') {
-				return getError(begin, "Unexpected end of file.");
-			}
-
-			scope(success) {
-				popChar();
-				c = frontChar;
-			}
-
-			if (content[index - id.length - 1] != '\n') {
-				continue;
+			if (reachedEOF()) {
+				import std.format;
+				auto expected = format!"`%s\"` to end string literal"(id);
+				return getExpectedError(begin, expected);
 			}
 
 			for (size_t i = 0; i < id.length; i++) {
-				if (content[index - id.length + i] != id[i]) {
-					goto ScanString;
+				if (c != id[i]) {
+					goto NextLine;
 				}
+
+				popChar();
+				c = frontChar;
 			}
 
-			// We found our guy.
-			break;
+			if (c == '"') {
+				break;
+			}
+
+		NextLine:
+			popLine();
+			c = frontChar;
+			continue;
 		}
 
+		popChar();
 		return buildRawString(begin, start, index - id.length - 1);
 	}
 
@@ -1312,6 +1296,19 @@ unittest {
 	{
 		auto lex = testlexer(`q"EOF
 EOF"`);
+		lex.match(TokenType.Begin);
+
+		auto t = lex.front;
+
+		assert(t.type == TokenType.StringLiteral);
+		assert(t.decodedString.toString(context) == "");
+		lex.popFront();
+
+		assert(lex.front.type == TokenType.End);
+	}
+
+	{
+		auto lex = testlexer("q\"UNICODE_LINE_BREAK\u0085UNICODE_LINE_BREAK\"");
 		lex.match(TokenType.Begin);
 
 		auto t = lex.front;
