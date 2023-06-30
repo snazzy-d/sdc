@@ -479,7 +479,7 @@ struct DLexer {
 
 				case End:
 					index = lookahead.index - 1;
-					return getError(begin, "Unexpected end of file.");
+					return getExpectedError(begin, "`}` to end string literal");
 
 				case OpenBrace:
 					level++;
