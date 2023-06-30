@@ -6,7 +6,7 @@ SDFLAGS ?=
 
 # XXX: This kind of stunt would be better suited for the configure
 # step, but we don't have one.
-NATIVE_OBJECT_D = $(shell echo "int dummy;" | $(DMD) -v - -of/dev/null 2> /dev/null | sed -ne 's/^import\s*object\s*(\(.*\))/\1/p')
+NATIVE_OBJECT_D = $(shell echo "int dummy;" | $(DMD) -v - -of/dev/null 2> /dev/null | sed -ne 's/^import[[:space:]]*object[[:space:]]*(\(.*\))/\1/p')
 NATIVE_DRUNTIME ?= $(dir $(NATIVE_OBJECT_D))
 LIBSDMD_IMPORTS = -I$(NATIVE_DRUNTIME) -Isdlib
 
