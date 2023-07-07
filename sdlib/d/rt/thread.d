@@ -1,7 +1,7 @@
 module d.rt.thread;
 
 extern(C) void __sd_thread_init() {
-	_tl_gc_set_stack_bottom(getStackBottom());
+	__sd_gc_set_stack_bottom(getStackBottom());
 	registerTlsSegments();
 }
 
@@ -59,7 +59,7 @@ version(linux) {
 				continue;
 			}
 
-			_tl_gc_add_roots(tlsStart[0 .. segment.p_memsz]);
+			__sd_gc_add_roots(tlsStart[0 .. segment.p_memsz]);
 		}
 
 		return 0;
@@ -129,5 +129,5 @@ version(FreeBSD) {
 	int pthread_attr_destroy(pthread_attr_t*);
 }
 
-void _tl_gc_set_stack_bottom(const void* bottom);
-void _tl_gc_add_roots(const void[] range);
+void __sd_gc_set_stack_bottom(const void* bottom);
+void __sd_gc_add_roots(const void[] range);

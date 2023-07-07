@@ -34,22 +34,22 @@ void* __sd_gc_array_alloc(size_t size) {
 	return __sd_gc_alloc(size);
 }
 
-void _tl_gc_free(void* ptr) {
+void __sd_gc_free(void* ptr) {
 	threadCache.free(ptr);
 }
 
-void* _tl_gc_realloc(void* ptr, size_t size) {
+void* __sd_gc_realloc(void* ptr, size_t size) {
 	return threadCache.realloc(ptr, size, true);
 }
 
-void _tl_gc_set_stack_bottom(const void* bottom) {
+void __sd_gc_set_stack_bottom(const void* bottom) {
 	threadCache.stackBottom = makeRange(bottom[0 .. 0]).ptr;
 }
 
-void _tl_gc_add_roots(const void[] range) {
+void __sd_gc_add_roots(const void[] range) {
 	threadCache.addRoots(range);
 }
 
-void _tl_gc_collect() {
+void __sd_gc_collect() {
 	threadCache.collect();
 }
