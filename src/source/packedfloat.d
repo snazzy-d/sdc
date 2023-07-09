@@ -270,9 +270,7 @@ struct SoftFloat {
 
 		enum MantissaBits = C.MantissaExplicitBits;
 		auto shift = (upperbit + 64 - MantissaBits - 3);
-		auto mask = (4UL << shift) - 1;
 
-		auto m = approx >> shift;
 		int e = power(exponent) + upperbit - lz + C.ExponentOffset;
 
 		/**
@@ -287,7 +285,7 @@ struct SoftFloat {
 			}
 
 			// Recompute m with the new shift.
-			m = approx >> shift;
+			auto m = approx >> shift;
 
 			// We can't have both "round-to-even" and subnormals because
 			// "round-to-even" only occurs for powers close to 0, so just
@@ -304,8 +302,12 @@ struct SoftFloat {
 			 * this after rounding.
 			 */
 			e = m >= (1UL << MantissaBits);
-			goto Materialize;
+
+			return materialize!T(m, e);
 		}
+
+		auto m = approx >> shift;
+		auto mask = (4UL << shift) - 1;
 
 		/**
 		 * /!\ If the value is right in the middle of two float,
@@ -326,13 +328,24 @@ struct SoftFloat {
 			return T.infinity;
 		}
 
-	Materialize:
-		enum MantissaMask = (1UL << MantissaBits) - 1;
-		enum ExponentMask = (1UL << (8 * T.sizeof - 1 - MantissaBits)) - 1;
-
-		ulong raw = (m & MantissaMask) | ((e & ExponentMask) << MantissaBits);
-		return *(cast(T*) &raw);
+		return materialize!T(m, e);
 	}
+}
+
+T materialize(T)(ulong mantissa, int exponent) if (isFloatingPoint!T) {
+	alias C = TypeConstants!T;
+	enum MantissaBits = C.MantissaExplicitBits;
+	enum MantissaMask = (1UL << MantissaBits) - 1;
+	enum ExponentMask = (1UL << (8 * T.sizeof - 1 - MantissaBits)) - 1;
+
+	ulong m = mantissa & MantissaMask;
+	assert((m ^ mantissa) <= (MantissaMask + 1));
+
+	ulong e = exponent;
+	assert((e & ExponentMask) == exponent);
+
+	ulong raw = m | (e << MantissaBits);
+	return *(cast(T*) &raw);
 }
 
 /**
