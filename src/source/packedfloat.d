@@ -84,8 +84,13 @@ public:
 	}
 
 	static fromHexadecimal(Context context, ulong mantissa, int exponent) {
-		if (mantissa == 0) {
+		alias CR = TypeConstants!real;
+		if (mantissa == 0 || exponent < CR.SmallestPowerOfTwo) {
 			return fromFloat(0);
+		}
+
+		if (exponent > CR.LargestPowerOfTwo) {
+			return fromFloat(float.infinity);
 		}
 
 		// Normalize mantissa.
@@ -104,15 +109,6 @@ public:
 			                     exponent + TailBits);
 			p._kind = Kind.Hexdecimal;
 			return p;
-		}
-
-		alias CR = TypeConstants!real;
-		if (mantissa == 0 || exponent < CR.SmallestPowerOfTwo) {
-			return fromFloat(0);
-		}
-
-		if (exponent > CR.LargestPowerOfTwo) {
-			return fromFloat(float.infinity);
 		}
 
 		return fromSoftFloat(context, SoftFloat(mantissa, exponent, true));
@@ -217,8 +213,103 @@ struct SoftFloat {
 	}
 
 	T fromHexadecimalTo(T)() const if (isFloatingPoint!T) in(hex) {
-		import core.math;
-		return ldexp(T(mantissa), exponent);
+		alias C = TypeConstants!T;
+
+		/**
+		 * If we can represent the mantissa exactly,
+		 * then let the hardware do the job.
+		 */
+		import util.math;
+		if (mantissa <= C.MaxMantissaFastPath
+			    || (mantissa >> countTrailingZeros(mantissa))
+				    <= C.MaxMantissaFastPath) {
+			import core.stdc.math;
+			return ldexp(mantissa, exponent);
+		}
+
+		/**
+		 * Before we do complex computation, let's eliminate
+		 * the degenerate cases such as 0 and infinity.
+		 */
+		if (mantissa == 0 || exponent < C.SmallestPowerOfTwo) {
+			return 0;
+		}
+
+		if (exponent > C.LargestPowerOfTwo) {
+			return T.infinity;
+		}
+
+		// Ensure the most significant bit of the mantissa is a 1.
+		auto lz = countLeadingZeros(mantissa);
+		ulong nm = mantissa << lz;
+		int e = exponent - lz + C.ExponentOffset + 63;
+
+		enum MantissaBits = C.MantissaExplicitBits;
+		auto shift = 62 - MantissaBits;
+
+		/**
+		 * If e < 0, then we likely have a subnormal floating point
+		 * value and needs to handle it apropriately.
+		 */
+		if (e <= 0) {
+			// If we shift all the bits out, then we have 0.
+			shift += 1 - e;
+			if (shift >= 64) {
+				return 0;
+			}
+
+			// Recompute m with the new shift.
+			auto m = nm >> shift;
+			auto mask = (4UL << shift) - 1;
+
+			/**
+			 * /!\ If the value is right in the middle of two float,
+			 *     we must round down!
+			 * We detect such occurence when m ends with 01 and then
+			 * we have a continuous streak of 0s.
+			 */
+			m ^= (nm & mask) == (1UL << shift);
+
+			// Round up.
+			m = (m + (m & 1)) >> 1;
+
+			/**
+			 * After shifting and rounding up, we might not have a subnormal
+			 * anymore. For instance, if we start with 2.2250738585072013e-308,
+			 * we end up with 0x3fffffffffffff x 2^-1023-53 which is
+			 * technically subnormal, whereas 0x40000000000000 x 2^-1023-53
+			 * is normal. Now, we need to round up 0x3fffffffffffff x 2^-1023-53
+			 * and once we do, we are no longer subnormal, but we can only know
+			 * this after rounding.
+			 */
+			e = m >= (1UL << MantissaBits);
+
+			return materialize!T(m, e);
+		}
+
+		auto m = nm >> shift;
+		auto mask = (4UL << shift) - 1;
+
+		/**
+		 * /!\ If the value is right in the middle of two float,
+		 *     we must round down!
+		 * We detect such occurence when m ends with 01 and then
+		 * we have a continuous streak of 0s.
+		 */
+		m ^= (nm & mask) == (1UL << shift);
+
+		// Round up.
+		m = (m + (m & 1)) >> 1;
+		if (m >= (2UL << MantissaBits)) {
+			m = 1UL << MantissaBits;
+			e++;
+		}
+
+		if (e >= C.InfiniteExponent) {
+			return T.infinity;
+		}
+
+		return materialize!T(m, e);
 	}
 
 	T fromDecimalTo(T)() const if (isFloatingPoint!T) in(!hex) {
@@ -241,7 +332,7 @@ struct SoftFloat {
 
 		/**
 		 * Before we do complex computation, let's eliminate
-		 * the degenerate case such as 0 and infinity.
+		 * the degenerate cases such as 0 and infinity.
 		 */
 		if (mantissa == 0 || exponent < C.SmallestPowerOfTen) {
 			return 0;
@@ -270,24 +361,26 @@ struct SoftFloat {
 
 		enum MantissaBits = C.MantissaExplicitBits;
 		auto shift = (upperbit + 64 - MantissaBits - 3);
-		auto mask = (4UL << shift) - 1;
 
-		auto m = approx >> shift;
-		int e = power(exponent) + upperbit - lz + C.ExponentOffset;
+		int e = power(exponent) + upperbit - lz + C.ExponentOffset + 63;
 
 		/**
-		 * If e < 0, then we liekly have a subnormal floating point
+		 * If e < 0, then we likely have a subnormal floating point
 		 * value and needs to handle it apropriately.
 		 */
 		if (e <= 0) {
 			// If we shift all the bits out, then we have 0.
-			auto s = 1 - e;
-			if (s >= 64) {
+			shift += 1 - e;
+			if (shift >= 64) {
 				return 0;
 			}
 
-			// Shift and round up.
-			m >>= s;
+			// Recompute m with the new shift.
+			auto m = approx >> shift;
+
+			// We can't have both "round-to-even" and subnormals because
+			// "round-to-even" only occurs for powers close to 0, so just
+			// round up.
 			m = (m + (m & 1)) >> 1;
 
 			/**
@@ -300,8 +393,12 @@ struct SoftFloat {
 			 * this after rounding.
 			 */
 			e = m >= (1UL << MantissaBits);
-			goto Materialize;
+
+			return materialize!T(m, e);
 		}
+
+		auto m = approx >> shift;
+		auto mask = (4UL << shift) - 1;
 
 		/**
 		 * /!\ If the value is right in the middle of two float,
@@ -322,13 +419,24 @@ struct SoftFloat {
 			return T.infinity;
 		}
 
-	Materialize:
-		enum MantissaMask = (1UL << MantissaBits) - 1;
-		enum ExponentMask = (1UL << (8 * T.sizeof - 1 - MantissaBits)) - 1;
-
-		ulong raw = (m & MantissaMask) | ((e & ExponentMask) << MantissaBits);
-		return *(cast(T*) &raw);
+		return materialize!T(m, e);
 	}
+}
+
+T materialize(T)(ulong mantissa, int exponent) if (isFloatingPoint!T) {
+	alias C = TypeConstants!T;
+	enum MantissaBits = C.MantissaExplicitBits;
+	enum MantissaMask = (1UL << MantissaBits) - 1;
+	enum ExponentMask = (1UL << (8 * T.sizeof - 1 - MantissaBits)) - 1;
+
+	ulong m = mantissa & MantissaMask;
+	assert((m ^ mantissa) <= (MantissaMask + 1));
+
+	ulong e = exponent;
+	assert((e & ExponentMask) == exponent);
+
+	ulong raw = m | (e << MantissaBits);
+	return *(cast(T*) &raw);
 }
 
 /**
@@ -368,7 +476,7 @@ ulong[2] computeProductAproximation(ulong mantissa, int exponent) {
  *   p = log(5**-q)/log(2) = -q * log(5)/log(2)
  */
 int power(int e) {
-	return (((152170 + 65536) * e) >> 16) + 63;
+	return ((152170 + 65536) * e) >> 16;
 }
 
 template TypeConstants(T) {

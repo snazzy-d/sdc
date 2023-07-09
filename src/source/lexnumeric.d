@@ -609,11 +609,15 @@ unittest {
 	checkLexInvalid("0b_", "0b_ is not a valid binary literal.");
 	checkLexInvalid("0b__", "0b__ is not a valid binary literal.");
 
+	// Suffixes.
 	checkLexInvalid("0_x", "`x` is not a valid suffix.");
 	checkLexInvalid("0_x_", "`x_` is not a valid suffix.");
 
 	checkLexInvalid("0_b", "`b` is not a valid suffix.");
 	checkLexInvalid("0_b_", "`b_` is not a valid suffix.");
+
+	checkLexInvalid("0b2", "0b is not a valid binary literal.");
+	checkLexInvalid("0b12", "`2` is not a valid suffix.");
 
 	// Decimal cases.
 	checkLexIntegral("1234567890", 1234567890);

@@ -297,17 +297,17 @@ private:
 		return count;
 	}
 
-	auto popIdentifierWithPrefix(string s)() {
-		if (s == "") {
-			return popIdentifier();
-		}
-
+	auto popIdentifierContinuation() {
 		uint begin = index;
 
 		import source.util.identifier;
 		index = skipIdContinue(content, index);
 
 		return index - begin;
+	}
+
+	auto popIdentifierWithPrefix(string s)() {
+		return (s == "") ? popIdentifier() : popIdentifierContinuation();
 	}
 
 	auto lexIdentifier(string s = "")() {
@@ -384,7 +384,7 @@ private:
 
 		private
 		Token fun(string s, T...)(uint begin, uint prefixStart, T args) {
-			if (popIdentifierWithPrefix!s() > 0) {
+			if (popIdentifierContinuation() > 0) {
 				// We have something else.
 				import std.format;
 				return getError(

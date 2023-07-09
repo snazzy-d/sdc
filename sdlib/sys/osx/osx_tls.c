@@ -40,7 +40,7 @@ typedef void (^dyld_tlv_state_change_handler)(enum dyld_tlv_states state, const 
 extern void dyld_register_tlv_state_change_handler(enum dyld_tlv_states state, dyld_tlv_state_change_handler handler);
 extern void dyld_enumerate_tlv_storage(dyld_tlv_state_change_handler handler);
 
-extern void _tl_gc_add_roots(tls_slice range);
+extern void __sd_gc_add_roots(tls_slice range);
 
 void _d_dyld_registerTLSRange() {
     dyld_enumerate_tlv_storage(
@@ -48,7 +48,7 @@ void _d_dyld_registerTLSRange() {
             assert(state == dyld_tlv_state_allocated);
 
             tls_slice range = { info->tlv_size, info->tlv_addr };
-            _tl_gc_add_roots(range);
+            __sd_gc_add_roots(range);
         }
     );
 }
