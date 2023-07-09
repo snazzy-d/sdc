@@ -220,9 +220,7 @@ struct SoftFloat {
 		 * then let the hardware do the job.
 		 */
 		import util.math;
-		if (mantissa <= C.MaxMantissaFastPath
-			    || (mantissa >> countTrailingZeros(mantissa))
-				    <= C.MaxMantissaFastPath) {
+		if (canExactlyRepresentMantissa!T(mantissa)) {
 			import core.stdc.math;
 			return ldexp(mantissa, exponent);
 		}
@@ -321,7 +319,7 @@ struct SoftFloat {
 		 */
 		if (exponent >= C.MinExponentFastPath
 			    && exponent <= C.MaxExponentFastPath
-			    && mantissa <= C.MaxMantissaFastPath) {
+			    && canExactlyRepresentMantissa!T(mantissa)) {
 			auto m = T(mantissa);
 			if (exponent < 0) {
 				return m / C.PowersOfTen[-exponent];
@@ -437,6 +435,17 @@ T materialize(T)(ulong mantissa, int exponent) if (isFloatingPoint!T) {
 
 	ulong raw = m | (e << MantissaBits);
 	return *(cast(T*) &raw);
+}
+
+bool canExactlyRepresentMantissa(T)(ulong mantissa) if (isFloatingPoint!T) {
+	alias C = TypeConstants!T;
+	if (mantissa <= C.MaxMantissaFastPath) {
+		return true;
+	}
+
+	import util.math;
+	auto tz = countTrailingZeros(mantissa);
+	return (mantissa >> tz) <= C.MaxMantissaFastPath;
 }
 
 /**
