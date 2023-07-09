@@ -281,13 +281,17 @@ struct SoftFloat {
 		 */
 		if (e <= 0) {
 			// If we shift all the bits out, then we have 0.
-			auto s = 1 - e;
-			if (s >= 64) {
+			shift += 1 - e;
+			if (shift >= 64) {
 				return 0;
 			}
 
-			// Shift and round up.
-			m >>= s;
+			// Recompute m with the new shift.
+			m = approx >> shift;
+
+			// We can't have both "round-to-even" and subnormals because
+			// "round-to-even" only occurs for powers close to 0, so just
+			// round up.
 			m = (m + (m & 1)) >> 1;
 
 			/**
