@@ -459,12 +459,13 @@ unittest {
 		auto t = lex.match(TokenType.FloatLiteral);
 		assert(t.packedFloat.to!double(context) is expected, s);
 
-		import std.conv;
-		try {
-			auto val =
-				t.location.getFullLocation(context).getSlice().to!double();
-			assert(val is expected);
-		} catch (ConvException e) {}
+		import std.array;
+		auto str =
+			t.location.getFullLocation(context).getSlice().replace("_", "")
+				~ '\0';
+
+		import core.stdc.stdlib;
+		assert(strtod(str.ptr, null) is expected);
 
 		assert(lex.front.type == TokenType.End);
 		assert(lex.index == s.length + 1);
