@@ -1,7 +1,7 @@
-global __sdgc_push_registers
+global __sd_gc_push_registers
 
 section .text
-__sdgc_push_registers:
+__sd_gc_push_registers:
 ; We could actually make things faster by not pushing the base and stack pointers
 ; but this is not performance critical and need to be rock solid.
 ; For some reason, clang seems to use rbp, but gcc rbx (?) so we will do it

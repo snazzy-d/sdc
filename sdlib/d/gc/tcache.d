@@ -122,7 +122,7 @@ public:
 		// FIXME: Prepare the GC so it has bitfields for all extent classes.
 
 		// Scan the roots !
-		__sdgc_push_registers(scanStack);
+		__sd_gc_push_registers(scanStack);
 		foreach (range; roots) {
 			scan(range);
 		}
@@ -228,10 +228,10 @@ unittest isAllocatableSize {
 extern(C):
 version(OSX) {
 	// For some reason OSX's symbol get a _ prepended.
-	bool _sdgc_push_registers(bool delegate());
-	alias __sdgc_push_registers = _sdgc_push_registers;
+	bool _sd_gc_push_registers(bool delegate());
+	alias __sd_gc_push_registers = _sd_gc_push_registers;
 } else {
-	bool __sdgc_push_registers(bool delegate());
+	bool __sd_gc_push_registers(bool delegate());
 }
 
 /**
