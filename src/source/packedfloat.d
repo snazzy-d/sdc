@@ -242,53 +242,31 @@ struct SoftFloat {
 		ulong nm = mantissa << lz;
 		int e = exponent - lz + C.ExponentOffset + 63;
 
-		enum MantissaBits = C.MantissaExplicitBits;
-		auto shift = 62 - MantissaBits;
-
 		static computeMantissa(ulong nm, ulong shift) {
 			auto m = nm >> shift;
 			m += shouldRoundUp(nm, shift);
 			return m >> 1;
 		}
 
-		/**
-		 * If e < 0, then we likely have a subnormal floating point
-		 * value and needs to handle it apropriately.
-		 */
-		if (e <= 0) {
-			// If we shift all the bits out, then we have 0.
-			shift += 1 - e;
-			if (shift >= 64) {
-				return 0;
-			}
+		auto shift = 62 - C.MantissaExplicitBits;
 
+		// We have a plain normal float.
+		if (e > 0) {
 			auto m = computeMantissa(nm, shift);
+			return materializeNormal!T(m, e);
+		}
 
-			/**
-			 * After shifting and rounding up, we might not have a subnormal
-			 * anymore. For instance, if we start with 2.2250738585072013e-308,
-			 * we end up with 0x3fffffffffffff x 2^-1023-53 which is
-			 * technically subnormal, whereas 0x40000000000000 x 2^-1023-53
-			 * is normal. Now, we need to round up 0x3fffffffffffff x 2^-1023-53
-			 * and once we do, we are no longer subnormal, but we can only know
-			 * this after rounding.
-			 */
-			e = m >= (1UL << MantissaBits);
+		// When e <= 0, we might have a subnormal floats.
+		assert(e <= 0);
 
-			return materialize!T(m, e);
+		// If we shift all the bits out, then we have 0.
+		shift += 1 - e;
+		if (shift >= 64) {
+			return 0;
 		}
 
 		auto m = computeMantissa(nm, shift);
-		if (m >= (2UL << MantissaBits)) {
-			m = 1UL << MantissaBits;
-			e++;
-		}
-
-		if (e >= C.InfiniteExponent) {
-			return T.infinity;
-		}
-
-		return materialize!T(m, e);
+		return materializeSubormal!T(m, e);
 	}
 
 	T fromDecimalTo(T)() const if (isFloatingPoint!T) in(!hex) {
@@ -337,62 +315,69 @@ struct SoftFloat {
 		auto approx = product[1];
 
 		uint upperbit = approx >> 63;
-
-		enum MantissaBits = C.MantissaExplicitBits;
-		auto shift = (upperbit + 64 - MantissaBits - 3);
+		auto shift = (upperbit + 64 - C.MantissaExplicitBits - 3);
 
 		int e = power(exponent) + upperbit - lz + C.ExponentOffset + 63;
 
-		/**
-		 * If e < 0, then we likely have a subnormal floating point
-		 * value and needs to handle it apropriately.
-		 */
-		if (e <= 0) {
-			// If we shift all the bits out, then we have 0.
-			shift += 1 - e;
-			if (shift >= 64) {
-				return 0;
+		// We have a plain normal float.
+		if (e > 0) {
+			auto m = approx >> shift;
+			if (product[0] != 0 || shouldRoundUp(product[1], shift)) {
+				m += 1;
 			}
 
-			// Recompute m with the new shift.
-			auto m = approx >> shift;
-
-			// We can't have both "round-to-even" and subnormals because
-			// "round-to-even" only occurs for powers close to 0, so just
-			// round up.
-			m = (m + (m & 1)) >> 1;
-
-			/**
-			 * After shifting and rounding up, we might not have a subnormal
-			 * anymore. For instance, if we start with 2.2250738585072013e-308,
-			 * we end up with 0x3fffffffffffff x 2^-1023-53 which is
-			 * technically subnormal, whereas 0x40000000000000 x 2^-1023-53
-			 * is normal. Now, we need to round up 0x3fffffffffffff x 2^-1023-53
-			 * and once we do, we are no longer subnormal, but we can only know
-			 * this after rounding.
-			 */
-			e = m >= (1UL << MantissaBits);
-
-			return materialize!T(m, e);
+			return materializeNormal!T(m >> 1, e);
 		}
 
+		// When e <= 0, we might have a subnormal floats.
+		assert(e <= 0);
+
+		// If we shift all the bits out, then we have 0.
+		shift += 1 - e;
+		if (shift >= 64) {
+			return 0;
+		}
+
+		// Recompute m with the new shift.
 		auto m = approx >> shift;
-		if (product[0] != 0 || shouldRoundUp(product[1], shift)) {
-			m += 1;
-		}
 
-		m >>= 1;
-		if (m >= (2UL << MantissaBits)) {
-			m = 1UL << MantissaBits;
-			e++;
-		}
-
-		if (e >= C.InfiniteExponent) {
-			return T.infinity;
-		}
-
-		return materialize!T(m, e);
+		// We can't have both "round-to-even" and subnormals because
+		// "round-to-even" only occurs for powers close to 0, so just
+		// round up.
+		m += m & 1;
+		return materializeSubormal!T(m >> 1, e);
 	}
+}
+
+T materializeSubormal(T)(ulong mantissa, int exponent) if (isFloatingPoint!T) {
+	/**
+	 * After shifting and rounding up, we might not have a subnormal
+	 * anymore. For instance, if we start with 2.2250738585072013e-308,
+	 * we end up with 0x3fffffffffffff x 2^-1023-53 which is
+	 * technically subnormal, whereas 0x40000000000000 x 2^-1023-53
+	 * is normal. Now, we need to round up 0x3fffffffffffff x 2^-1023-53
+	 * and once we do, we are no longer subnormal, but we can only know
+	 * this after rounding.
+	 */
+	alias C = TypeConstants!T;
+	exponent = mantissa >= (1UL << C.MantissaExplicitBits);
+	return materialize!T(mantissa, exponent);
+}
+
+T materializeNormal(T)(ulong mantissa, int exponent) if (isFloatingPoint!T) {
+	alias C = TypeConstants!T;
+	enum MantissaBits = C.MantissaExplicitBits;
+
+	if (mantissa >= (2UL << MantissaBits)) {
+		mantissa = 1UL << MantissaBits;
+		exponent++;
+	}
+
+	if (exponent >= C.InfiniteExponent) {
+		return T.infinity;
+	}
+
+	return materialize!T(mantissa, exponent);
 }
 
 T materialize(T)(ulong mantissa, int exponent) if (isFloatingPoint!T) {
