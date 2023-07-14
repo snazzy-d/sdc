@@ -245,6 +245,12 @@ struct SoftFloat {
 		enum MantissaBits = C.MantissaExplicitBits;
 		auto shift = 62 - MantissaBits;
 
+		static computeMantissa(ulong nm, ulong shift) {
+			auto m = nm >> shift;
+			m += shouldRoundUp(nm, shift);
+			return m >> 1;
+		}
+
 		/**
 		 * If e < 0, then we likely have a subnormal floating point
 		 * value and needs to handle it apropriately.
@@ -256,20 +262,7 @@ struct SoftFloat {
 				return 0;
 			}
 
-			// Recompute m with the new shift.
-			auto m = nm >> shift;
-			auto mask = (4UL << shift) - 1;
-
-			/**
-			 * /!\ If the value is right in the middle of two float,
-			 *     we must round down!
-			 * We detect such occurence when m ends with 01 and then
-			 * we have a continuous streak of 0s.
-			 */
-			m ^= (nm & mask) == (1UL << shift);
-
-			// Round up.
-			m = (m + (m & 1)) >> 1;
+			auto m = computeMantissa(nm, shift);
 
 			/**
 			 * After shifting and rounding up, we might not have a subnormal
@@ -285,19 +278,7 @@ struct SoftFloat {
 			return materialize!T(m, e);
 		}
 
-		auto m = nm >> shift;
-		auto mask = (4UL << shift) - 1;
-
-		/**
-		 * /!\ If the value is right in the middle of two float,
-		 *     we must round down!
-		 * We detect such occurence when m ends with 01 and then
-		 * we have a continuous streak of 0s.
-		 */
-		m ^= (nm & mask) == (1UL << shift);
-
-		// Round up.
-		m = (m + (m & 1)) >> 1;
+		auto m = computeMantissa(nm, shift);
 		if (m >= (2UL << MantissaBits)) {
 			m = 1UL << MantissaBits;
 			e++;
@@ -396,18 +377,11 @@ struct SoftFloat {
 		}
 
 		auto m = approx >> shift;
-		auto mask = (4UL << shift) - 1;
+		if (product[0] != 0 || shouldRoundUp(product[1], shift)) {
+			m += 1;
+		}
 
-		/**
-		 * /!\ If the value is right in the middle of two float,
-		 *     we must round down!
-		 * We detect such occurence when m ends with 01 and then
-		 * we have a continuous streak of 0s.
-		 */
-		m ^= (product[0] == 0) & ((product[1] & mask) == (1UL << shift));
-
-		// Round up.
-		m = (m + (m & 1)) >> 1;
+		m >>= 1;
 		if (m >= (2UL << MantissaBits)) {
 			m = 1UL << MantissaBits;
 			e++;
@@ -486,6 +460,17 @@ ulong[2] computeProductAproximation(ulong mantissa, int exponent) {
  */
 int power(int e) {
 	return ((152170 + 65536) * e) >> 16;
+}
+
+/**
+ * /!\ If the value is right in the middle of two float,
+ *     we must round to even!
+ * We detect such occurence when m ends with 01 and then
+ * we have a continuous streak of 0s.
+ */
+bool shouldRoundUp(ulong n, ulong shift) {
+	auto m = n >> shift;
+	return ((m << shift) != n) | ((m & 3) == 3);
 }
 
 template TypeConstants(T) {
