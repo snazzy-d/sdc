@@ -239,8 +239,8 @@ struct SoftFloat {
 
 		// Ensure the most significant bit of the mantissa is a 1.
 		auto lz = countLeadingZeros(mantissa);
+		int e = computeExponent!T(exponent, lz);
 		ulong nm = mantissa << lz;
-		int e = exponent - lz + C.ExponentOffset + 63;
 
 		static computeMantissa(ulong nm, ulong shift) {
 			auto m = nm >> shift;
@@ -317,7 +317,8 @@ struct SoftFloat {
 		uint upperbit = approx >> 63;
 		auto shift = (upperbit + 64 - C.MantissaExplicitBits - 3);
 
-		int e = power(exponent) + upperbit - lz + C.ExponentOffset + 63;
+		int e = power(exponent) + upperbit;
+		e = computeExponent!T(e, lz);
 
 		// We have a plain normal float.
 		if (e > 0) {
@@ -445,6 +446,11 @@ ulong[2] computeProductAproximation(ulong mantissa, int exponent) {
  */
 int power(int e) {
 	return ((152170 + 65536) * e) >> 16;
+}
+
+int computeExponent(T)(int base, uint lz) if (isFloatingPoint!T) {
+	alias C = TypeConstants!T;
+	return base - lz + C.ExponentOffset + 63;
 }
 
 /**
