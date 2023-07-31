@@ -1,7 +1,7 @@
 LIBSDRT_GC_SRC = $(wildcard sdlib/d/gc/*.d)
 LIBSDRT_RT_SRC = $(wildcard sdlib/d/rt/*.d)
 LIBSDRT_STDC_SRC = $(wildcard sdlib/core/stdc/*.d)
-LIBSDRT_SYNC_SRC = $(wildcard sdlib/d/sync/*.d)
+LIBSDRT_SYNC_SRC = $(wildcard sdlib/d/sync/*.d) $(wildcard sdlib/d/sync/futex/*.d)
 
 LIBSDRT_LINUX_SRC = $(wildcard sdlib/sys/linux/*.d)
 
@@ -85,6 +85,9 @@ check-sdlib-stdc-%: sdlib/core/stdc/%.d $(SDUNIT)
 	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
 check-sdlib-sync-%: sdlib/d/sync/%.d $(SDUNIT)
+	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
+check-sdlib-sync-futex/%: sdlib/d/sync/futex/%.d $(SDUNIT)
 	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
 check-sdlib-gc: $(CHECK_LIBSDRT_GC)

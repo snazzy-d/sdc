@@ -1,4 +1,4 @@
-module d.sync.futex;
+module d.sync.futex.futex;
 
 import d.sync.atomic;
 
