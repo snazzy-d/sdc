@@ -40,6 +40,7 @@ struct __LLVMStructLayout {};
 extern(D) string LLVM_TARGET(string delegate(string) nothrow fun) {
   string ret;
   foreach (str; [
+    "AArch64",
   /*
     "ARM",
     "CellSPU",
@@ -80,6 +81,7 @@ extern(D) mixin(LLVM_TARGET(delegate string(string name) {
 extern(D) string LLVM_ASM_PRINTER(string delegate(string) nothrow fun) {
   string ret;
   foreach (str; [
+    "AArch64",
   /*
     "ARM",
     "CellSPU",
@@ -110,6 +112,7 @@ extern(D) mixin(LLVM_ASM_PRINTER(delegate string(string name) {
 extern(D) string LLVM_ASM_PARSER(string delegate(string) nothrow fun) {
   string ret;
   foreach (str; [
+    "AArch64",
   /*
     "ARM",
     "Mips",
@@ -131,6 +134,7 @@ extern(D) mixin(LLVM_ASM_PARSER(delegate string(string name) {
 extern(D) string LLVM_ASM_DISASSEMBLER(string delegate(string) nothrow fun) {
   string ret;
   foreach (str; [
+    "AArch64",
   /*
     "ARM",
     "Mips",
