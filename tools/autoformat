@@ -30,6 +30,10 @@ process_file() {
 		printf "%u/%u\r" $(( ++COUNTER )) "$TOTAL"
 	fi
 }
-
 export -f process_file
-parallel process_file ::: "$FILES"
+
+if command -v parallel &> /dev/null; then
+    parallel process_file ::: "$FILES"
+else
+    for fn in $FILES; do process_file $fn; done
+fi
