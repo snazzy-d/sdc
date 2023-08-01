@@ -29,7 +29,7 @@ ifeq ($(PLATFORM),Linux)
 	override NASMFLAGS += -f elf64
 endif
 ifeq ($(PLATFORM),Darwin)
-	override LDFLAGS += -lc++
+	override LDFLAGS += -lc++ -Wl,-export_dynamic
 	override NASMFLAGS += -f macho64
 endif
 ifeq ($(PLATFORM),FreeBSD)
