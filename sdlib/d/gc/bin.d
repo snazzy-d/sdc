@@ -196,5 +196,47 @@ struct BinInfo {
 	}
 }
 
+// Determine whether given size class may hold appendability flag.
+bool mayAppend(ubyte sizeClass) {
+	return !isSmall(sizeClass) || (binInfos[sizeClass].slots <= 256);
+}
+
+// Determine whether given size class may hold finalization flag.
+bool mayFinalize(ubyte sizeClass) {
+	return !isSmall(sizeClass) || (binInfos[sizeClass].slots <= 128);
+}
+
+// Take given alloc size and augment if required to store the given meta flags.
+// Size class may transition from small (slab) alloc to large in this process.
+size_t sizeUpWithMeta(size_t size, bool append, bool finalize) {
+	auto sc = getSizeClass(size);
+	while ((append && !mayAppend(sc)) || (finalize && !mayFinalize(sc))) {
+		sc += 1;
+		assert(sc <= ubyte.max);
+	}
+
+	return getSizeFromClass(sc);
+}
+
+unittest sizeClassForMeta {
+	assert(!mayAppend(0));
+	assert(!mayFinalize(0));
+	assert(mayAppend(1));
+	assert(!mayFinalize(1));
+	assert(!mayAppend(2));
+	assert(!mayFinalize(2));
+	assert(mayAppend(3));
+	assert(mayFinalize(3));
+	assert(mayAppend(11));
+	assert(mayFinalize(11));
+	assert(sizeUpWithMeta(1, false, false) == 8);
+	assert(sizeUpWithMeta(1, true, false) == 16);
+	assert(sizeUpWithMeta(1, false, true) == 32);
+	assert(sizeUpWithMeta(39, true, false) == 48);
+	assert(sizeUpWithMeta(39, false, true) == 64);
+	assert(sizeUpWithMeta(50, false, false) == 56);
+	assert(sizeUpWithMeta(50, true, false) == 64);
+}
+
 import d.gc.sizeclass;
 immutable BinInfo[ClassCount.Small] binInfos = getBinInfos();

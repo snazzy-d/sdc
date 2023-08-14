@@ -176,6 +176,10 @@ auto getBinInfos() {
 	return bins;
 }
 
+bool isSmall(ubyte sizeClass) {
+	return sizeClass < ClassCount.Small;
+}
+
 private:
 
 auto getTotalClassCount() {
