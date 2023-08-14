@@ -142,7 +142,7 @@ private:
 		bits |= ulong(arenaIndex) << 32;
 
 		if (ec.isSlab()) {
-			bits |= slabSlots << 48;
+			bits |= ulong(binInfos[sizeClass].slots) << 48;
 
 			// Clear all slab occupancy and any meta flags as well
 			slabData.clear();
@@ -179,12 +179,6 @@ public:
 	ref void* finalizer() {
 		assert(!isSlab(), "finalizer accessed on slab!");
 		return meta.large.finalizer;
-	}
-
-	@property
-	ulong slabSlots() const {
-		assert(isSlab(), "slabSlots accessed on non slab!");
-		return ulong(binInfos[sizeClass].slots);
 	}
 
 	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd,
@@ -288,7 +282,6 @@ public:
 		scope(success) bits -= (1UL << 48);
 		auto index = slabData.setFirst();
 
-		auto width = slabSlots;
 		if (isAppendable)
 			apFlags.setBit(index);
 
@@ -307,32 +300,42 @@ public:
 		slabData.clearBit(index);
 
 		// Clear meta flags, if they exist
-		if (slabSlots <= 256)
+		switch (sizeClass) {
+		case 0, 2, 4, 6: // 512-slot classes permit no flags
+			return;
+		case 1, 5, 8, 10: // 256-slot classes only allow append flag
 			apFlags.clearBit(index);
-
-		if (slabSlots <= 128)
-			finFlags.clearBit(index);
+			return;
+		default: // 128 and fewer slots -- allow append and finalize
+			apFlags.clearBit(index);
+			finFlags.valueAt(index);
+			return;
+		}
 	}
 
 	@property
 	bool isAppendable(uint index) {
 		assert(isSlab(), "isAppendable(index) accessed on non slab!");
 
-		// 512-slot classes are never appendable
-		if (slabSlots == 512)
+		switch (sizeClass) {
+		case 0, 2, 4, 6: // 512-slot classes permit no flags
 			return false;
-
-		return apFlags.valueAt(index);
+		default:
+			return apFlags.valueAt(index);
+		}
 	}
 
 	@property
 	bool isFinalizable(uint index) {
 		assert(isSlab(), "isFinalizable(index) accessed on non slab!");
 
-		if (slabSlots > 128) // >128-slot classes are never finalizable
+		switch (sizeClass) {
+		case 0, 2, 4, 6, // 512-slot classes permit no flags
+			1, 5, 8, 10: // 256-slot classes only allow append flag
 			return false;
-
-		return finFlags.valueAt(index);
+		default:
+			return finFlags.valueAt(index);
+		}
 	}
 
 	@property
@@ -347,7 +350,6 @@ public:
 	ref Bitmap!256 apFlags() {
 		// FIXME: in contract.
 		assert(isSlab(), "apFlags accessed on non slab!");
-		assert(slabSlots != 512, "apFlags accessed on 512-slot slab!");
 
 		return meta.slab256.apFlags;
 	}
@@ -356,14 +358,8 @@ public:
 	ref Bitmap!128 finFlags() {
 		// FIXME: in contract.
 		assert(isSlab(), "finFlags accessed on non slab!");
-		assert(slabSlots <= 128, "finFlags accessed on slab with >128 slots!");
 
 		return meta.slab128.finFlags;
-	}
-
-	@property
-	ref _meta extMeta() {
-		return meta;
 	}
 }
 
