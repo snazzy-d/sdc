@@ -207,7 +207,6 @@ bool mayFinalize(ubyte sizeClass) {
 }
 
 // Take given alloc size and augment if required to store the given meta flags.
-// Size class may transition from small (slab) alloc to large in this process.
 size_t sizeUpWithMeta(size_t size, bool append, bool finalize) {
 	auto sc = getSizeClass(size);
 	while ((append && !mayAppend(sc)) || (finalize && !mayFinalize(sc))) {
