@@ -115,10 +115,10 @@ public:
 	 */
 	void* allocSmall(shared(ExtentMap)* emap, size_t size) shared {
 		// TODO: in contracts
-		assert(size > 0 && size <= SizeClass.Small);
+		assert(size > 0 && isSizeSmall(size));
 
 		auto sizeClass = getSizeClass(size);
-		assert(sizeClass < ClassCount.Small);
+		assert(isSizeClassSmall(sizeClass));
 
 		return bins[sizeClass].alloc(&this, emap, sizeClass);
 	}
@@ -129,7 +129,7 @@ public:
 	void* allocLarge(shared(ExtentMap)* emap, size_t size,
 	                 bool zero = false) shared {
 		// TODO: in contracts
-		assert(size > SizeClass.Small && size <= MaxAllocationSize);
+		assert(!isSizeSmall(size) && size <= MaxAllocationSize);
 
 		auto computedPageCount = alignUp(size, PageSize) / PageSize;
 		uint pages = computedPageCount & uint.max;

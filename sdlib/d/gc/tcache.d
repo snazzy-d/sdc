@@ -23,7 +23,7 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
-		return size <= SizeClass.Small
+		return isSizeSmall(size)
 			? arena.allocSmall(emap, size)
 			: arena.allocLarge(emap, size, false);
 	}
@@ -36,7 +36,7 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
-		if (size <= SizeClass.Small) {
+		if (isSizeSmall(size)) {
 			auto ret = arena.allocSmall(emap, size);
 			memset(ret, 0, size);
 			return ret;
