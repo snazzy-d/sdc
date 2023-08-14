@@ -308,7 +308,7 @@ public:
 				return;
 			default: // 128 and fewer slots -- allow append and finalize
 				apFlags.clearBit(index);
-				finFlags.valueAt(index);
+				finFlags.clearBit(index);
 				return;
 		}
 	}
