@@ -301,15 +301,15 @@ public:
 
 		// Clear meta flags, if they exist
 		switch (sizeClass) {
-		case 0, 2, 4, 6: // 512-slot classes permit no flags
-			return;
-		case 1, 5, 8, 10: // 256-slot classes only allow append flag
-			apFlags.clearBit(index);
-			return;
-		default: // 128 and fewer slots -- allow append and finalize
-			apFlags.clearBit(index);
-			finFlags.valueAt(index);
-			return;
+			case 0, 2, 4, 6: // 512-slot classes permit no flags
+				return;
+			case 1, 5, 8, 10: // 256-slot classes only allow append flag
+				apFlags.clearBit(index);
+				return;
+			default: // 128 and fewer slots -- allow append and finalize
+				apFlags.clearBit(index);
+				finFlags.valueAt(index);
+				return;
 		}
 	}
 
@@ -318,10 +318,10 @@ public:
 		assert(isSlab(), "isAppendable(index) accessed on non slab!");
 
 		switch (sizeClass) {
-		case 0, 2, 4, 6: // 512-slot classes permit no flags
-			return false;
-		default:
-			return apFlags.valueAt(index);
+			case 0, 2, 4, 6: // 512-slot classes permit no flags
+				return false;
+			default:
+				return apFlags.valueAt(index);
 		}
 	}
 
@@ -330,11 +330,11 @@ public:
 		assert(isSlab(), "isFinalizable(index) accessed on non slab!");
 
 		switch (sizeClass) {
-		case 0, 2, 4, 6, // 512-slot classes permit no flags
-			1, 5, 8, 10: // 256-slot classes only allow append flag
-			return false;
-		default:
-			return finFlags.valueAt(index);
+			case 0, 2, 4, 6, // 512-slot classes permit no flags
+			     1, 5, 8, 10: // 256-slot classes only allow append flag
+				return false;
+			default:
+				return finFlags.valueAt(index);
 		}
 	}
 
