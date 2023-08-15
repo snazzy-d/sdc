@@ -26,13 +26,14 @@ public:
 
 		if (isAppendable) {
 			// Currently, large (extent) allocs must be used for appendables:
-			auto aSize = size > SizeClass.Small ? size : SizeClass.Small + 1;
-			aSize = alignUp(aSize, PageSize);
-			// Above to be removed when slab alloc for appendable is supported
+			auto aSize = size;
+			while (getAllocSize(aSize) <= SizeClass.Small) {
+				aSize = getSizeFromClass(getSizeClass(aSize) + 1);
+			}
+
 			auto ptr = arena.allocLarge(emap, aSize, false);
 			auto pd = getPageDescriptor(ptr);
-			pd.extent.allocSize = 0;
-			pd.extent.appendable = true;
+			pd.extent.setAllocSize(size);
 			return ptr;
 		} else {
 			return size <= SizeClass.Small
@@ -64,10 +65,6 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		// Clear metadata:
-		if (!pd.isSlab())
-			pd.extent.clearLargeMeta();
-
 		pd.arena.free(emap, pd, ptr);
 	}
 
@@ -76,12 +73,11 @@ public:
 		if (ptr is null)
 			return false;
 
-		auto pd = getPageDescriptor(ptr);
-		// Not supports slab allocs yet
-		if (pd.isSlab())
+		auto pd = maybeGetPageDescriptor(ptr);
+		if ((pd.extent is null) || (ptr !is pd.extent.address))
 			return false;
 
-		return pd.extent.appendable;
+		return pd.extent.isAppendable;
 	}
 
 	// Get the current fill of an appendable alloc.
@@ -90,9 +86,8 @@ public:
 		if (ptr is null)
 			return 0;
 
-		auto pd = getPageDescriptor(ptr);
-		// Not supports slab allocs yet
-		if (pd.isSlab() || !pd.extent.appendable)
+		auto pd = maybeGetPageDescriptor(ptr);
+		if ((pd.extent is null) || (ptr !is pd.extent.address))
 			return 0;
 
 		return pd.extent.allocSize;
@@ -104,9 +99,9 @@ public:
 		if (ptr is null)
 			return 0;
 
-		auto pd = getPageDescriptor(ptr);
-		// Not supports slab allocs yet
-		if (pd.isSlab() || !pd.extent.appendable)
+		auto pd = maybeGetPageDescriptor(ptr);
+		if ((pd.extent is null) || (ptr !is pd.extent.address)
+			    || (!pd.extent.isAppendable))
 			return 0;
 
 		return cast(ulong) pd.extent.size - pd.extent.allocSize;
@@ -119,13 +114,13 @@ public:
 		if (ptr is null)
 			return false;
 
-		auto pd = getPageDescriptor(ptr);
-		// Not supports slab allocs yet
-		if (pd.isSlab())
+		auto pd = maybeGetPageDescriptor(ptr);
+		if ((pd.extent is null) || pd.isSlab() || (ptr !is pd.extent.address)
+			    || (!pd.extent.isAppendable))
 			return false;
 
 		if (fill <= pd.extent.size) {
-			pd.extent.allocSize = fill;
+			pd.extent.setAllocSize(fill);
 			return true;
 		}
 
@@ -162,7 +157,6 @@ public:
 			}
 
 			// TODO: Try to extend/shrink in place.
-			import d.gc.util;
 			copySize = min(size, esize);
 		}
 
@@ -172,10 +166,7 @@ public:
 			return null;
 		}
 
-		// Transfer metadata (currently only support large allocs) :
-		auto pdNew = getPageDescriptor(newPtr);
-		if (!pd.isSlab() && !pdNew.isSlab())
-			pd.extent.copyLargeMeta(pdNew.extent);
+		// TODO: transfer metadata
 
 		memcpy(newPtr, ptr, copySize);
 		pd.arena.free(emap, pd, ptr);
@@ -365,4 +356,19 @@ unittest makeRange {
 	checkRange(ptr[1 .. 6], 0, 0);
 	checkRange(ptr[1 .. 7], 0, 0);
 	checkRange(ptr[1 .. 8], 8, 8);
+}
+
+unittest appendableAlloc {
+	auto p0 = threadCache.alloc(100, false, true);
+	auto p1 = threadCache.alloc(100, false, false);
+	assert(threadCache.is_appendable(p0));
+	assert(!threadCache.is_appendable(p1));
+	assert(threadCache.get_appendable_free_space(p1) == 0);
+	assert(threadCache.get_appendable_fill(p0) == 100);
+	assert(threadCache.get_appendable_free_space(p0) == 16284);
+	assert(threadCache.set_appendable_fill(p0, 65536) == false);
+	assert(threadCache.set_appendable_fill(p0, 200) == true);
+	assert(threadCache.get_appendable_fill(p0) == 200);
+	assert(threadCache.get_appendable_free_space(p0) == 16184);
+	threadCache.free(p0);
 }

@@ -99,20 +99,15 @@ private:
 	Links _links;
 
 	import d.gc.bitmap;
-	union _meta {
+	union Meta {
 		// Slab occupancy (constrained by freeSlots, so usable for all classes)
-		Bitmap!512 slabOccupy;
+		Bitmap!512 _slabData;
 
 		// Metadata for non-slab (large) size classes
-		struct large {
-			ulong allocSize; // Actual alloc size, stored when required
-			bool canAppend; // Is the alloc appendable?
-			void* finalizer; // Reserved, not used currently
-			ubyte[47] _unused;
-		}
+		ulong allocSize; // Actual alloc size
 	}
 
-	_meta meta;
+	Meta _meta;
 
 	this(uint arenaIndex, void* ptr, size_t size, ubyte generation,
 	     HugePageDescriptor* hpd, ExtentClass ec) {
@@ -134,31 +129,23 @@ private:
 
 			slabData.clear();
 		} else {
-			clearLargeMeta();
+			_meta.allocSize = 0;
 		}
 	}
 
 public:
-	void clearLargeMeta() {
-		meta.large.allocSize = 0;
-		meta.large.canAppend = false;
-	}
-
-	void copyLargeMeta(Extent* dest) {
-		dest.appendable = appendable;
-		dest.allocSize = allocSize;
-	}
-
 	@property
-	ref bool appendable() {
-		assert(!isSlab(), "appendable accessed on slab!");
-		return meta.large.canAppend;
+	bool isAppendable() {
+		return (!isSlab() && allocSize != 0);
 	}
 
 	@property
 	ref ulong allocSize() {
-		assert(!isSlab(), "allocSize accessed on slab!");
-		return meta.large.allocSize;
+		return _meta.allocSize;
+	}
+
+	void setAllocSize(size_t size) {
+		_meta.allocSize = size;
 	}
 
 	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd,
@@ -277,7 +264,7 @@ public:
 		// FIXME: in contract.
 		assert(isSlab(), "slabData accessed on non slab!");
 
-		return meta.slabOccupy;
+		return _meta._slabData;
 	}
 }
 
