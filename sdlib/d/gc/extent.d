@@ -136,7 +136,7 @@ private:
 public:
 	@property
 	bool isAppendable() {
-		return isLarge() && allocSize;
+		return allocSize != 0;
 	}
 
 	@property
