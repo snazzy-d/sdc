@@ -136,15 +136,16 @@ private:
 public:
 	@property
 	bool isAppendable() {
-		return allocSize != 0;
+		return isLarge() && allocSize;
 	}
 
 	@property
 	ulong allocSize() {
-		return isSlab() ? 0 : _meta.allocSize;
+		return isLarge() ? _meta.allocSize : 0;
 	}
 
 	void setAllocSize(size_t size) {
+		assert(isLarge(), "Cannot set alloc size on a slab alloc!");
 		_meta.allocSize = size;
 	}
 
@@ -224,6 +225,10 @@ public:
 	bool isSlab() const {
 		auto ec = extentClass;
 		return ec.isSlab();
+	}
+
+	bool isLarge() const {
+		return !isSlab();
 	}
 
 	@property

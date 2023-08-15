@@ -26,7 +26,7 @@ public:
 
 		if (isAppendable) {
 			// Currently, large (extent) allocs must be used for appendables:
-			auto ptr = arena.allocLarge(emap, forceLarge(size), false);
+			auto ptr = arena.allocLarge(emap, upsizeToLarge(size), false);
 			auto pd = getPageDescriptor(ptr);
 			pd.extent.setAllocSize(size);
 			return ptr;
@@ -82,7 +82,8 @@ public:
 			return 0;
 
 		auto pd = maybeGetPageDescriptor(ptr);
-		if ((pd.extent is null) || (ptr !is pd.extent.address))
+		if ((pd.extent is null) || (ptr !is pd.extent.address)
+			    || (!pd.extent.isAppendable))
 			return 0;
 
 		return pd.extent.allocSize;
@@ -110,7 +111,7 @@ public:
 			return false;
 
 		auto pd = maybeGetPageDescriptor(ptr);
-		if ((pd.extent is null) || pd.isSlab() || (ptr !is pd.extent.address)
+		if ((pd.extent is null) || (ptr !is pd.extent.address)
 			    || (!pd.extent.isAppendable))
 			return false;
 
@@ -167,7 +168,7 @@ public:
 		}
 
 		containsPointers = (containsPointers | pd.containsPointers) != 0;
-		auto useSize = oldFill ? forceLarge(size) : size;
+		auto useSize = oldFill ? upsizeToLarge(size) : size;
 		auto newPtr = alloc(useSize, containsPointers);
 		if (newPtr is null) {
 			return null;
@@ -257,7 +258,7 @@ public:
 
 private:
 	// Force large allocation rather than slab
-	size_t forceLarge(size_t size) {
+	size_t upsizeToLarge(size_t size) {
 		auto aSize = size;
 		while (getAllocSize(aSize) <= SizeClass.Small) {
 			aSize = getSizeFromClass(getSizeClass(aSize) + 1);
