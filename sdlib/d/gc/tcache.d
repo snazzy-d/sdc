@@ -1,5 +1,6 @@
 module d.gc.tcache;
 
+import d.gc.extent;
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
@@ -65,58 +66,31 @@ public:
 
 	// Determine whether given alloc is appendable
 	bool is_appendable(void* ptr) {
-		if (ptr is null)
-			return false;
-
-		auto pd = maybeGetPageDescriptor(ptr);
-		if ((pd.extent is null) || (ptr !is pd.extent.address))
-			return false;
-
-		return pd.extent.isAppendable;
+		return maybeGetAppendableExtent(ptr) !is null;
 	}
 
 	// Get the current fill of an appendable alloc.
 	// If the alloc is not appendable, returns 0.
 	size_t get_appendable_fill(void* ptr) {
-		if (ptr is null)
-			return 0;
-
-		auto pd = maybeGetPageDescriptor(ptr);
-		if ((pd.extent is null) || (ptr !is pd.extent.address)
-			    || (!pd.extent.isAppendable))
-			return 0;
-
-		return pd.extent.allocSize;
+		auto e = maybeGetAppendableExtent(ptr);
+		return (e !is null) ? e.allocSize : 0;
 	}
 
 	// Get the current free space of an appendable alloc.
 	// If the alloc is not appendable, returns 0.
 	size_t get_appendable_free_space(void* ptr) {
-		if (ptr is null)
-			return 0;
-
-		auto pd = maybeGetPageDescriptor(ptr);
-		if ((pd.extent is null) || (ptr !is pd.extent.address)
-			    || (!pd.extent.isAppendable))
-			return 0;
-
-		return pd.extent.size - pd.extent.allocSize;
+		auto e = maybeGetAppendableExtent(ptr);
+		return (e !is null) ? e.size - e.allocSize : 0;
 	}
 
 	// Change the current fill of an appendable alloc.
 	// If the alloc is not appendable, or the requested
 	// fill exceeds the available space, returns false.
 	bool set_appendable_fill(void* ptr, size_t fill) {
-		if (ptr is null)
-			return false;
+		auto e = maybeGetAppendableExtent(ptr);
 
-		auto pd = maybeGetPageDescriptor(ptr);
-		if ((pd.extent is null) || (ptr !is pd.extent.address)
-			    || (!pd.extent.isAppendable))
-			return false;
-
-		if (fill <= pd.extent.size) {
-			pd.extent.setAllocSize(fill);
+		if ((e !is null) && (fill <= e.size)) {
+			e.setAllocSize(fill);
 			return true;
 		}
 
@@ -178,6 +152,7 @@ public:
 
 		if (oldFill) {
 			auto pdNew = getPageDescriptor(newPtr);
+			assert(pdNew.extent.isLarge());
 			pdNew.extent.setAllocSize(oldFill);
 		}
 
@@ -265,6 +240,19 @@ private:
 		}
 
 		return aSize;
+	}
+
+	// Get appendable extent of ptr, or null if this is impossible
+	Extent* maybeGetAppendableExtent(void* ptr) {
+		if (ptr is null)
+			return null;
+
+		auto pd = maybeGetPageDescriptor(ptr);
+		if ((pd.extent is null) || (ptr !is pd.extent.address)
+			    || (!pd.extent.isAppendable))
+			return null;
+
+		return pd.extent;
 	}
 
 	auto getPageDescriptor(void* ptr) {
