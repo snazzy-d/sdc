@@ -130,10 +130,9 @@ public:
 			if (size < oldFill)
 				return ptr;
 
-			auto oldSize =
-				oldFill ? alignUp(oldFill, PageSize) : pd.extent.size;
+			auto oldSize = oldFill ? oldFill : pd.extent.size;
 
-			if (alignUp(size, PageSize) == oldSize) {
+			if (alignUp(size, PageSize) == alignUp(oldSize, PageSize)) {
 				return ptr;
 			}
 
