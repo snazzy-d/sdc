@@ -15,7 +15,7 @@ private:
 	const(void*)[][] roots;
 
 public:
-	void* alloc(size_t size, bool containsPointers) {
+	void* alloc(size_t size, bool containsPointers, bool isAppendable = false) {
 		if (!isAllocatableSize(size)) {
 			return null;
 		}
@@ -23,9 +23,22 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
-		return size <= SizeClass.Small
-			? arena.allocSmall(emap, size)
-			: arena.allocLarge(emap, size, false);
+
+		if (isAppendable) {
+			// Currently, large (extent) allocs must be used for appendables:
+			auto aSize = size > SizeClass.Small ? size : SizeClass.Small + 1;
+			aSize = alignUp(aSize, PageSize);
+			// Above to be removed when slab alloc for appendable is supported
+			auto ptr = arena.allocLarge(emap, aSize, false);
+			auto pd = getPageDescriptor(ptr);
+			pd.extent.allocSize = 0;
+			pd.extent.appendable = true;
+			return ptr;
+		} else {
+			return size <= SizeClass.Small
+				? arena.allocSmall(emap, size)
+				: arena.allocLarge(emap, size, false);
+		}
 	}
 
 	void* calloc(size_t size, bool containsPointers) {
@@ -51,7 +64,72 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
+		// Clear metadata:
+		if (!pd.isSlab())
+			pd.extent.clearLargeMeta();
+
 		pd.arena.free(emap, pd, ptr);
+	}
+
+	// Determine whether given alloc is appendable
+	bool is_appendable(void* ptr) {
+		if (ptr is null)
+			return false;
+
+		auto pd = getPageDescriptor(ptr);
+		// Not supports slab allocs yet
+		if (pd.isSlab())
+			return false;
+
+		return pd.extent.appendable;
+	}
+
+	// Get the current fill of an appendable alloc.
+	// If the alloc is not appendable, returns 0.
+	ulong get_appendable_fill(void* ptr) {
+		if (ptr is null)
+			return 0;
+
+		auto pd = getPageDescriptor(ptr);
+		// Not supports slab allocs yet
+		if (pd.isSlab() || !pd.extent.appendable)
+			return 0;
+
+		return pd.extent.allocSize;
+	}
+
+	// Get the current free space of an appendable alloc.
+	// If the alloc is not appendable, returns 0.
+	ulong get_appendable_free_space(void* ptr) {
+		if (ptr is null)
+			return 0;
+
+		auto pd = getPageDescriptor(ptr);
+		// Not supports slab allocs yet
+		if (pd.isSlab() || !pd.extent.appendable)
+			return 0;
+
+		return cast(ulong) pd.extent.size - pd.extent.allocSize;
+	}
+
+	// Change the current fill of an appendable alloc.
+	// If the alloc is not appendable, or the requested
+	// fill exceeds the available space, returns false.
+	bool set_appendable_fill(void* ptr, ulong fill) {
+		if (ptr is null)
+			return false;
+
+		auto pd = getPageDescriptor(ptr);
+		// Not supports slab allocs yet
+		if (pd.isSlab())
+			return false;
+
+		if (fill <= pd.extent.size) {
+			pd.extent.allocSize = fill;
+			return true;
+		}
+
+		return false;
 	}
 
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
@@ -93,6 +171,11 @@ public:
 		if (newPtr is null) {
 			return null;
 		}
+
+		// Transfer metadata (currently only support large allocs) :
+		auto pdNew = getPageDescriptor(newPtr);
+		if (!pd.isSlab() && !pdNew.isSlab())
+			pd.extent.copyLargeMeta(pdNew.extent);
 
 		memcpy(newPtr, ptr, copySize);
 		pd.arena.free(emap, pd, ptr);
