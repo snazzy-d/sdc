@@ -82,7 +82,7 @@ public:
 
 	// Get the current fill of an appendable alloc.
 	// If the alloc is not appendable, returns 0.
-	ulong get_appendable_fill(void* ptr) {
+	size_t get_appendable_fill(void* ptr) {
 		if (ptr is null)
 			return 0;
 
@@ -95,7 +95,7 @@ public:
 
 	// Get the current free space of an appendable alloc.
 	// If the alloc is not appendable, returns 0.
-	ulong get_appendable_free_space(void* ptr) {
+	size_t get_appendable_free_space(void* ptr) {
 		if (ptr is null)
 			return 0;
 
@@ -104,13 +104,13 @@ public:
 			    || (!pd.extent.isAppendable))
 			return 0;
 
-		return cast(ulong) pd.extent.size - pd.extent.allocSize;
+		return pd.extent.size - pd.extent.allocSize;
 	}
 
 	// Change the current fill of an appendable alloc.
 	// If the alloc is not appendable, or the requested
 	// fill exceeds the available space, returns false.
-	bool set_appendable_fill(void* ptr, ulong fill) {
+	bool set_appendable_fill(void* ptr, size_t fill) {
 		if (ptr is null)
 			return false;
 
@@ -137,8 +137,11 @@ public:
 			return alloc(size, containsPointers);
 		}
 
+		size_t oldFill = 0;
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
+
+		// TODO: should realloc work with pointers outside of GC?
 
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
@@ -151,13 +154,21 @@ public:
 				copySize = getSizeFromClass(oldSizeClass);
 			}
 		} else {
-			auto esize = pd.extent.size;
-			if (alignUp(size, PageSize) == esize) {
+			oldFill = pd.extent.allocSize;
+
+			// Prohibit resize below appendable fill:
+			if (size < oldFill)
+				return ptr;
+
+			auto oldSize =
+				oldFill ? alignUp(oldFill, PageSize) : pd.extent.size;
+
+			if (alignUp(size, PageSize) == oldSize) {
 				return ptr;
 			}
 
 			// TODO: Try to extend/shrink in place.
-			copySize = min(size, esize);
+			copySize = min(size, oldSize);
 		}
 
 		containsPointers = (containsPointers | pd.containsPointers) != 0;
@@ -166,9 +177,13 @@ public:
 			return null;
 		}
 
-		// TODO: transfer metadata
-
 		memcpy(newPtr, ptr, copySize);
+
+		if (oldFill) {
+			auto pdNew = getPageDescriptor(newPtr);
+			pdNew.extent.setAllocSize(oldFill);
+		}
+
 		pd.arena.free(emap, pd, ptr);
 
 		return newPtr;
@@ -359,16 +374,41 @@ unittest makeRange {
 }
 
 unittest appendableAlloc {
+	// Basics:
 	auto p0 = threadCache.alloc(100, false, true);
 	auto p1 = threadCache.alloc(100, false, false);
 	assert(threadCache.is_appendable(p0));
 	assert(!threadCache.is_appendable(p1));
+	assert(threadCache.get_appendable_fill(p1) == 0);
 	assert(threadCache.get_appendable_free_space(p1) == 0);
 	assert(threadCache.get_appendable_fill(p0) == 100);
 	assert(threadCache.get_appendable_free_space(p0) == 16284);
-	assert(threadCache.set_appendable_fill(p0, 65536) == false);
+	assert(threadCache.set_appendable_fill(p0, 50000) == false);
 	assert(threadCache.set_appendable_fill(p0, 200) == true);
 	assert(threadCache.get_appendable_fill(p0) == 200);
 	assert(threadCache.get_appendable_free_space(p0) == 16184);
-	threadCache.free(p0);
+
+	// Realloc non-appendable alloc, should stay non-appendable :
+	p1 = threadCache.realloc(p1, 1000, false);
+	assert(p1 !is null);
+	assert(!threadCache.is_appendable(p1));
+	assert(threadCache.get_appendable_fill(p1) == 0);
+	assert(threadCache.get_appendable_free_space(p1) == 0);
+
+	// Realloc an appendable alloc up :
+	p0 = threadCache.realloc(p0, 100000, false);
+	assert(p0 !is null);
+	assert(threadCache.get_appendable_fill(p0) == 200);
+	assert(threadCache.set_appendable_fill(p0, 50000) == true);
+	assert(threadCache.get_appendable_fill(p0) == 50000);
+	assert(threadCache.get_appendable_free_space(p0) == 52400);
+
+	// Realloc an appendable alloc down :
+	p0 = threadCache.realloc(p0, 60000, false);
+	assert(p0 !is null);
+	assert(threadCache.get_appendable_free_space(p0) == 11440);
+
+	// Realloc prohibited by appendable fill, so nothing should change
+	auto p3 = threadCache.realloc(p0, 40000, false);
+	assert(p3 == p0);
 }

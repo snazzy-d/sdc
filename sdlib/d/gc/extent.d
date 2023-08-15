@@ -104,7 +104,7 @@ private:
 		Bitmap!512 _slabData;
 
 		// Metadata for non-slab (large) size classes
-		ulong allocSize; // Actual alloc size
+		size_t allocSize; // Actual alloc size
 	}
 
 	Meta _meta;
@@ -140,8 +140,8 @@ public:
 	}
 
 	@property
-	ref ulong allocSize() {
-		return _meta.allocSize;
+	ulong allocSize() {
+		return isSlab() ? 0 : _meta.allocSize;
 	}
 
 	void setAllocSize(size_t size) {
