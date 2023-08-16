@@ -64,11 +64,6 @@ unittest isAllocatableSize {
 
 enum maxSizeClass = ClassCount.Total - 1;
 
-// Determine whether given size class is permitted by the allocator.
-bool isAllocatableSizeClass(uint sizeClass) {
-	return sizeClass <= maxSizeClass;
-}
-
 // Determine whether given size class is considered 'small' (slab-allocatable).
 bool isSmallSizeClass(uint sizeClass) {
 	return sizeClass < ClassCount.Small;
@@ -76,38 +71,35 @@ bool isSmallSizeClass(uint sizeClass) {
 
 // Determine whether given size may fit into a 'small' (slab-allocatable) size class.
 bool isSmallSize(size_t size) {
-	return isAllocatableSize(size) && (size <= SizeClass.Small);
-}
-
-// Determine whether given size class is considered 'large'.
-bool isLargeSizeClass(uint sizeClass) {
-	assert(isAllocatableSizeClass(sizeClass));
-	return sizeClass >= ClassCount.Small;
+	return (size > 0) && (size <= SizeClass.Small);
 }
 
 // Determine whether given size may fit into a 'large' size class.
 bool isLargeSize(size_t size) {
-	return isAllocatableSize(size) && (size > SizeClass.Small);
+	return (size > SizeClass.Small) && (size <= MaxAllocationSize);
 }
 
 unittest sizeClassPredicates {
 	foreach (s; 0 .. 38) {
 		assert(isSmallSizeClass(s));
-		assert(!isLargeSizeClass(s));
 	}
 
 	foreach (s; 39 .. maxSizeClass + 1) {
 		assert(!isSmallSizeClass(s));
-		assert(isLargeSizeClass(s));
 	}
 
-	assert(!isAllocatableSizeClass(maxSizeClass + 1));
 	assert(!isSmallSize(0));
 	assert(!isLargeSize(0));
-	assert(isSmallSize(14336));
+
+	foreach (n; 1 .. 14336) {
+		assert(isSmallSize(n));
+		assert(!isLargeSize(n));
+		assert(isSmallSizeClass(getSizeClass(n)));
+	}
+
 	assert(!isSmallSize(14337));
-	assert(!isLargeSize(14336));
 	assert(isLargeSize(14337));
+	assert(!isSmallSizeClass(getSizeClass(14337)));
 }
 
 size_t getAllocSize(size_t size) {
