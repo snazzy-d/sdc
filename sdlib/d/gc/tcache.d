@@ -64,6 +64,10 @@ public:
 		pd.arena.free(emap, pd, ptr);
 	}
 
+	/**
+	 * Appendables API.
+	 */
+
 	// Determine whether given alloc is appendable
 	bool is_appendable(void* ptr) {
 		return maybeGetAppendableExtent(ptr) !is null;
@@ -97,6 +101,10 @@ public:
 		return false;
 	}
 
+	/**
+	 * Reallocation.
+	 */
+
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
 			free(ptr);
@@ -110,8 +118,6 @@ public:
 		size_t oldFill = 0;
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
-
-		// TODO: should realloc work with pointers outside of GC?
 
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
@@ -231,16 +237,6 @@ public:
 	}
 
 private:
-	// Force large allocation rather than slab
-	size_t upsizeToLarge(size_t size) {
-		auto aSize = size;
-		while (getAllocSize(aSize) <= SizeClass.Small) {
-			aSize = getSizeFromClass(getSizeClass(aSize) + 1);
-		}
-
-		return aSize;
-	}
-
 	// Get appendable extent of ptr, or null if this is impossible
 	Extent* maybeGetAppendableExtent(void* ptr) {
 		if (ptr is null)
@@ -293,6 +289,11 @@ private:
 }
 
 private:
+
+// Force large allocation rather than slab
+size_t upsizeToLarge(size_t size) {
+	return getAllocSize(size) <= SizeClass.Small ? SizeClass.Large : size;
+}
 
 bool isAllocatableSize(size_t size) {
 	return size > 0 && size <= MaxAllocationSize;

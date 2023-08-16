@@ -99,15 +99,16 @@ private:
 	Links _links;
 
 	import d.gc.bitmap;
-	union Meta {
+	union MetaData {
 		// Slab occupancy (constrained by freeSlots, so usable for all classes)
-		Bitmap!512 _slabData;
+		Bitmap!512 slabData;
 
-		// Metadata for non-slab (large) size classes
-		size_t allocSize; // Actual alloc size, 0 if not appendable
+		// Metadata for non-slab (large) size classes:
+		// Actual alloc size, 0 if not appendable
+		size_t allocSize;
 	}
 
-	Meta _meta;
+	MetaData _metadata;
 
 	this(uint arenaIndex, void* ptr, size_t size, ubyte generation,
 	     HugePageDescriptor* hpd, ExtentClass ec) {
@@ -129,26 +130,11 @@ private:
 
 			slabData.clear();
 		} else {
-			_meta.allocSize = 0;
+			_metadata.allocSize = 0;
 		}
 	}
 
 public:
-	@property
-	bool isAppendable() {
-		return allocSize != 0;
-	}
-
-	@property
-	ulong allocSize() {
-		return isLarge() ? _meta.allocSize : 0;
-	}
-
-	void setAllocSize(size_t size) {
-		assert(isLarge(), "Cannot set alloc size on a slab alloc!");
-		_meta.allocSize = size;
-	}
-
 	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd,
 	           ExtentClass ec) {
 		this = Extent(arenaIndex, ptr, size, generation, hpd, ec);
@@ -227,10 +213,6 @@ public:
 		return ec.isSlab();
 	}
 
-	bool isLarge() const {
-		return !isSlab();
-	}
-
 	@property
 	ubyte sizeClass() const {
 		auto ec = extentClass;
@@ -269,7 +251,30 @@ public:
 		// FIXME: in contract.
 		assert(isSlab(), "slabData accessed on non slab!");
 
-		return _meta._slabData;
+		return _metadata.slabData;
+	}
+
+	/**
+	 * Large features.
+	 */
+
+	bool isLarge() const {
+		return !isSlab();
+	}
+
+	@property
+	bool isAppendable() {
+		return allocSize != 0;
+	}
+
+	@property
+	ulong allocSize() {
+		return isLarge() ? _metadata.allocSize : 0;
+	}
+
+	void setAllocSize(size_t size) {
+		assert(isLarge(), "Cannot set alloc size on a slab alloc!");
+		_metadata.allocSize = size;
 	}
 }
 
