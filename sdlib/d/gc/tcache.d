@@ -388,6 +388,7 @@ unittest appendableAlloc {
 	assert(!threadCache.is_appendable(p1));
 	assert(threadCache.get_appendable_fill(p1) == 0);
 	assert(threadCache.get_appendable_free_space(p1) == 0);
+	threadCache.free(p1);
 
 	// Realloc an appendable alloc up :
 	p0 = threadCache.realloc(p0, 100000, false);
@@ -406,10 +407,13 @@ unittest appendableAlloc {
 	auto p3 = threadCache.realloc(p0, 40000, false);
 	assert(p3 == p0);
 
+	// Pointers the GC does not know about:
+	void* interior = p0 + 2000;
+	assert(!threadCache.is_appendable(interior));
+	assert(threadCache.set_appendable_fill(interior, 222) == false);
+	assert(threadCache.get_appendable_fill(interior) == 0);
+	assert(threadCache.get_appendable_free_space(interior) == 0);
 	threadCache.free(p0);
-	threadCache.free(p1);
-
-	// Pointer the GC does not know about:
 	auto martian = cast(void*) 0x56789abcd000;
 	assert(!threadCache.is_appendable(martian));
 	assert(threadCache.set_appendable_fill(martian, 333) == false);
