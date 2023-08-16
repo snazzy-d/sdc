@@ -47,6 +47,69 @@ enum SizeClass {
 
 enum MaxTinySize = ClassCount.Tiny * Quantum;
 
+// Determine whether given size is permitted by allocator.
+bool isAllocatableSize(size_t size) {
+	return size > 0 && size <= MaxAllocationSize;
+}
+
+unittest isAllocatableSize {
+	assert(!isAllocatableSize(0));
+	assert(isAllocatableSize(1));
+	assert(isAllocatableSize(42));
+	assert(isAllocatableSize(99999));
+	assert(isAllocatableSize(MaxAllocationSize));
+	assert(!isAllocatableSize(MaxAllocationSize + 1));
+	assert(!isAllocatableSize(size_t.max));
+}
+
+enum maxSizeClass = ClassCount.Total - 1;
+
+// Determine whether given size class is permitted by the allocator.
+bool isAllocatableSizeClass(uint sizeClass) {
+	return sizeClass <= maxSizeClass;
+}
+
+// Determine whether given size class is considered 'small' (slab-allocatable).
+bool isSmallSizeClass(uint sizeClass) {
+	return sizeClass < ClassCount.Small;
+}
+
+// Determine whether given size may fit into a 'small' (slab-allocatable) size class.
+bool isSmallSize(size_t size) {
+	return isAllocatableSize(size) && (size <= SizeClass.Small);
+}
+
+// Determine whether given size class is considered 'large'.
+bool isLargeSizeClass(uint sizeClass) {
+	assert(isAllocatableSizeClass(sizeClass));
+	return sizeClass >= ClassCount.Small;
+}
+
+// Determine whether given size may fit into a 'large' size class.
+bool isLargeSize(size_t size) {
+	return isAllocatableSize(size) && (size > SizeClass.Small);
+}
+
+unittest sizeClassPredicates {
+	foreach (s; 0 .. 38) {
+		assert(isSmallSizeClass(s));
+		assert(!isLargeSizeClass(s));
+	}
+
+	foreach (s; 39 .. maxSizeClass + 1) {
+		assert(!isSmallSizeClass(s));
+		assert(isLargeSizeClass(s));
+	}
+
+	assert(!isAllocatableSizeClass(maxSizeClass + 1));
+	assert(!isSmallSize(0));
+	assert(!isLargeSize(0));
+	assert(isSmallSize(14336));
+	assert(!isSmallSize(14337));
+	assert(!isLargeSize(14336));
+	assert(isLargeSize(14337));
+}
+
 size_t getAllocSize(size_t size) {
 	if (size <= MaxTinySize) {
 		return alignUp(size, Quantum);
@@ -113,7 +176,7 @@ unittest getSizeClass {
 }
 
 size_t getSizeFromClass(uint sizeClass) {
-	if (sizeClass < ClassCount.Small) {
+	if (isSmallSizeClass(sizeClass)) {
 		import d.gc.bin;
 		return binInfos[sizeClass].itemSize;
 	}
@@ -169,7 +232,7 @@ auto getBinInfos() {
 		uint p = needPages;
 		ushort slots = ((p << LgPageSize) / s) & ushort.max;
 
-		assert(id < ClassCount.Small);
+		assert(isSmallSizeClass(id));
 		bins[id] = BinInfo(itemSize, shift, needPages, slots);
 	});
 
