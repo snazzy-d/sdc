@@ -405,4 +405,14 @@ unittest appendableAlloc {
 	// Realloc prohibited by appendable fill, so nothing should change
 	auto p3 = threadCache.realloc(p0, 40000, false);
 	assert(p3 == p0);
+
+	threadCache.free(p0);
+	threadCache.free(p1);
+
+	// Pointer the GC does not know about:
+	auto martian = cast(void*) 0x56789abcd000;
+	assert(!threadCache.is_appendable(martian));
+	assert(threadCache.set_appendable_fill(martian, 333) == false);
+	assert(threadCache.get_appendable_fill(martian) == 0);
+	assert(threadCache.get_appendable_free_space(martian) == 0);
 }
