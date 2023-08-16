@@ -62,8 +62,6 @@ unittest isAllocatableSize {
 	assert(!isAllocatableSize(size_t.max));
 }
 
-enum maxSizeClass = ClassCount.Total - 1;
-
 // Determine whether given size class is considered 'small' (slab-allocatable).
 bool isSmallSizeClass(uint sizeClass) {
 	return sizeClass < ClassCount.Small;
@@ -84,7 +82,7 @@ unittest sizeClassPredicates {
 		assert(isSmallSizeClass(s));
 	}
 
-	foreach (s; 39 .. maxSizeClass + 1) {
+	foreach (s; 39 .. ClassCount.Total) {
 		assert(!isSmallSizeClass(s));
 	}
 
