@@ -23,7 +23,7 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
-		return size <= SizeClass.Small
+		return isSmallSize(size)
 			? arena.allocSmall(emap, size)
 			: arena.allocLarge(emap, size, false);
 	}
@@ -36,7 +36,7 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
-		if (size <= SizeClass.Small) {
+		if (isSmallSize(size)) {
 			auto ret = arena.allocSmall(emap, size);
 			memset(ret, 0, size);
 			return ret;
@@ -210,20 +210,6 @@ private:
 }
 
 private:
-
-bool isAllocatableSize(size_t size) {
-	return size > 0 && size <= MaxAllocationSize;
-}
-
-unittest isAllocatableSize {
-	assert(!isAllocatableSize(0));
-	assert(isAllocatableSize(1));
-	assert(isAllocatableSize(42));
-	assert(isAllocatableSize(99999));
-	assert(isAllocatableSize(MaxAllocationSize));
-	assert(!isAllocatableSize(MaxAllocationSize + 1));
-	assert(!isAllocatableSize(size_t.max));
-}
 
 extern(C):
 version(OSX) {
