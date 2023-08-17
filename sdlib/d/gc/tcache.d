@@ -46,7 +46,7 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
-		if (size <= SizeClass.Small) {
+		if (isSmallSize(size)) {
 			auto ret = arena.allocSmall(emap, size);
 			memset(ret, 0, size);
 			return ret;
@@ -289,6 +289,7 @@ private:
 }
 
 private:
+
 
 // Force large allocation rather than slab
 size_t upsizeToLarge(size_t size) {
