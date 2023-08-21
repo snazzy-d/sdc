@@ -69,6 +69,7 @@ public:
 	 */
 
 	// Get the capacity of the array slice denoted by slice and length.
+	// It includes the space occupied by the slice itself.
 	size_t getArrayCapacity(void* sliceAddr, size_t sliceLen) {
 		if ((sliceAddr is null) || (!sliceLen))
 			return 0;
@@ -78,7 +79,7 @@ public:
 		if ((pd.extent is null) || (!pd.extent.allocSize))
 			return 0;
 
-		// Capacity is defined as zero if an element exists after the slice.
+		// If an element exists after the slice, capacity is defined as zero.
 		// See also: https://dlang.org/spec/arrays.html#capacity-reserve
 		if (sliceAddr - pd.extent.address + sliceLen < pd.extent.allocSize)
 			return 0;
@@ -96,7 +97,7 @@ public:
 			return lAddr;
 
 		// Whether we will be appending in place, or must realloc:
-		bool inPlace = getArrayCapacity(lAddr, lBytes) >= rBytes;
+		bool inPlace = getArrayCapacity(lAddr, lBytes) >= rBytes + lBytes;
 
 		// If appending in place, use lAddr for result:
 		void* appended = lAddr;
@@ -371,6 +372,12 @@ unittest makeRange {
 }
 
 unittest appendableAlloc {
+	int[] append(int[] x, int[] y) {
+		auto _xy = threadCache.appendArray(x.ptr, int.sizeof * x.length, y.ptr,
+		                                   int.sizeof * y.length);
+		return cast(int[]) _xy[0 .. x.length + y.length];
+	}
+
 	int[] a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 	int[] b = [11, 12, 13];
 	int[] c = [14, 15, 16];
@@ -380,20 +387,14 @@ unittest appendableAlloc {
 	assert(!threadCache.getArrayCapacity(c.ptr, c.length * int.sizeof));
 
 	// a ~= b :
-	auto _ab = threadCache.appendArray(a.ptr, int.sizeof * a.length, b.ptr,
-	                                   int.sizeof * b.length);
-	assert(_ab !is null);
-	assert(_ab !is cast(void*) a.ptr);
-	int[] ab = cast(int[]) _ab[0 .. a.length + b.length];
+	auto ab = append(a, b);
 
 	assert(threadCache.getArrayCapacity(ab.ptr, int.sizeof * ab.length));
 	assert(ab[12] == 13);
 
 	// ab ~= c :
-	auto _abc = threadCache.appendArray(ab.ptr, int.sizeof * ab.length, c.ptr,
-	                                    int.sizeof * c.length);
-	int[] abc = cast(int[]) _abc[0 .. ab.length + c.length];
+	auto abc = append(ab, c);
 	assert(abc[15] == 16);
 	// Must have appended in-place:
-	assert(_abc is _ab);
+	assert(abc.ptr is ab.ptr);
 }
