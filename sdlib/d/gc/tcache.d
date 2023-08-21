@@ -101,7 +101,7 @@ public:
 		// If appending in place, use lAddr for result:
 		void* appended = lAddr;
 
-		auto pdLeft = getPageDescriptor(lAddr);
+		auto pdLeft = maybeGetPageDescriptor(lAddr);
 
 		if (inPlace) {
 			// Knowing that left slice is appendable, set its block's fill:
@@ -110,7 +110,7 @@ public:
 		} else {
 			// If either left or right slice is know to GC and contains pointers,
 			// the result will therefore also contain pointers:
-			auto pdRight = getPageDescriptor(rAddr);
+			auto pdRight = maybeGetPageDescriptor(rAddr);
 			bool hasPointers = ((pdLeft.extent !is null)
 					&& (pdLeft.containsPointers))
 				|| ((pdRight.extent !is null) && (pdRight.containsPointers));
