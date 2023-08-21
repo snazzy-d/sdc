@@ -378,18 +378,22 @@ unittest appendableAlloc {
 		return cast(int[]) _xy[0 .. x.length + y.length];
 	}
 
+	size_t getCap(int[] x) {
+		return threadCache.getArrayCapacity(x.ptr, x.length * int.sizeof)
+			/ int.sizeof;
+	}
+
 	int[] a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 	int[] b = [11, 12, 13];
 	int[] c = [14, 15, 16];
 
-	assert(!threadCache.getArrayCapacity(a.ptr, a.length * int.sizeof));
-	assert(!threadCache.getArrayCapacity(b.ptr, b.length * int.sizeof));
-	assert(!threadCache.getArrayCapacity(c.ptr, c.length * int.sizeof));
+	assert(!getCap(a));
+	assert(!getCap(b));
+	assert(!getCap(c));
 
 	// a ~= b :
 	auto ab = append(a, b);
-
-	assert(threadCache.getArrayCapacity(ab.ptr, int.sizeof * ab.length));
+	assert(getCap(ab) >= ab.length);
 	assert(ab[12] == 13);
 
 	// ab ~= c :
@@ -397,4 +401,15 @@ unittest appendableAlloc {
 	assert(abc[15] == 16);
 	// Must have appended in-place:
 	assert(abc.ptr is ab.ptr);
+
+	// Modified slices:
+	abc.length -= 1;
+	assert(!getCap(abc));
+
+	// Append of slice not from end of valid data:
+	auto xyz = append(abc[3 .. 5], c);
+	assert(xyz[4] == 16);
+	xyz[0] = 1;
+	// Original slice untouched:
+	assert(abc[3] == 4);
 }
