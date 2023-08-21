@@ -116,7 +116,10 @@ public:
 				|| ((pdRight.extent !is null) && (pdRight.containsPointers));
 			// Allocate a new appendable block:
 			appended = alloc(lBytes + rBytes, hasPointers, true);
-			// ... and copy the left slice to it:
+			// OOM?
+			if (appended is null)
+				return null;
+			// Copy the left slice:
 			memcpy(appended, lAddr, lBytes);
 		}
 
@@ -372,9 +375,15 @@ unittest appendableAlloc {
 	int[] b = [11, 12, 13];
 	int[] c = [14, 15, 16];
 
+	assert(!threadCache.getArrayCapacity(a.ptr, a.length * int.sizeof));
+	assert(!threadCache.getArrayCapacity(b.ptr, b.length * int.sizeof));
+	assert(!threadCache.getArrayCapacity(c.ptr, c.length * int.sizeof));
+
 	// a ~= b :
 	auto _ab = threadCache.appendArray(a.ptr, int.sizeof * a.length, b.ptr,
 	                                   int.sizeof * b.length);
+	assert(_ab !is null);
+	assert(_ab !is cast(void*) a.ptr);
 	int[] ab = cast(int[]) _ab[0 .. a.length + b.length];
 
 	assert(threadCache.getArrayCapacity(ab.ptr, int.sizeof * ab.length));
