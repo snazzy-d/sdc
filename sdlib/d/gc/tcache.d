@@ -68,37 +68,63 @@ public:
 	 * Appendables API.
 	 */
 
-	// Determine whether given alloc is appendable
-	bool is_appendable(void* ptr) {
-		return maybeGetAppendableExtent(ptr) !is null;
+	// Get the capacity of the array slice denoted by slice and length.
+	size_t getArrayCapacity(void* sliceAddr, size_t sliceLen) {
+		if ((sliceAddr is null) || (!sliceLen))
+			return 0;
+
+		auto pd = maybeGetPageDescriptor(sliceAddr);
+		// Return zero if slice is unknown to GC or is to a non-appendable block:
+		if ((pd.extent is null) || (!pd.extent.allocSize))
+			return 0;
+
+		// Capacity is defined as zero if an element exists after the slice.
+		// See also: https://dlang.org/spec/arrays.html#capacity-reserve
+		if (sliceAddr - pd.extent.address + sliceLen < pd.extent.allocSize)
+			return 0;
+
+		// Otherwise, capacity is the block size minus the slice length:
+		return pd.extent.size - sliceLen;
 	}
 
-	// Get the current fill of an appendable alloc.
-	// If the alloc is not appendable, returns 0.
-	size_t get_appendable_fill(void* ptr) {
-		auto e = maybeGetAppendableExtent(ptr);
-		return (e !is null) ? e.allocSize : 0;
-	}
+	// Append array slice denoted by rAddr and rBytes to the one
+	// denoted by lAddr and lBytes, using the former's appendable capacity
+	// if possible, otherwise allocating a new array.
+	void* appendArray(void* lAddr, size_t lBytes, void* rAddr, size_t rBytes) {
+		// If right slice is of zero length, return left slice unchanged:
+		if (!rBytes)
+			return lAddr;
 
-	// Get the current free space of an appendable alloc.
-	// If the alloc is not appendable, returns 0.
-	size_t get_appendable_free_space(void* ptr) {
-		auto e = maybeGetAppendableExtent(ptr);
-		return (e !is null) ? e.size - e.allocSize : 0;
-	}
+		// Whether we will be appending in place, or must realloc:
+		bool inPlace = getArrayCapacity(lAddr, lBytes) >= rBytes;
 
-	// Change the current fill of an appendable alloc.
-	// If the alloc is not appendable, or the requested
-	// fill exceeds the available space, returns false.
-	bool set_appendable_fill(void* ptr, size_t fill) {
-		auto e = maybeGetAppendableExtent(ptr);
+		// If appending in place, use lAddr for result:
+		void* appended = lAddr;
 
-		if ((e !is null) && (fill <= e.size)) {
-			e.setAllocSize(fill);
-			return true;
+		auto pdLeft = getPageDescriptor(lAddr);
+
+		if (inPlace) {
+			// Knowing that left slice is appendable, set its block's fill:
+			assert(pdLeft.extent.isLarge());
+			pdLeft.extent.setAllocSize(lBytes + rBytes);
+		} else {
+			// If either left or right slice is know to GC and contains pointers,
+			// the result will therefore also contain pointers:
+			auto pdRight = getPageDescriptor(rAddr);
+			bool hasPointers = ((pdLeft.extent !is null)
+					&& (pdLeft.containsPointers))
+				|| ((pdRight.extent !is null) && (pdRight.containsPointers));
+			// Allocate a new appendable block:
+			appended = alloc(lBytes + rBytes, hasPointers, true);
+			// ... and copy the left slice to it:
+			memcpy(appended, lAddr, lBytes);
 		}
 
-		return false;
+		// In either case, copy right slice to the space after left slice:
+		memcpy(appended + lBytes, rAddr, rBytes);
+
+		// Return the appended block:
+		return appended;
 	}
 
 	/**
@@ -237,19 +263,6 @@ public:
 	}
 
 private:
-	// Get appendable extent of ptr, or null if this is impossible
-	Extent* maybeGetAppendableExtent(void* ptr) {
-		if (ptr is null)
-			return null;
-
-		auto pd = maybeGetPageDescriptor(ptr);
-		if ((pd.extent is null) || (ptr !is pd.extent.address)
-			    || (!pd.extent.isAppendable))
-			return null;
-
-		return pd.extent;
-	}
-
 	auto getPageDescriptor(void* ptr) {
 		auto pd = maybeGetPageDescriptor(ptr);
 		assert(pd.extent !is null);
@@ -289,7 +302,6 @@ private:
 }
 
 private:
-
 
 // Force large allocation rather than slab
 size_t upsizeToLarge(size_t size) {
@@ -370,55 +382,23 @@ unittest makeRange {
 }
 
 unittest appendableAlloc {
-	// Basics:
-	auto p0 = threadCache.alloc(100, false, true);
-	auto p1 = threadCache.alloc(100, false, false);
-	assert(threadCache.is_appendable(p0));
-	assert(!threadCache.is_appendable(p1));
-	assert(threadCache.get_appendable_fill(p1) == 0);
-	assert(threadCache.get_appendable_free_space(p1) == 0);
-	assert(threadCache.get_appendable_fill(p0) == 100);
-	assert(threadCache.get_appendable_free_space(p0) == 16284);
-	assert(threadCache.set_appendable_fill(p0, 50000) == false);
-	assert(threadCache.set_appendable_fill(p0, 200) == true);
-	assert(threadCache.get_appendable_fill(p0) == 200);
-	assert(threadCache.get_appendable_free_space(p0) == 16184);
+	int[] a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+	int[] b = [11, 12, 13];
+	int[] c = [14, 15, 16];
 
-	// Realloc non-appendable alloc, should stay non-appendable :
-	p1 = threadCache.realloc(p1, 1000, false);
-	assert(p1 !is null);
-	assert(!threadCache.is_appendable(p1));
-	assert(threadCache.get_appendable_fill(p1) == 0);
-	assert(threadCache.get_appendable_free_space(p1) == 0);
-	threadCache.free(p1);
+	// a ~= b :
+	auto _ab = threadCache.appendArray(a.ptr, int.sizeof * a.length, b.ptr,
+	                                   int.sizeof * b.length);
+	int[] ab = cast(int[]) _ab[0 .. a.length + b.length];
 
-	// Realloc an appendable alloc up :
-	p0 = threadCache.realloc(p0, 100000, false);
-	assert(p0 !is null);
-	assert(threadCache.get_appendable_fill(p0) == 200);
-	assert(threadCache.set_appendable_fill(p0, 50000) == true);
-	assert(threadCache.get_appendable_fill(p0) == 50000);
-	assert(threadCache.get_appendable_free_space(p0) == 52400);
+	assert(threadCache.getArrayCapacity(ab.ptr, int.sizeof * ab.length));
+	assert(ab[12] == 13);
 
-	// Realloc an appendable alloc down :
-	p0 = threadCache.realloc(p0, 60000, false);
-	assert(p0 !is null);
-	assert(threadCache.get_appendable_free_space(p0) == 11440);
-
-	// Realloc prohibited by appendable fill, so nothing should change
-	auto p3 = threadCache.realloc(p0, 40000, false);
-	assert(p3 == p0);
-
-	// Pointers the GC does not know about:
-	void* interior = p0 + 2000;
-	assert(!threadCache.is_appendable(interior));
-	assert(threadCache.set_appendable_fill(interior, 222) == false);
-	assert(threadCache.get_appendable_fill(interior) == 0);
-	assert(threadCache.get_appendable_free_space(interior) == 0);
-	threadCache.free(p0);
-	auto martian = cast(void*) 0x56789abcd000;
-	assert(!threadCache.is_appendable(martian));
-	assert(threadCache.set_appendable_fill(martian, 333) == false);
-	assert(threadCache.get_appendable_fill(martian) == 0);
-	assert(threadCache.get_appendable_free_space(martian) == 0);
+	// ab ~= c :
+	auto _abc = threadCache.appendArray(ab.ptr, int.sizeof * ab.length, c.ptr,
+	                                    int.sizeof * c.length);
+	int[] abc = cast(int[]) _abc[0 .. ab.length + c.length];
+	assert(abc[15] == 16);
+	// Must have appended in-place:
+	assert(_abc is _ab);
 }
