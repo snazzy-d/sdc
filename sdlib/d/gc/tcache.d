@@ -308,20 +308,6 @@ size_t upsizeToLarge(size_t size) {
 	return getAllocSize(size) <= SizeClass.Small ? SizeClass.Large : size;
 }
 
-bool isAllocatableSize(size_t size) {
-	return size > 0 && size <= MaxAllocationSize;
-}
-
-unittest isAllocatableSize {
-	assert(!isAllocatableSize(0));
-	assert(isAllocatableSize(1));
-	assert(isAllocatableSize(42));
-	assert(isAllocatableSize(99999));
-	assert(isAllocatableSize(MaxAllocationSize));
-	assert(!isAllocatableSize(MaxAllocationSize + 1));
-	assert(!isAllocatableSize(size_t.max));
-}
-
 extern(C):
 version(OSX) {
 	// For some reason OSX's symbol get a _ prepended.
