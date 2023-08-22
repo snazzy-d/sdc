@@ -389,8 +389,8 @@ unittest appendableAlloc {
 
 	// This realloc will have no effect, as the requested size
 	// is below the appendable fill size:
-	p0 = threadCache.realloc(p0, 99, false);
-	assert(threadCache.getCapacity(p0, 100) == 16384);
+	auto p3 = threadCache.realloc(p0, 99, false);
+	assert(p3 == p0);
 
 	// Enlarging the spare capacity :
 	p0 = threadCache.realloc(p0, 16385, false);
