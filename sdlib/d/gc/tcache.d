@@ -79,23 +79,21 @@ public:
 	//
 	//   ______data_____  ___free space___
 	//  /               \/                \
-	//  -----------------------------------
 	// |X|X|X|X|X|S|S|S|S|.|.|.|.|.|.|.|.|.|
-	//  -----------------------------------
 	//           \________________________/
 	// 	         Capacity of segment S is 13
 	//
 	// No free space above S, capacity(S) is 0:
-	//  -----------------------------------
 	// |S|S|S|S|X|X|X|X|X|.|.|.|.|.|.|.|.|.|
-	//  -----------------------------------
+	//
 	// Similarly:
-	//  -----------------------------------
 	// |X|X|X|X|S|S|S|S|X|.|.|.|.|.|.|.|.|.|
-	//  -----------------------------------
 
 	// Get the append capacity of a segment denoted by ptr and len,
 	// i.e. the max length that segment can grow to without a reallocation.
+	// Segments without free space immediately above them have capacity of 0.
+	// Note that a segment of length 0 can have a capacity > 0 if there is
+	// no data in the block.
 	// See also: https://dlang.org/spec/arrays.html#capacity-reserve
 	size_t getCapacity(void* ptr, size_t len) {
 		auto pd = maybeGetPageDescriptor(ptr);
