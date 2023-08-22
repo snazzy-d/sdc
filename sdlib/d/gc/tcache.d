@@ -95,7 +95,7 @@ public:
 		if (segEnd < pd.extent.allocSize)
 			return 0;
 
-		// Otherwise, capacity is length of segment and of free space above it:
+		// Otherwise, return length of segment and the free space above it:
 		return pd.extent.size - segStart;
 	}
 
@@ -406,4 +406,8 @@ unittest appendableAlloc {
 
 	threadCache.free(p0);
 	threadCache.free(p2);
+
+	// Capacity of any segment in space unknown to the GC is zero:
+	int[] a = [1, 2, 3];
+	assert(threadCache.getCapacity(a.ptr, int.sizeof * a.length) == 0);
 }
