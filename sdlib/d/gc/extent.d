@@ -104,7 +104,7 @@ private:
 		Bitmap!512 slabData;
 
 		// Metadata for non-slab (large) size classes:
-		// Actual alloc size, 0 if not appendable
+		// Actual alloc size, 0 if not appendable, 1 -- empty, N: contains N-1
 		size_t allocSize;
 	}
 
@@ -262,19 +262,19 @@ public:
 		return !isSlab();
 	}
 
-	@property
 	bool isAppendable() {
-		return allocSize != 0;
+		return isLarge() && (_metadata.allocSize != 0);
 	}
 
 	@property
 	ulong allocSize() {
-		return isLarge() ? _metadata.allocSize : 0;
+		assert(isAppendable(), "Cannot get alloc size on non-appendable!");
+		return _metadata.allocSize - 1;
 	}
 
 	void setAllocSize(size_t size) {
 		assert(isLarge(), "Cannot set alloc size on a slab alloc!");
-		_metadata.allocSize = size;
+		_metadata.allocSize = size + 1;
 	}
 }
 
