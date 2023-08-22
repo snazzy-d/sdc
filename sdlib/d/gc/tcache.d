@@ -75,6 +75,25 @@ public:
 	 * Appendables API.
 	 */
 
+	// Appendable Capacity:
+	//
+	//   ______data_____  ___free space___
+	//  /               \/                \
+	//  -----------------------------------
+	// |X|X|X|X|X|S|S|S|S|.|.|.|.|.|.|.|.|.|
+	//  -----------------------------------
+	//           \________________________/
+	// 	         Capacity of segment S is 13
+	//
+	// No free space above S, capacity(S) is 0:
+	//  -----------------------------------
+	// |S|S|S|S|X|X|X|X|X|.|.|.|.|.|.|.|.|.|
+	//  -----------------------------------
+	// Similarly:
+	//  -----------------------------------
+	// |X|X|X|X|S|S|S|S|X|.|.|.|.|.|.|.|.|.|
+	//  -----------------------------------
+
 	// Get the append capacity of a segment denoted by ptr and len,
 	// i.e. the max length that segment can grow to without a reallocation.
 	// See also: https://dlang.org/spec/arrays.html#capacity-reserve
