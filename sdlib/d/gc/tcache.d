@@ -115,7 +115,7 @@ public:
 
 		// Whether old (and therefore new) block is appendable:
 		bool appendable = false;
-		// Spare capacity for enlarging a reallocatable block:
+		// Spare capacity for enlarging appendable block:
 		size_t spareCapacity = 0;
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
