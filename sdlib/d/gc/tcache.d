@@ -118,6 +118,7 @@ public:
 		// Spare capacity for enlarging appendable block:
 		size_t spareCapacity = 0;
 		auto copySize = size;
+		auto allocateSize = size;
 		auto pd = getPageDescriptor(ptr);
 
 		if (pd.isSlab()) {
@@ -131,21 +132,21 @@ public:
 				copySize = getSizeFromClass(oldSizeClass);
 			}
 		} else {
-			// New block will be appendable if the old one was:
-			appendable = pd.extent.isAppendable();
-
-			// Prohibit resize below appendable fill, if one exists:
-			if (appendable && (size < pd.extent.allocSize))
-				return ptr;
-
 			auto esize = pd.extent.size;
 			if (alignUp(size, PageSize) == esize) {
 				return ptr;
 			}
 
+			// New block will be appendable if the old one was:
+			appendable = pd.extent.isAppendable();
+
 			// TODO: Try to extend/shrink in place.
 			if (appendable) {
+				// Prohibit resize below appendable fill, if one exists:
+				if (size < pd.extent.allocSize)
+					return ptr;
 				copySize = pd.extent.allocSize;
+				allocateSize = copySize;
 				// If enlarging an appendable, boost spare capacity:
 				if (esize < size)
 					spareCapacity = esize * 2;
@@ -155,9 +156,8 @@ public:
 		}
 
 		containsPointers = (containsPointers | pd.containsPointers) != 0;
-		auto useSize = appendable ? copySize : size;
 		auto newPtr =
-			alloc(useSize, containsPointers, appendable, spareCapacity);
+			alloc(allocateSize, containsPointers, appendable, spareCapacity);
 		if (newPtr is null) {
 			return null;
 		}
