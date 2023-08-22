@@ -104,7 +104,7 @@ private:
 		Bitmap!512 slabData;
 
 		// Metadata for non-slab (large) size classes:
-		// Actual alloc size, 0 if not appendable, 1 -- empty, N: contains N-1
+		// 0: not appendable; 1: appendable, empty; N>1: appendable, fill=N-1
 		size_t allocSize;
 	}
 
