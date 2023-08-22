@@ -83,6 +83,9 @@ public:
 	//           \________________________/
 	// 	       Capacity of segment S is 13
 	//
+	// Similarly:
+	// |X|X|X|X|X|S|S|S|S|S|S|S|S|S|S|S|S|S|
+	//
 	// No free space next to S, so capacity(S) is 0:
 	// |S|S|S|S|X|X|X|X|X|.|.|.|.|.|.|.|.|.|
 	//
@@ -112,7 +115,7 @@ public:
 		if (segEnd < pd.extent.allocSize)
 			return 0;
 
-		// Otherwise, return length of segment and the free space above it:
+		// Otherwise, return length of segment plus any free space above it:
 		return pd.extent.size - segStart;
 	}
 
