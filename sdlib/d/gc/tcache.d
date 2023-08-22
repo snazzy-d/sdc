@@ -155,9 +155,9 @@ public:
 		}
 
 		containsPointers = (containsPointers | pd.containsPointers) != 0;
-		auto allocSize = appendable ? copySize : size;
+		auto useSize = appendable ? copySize : size;
 		auto newPtr =
-			alloc(allocSize, containsPointers, appendable, spareCapacity);
+			alloc(useSize, containsPointers, appendable, spareCapacity);
 		if (newPtr is null) {
 			return null;
 		}
