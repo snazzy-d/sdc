@@ -55,8 +55,12 @@ public:
 	}
 
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
-		if (!isAllocatableSize(size)) {
+		if (size == 0) {
 			free(ptr);
+			return null;
+		}
+
+		if (!isAllocatableSize(size)) {
 			return null;
 		}
 
