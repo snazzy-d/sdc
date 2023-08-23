@@ -129,7 +129,7 @@ private:
 
 			slabData.clear();
 		} else {
-			_metadata.allocSize = size;
+			_metadata.allocSize = 0;
 		}
 	}
 
