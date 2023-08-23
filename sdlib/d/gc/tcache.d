@@ -84,11 +84,12 @@ public:
 
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
+		auto samePointerness = containsPointers == pd.containsPointers;
 
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
-			if (newSizeClass == oldSizeClass) {
+			if (samePointerness && newSizeClass == oldSizeClass) {
 				return ptr;
 			}
 
@@ -100,7 +101,7 @@ public:
 			copySize = min(size, pd.extent.usedCapacity);
 
 			auto esize = pd.extent.size;
-			if (alignUp(size, PageSize) == esize) {
+			if (samePointerness && alignUp(size, PageSize) == esize) {
 				pd.extent.setUsedCapacity(copySize);
 				return ptr;
 			}
@@ -108,7 +109,6 @@ public:
 			// TODO: Try to extend/shrink in place.
 		}
 
-		containsPointers = (containsPointers | pd.containsPointers) != 0;
 		auto newPtr = alloc(size, containsPointers);
 		if (newPtr is null) {
 			return null;
