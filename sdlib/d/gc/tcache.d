@@ -162,14 +162,14 @@ public:
 
 			// TODO: Try to extend/shrink in place.
 			if (appendable) {
-				// Prohibit resize below appendable fill, if one exists:
+				// Prohibit resize below appendable fill:
 				if (size < pd.extent.allocSize)
 					return ptr;
 				copySize = pd.extent.allocSize;
 				allocateSize = copySize;
 				// If enlarging an appendable, boost spare capacity:
 				if (esize < size)
-					spareCapacity = esize * 2;
+					spareCapacity = max(size, esize * 2);
 			} else {
 				copySize = min(size, esize);
 			}
