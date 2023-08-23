@@ -43,7 +43,6 @@ enum ClassCount {
 enum SizeClass {
 	Tiny = getSizeFromClass(ClassCount.Tiny - 1),
 	Small = getSizeFromClass(ClassCount.Small - 1),
-	Large = getSizeFromClass(ClassCount.Small),
 }
 
 enum MaxTinySize = ClassCount.Tiny * Quantum;
