@@ -99,7 +99,15 @@ private:
 	Links _links;
 
 	import d.gc.bitmap;
-	Bitmap!512 _slabData = void;
+	union MetaData {
+		// Slab occupancy (constrained by freeSlots, so usable for all classes).
+		Bitmap!512 slabData;
+
+		// Metadata for large extents.
+		size_t usedCapacity;
+	}
+
+	MetaData _metadata;
 
 	this(uint arenaIndex, void* ptr, size_t size, ubyte generation,
 	     HugePageDescriptor* hpd, ExtentClass ec) {
@@ -120,6 +128,8 @@ private:
 			bits |= ulong(binInfos[ec.sizeClass].slots) << 48;
 
 			slabData.clear();
+		} else {
+			setUsedCapacity(size);
 		}
 	}
 
@@ -240,7 +250,25 @@ public:
 		// FIXME: in contract.
 		assert(isSlab(), "slabData accessed on non slab!");
 
-		return _slabData;
+		return _metadata.slabData;
+	}
+
+	/**
+	 * Large features.
+	 */
+	bool isLarge() const {
+		return !isSlab();
+	}
+
+	@property
+	ulong usedCapacity() {
+		assert(isLarge(), "usedCapacity accessed on non large!");
+		return _metadata.usedCapacity;
+	}
+
+	void setUsedCapacity(size_t size) {
+		assert(isLarge(), "Cannot set used capacity on a slab alloc!");
+		_metadata.usedCapacity = size;
 	}
 }
 
