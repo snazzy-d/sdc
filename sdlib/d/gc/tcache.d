@@ -198,12 +198,13 @@ public:
 		}
 
 		// There must be sufficient free space to extend into:
-		if (pd.extent.size - stopIndex < length) {
+		auto newCapacity = stopIndex + length;
+		if (pd.extent.size < newCapacity) {
 			return false;
 		}
 
 		// Increase the used capacity by the requested length:
-		pd.extent.setUsedCapacity(pd.extent.usedCapacity + length);
+		pd.extent.setUsedCapacity(newCapacity);
 
 		return true;
 	}
