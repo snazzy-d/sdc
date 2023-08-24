@@ -1,4 +1,5 @@
 module d.gc.tcache;
+
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
@@ -14,7 +15,7 @@ private:
 	const(void*)[][] roots;
 
 public:
-	void* alloc(size_t size, bool containsPointers, bool isAppendable = false) {
+	void* alloc(size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
 			return null;
 		}
@@ -22,18 +23,23 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
+		return isSmallSize(size)
+			? arena.allocSmall(emap, size)
+			: arena.allocLarge(emap, size, false);
+	}
 
-		if (isAppendable) {
-			// Currently, large (extent) allocs are appendable.
-			auto aSize = upsizeToLarge(size);
-			auto ptr = arena.allocLarge(emap, aSize, false);
-			setAllocSize(ptr, size);
-			return ptr;
-		} else {
-			return isSmallSize(size)
-				? arena.allocSmall(emap, size)
-				: arena.allocLarge(emap, size, false);
-		}
+	void* allocAppendable(size_t size, bool containsPointers) {
+		// Force large allocation rather than slab.
+		enum MinSize = getSizeFromClass(ClassCount.Small);
+
+		import d.gc.util;
+		auto asize = max(MinSize, getAllocSize(size));
+		auto ptr = alloc(asize, containsPointers);
+
+		// Remember the size we actually use.
+		auto pd = getPageDescriptor(ptr);
+		pd.extent.setUsedCapacity(size);
+		return ptr;
 	}
 
 	void* calloc(size_t size, bool containsPointers) {
@@ -73,10 +79,7 @@ public:
 		}
 
 		auto copySize = size;
-		auto newSize = size;
 		auto pd = getPageDescriptor(ptr);
-		// Whether old (and therefore new) block is appendable:
-		bool appendable = false;
 
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
@@ -89,27 +92,28 @@ public:
 				copySize = getSizeFromClass(oldSizeClass);
 			}
 		} else {
-			appendable = true;
+			import d.gc.util;
+			copySize = min(size, pd.extent.usedCapacity);
+
 			auto esize = pd.extent.size;
 			if (alignUp(size, PageSize) == esize) {
+				pd.extent.setUsedCapacity(copySize);
 				return ptr;
 			}
 
 			// TODO: Try to extend/shrink in place.
-			copySize = min(min(size, esize), pd.extent.allocSize);
-			if (size > esize) {
-				newSize = upsizeOneClass(size);
-			}
 		}
 
 		containsPointers = (containsPointers | pd.containsPointers) != 0;
-		auto newPtr = alloc(newSize, containsPointers, appendable);
+		auto newPtr = alloc(size, containsPointers);
 		if (newPtr is null) {
 			return null;
 		}
 
-		if (appendable)
-			setAllocSize(newPtr, copySize);
+		if (isLargeSize(size)) {
+			auto npd = getPageDescriptor(newPtr);
+			npd.extent.setUsedCapacity(copySize);
+		}
 
 		memcpy(newPtr, ptr, copySize);
 		pd.arena.free(emap, pd, ptr);
@@ -118,51 +122,55 @@ public:
 	}
 
 	/**
-	 * Appendables API.
+	 * Appendable facilities.
 	 */
 
-	// Mechanics of Appendable Capacity:
-	//
-	//   ______data_____  ___free space___
-	//  /               \/                \
-	// |X|X|X|X|X|S|S|S|S|.|.|.|.|.|.|.|.|.|
-	//           \________________________/
-	// 	       Capacity of segment S is 13
-	//
-	// Similarly:
-	// |X|X|X|X|X|S|S|S|S|S|S|S|S|S|S|S|S|S|
-	//
-	// No free space next to S, so capacity(S) is 0:
-	// |S|S|S|S|X|X|X|X|X|.|.|.|.|.|.|.|.|.|
-	//
-	// Similarly:
-	// |X|X|X|X|S|S|S|S|X|.|.|.|.|.|.|.|.|.|
-
-	// Get the appendable capacity of a given segment:
-	// i.e. the max length that segment can grow to without a reallocation.
-	// Segments without free space immediately above them have capacity of 0.
-	// Note that a segment of length 0 at the start of free space can have
-	// a capacity > 0 (i.e. equal to the length of the free space.)
-	// See also: https://dlang.org/spec/arrays.html#capacity-reserve
-	size_t getCapacity(const void[] segment) {
-		auto pd = maybeGetPageDescriptor(segment.ptr);
-		// Return zero if ptr unknown to GC or points to non-appendable block:
-		if ((pd.extent is null) || (!pd.extent.isAppendable()))
+	/**
+	 * Appendable's mechanics:
+	 * 
+	 *  __data__  _____free space_______
+	 * /        \/                      \
+	 * -----sss s....... ....... ........
+	 *      \___________________________/
+	 * 	           Capacity is 27
+	 * 
+	 * If the slice's end doesn't match the used capacity,
+	 * then we return 0 in order to force a reallocation
+	 * when appending:
+	 * 
+	 *  ___data____  ____free space_____
+	 * /           \/                   \
+	 * -----sss s---.... ....... ........
+	 *      \___________________________/
+	 * 	           Capacity is 0
+	 * 
+	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
+	 */
+	size_t getCapacity(const void[] slice) {
+		auto pd = maybeGetPageDescriptor(slice.ptr);
+		if (pd.extent is null) {
 			return 0;
+		}
 
-		// Position of segment start in the block with respect to the bottom :
-		auto segStart = segment.ptr - pd.extent.address;
-
-		// Segment end must match end of valid data, or capacity is zero:
-		if (segStart + segment.length != pd.extent.allocSize)
+		// Appendable slabs are not supported.
+		if (pd.isSlab()) {
 			return 0;
+		}
 
-		// Otherwise, return length of segment plus any free space above it:
-		return pd.extent.size - segStart;
+		// Slice must not end before valid data ends, or capacity is zero:
+		auto startIndex = slice.ptr - pd.extent.address;
+		auto stopIndex = startIndex + slice.length;
+
+		// If the slice end doesn't match the used capacity, bail.
+		if (stopIndex != pd.extent.usedCapacity) {
+			return 0;
+		}
+
+		return pd.extent.size - startIndex;
 	}
 
 	/**
-	 * GC facilities
+	 * GC facilities.
 	 */
 	void addRoots(const void[] range) {
 		auto ptr = cast(void*) roots.ptr;
@@ -232,11 +240,6 @@ public:
 	}
 
 private:
-	void setAllocSize(void* ptr, size_t size) {
-		auto pd = getPageDescriptor(ptr);
-		pd.extent.setAllocSize(size);
-	}
-
 	auto getPageDescriptor(void* ptr) {
 		auto pd = maybeGetPageDescriptor(ptr);
 		assert(pd.extent !is null);
@@ -276,16 +279,6 @@ private:
 }
 
 private:
-
-// Get the size of the size class above the one size would normally be in.
-size_t upsizeOneClass(size_t size) {
-	return getSizeFromClass(getSizeClass(size) + 1);
-}
-
-// Force large allocation rather than slab
-size_t upsizeToLarge(size_t size) {
-	return isLargeSize(size) ? size : getAllocSize(SizeClass.Small + 1);
-}
 
 extern(C):
 version(OSX) {
@@ -346,47 +339,81 @@ unittest makeRange {
 	checkRange(ptr[1 .. 8], 8, 8);
 }
 
-unittest appendableAlloc {
-	// Basics:
-	auto p0 = threadCache.alloc(100, false, true);
-	auto p1 = threadCache.alloc(100, false, false);
+unittest getCapacity {
+	// Test capacity for non appendable allocs.
+	auto nonAppendable = threadCache.alloc(100, false);
+	assert(threadCache.getCapacity(nonAppendable[0 .. 100]) == 0);
 
-	// p1 is not appendable:
-	assert(threadCache.getCapacity(p1[0 .. 100]) == 0);
-	threadCache.free(p1);
+	// Capacity of any slice in space unknown to the GC is zero:
+	void* nullPtr = null;
+	assert(threadCache.getCapacity(nullPtr[0 .. 100]) == 0);
+
+	void* stackPtr = &nullPtr;
+	assert(threadCache.getCapacity(stackPtr[0 .. 100]) == 0);
+
+	void* tlPtr = &threadCache;
+	assert(threadCache.getCapacity(tlPtr[0 .. 100]) == 0);
+
+	// Check capacity for an appendable GC allocation.
+	auto p0 = threadCache.allocAppendable(100, false);
 
 	// p0 is appendable and has the minimum large size.
 	// Capacity of segment from p0, length 100 is 16384:
 	assert(threadCache.getCapacity(p0[0 .. 100]) == 16384);
-
-	// Capacity of segment p0 + 50, length 50, is less by 50:
-	assert(threadCache.getCapacity(p0[50 .. 100]) == 16334);
-
-	// Segment includes all but one byte of the data:
 	assert(threadCache.getCapacity(p0[1 .. 100]) == 16383);
-
-	// Segment of length 0 at the start of the free space:
+	assert(threadCache.getCapacity(p0[50 .. 100]) == 16334);
+	assert(threadCache.getCapacity(p0[99 .. 100]) == 16285);
 	assert(threadCache.getCapacity(p0[100 .. 100]) == 16284);
 
-	// Capacity of segment p0 + 50, length 49, is zero, as
-	// its end does not match the end of the valid data:
-	assert(threadCache.getCapacity(p0[50 .. 99]) == 0);
-
-	// A byte short of the data end, capacity is zero:
-	assert(threadCache.getCapacity(p0[0 .. 99]) == 0);
-
-	// Similarly, segment end does not match valid data end,
-	// so capacity will be 0:
-	assert(threadCache.getCapacity(p0[0 .. 99]) == 0);
-
-	// Zero-length segment of alloc where data exists in front of it:
+	// If the slice doesn't go the end of the allocated area
+	// then the capacity must be 0.
 	assert(threadCache.getCapacity(p0[0 .. 0]) == 0);
+	assert(threadCache.getCapacity(p0[0 .. 1]) == 0);
+	assert(threadCache.getCapacity(p0[0 .. 50]) == 0);
+	assert(threadCache.getCapacity(p0[0 .. 99]) == 0);
 
-	// Out-of-bounds segment has capacity of 0:
+	assert(threadCache.getCapacity(p0[0 .. 99]) == 0);
+	assert(threadCache.getCapacity(p0[1 .. 99]) == 0);
+	assert(threadCache.getCapacity(p0[50 .. 99]) == 0);
+	assert(threadCache.getCapacity(p0[99 .. 99]) == 0);
+
+	// This would almost certainly be a bug in userland,
+	// but let's make sure be behave reasonably there.
 	assert(threadCache.getCapacity(p0[0 .. 101]) == 0);
+	assert(threadCache.getCapacity(p0[1 .. 101]) == 0);
+	assert(threadCache.getCapacity(p0[50 .. 101]) == 0);
+	assert(threadCache.getCapacity(p0[100 .. 101]) == 0);
+	assert(threadCache.getCapacity(p0[101 .. 101]) == 0);
 
-	// D's dynamic arrays are permitted to start empty
-	// with a spare capacity.
+	// Realloc.
+	auto p1 = threadCache.allocAppendable(20000, false);
+	assert(threadCache.getCapacity(p1[0 .. 19999]) == 0);
+	assert(threadCache.getCapacity(p1[0 .. 20000]) == 20480);
+	assert(threadCache.getCapacity(p1[0 .. 20001]) == 0);
 
-	// TODO: rewrite realloc() tests
+	// Decreasing the size of the allocation
+	// should adjust capacity acordingly.
+	auto p2 = threadCache.realloc(p1, 19999, false);
+	assert(p2 is p1);
+
+	assert(threadCache.getCapacity(p2[0 .. 19999]) == 20480);
+	assert(threadCache.getCapacity(p2[0 .. 20000]) == 0);
+	assert(threadCache.getCapacity(p2[0 .. 20001]) == 0);
+
+	// Increasing the size of the allocation
+	// does not necesserly increase capacity.
+	auto p3 = threadCache.realloc(p2, 20001, false);
+	assert(p3 is p2);
+
+	assert(threadCache.getCapacity(p3[0 .. 19999]) == 20480);
+	assert(threadCache.getCapacity(p3[0 .. 20000]) == 0);
+	assert(threadCache.getCapacity(p3[0 .. 20001]) == 0);
+
+	auto p4 = threadCache.realloc(p3, 16000, false);
+	assert(p4 !is p3);
+	assert(threadCache.getCapacity(p4[0 .. 16000]) == 16384);
+
+	auto p5 = threadCache.realloc(p4, 20000, false);
+	assert(p5 !is p4);
+	assert(threadCache.getCapacity(p5[0 .. 16000]) == 20480);
 }

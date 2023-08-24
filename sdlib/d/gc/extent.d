@@ -100,11 +100,11 @@ private:
 
 	import d.gc.bitmap;
 	union MetaData {
-		// Slab occupancy (constrained by freeSlots, so usable for all classes)
+		// Slab occupancy (constrained by freeSlots, so usable for all classes).
 		Bitmap!512 slabData;
 
-		// Metadata for non-slab (large) size classes:
-		size_t allocSize;
+		// Metadata for large extents.
+		size_t usedCapacity;
 	}
 
 	MetaData _metadata;
@@ -129,7 +129,7 @@ private:
 
 			slabData.clear();
 		} else {
-			_metadata.allocSize = 0;
+			setUsedCapacity(size);
 		}
 	}
 
@@ -256,25 +256,19 @@ public:
 	/**
 	 * Large features.
 	 */
-
 	bool isLarge() const {
 		return !isSlab();
 	}
 
-	bool isAppendable() {
-		// Currently, all large (and only large) allocs are appendable
-		return isLarge();
-	}
-
 	@property
-	ulong allocSize() {
-		assert(isAppendable(), "Cannot get alloc size on non-appendable!");
-		return _metadata.allocSize;
+	ulong usedCapacity() {
+		assert(isLarge(), "usedCapacity accessed on non large!");
+		return _metadata.usedCapacity;
 	}
 
-	void setAllocSize(size_t size) {
-		assert(isLarge(), "Cannot set alloc size on a slab alloc!");
-		_metadata.allocSize = size;
+	void setUsedCapacity(size_t size) {
+		assert(isLarge(), "Cannot set used capacity on a slab alloc!");
+		_metadata.usedCapacity = size;
 	}
 }
 
