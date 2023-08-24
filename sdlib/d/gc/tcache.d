@@ -456,8 +456,8 @@ unittest getCapacity {
 	assert(threadCache.append(p6[0 .. 100], 0) is null);
 
 	// Attempt append with insufficient space:
-	assert(threadCache.append(p6[0 .. 100], 16385) is null);
-	assert(threadCache.append(p6[50 .. 100], 16335) is null);
+	assert(threadCache.append(p6[0 .. 100], 16285) is null);
+	assert(threadCache.append(p6[50 .. 100], 16285) is null);
 
 	// Valid append :
 	auto p7 = threadCache.append(p6[0 .. 100], 50);
