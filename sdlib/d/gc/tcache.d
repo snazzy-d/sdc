@@ -178,13 +178,32 @@ public:
 			return false;
 		}
 
+		auto pd = maybeGetPageDescriptor(slice.ptr);
+		if (pd.extent is null) {
+			return false;
+		}
+
+		// Appendable slabs are not supported.
+		if (pd.isSlab()) {
+			return false;
+		}
+
+		// Slice must not end before valid data ends, or capacity is zero:
+		auto startIndex = slice.ptr - pd.extent.address;
+		auto stopIndex = startIndex + slice.length;
+
+		// If the slice end doesn't match the used capacity, bail.
+		if (stopIndex != pd.extent.usedCapacity) {
+			return false;
+		}
+
 		// There must be sufficient free space to extend into:
-		if (getCapacity(slice) < slice.length + length) {
+		auto capacity = pd.extent.size - startIndex;
+		if (capacity < slice.length + length) {
 			return false;
 		}
 
 		// Increase the used capacity by the requested length:
-		auto pd = maybeGetPageDescriptor(slice.ptr);
 		pd.extent.setUsedCapacity(pd.extent.usedCapacity + length);
 
 		return true;
