@@ -151,13 +151,8 @@ public:
 	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
 	 */
 	size_t getCapacity(const void[] slice) {
-		auto pd = maybeGetPageDescriptor(slice.ptr);
-		if (pd.extent is null) {
-			return 0;
-		}
-
-		// Appendable slabs are not supported.
-		if (pd.isSlab()) {
+		PageDescriptor pd;
+		if (!getAppendablePageDescriptor(slice, pd)) {
 			return 0;
 		}
 
@@ -178,13 +173,8 @@ public:
 			return false;
 		}
 
-		auto pd = maybeGetPageDescriptor(slice.ptr);
-		if (pd.extent is null) {
-			return false;
-		}
-
-		// Appendable slabs are not supported.
-		if (pd.isSlab()) {
+		PageDescriptor pd;
+		if (!getAppendablePageDescriptor(slice, pd)) {
 			return false;
 		}
 
@@ -280,6 +270,22 @@ public:
 	}
 
 private:
+	bool getAppendablePageDescriptor(const void[] slice,
+	                                 ref PageDescriptor pd) {
+		pd = maybeGetPageDescriptor(slice.ptr);
+
+		if (pd.extent is null) {
+			return false;
+		}
+
+		// Appendable slabs are not supported.
+		if (pd.isSlab()) {
+			return false;
+		}
+
+		return true;
+	}
+
 	auto getPageDescriptor(void* ptr) {
 		auto pd = maybeGetPageDescriptor(ptr);
 		assert(pd.extent !is null);
