@@ -198,8 +198,7 @@ public:
 		}
 
 		// There must be sufficient free space to extend into:
-		auto capacity = pd.extent.size - startIndex;
-		if (capacity < slice.length + length) {
+		if (pd.extent.size - stopIndex < length) {
 			return false;
 		}
 
