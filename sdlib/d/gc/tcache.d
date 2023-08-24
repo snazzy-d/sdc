@@ -177,13 +177,8 @@ public:
 		if (!isAllocatableSize(length))
 			return null;
 
-		auto capacity = getCapacity(slice);
-		if (capacity == 0)
-			return null;
-
 		// There must be sufficient free space to append into:
-		auto freeSpace = capacity - slice.length;
-		if (freeSpace < length)
+		if (getCapacity(slice) < slice.length + length)
 			return null;
 
 		// Increase the used capacity by the requested length:
