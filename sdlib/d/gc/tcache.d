@@ -150,45 +150,44 @@ public:
 	 * 
 	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
 	 */
+	bool getAppendablePageDescriptor(const void[] slice,
+	                                 ref PageDescriptor pd) {
+		pd = maybeGetPageDescriptor(slice.ptr);
+		if (pd.extent is null) {
+			return false;
+		}
+
+		// Appendable slabs are not supported.
+		if (pd.isSlab()) {
+			return false;
+		}
+
+		// Slice must not end before valid data ends, or capacity is zero:
+		auto startIndex = slice.ptr - pd.extent.address;
+		auto stopIndex = startIndex + slice.length;
+
+		// If the slice end doesn't match the used capacity, not appendable.
+		return stopIndex == pd.extent.usedCapacity;
+	}
+
 	size_t getCapacity(const void[] slice) {
 		PageDescriptor pd;
 		if (!getAppendablePageDescriptor(slice, pd)) {
 			return 0;
 		}
 
-		// Slice must not end before valid data ends, or capacity is zero:
 		auto startIndex = slice.ptr - pd.extent.address;
-		auto stopIndex = startIndex + slice.length;
-
-		// If the slice end doesn't match the used capacity, bail.
-		if (stopIndex != pd.extent.usedCapacity) {
-			return 0;
-		}
-
 		return pd.extent.size - startIndex;
 	}
 
 	bool extend(const void[] slice, size_t length) {
-		if (length == 0) {
-			return false;
-		}
-
 		PageDescriptor pd;
 		if (!getAppendablePageDescriptor(slice, pd)) {
 			return false;
 		}
 
-		// Slice must not end before valid data ends, or capacity is zero:
-		auto startIndex = slice.ptr - pd.extent.address;
-		auto stopIndex = startIndex + slice.length;
-
-		// If the slice end doesn't match the used capacity, bail.
-		if (stopIndex != pd.extent.usedCapacity) {
-			return false;
-		}
-
 		// There must be sufficient free space to extend into:
-		auto newCapacity = stopIndex + length;
+		auto newCapacity = pd.extent.usedCapacity + length;
 		if (pd.extent.size < newCapacity) {
 			return false;
 		}
@@ -270,22 +269,6 @@ public:
 	}
 
 private:
-	bool getAppendablePageDescriptor(const void[] slice,
-	                                 ref PageDescriptor pd) {
-		pd = maybeGetPageDescriptor(slice.ptr);
-
-		if (pd.extent is null) {
-			return false;
-		}
-
-		// Appendable slabs are not supported.
-		if (pd.isSlab()) {
-			return false;
-		}
-
-		return true;
-	}
-
 	auto getPageDescriptor(void* ptr) {
 		auto pd = maybeGetPageDescriptor(ptr);
 		assert(pd.extent !is null);
@@ -480,9 +463,6 @@ unittest extend {
 	assert(!threadCache.extend(p0[1 .. 99], 50));
 	assert(!threadCache.extend(p0[0 .. 50], 50));
 
-	// Attempt extend with non-allocatable length:
-	assert(!threadCache.extend(p0[0 .. 100], 0));
-
 	// Attempt extend with insufficient space:
 	assert(!threadCache.extend(p0[0 .. 100], 16285));
 	assert(!threadCache.extend(p0[50 .. 100], 16285));
@@ -535,4 +515,7 @@ unittest extend {
 
 	// Attempt to extend, but we're full:
 	assert(!threadCache.extend(p0[0 .. 16384], 1));
+
+	// Extend by length zero still works, though:
+	assert(threadCache.extend(p0[0 .. 16384], 0));
 }
