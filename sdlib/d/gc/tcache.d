@@ -436,71 +436,74 @@ unittest getCapacity {
 	auto p5 = threadCache.realloc(p4, 20000, false);
 	assert(p5 !is p4);
 	assert(threadCache.getCapacity(p5[0 .. 16000]) == 20480);
+}
 
+unittest Append {
 	// Append.
+	auto nonAppendable = threadCache.alloc(100, false);
 
 	// Attempt to append a non-appendable:
 	assert(threadCache.append(nonAppendable[0 .. 100], 1) is null);
 
 	// Make an appendable alloc:
-	auto p6 = threadCache.allocAppendable(100, false);
-	assert(threadCache.getCapacity(p6[0 .. 100]) == 16384);
+	auto p0 = threadCache.allocAppendable(100, false);
+	assert(threadCache.getCapacity(p0[0 .. 100]) == 16384);
 
 	// Attempt append to slices with capacity 0:
-	assert(threadCache.append(p6[0 .. 0], 50) is null);
-	assert(threadCache.append(p6[0 .. 99], 50) is null);
-	assert(threadCache.append(p6[1 .. 99], 50) is null);
-	assert(threadCache.append(p6[0 .. 50], 50) is null);
+	assert(threadCache.append(p0[0 .. 0], 50) is null);
+	assert(threadCache.append(p0[0 .. 99], 50) is null);
+	assert(threadCache.append(p0[1 .. 99], 50) is null);
+	assert(threadCache.append(p0[0 .. 50], 50) is null);
 
 	// Attempt append with non-allocatable length:
-	assert(threadCache.append(p6[0 .. 100], 0) is null);
+	assert(threadCache.append(p0[0 .. 100], 0) is null);
 
 	// Attempt append with insufficient space:
-	assert(threadCache.append(p6[0 .. 100], 16285) is null);
-	assert(threadCache.append(p6[50 .. 100], 16285) is null);
+	assert(threadCache.append(p0[0 .. 100], 16285) is null);
+	assert(threadCache.append(p0[50 .. 100], 16285) is null);
 
 	// Valid append :
-	auto p7 = threadCache.append(p6[0 .. 100], 50);
-	assert(p7 == p6 + 100);
-	assert(threadCache.getCapacity(p7[0 .. 50]) == 16284);
+	auto p3 = threadCache.append(p0[0 .. 100], 50);
+	assert(p3 == p0 + 100);
+	assert(threadCache.getCapacity(p3[0 .. 50]) == 16284);
 
 	// Capacity of old slice becomes 0, as there is now data in front of it:
-	assert(threadCache.getCapacity(p6[0 .. 100]) == 0);
+	assert(threadCache.getCapacity(p0[0 .. 100]) == 0);
 
 	// Capacity of a slice including the original and the append:
-	assert(threadCache.getCapacity(p6[0 .. 150]) == 16384);
+	assert(threadCache.getCapacity(p0[0 .. 150]) == 16384);
 
-	// Append the upper half of p7:
-	auto p8 = threadCache.append(p7[25 .. 50], 100);
-	assert(threadCache.getCapacity(p8[0 .. 100]) == 16234);
+	// Append the upper half of p3:
+	auto p4 = threadCache.append(p3[25 .. 50], 100);
+	assert(threadCache.getCapacity(p4[0 .. 100]) == 16234);
 
 	// Original's capacity becomes 0:
-	assert(threadCache.getCapacity(p7[25 .. 50]) == 0);
+	assert(threadCache.getCapacity(p3[25 .. 50]) == 0);
 
 	// Capacity of a slice including original and appended:
-	assert(threadCache.getCapacity(p7[25 .. 150]) == 16259);
+	assert(threadCache.getCapacity(p3[25 .. 150]) == 16259);
 
 	// Capacity of earlier slice elongated to cover the appends :
-	assert(threadCache.getCapacity(p6[0 .. 250]) == 16384);
+	assert(threadCache.getCapacity(p0[0 .. 250]) == 16384);
 
 	// Append a zero-length slice existing at the start of the free space:
-	auto p9 = threadCache.append(p6[250 .. 250], 200);
-	assert(threadCache.getCapacity(p9[0 .. 200]) == 16134);
+	auto p5 = threadCache.append(p0[250 .. 250], 200);
+	assert(threadCache.getCapacity(p5[0 .. 200]) == 16134);
 
 	// Capacity of the old slice is now 0:
-	assert(threadCache.getCapacity(p6[0 .. 250]) == 0);
+	assert(threadCache.getCapacity(p0[0 .. 250]) == 0);
 
 	// Capacity of a slice which includes the original and the append:
-	assert(threadCache.getCapacity(p6[0 .. 450]) == 16384);
+	assert(threadCache.getCapacity(p0[0 .. 450]) == 16384);
 
 	// Append so as to fill up all but one byte of free space:
-	auto p10 = threadCache.append(p6[0 .. 450], 15933);
-	assert(threadCache.getCapacity(p6[16383 .. 16383]) == 1);
+	auto p6 = threadCache.append(p0[0 .. 450], 15933);
+	assert(threadCache.getCapacity(p0[16383 .. 16383]) == 1);
 
 	// Append, filling up last byte of free space:
-	auto p11 = threadCache.append(p6[16383 .. 16383], 1);
-	assert(threadCache.getCapacity(p6[0 .. 16384]) == 16384);
+	auto p7 = threadCache.append(p0[16383 .. 16383], 1);
+	assert(threadCache.getCapacity(p0[0 .. 16384]) == 16384);
 
 	// Attempt to append, but we're full:
-	assert(threadCache.append(p6[0 .. 16384], 1) == null);
+	assert(threadCache.append(p0[0 .. 16384], 1) == null);
 }
