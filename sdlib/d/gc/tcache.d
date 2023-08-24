@@ -439,7 +439,7 @@ unittest getCapacity {
 	assert(threadCache.getCapacity(p5[0 .. 16000]) == 20480);
 }
 
-unittest Extend {
+unittest extend {
 	auto nonAppendable = threadCache.alloc(100, false);
 
 	// Attempt to extend a non-appendable:
