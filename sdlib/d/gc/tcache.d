@@ -479,6 +479,18 @@ unittest extend {
 	assert(threadCache.extend(p0[50 .. 100], 0));
 	assert(threadCache.getCapacity(p0[50 .. 100]) == 16334);
 
+	// Extend by zero is permitted even when no capacity:
+	assert(threadCache.extend(nonAppendable[0 .. 100], 0));
+
+	void* nullPtr = null;
+	assert(threadCache.extend(nullPtr[0 .. 100], 0));
+
+	void* stackPtr = &nullPtr;
+	assert(threadCache.extend(stackPtr[0 .. 100], 0));
+
+	void* tlPtr = &threadCache;
+	assert(threadCache.extend(tlPtr[0 .. 100], 0));
+
 	// Valid extend :
 	assert(threadCache.extend(p0[0 .. 100], 50));
 	assert(threadCache.getCapacity(p0[100 .. 150]) == 16284);
