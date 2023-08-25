@@ -494,7 +494,6 @@ unittest extend {
 
 	// Extend the upper half:
 	assert(threadCache.extend(p0[125 .. 150], 100));
-
 	assert(threadCache.getCapacity(p0[150 .. 250]) == 16234);
 
 	// Original's capacity becomes 0:
