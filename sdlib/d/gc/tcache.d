@@ -472,7 +472,7 @@ unittest extend {
 	assert(!threadCache.extend(p0[0 .. 100], 16285));
 	assert(!threadCache.extend(p0[50 .. 100], 16285));
 
-	// Extend by length zero is permitted if capacity>0, but has no effect:
+	// Extend by size zero is permitted if capacity>0, but has no effect:
 	assert(threadCache.extend(p0[100 .. 100], 0));
 	assert(threadCache.extend(p0[0 .. 100], 0));
 	assert(threadCache.getCapacity(p0[0 .. 100]) == 16384);
@@ -506,7 +506,7 @@ unittest extend {
 	// Capacity of earlier slice elongated to cover the extensions :
 	assert(threadCache.getCapacity(p0[0 .. 250]) == 16384);
 
-	// Extend a zero-length slice existing at the start of the free space:
+	// Extend a zero-size slice existing at the start of the free space:
 	assert(threadCache.extend(p0[250 .. 250], 200));
 	assert(threadCache.getCapacity(p0[250 .. 450]) == 16134);
 
@@ -527,6 +527,6 @@ unittest extend {
 	// Attempt to extend, but we're full:
 	assert(!threadCache.extend(p0[0 .. 16384], 1));
 
-	// Extend by length zero still works, though:
+	// Extend by size zero still works, though:
 	assert(threadCache.extend(p0[0 .. 16384], 0));
 }
