@@ -531,7 +531,7 @@ unittest extend {
 	assert(threadCache.extend(p0[0 .. 450], 15933));
 	assert(threadCache.getCapacity(p0[16383 .. 16383]) == 1);
 
-	// // Extend, filling up last byte of free space:
+	// Extend, filling up last byte of free space:
 	assert(threadCache.extend(p0[16383 .. 16383], 1));
 	assert(threadCache.getCapacity(p0[0 .. 16384]) == 16384);
 
