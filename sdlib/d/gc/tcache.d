@@ -472,7 +472,7 @@ unittest extend {
 	assert(!threadCache.extend(p0[0 .. 100], 16285));
 	assert(!threadCache.extend(p0[50 .. 100], 16285));
 
-	// Extend by size zero is permitted if capacity>0, but has no effect:
+	// Extend by size zero is permitted but has no effect:
 	assert(threadCache.extend(p0[100 .. 100], 0));
 	assert(threadCache.extend(p0[0 .. 100], 0));
 	assert(threadCache.getCapacity(p0[0 .. 100]) == 16384);
