@@ -98,9 +98,12 @@ private:
 
 	Links _links;
 
+	// The largest slab slot count for which the use of labels is possible:
+	enum maxLabels = 256;
+
 	import d.gc.bitmap;
 	union MetaData {
-		// Slab occupancy (constrained by freeSlots, so usable for all classes).
+		// Slab occupancy (and label flags for supported size classes.)
 		Bitmap!512 slabData;
 
 		// Metadata for large extents.
@@ -251,6 +254,32 @@ public:
 		assert(isSlab(), "slabData accessed on non slab!");
 
 		return _metadata.slabData;
+	}
+
+	/**
+	 * Label features for slabs.
+	 */
+
+	@property
+	bool allowsLabels() const {
+		return isSlab() && isAppendableSizeClass(sizeClass);
+	}
+
+	uint labelsIndex(uint index) {
+		assert(index < maxLabels, "Invalid labels index!");
+		return index + maxLabels;
+	}
+
+	bool hasLabel(uint index) {
+		return allowsLabels && slabData.valueAt(labelsIndex(index));
+	}
+
+	void clearLabel(uint index) {
+		slabData.clearBit(labelsIndex(index));
+	}
+
+	void setLabel(uint index) {
+		slabData.setBit(labelsIndex(index));
 	}
 
 	/**

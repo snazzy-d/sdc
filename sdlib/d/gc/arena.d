@@ -4,6 +4,7 @@ import d.gc.allocclass;
 import d.gc.emap;
 import d.gc.extent;
 import d.gc.hpd;
+import d.gc.meta;
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
@@ -118,7 +119,17 @@ public:
 		assert(isSmallSize(size));
 
 		auto sizeClass = getSizeClass(size);
-		return bins[sizeClass].alloc(&this, emap, sizeClass);
+		return bins[sizeClass].alloc(&this, emap, sizeClass, size);
+	}
+
+	pInfo getInfo(shared(ExtentMap)* emap, PageDescriptor pd,
+	              void* ptr) shared {
+		return bins[pd.sizeClass].getInfo(&this, ptr, pd);
+	}
+
+	bool setUsedCapacity(shared(ExtentMap)* emap, PageDescriptor pd, void* ptr,
+	                     size_t usedCapacity) shared {
+		return bins[pd.sizeClass].setInfo(&this, ptr, pd, usedCapacity);
 	}
 
 	/**
