@@ -90,10 +90,7 @@ struct Bin {
 		return (cast(Bin*) &this).freeImpl(sg.e, sg.index, slots);
 	}
 
-	pInfo getInfo(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {
-		assert(&arena.bins[pd.sizeClass] == &this,
-		       "Invalid arena or sizeClass!");
-
+	pInfo getInfo(void* ptr, PageDescriptor pd) shared {
 		auto sg = slabAllocGeometry(ptr, pd, false);
 
 		mutex.lock();
@@ -117,11 +114,7 @@ struct Bin {
 		return pInfo(sg.address, sg.size, sg.size - freeSize);
 	}
 
-	bool setInfo(shared(Arena)* arena, void* ptr, PageDescriptor pd,
-	             size_t usedCapacity) shared {
-		assert(&arena.bins[pd.sizeClass] == &this,
-		       "Invalid arena or sizeClass!");
-
+	bool setInfo(void* ptr, PageDescriptor pd, size_t usedCapacity) shared {
 		auto sg = slabAllocGeometry(ptr, pd, true);
 
 		mutex.lock();

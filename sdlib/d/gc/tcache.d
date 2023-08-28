@@ -263,13 +263,13 @@ public:
 private:
 	pInfo getAllocInfo(PageDescriptor pd, void* ptr) {
 		return pd.isSlab()
-			? pd.arena.getInfo(emap, pd, ptr)
+			? pd.arena.getInfo(pd, ptr)
 			: pInfo(pd.extent.address, pd.extent.size, pd.extent.usedCapacity);
 	}
 
 	bool setUsedCapacity(PageDescriptor pd, void* ptr, size_t capacity) {
 		if (pd.isSlab()) {
-			return pd.arena.setUsedCapacity(emap, pd, ptr, capacity);
+			return pd.arena.setUsedCapacity(pd, ptr, capacity);
 		} else {
 			pd.extent.setUsedCapacity(capacity);
 			return true;

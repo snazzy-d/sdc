@@ -122,14 +122,13 @@ public:
 		return bins[sizeClass].alloc(&this, emap, sizeClass, size);
 	}
 
-	pInfo getInfo(shared(ExtentMap)* emap, PageDescriptor pd,
-	              void* ptr) shared {
-		return bins[pd.sizeClass].getInfo(&this, ptr, pd);
+	pInfo getInfo(PageDescriptor pd, void* ptr) shared {
+		return bins[pd.sizeClass].getInfo(ptr, pd);
 	}
 
-	bool setUsedCapacity(shared(ExtentMap)* emap, PageDescriptor pd, void* ptr,
+	bool setUsedCapacity(PageDescriptor pd, void* ptr,
 	                     size_t usedCapacity) shared {
-		return bins[pd.sizeClass].setInfo(&this, ptr, pd, usedCapacity);
+		return bins[pd.sizeClass].setInfo(ptr, pd, usedCapacity);
 	}
 
 	/**
