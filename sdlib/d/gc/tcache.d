@@ -42,35 +42,6 @@ public:
 		return ptr;
 	}
 
-	//////////////////////////////////////////////////////////////////////
-	size_t getSmallUsed(void* ptr) {
-		auto pd = maybeGetPageDescriptor(ptr);
-		if (pd.extent is null) {
-			return 0;
-		}
-
-		if (!pd.isSlab()) {
-			return 0;
-		}
-
-		return pd.arena.getInfo(emap, pd, ptr).usedCapacity;
-	}
-
-	void setSmallUsed(void* ptr, size_t usedCapacity) {
-		auto pd = maybeGetPageDescriptor(ptr);
-		if (pd.extent is null) {
-			return;
-		}
-
-		if (!pd.isSlab()) {
-			return;
-		}
-
-		pd.arena.setUsedCapacity(emap, pd, ptr, usedCapacity);
-	}
-
-	//////////////////////////////////////////////////////////////////////
-
 	void* calloc(size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
 			return null;
