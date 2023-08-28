@@ -2,10 +2,38 @@ module d.gc.bin;
 
 import d.gc.arena;
 import d.gc.emap;
-import d.gc.meta;
+import d.gc.extent;
 import d.gc.spec;
 
 enum InvalidBinID = 0xff;
+
+struct slabAllocGeometry {
+	Extent* e;
+	uint sc;
+	size_t size;
+	uint index;
+	void* address;
+
+	this(void* ptr, PageDescriptor pd, bool ptrIsStart) {
+		assert(pd.extent !is null, "Extent is null!");
+		assert(pd.isSlab(), "Expected a slab!");
+		assert(pd.extent.contains(ptr), "ptr not in slab!");
+
+		e = pd.extent;
+		sc = pd.sizeClass;
+
+		import d.gc.util;
+		auto offset = alignDownOffset(ptr, PageSize) + pd.index * PageSize;
+		index = binInfos[sc].computeIndex(offset);
+
+		auto base = ptr - offset;
+		size = binInfos[sc].itemSize;
+		address = base + index * size;
+
+		assert(!ptrIsStart || (ptr is base + index * size),
+		       "ptr does not point to start of slab alloc!");
+	}
+}
 
 /**
  * A bin is used to keep track of runs of a certain
@@ -15,7 +43,6 @@ struct Bin {
 	import d.sync.mutex;
 	shared Mutex mutex;
 
-	import d.gc.extent;
 	Extent* current;
 
 	// XXX: We might want to consider targeting Extents
@@ -49,34 +76,6 @@ struct Bin {
 		return slab.address + index * size;
 	}
 
-	struct slabAllocGeometry {
-		Extent* e;
-		uint sc;
-		size_t size;
-		uint index;
-		void* address;
-
-		this(void* ptr, PageDescriptor pd, bool ptrIsStart) {
-			assert(pd.extent !is null, "Extent is null!");
-			assert(pd.isSlab(), "Expected a slab!");
-			assert(pd.extent.contains(ptr), "ptr not in slab!");
-
-			e = pd.extent;
-			sc = pd.sizeClass;
-
-			import d.gc.util;
-			auto offset = alignDownOffset(ptr, PageSize) + pd.index * PageSize;
-			index = binInfos[sc].computeIndex(offset);
-
-			auto base = ptr - offset;
-			size = binInfos[sc].itemSize;
-			address = base + index * size;
-
-			assert(!ptrIsStart || (ptr is base + index * size),
-			       "ptr does not point to start of slab alloc!");
-		}
-	}
-
 	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {
 		assert(&arena.bins[pd.sizeClass] == &this,
 		       "Invalid arena or sizeClass!");
@@ -88,68 +87,6 @@ struct Bin {
 		scope(exit) mutex.unlock();
 
 		return (cast(Bin*) &this).freeImpl(sg.e, sg.index, slots);
-	}
-
-	pInfo getInfo(void* ptr, PageDescriptor pd) shared {
-		auto sg = slabAllocGeometry(ptr, pd, false);
-
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		// If label flag is 0, or this size class does not support labels,
-		// then the alloc is reported to be fully used:
-		if (!sg.e.hasLabel(sg.index)) {
-			return pInfo(sg.address, sg.size, sg.size);
-		}
-
-		// Decode label, found in the final byte (or two bytes) of the alloc:
-		auto body = (cast(ubyte*) sg.address);
-		ubyte lo = body[sg.size - 1];
-		ushort freeSize = lo >>> 1;
-		if (lo & 1 != 0) {
-			ushort hi = body[sg.size - 2];
-			freeSize |= hi << 7;
-		}
-
-		return pInfo(sg.address, sg.size, sg.size - freeSize);
-	}
-
-	bool setInfo(void* ptr, PageDescriptor pd, size_t usedCapacity) shared {
-		auto sg = slabAllocGeometry(ptr, pd, true);
-
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		assert(usedCapacity <= sg.size,
-		       "Used capacity may not exceed alloc size!");
-
-		// If this size class does not support labels, then let the caller know
-		// that the used capacity did not change, as it is permanently fixed:
-		if (!sg.e.allowsLabels) {
-			return false;
-		}
-
-		// If capacity of alloc is now fully used, there is no label:
-		if (usedCapacity == sg.size) {
-			sg.e.clearLabel(sg.index);
-			return true;
-		}
-
-		// Encode label and write it to the last byte (or two bytes) of alloc:
-		auto freeSize = sg.size - usedCapacity;
-		enum mask = (1 << 7) - 1;
-		ubyte hi = (freeSize >>> 7) & mask;
-		ubyte hasHi = cast(ubyte) (hi != 0);
-		ubyte lo = ((freeSize & mask) << 1) | hasHi;
-
-		auto body = (cast(ubyte*) sg.address);
-		body[sg.size - 1] = lo;
-		if (hasHi) {
-			body[sg.size - 2] = hi;
-		}
-
-		sg.e.setLabel(sg.index);
-		return true;
 	}
 
 private:

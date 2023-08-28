@@ -1,6 +1,6 @@
 module d.gc.tcache;
 
-import d.gc.meta;
+import d.gc.bin;
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
@@ -14,6 +14,21 @@ private:
 
 	const(void)* stackBottom;
 	const(void*)[][] roots;
+
+	// Data returned in response to capacity queries.
+	struct capacityInfo {
+		void* address;
+		size_t size;
+		size_t usedCapacity;
+
+		this(void* address, size_t size, size_t used) {
+			assert(used <= size, "Used capacity exceeds alloc size!");
+
+			this.address = address;
+			this.size = size;
+			this.usedCapacity = used;
+		}
+	}
 
 public:
 	void* alloc(size_t size, bool containsPointers) {
@@ -30,12 +45,10 @@ public:
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers) {
-		// If the default size class is small, upsize by one size class
-		// (or by two if the next class does not support appendability.)
-		auto sc = getSizeClass(size) + (isSmallSize(size) ? 1 : 0);
-		auto asize = getSizeFromClass(isAppendableSizeClass(sc) ? sc : sc + 1);
+		auto asize = alignUp(size, 2 * Quantum);
+		assert(isAppendableSizeClass(getSizeClass(asize)),
+		       "allocAppendable got non-appendable size class!");
 		auto ptr = alloc(asize, containsPointers);
-
 		// Remember the size we actually use.
 		auto pd = getPageDescriptor(ptr);
 		assert(setUsedCapacity(pd, ptr, size), "Could not set capacity!");
@@ -142,7 +155,7 @@ public:
 	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
 	 */
 	bool getAppendablePageDescriptor(const void[] slice, ref PageDescriptor pd,
-	                                 ref pInfo info) {
+	                                 ref capacityInfo info) {
 		pd = maybeGetPageDescriptor(slice.ptr);
 		if (pd.extent is null) {
 			return false;
@@ -160,7 +173,7 @@ public:
 
 	size_t getCapacity(const void[] slice) {
 		PageDescriptor pd;
-		pInfo info;
+		capacityInfo info;
 		if (!getAppendablePageDescriptor(slice, pd, info)) {
 			return 0;
 		}
@@ -175,7 +188,7 @@ public:
 		}
 
 		PageDescriptor pd;
-		pInfo info;
+		capacityInfo info;
 		if (!getAppendablePageDescriptor(slice, pd, info)) {
 			return false;
 		}
@@ -261,19 +274,72 @@ public:
 	}
 
 private:
-	pInfo getAllocInfo(PageDescriptor pd, void* ptr) {
-		return pd.isSlab()
-			? pd.arena.getInfo(pd, ptr)
-			: pInfo(pd.extent.address, pd.extent.size, pd.extent.usedCapacity);
+	capacityInfo getAllocInfo(PageDescriptor pd, void* ptr) {
+		if (pd.extent.isLarge()) {
+			return capacityInfo(pd.extent.address, pd.extent.size,
+			                    pd.extent.usedCapacity);
+		}
+
+		// Slab alloc:
+		auto sg = slabAllocGeometry(ptr, pd, false);
+
+		// If label flag is 0, or this size class does not support labels,
+		// then the alloc is reported to be fully used:
+		if (!sg.e.hasLabel(sg.index)) {
+			return capacityInfo(sg.address, sg.size, sg.size);
+		}
+
+		// Decode label, found in the final byte (or two bytes) of the alloc:
+		auto body = (cast(ubyte*) sg.address);
+		ubyte lo = body[sg.size - 1];
+		ushort freeSize = lo >>> 1;
+		if (lo & 1 != 0) {
+			ushort hi = body[sg.size - 2];
+			freeSize |= hi << 7;
+		}
+
+		return capacityInfo(sg.address, sg.size, sg.size - freeSize);
 	}
 
-	bool setUsedCapacity(PageDescriptor pd, void* ptr, size_t capacity) {
-		if (pd.isSlab()) {
-			return pd.arena.setUsedCapacity(pd, ptr, capacity);
-		} else {
-			pd.extent.setUsedCapacity(capacity);
+	bool setUsedCapacity(PageDescriptor pd, void* ptr, size_t usedCapacity) {
+		if (pd.extent.isLarge()) {
+			pd.extent.setUsedCapacity(usedCapacity);
 			return true;
 		}
+
+		// Slab alloc:
+		auto sg = slabAllocGeometry(ptr, pd, true);
+
+		assert(usedCapacity <= sg.size,
+		       "Used capacity may not exceed alloc size!");
+
+		// If this size class does not support labels, then let the caller know
+		// that the used capacity did not change, as it is permanently fixed:
+		if (!sg.e.allowsLabels) {
+			return false;
+		}
+
+		// If capacity of alloc is now fully used, there is no label:
+		if (usedCapacity == sg.size) {
+			sg.e.clearLabel(sg.index);
+			return true;
+		}
+
+		// Encode label and write it to the last byte (or two bytes) of alloc:
+		auto freeSize = sg.size - usedCapacity;
+		enum mask = (1 << 7) - 1;
+		ubyte hi = (freeSize >>> 7) & mask;
+		ubyte hasHi = cast(ubyte) (hi != 0);
+		ubyte lo = ((freeSize & mask) << 1) | hasHi;
+
+		auto body = (cast(ubyte*) sg.address);
+		body[sg.size - 1] = lo;
+		if (hasHi) {
+			body[sg.size - 2] = hi;
+		}
+
+		sg.e.setLabel(sg.index);
+		return true;
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -512,7 +578,8 @@ unittest extend {
 
 	// Make a small appendable alloc:
 	auto s0 = threadCache.allocAppendable(42, false);
-	assert(threadCache.getCapacity(s0[0 .. 42]) == 64);
+
+	assert(threadCache.getCapacity(s0[0 .. 42]) == 48);
 	assert(threadCache.extend(s0[0 .. 0], 0));
 	assert(!threadCache.extend(s0[0 .. 0], 10));
 	assert(!threadCache.extend(s0[0 .. 41], 10));
@@ -524,42 +591,42 @@ unittest extend {
 	assert(!threadCache.extend(s0[32 .. 42], 23));
 
 	// Valid extend :
-	assert(threadCache.extend(s0[0 .. 42], 10));
+	assert(threadCache.extend(s0[0 .. 42], 3));
 
 	// Capacity of old slice becomes 0:
 	assert(threadCache.getCapacity(s0[0 .. 42]) == 0);
 
 	// Capacity of extended slice:
-	assert(threadCache.getCapacity(s0[0 .. 52]) == 64);
+	assert(threadCache.getCapacity(s0[0 .. 45]) == 48);
 
 	// Extend again:
-	assert(threadCache.extend(s0[40 .. 52], 8));
-	assert(threadCache.getCapacity(s0[0 .. 52]) == 0);
-	assert(threadCache.getCapacity(s0[0 .. 60]) == 64);
+	assert(threadCache.extend(s0[40 .. 45], 2));
+	assert(threadCache.getCapacity(s0[0 .. 45]) == 0);
+	assert(threadCache.getCapacity(s0[0 .. 47]) == 48);
 
 	// Resize to another small size class and extend :
 	auto s1 = threadCache.realloc(s0, 440, false);
-	assert(threadCache.extend(s1[0 .. 60], 5));
-	assert(threadCache.getCapacity(s1[0 .. 60]) == 0);
-	assert(threadCache.getCapacity(s1[0 .. 65]) == 448);
+	assert(threadCache.extend(s1[0 .. 47], 5));
+	assert(threadCache.getCapacity(s1[0 .. 47]) == 0);
+	assert(threadCache.getCapacity(s1[0 .. 52]) == 448);
 
 	// Resize and extend again:
 	auto s2 = threadCache.realloc(s1, 220, false);
-	assert(threadCache.extend(s2[0 .. 65], 100));
-	assert(threadCache.getCapacity(s2[0 .. 165]) == 224);
+	assert(threadCache.extend(s2[0 .. 52], 100));
+	assert(threadCache.getCapacity(s2[0 .. 152]) == 224);
 
 	// Fill it up:
-	assert(threadCache.extend(s2[0 .. 165], 59));
-	assert(threadCache.getCapacity(s2[0 .. 224]) == 224);
+	assert(threadCache.extend(s2[0 .. 152], 59));
+	assert(threadCache.getCapacity(s2[0 .. 211]) == 224);
 
 	// Resize to a large size class and extend again:
 	auto s3 = threadCache.realloc(s2, 20000, false);
-	assert(threadCache.extend(s3[0 .. 224], 10000));
-	assert(threadCache.getCapacity(s3[0 .. 10224]) == 20480);
+	assert(threadCache.extend(s3[0 .. 211], 10000));
+	assert(threadCache.getCapacity(s3[0 .. 10211]) == 20480);
 
 	// Resize down to small size class, truncating:
 	auto s4 = threadCache.realloc(s3, 80, false);
-	assert(threadCache.getCapacity(s4[0 .. 10224]) == 0);
+	assert(threadCache.getCapacity(s4[0 .. 10211]) == 0);
 	assert(threadCache.getCapacity(s4[0 .. 80]) == 80);
 
 	// Make a large appendable alloc:

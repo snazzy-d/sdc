@@ -4,7 +4,6 @@ import d.gc.allocclass;
 import d.gc.emap;
 import d.gc.extent;
 import d.gc.hpd;
-import d.gc.meta;
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
@@ -120,15 +119,6 @@ public:
 
 		auto sizeClass = getSizeClass(size);
 		return bins[sizeClass].alloc(&this, emap, sizeClass, size);
-	}
-
-	pInfo getInfo(PageDescriptor pd, void* ptr) shared {
-		return bins[pd.sizeClass].getInfo(ptr, pd);
-	}
-
-	bool setUsedCapacity(PageDescriptor pd, void* ptr,
-	                     size_t usedCapacity) shared {
-		return bins[pd.sizeClass].setInfo(ptr, pd, usedCapacity);
 	}
 
 	/**

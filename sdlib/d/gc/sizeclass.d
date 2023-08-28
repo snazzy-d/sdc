@@ -83,30 +83,15 @@ bool isAppendableSizeClass(uint sizeClass) {
 }
 
 unittest isAppendableSizeClass {
-	// Size class 0 has 512 slab slots and is not appendable:
-	assert(!isAppendableSizeClass(0));
+	auto bins = getBinInfos();
+	// Small size classes are appendable if and only if have <= 256 slab slots:
+	foreach (sc; 0 .. ClassCount.Small) {
+		assert(isAppendableSizeClass(sc) == (bins[sc].slots <= 256));
+	}
 
-	// Size class 1 has 256 slab slots and is appendable:
-	assert(isAppendableSizeClass(1));
-
-	// Size class 2 has 512 slab slots and is not appendable:
-	assert(!isAppendableSizeClass(2));
-
-	// Size class 3 has 128 slab slots and is appendable:
-	assert(isAppendableSizeClass(3));
-
-	// Size class 4 has 512 slab slots and is not appendable:
-	assert(!isAppendableSizeClass(4));
-
-	// Size class 5 has 256 slab slots and is appendable:
-	assert(isAppendableSizeClass(5));
-
-	// Size class 6 has 512 slab slots and is not appendable:
-	assert(!isAppendableSizeClass(6));
-
-	// All other size classes have 256 or fewer slab slots and are appendable:
-	foreach (s; 7 .. ClassCount.Total) {
-		assert(isAppendableSizeClass(s));
+	// All large size classes are appeandable:
+	foreach (sc; ClassCount.Small .. ClassCount.Total) {
+		assert(isAppendableSizeClass(sc));
 	}
 }
 
