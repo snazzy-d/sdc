@@ -457,20 +457,36 @@ unittest extend {
 	// Attempt to extend a non-appendable:
 	assert(!threadCache.extend(nonAppendable[0 .. 100], 1));
 
+	// Extend by zero is permitted even when no capacity:
+	assert(threadCache.extend(nonAppendable[0 .. 100], 0));
+
+	// Extend in space unknown to the GC. Can only extend by zero.
+	void* nullPtr = null;
+	assert(threadCache.extend(nullPtr[0 .. 100], 0));
+	assert(!threadCache.extend(nullPtr[0 .. 100], 1));
+	assert(!threadCache.extend(nullPtr[100 .. 100], 1));
+
+	void* stackPtr = &nullPtr;
+	assert(threadCache.extend(stackPtr[0 .. 100], 0));
+	assert(!threadCache.extend(stackPtr[0 .. 100], 1));
+	assert(!threadCache.extend(stackPtr[100 .. 100], 1));
+
+	void* tlPtr = &threadCache;
+	assert(threadCache.extend(tlPtr[0 .. 100], 0));
+	assert(!threadCache.extend(tlPtr[0 .. 100], 1));
+	assert(!threadCache.extend(tlPtr[100 .. 100], 1));
+
 	// Make an appendable alloc:
 	auto p0 = threadCache.allocAppendable(100, false);
 	assert(threadCache.getCapacity(p0[0 .. 100]) == 16384);
 
-	// Attempt to extend slices with capacity 0:
+	// Attempt to extend valid slices with capacity 0.
+	// (See getCapacity tests.)
 	assert(threadCache.extend(p0[0 .. 0], 0));
 	assert(!threadCache.extend(p0[0 .. 0], 50));
 	assert(!threadCache.extend(p0[0 .. 99], 50));
 	assert(!threadCache.extend(p0[1 .. 99], 50));
 	assert(!threadCache.extend(p0[0 .. 50], 50));
-
-	// Attempt extend with insufficient space:
-	assert(!threadCache.extend(p0[0 .. 100], 16285));
-	assert(!threadCache.extend(p0[50 .. 100], 16285));
 
 	// Extend by size zero is permitted but has no effect:
 	assert(threadCache.extend(p0[100 .. 100], 0));
@@ -479,65 +495,71 @@ unittest extend {
 	assert(threadCache.extend(p0[50 .. 100], 0));
 	assert(threadCache.getCapacity(p0[50 .. 100]) == 16334);
 
-	// Extend by zero is permitted even when no capacity:
-	assert(threadCache.extend(nonAppendable[0 .. 100], 0));
+	// Attempt extend with insufficient space (one byte too many) :
+	assert(threadCache.getCapacity(p0[100 .. 100]) == 16284);
+	assert(!threadCache.extend(p0[0 .. 100], 16285));
+	assert(!threadCache.extend(p0[50 .. 100], 16285));
 
-	void* nullPtr = null;
-	assert(threadCache.extend(nullPtr[0 .. 100], 0));
+	// Extending to the limit (one less than above) succeeds:
+	assert(threadCache.extend(p0[50 .. 100], 16284));
 
-	void* stackPtr = &nullPtr;
-	assert(threadCache.extend(stackPtr[0 .. 100], 0));
+	// Now we're full, and can extend only by zero:
+	assert(threadCache.extend(p0[0 .. 16384], 0));
 
-	void* tlPtr = &threadCache;
-	assert(threadCache.extend(tlPtr[0 .. 100], 0));
+	// Make another appendable alloc:
+	auto p1 = threadCache.allocAppendable(100, false);
+	assert(threadCache.getCapacity(p1[0 .. 100]) == 16384);
 
 	// Valid extend :
-	assert(threadCache.extend(p0[0 .. 100], 50));
-	assert(threadCache.getCapacity(p0[100 .. 150]) == 16284);
+	assert(threadCache.extend(p1[0 .. 100], 50));
+	assert(threadCache.getCapacity(p1[100 .. 150]) == 16284);
+	assert(threadCache.extend(p1[0 .. 150], 0));
 
 	// Capacity of old slice becomes 0:
-	assert(threadCache.getCapacity(p0[0 .. 100]) == 0);
+	assert(threadCache.getCapacity(p1[0 .. 100]) == 0);
 
 	// The only permitted extend is by 0:
-	assert(threadCache.extend(p0[0 .. 100], 0));
+	assert(threadCache.extend(p1[0 .. 100], 0));
 
 	// Capacity of a slice including the original and the extension:
-	assert(threadCache.getCapacity(p0[0 .. 150]) == 16384);
+	assert(threadCache.getCapacity(p1[0 .. 150]) == 16384);
 
 	// Extend the upper half:
-	assert(threadCache.extend(p0[125 .. 150], 100));
-	assert(threadCache.getCapacity(p0[150 .. 250]) == 16234);
+	assert(threadCache.extend(p1[125 .. 150], 100));
+	assert(threadCache.getCapacity(p1[150 .. 250]) == 16234);
 
 	// Original's capacity becomes 0:
-	assert(threadCache.getCapacity(p0[125 .. 150]) == 0);
+	assert(threadCache.getCapacity(p1[125 .. 150]) == 0);
+	assert(threadCache.extend(p1[125 .. 150], 0));
 
 	// Capacity of a slice including original and extended:
-	assert(threadCache.getCapacity(p0[125 .. 250]) == 16259);
+	assert(threadCache.extend(p1[125 .. 250], 0));
+	assert(threadCache.getCapacity(p1[125 .. 250]) == 16259);
 
 	// Capacity of earlier slice elongated to cover the extensions :
-	assert(threadCache.getCapacity(p0[0 .. 250]) == 16384);
+	assert(threadCache.getCapacity(p1[0 .. 250]) == 16384);
 
 	// Extend a zero-size slice existing at the start of the free space:
-	assert(threadCache.extend(p0[250 .. 250], 200));
-	assert(threadCache.getCapacity(p0[250 .. 450]) == 16134);
+	assert(threadCache.extend(p1[250 .. 250], 200));
+	assert(threadCache.getCapacity(p1[250 .. 450]) == 16134);
 
 	// Capacity of the old slice is now 0:
-	assert(threadCache.getCapacity(p0[0 .. 250]) == 0);
+	assert(threadCache.getCapacity(p1[0 .. 250]) == 0);
 
 	// Capacity of a slice which includes the original and the extension:
-	assert(threadCache.getCapacity(p0[0 .. 450]) == 16384);
+	assert(threadCache.getCapacity(p1[0 .. 450]) == 16384);
 
 	// Extend so as to fill up all but one byte of free space:
-	assert(threadCache.extend(p0[0 .. 450], 15933));
-	assert(threadCache.getCapacity(p0[16383 .. 16383]) == 1);
+	assert(threadCache.extend(p1[0 .. 450], 15933));
+	assert(threadCache.getCapacity(p1[16383 .. 16383]) == 1);
 
 	// Extend, filling up last byte of free space:
-	assert(threadCache.extend(p0[16383 .. 16383], 1));
-	assert(threadCache.getCapacity(p0[0 .. 16384]) == 16384);
+	assert(threadCache.extend(p1[16383 .. 16383], 1));
+	assert(threadCache.getCapacity(p1[0 .. 16384]) == 16384);
 
 	// Attempt to extend, but we're full:
-	assert(!threadCache.extend(p0[0 .. 16384], 1));
+	assert(!threadCache.extend(p1[0 .. 16384], 1));
 
 	// Extend by size zero still works, though:
-	assert(threadCache.extend(p0[0 .. 16384], 0));
+	assert(threadCache.extend(p1[0 .. 16384], 0));
 }
