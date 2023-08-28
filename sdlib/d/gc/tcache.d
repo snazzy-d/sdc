@@ -290,13 +290,11 @@ private:
 		}
 
 		// Decode label, found in the final byte (or two bytes) of the alloc:
-		auto body = (cast(ubyte*) sg.address);
-		ubyte lo = body[sg.size - 1];
-		ushort freeSize = lo >>> 1;
-		if (lo & 1 != 0) {
-			ushort hi = body[sg.size - 2];
-			freeSize |= hi << 7;
-		}
+		ushort _data = *(cast(ushort*) (sg.address + sg.size - 2));
+		// FIXME: detect that we're actually on a little-endian machine:
+		auto data = swapEndian(_data);
+		auto mask = 0x7f | -(data & 1);
+		auto freeSize = (data >>> 1) & mask;
 
 		return capacityInfo(sg.address, sg.size, sg.size - freeSize);
 	}
@@ -332,7 +330,7 @@ private:
 		ubyte hasHi = cast(ubyte) (hi != 0);
 		ubyte lo = ((freeSize & mask) << 1) | hasHi;
 
-		auto body = (cast(ubyte*) sg.address);
+		auto body = cast(ubyte*) sg.address;
 		body[sg.size - 1] = lo;
 		if (hasHi) {
 			body[sg.size - 2] = hi;

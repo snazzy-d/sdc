@@ -46,6 +46,10 @@ unittest log2floor {
 	assert(log2floor(32) == 5);
 }
 
+ushort swapEndian(ushort x) {
+	return ushort.max & ((x >>> 8) | ((x << 8)));
+}
+
 bool isPow2(T)(T x) {
 	import sdc.intrinsics;
 	return popCount(x) == 1;
