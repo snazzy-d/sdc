@@ -72,7 +72,7 @@ struct Bin {
 			size = binInfos[sc].itemSize;
 			address = base + index * size;
 
-			assert(!ptrIsStart || (ptr is base + index * binInfos[sc].itemSize),
+			assert(!ptrIsStart || (ptr is base + index * size),
 			       "ptr does not point to start of slab alloc!");
 		}
 	}
