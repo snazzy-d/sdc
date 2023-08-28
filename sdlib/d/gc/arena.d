@@ -118,7 +118,7 @@ public:
 		assert(isSmallSize(size));
 
 		auto sizeClass = getSizeClass(size);
-		return bins[sizeClass].alloc(&this, emap, sizeClass, size);
+		return bins[sizeClass].alloc(&this, emap, sizeClass);
 	}
 
 	/**

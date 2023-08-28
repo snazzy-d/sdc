@@ -50,8 +50,8 @@ struct Bin {
 	import d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 
-	void* alloc(shared(Arena)* arena, shared(ExtentMap)* emap, ubyte sizeClass,
-	            size_t usedCapacity) shared {
+	void* alloc(shared(Arena)* arena, shared(ExtentMap)* emap,
+	            ubyte sizeClass) shared {
 		assert(isSmallSizeClass(sizeClass));
 		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
 
