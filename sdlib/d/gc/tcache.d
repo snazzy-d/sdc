@@ -505,6 +505,7 @@ unittest extend {
 
 	// Now we're full, and can extend only by zero:
 	assert(threadCache.extend(p0[0 .. 16384], 0));
+	assert(!threadCache.extend(p0[0 .. 16384], 1));
 
 	// Make another appendable alloc:
 	auto p1 = threadCache.allocAppendable(100, false);
