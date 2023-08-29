@@ -327,11 +327,11 @@ private:
 		auto freeSize = sg.size - usedCapacity;
 		auto dptr = (cast(ushort*) (sg.address + sg.size - 2));
 
-		ushort mask = ((cast(uint) (0x7f - freeSize)) >> 16);
+		ushort mask = 0xff00 | (0xff & ((0x7f - freeSize) >> 16));
 		ushort current = 0xffff & (freeSize << 1) | (mask & 1);
 		ushort old = *dptr;
 		// FIXME: detect that we're actually on a little-endian machine:
-		*dptr = old ^ ((mask | 0xFF00) & (old ^ swapEndian(current)));
+		*dptr = old ^ (mask & (old ^ swapEndian(current)));
 
 		sg.e.setFreeSpace(sg.index);
 		return true;
