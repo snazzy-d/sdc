@@ -283,13 +283,13 @@ private:
 		// Slab alloc:
 		auto sg = slabAllocGeometry(ptr, pd, false);
 
-		// If label flag is 0, or this size class does not support labels,
+		// If freespace flag is 0, or this size class does not support meta,
 		// then the alloc is reported to be fully used:
-		if (!sg.e.hasLabel(sg.index)) {
+		if (!sg.e.hasFreeSpace(sg.index)) {
 			return capacityInfo(sg.address, sg.size, sg.size);
 		}
 
-		// Decode label, found in the final byte (or two bytes) of the alloc:
+		// Decode freesize, found in the final byte (or two bytes) of the alloc:
 		ushort read = *(cast(ushort*) (sg.address + sg.size - 2));
 		// FIXME: detect that we're actually on a little-endian machine:
 		auto data = swapEndian(read);
@@ -311,19 +311,19 @@ private:
 		assert(usedCapacity <= sg.size,
 		       "Used capacity may not exceed alloc size!");
 
-		// If this size class does not support labels, then let the caller know
+		// If this size class is not appendable, then let the caller know
 		// that the used capacity did not change, as it is permanently fixed:
-		if (!sg.e.allowsLabels) {
+		if (!sg.e.allowsFreeSpace) {
 			return false;
 		}
 
-		// If capacity of alloc is now fully used, there is no label:
+		// If capacity of alloc is now fully used:
 		if (usedCapacity == sg.size) {
-			sg.e.clearLabel(sg.index);
+			sg.e.clearFreeSpace(sg.index);
 			return true;
 		}
 
-		// Encode label and write it to the last byte (or two bytes) of alloc:
+		// Encode freesize and write it to the last byte (or two bytes) of alloc:
 		auto freeSize = sg.size - usedCapacity;
 		auto dptr = (cast(ushort*) (sg.address + sg.size - 2));
 		// FIXME: detect that we're actually on a little-endian machine:
@@ -332,7 +332,7 @@ private:
 		ushort current = 0xffff & (freeSize << 1) | (mask & 1);
 		*dptr = swapEndian(old ^ ((mask | 0xFF) & (old ^ current)));
 
-		sg.e.setLabel(sg.index);
+		sg.e.setFreeSpace(sg.index);
 		return true;
 	}
 

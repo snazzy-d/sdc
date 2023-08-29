@@ -98,12 +98,12 @@ private:
 
 	Links _links;
 
-	// The largest slab slot count for which the use of labels is possible:
-	enum maxLabels = 256;
+	// The largest slab slot count for which the use of flags is possible:
+	enum maxFlags = 256;
 
 	import d.gc.bitmap;
 	union MetaData {
-		// Slab occupancy (and label flags for supported size classes.)
+		// Slab occupancy (and freespace flags for supported size classes.)
 		Bitmap!512 slabData;
 
 		// Metadata for large extents.
@@ -257,29 +257,32 @@ public:
 	}
 
 	/**
-	 * Label features for slabs.
+	 * Freespace Flag features for slabs.
 	 */
 
 	@property
-	bool allowsLabels() const {
+	bool allowsFreeSpace() const {
 		return isSlab() && isAppendableSizeClass(sizeClass);
 	}
 
-	uint labelsIndex(uint index) {
-		assert(index < maxLabels, "Invalid labels index!");
-		return index + maxLabels;
+	uint freeSpaceIndex(uint index) {
+		assert(index < maxFlags, "Invalid flag index!");
+		return index + maxFlags;
 	}
 
-	bool hasLabel(uint index) {
-		return allowsLabels && slabData.valueAt(labelsIndex(index));
+	bool hasFreeSpace(uint index) {
+		// FIXME: atomic
+		return allowsFreeSpace && slabData.valueAt(freeSpaceIndex(index));
 	}
 
-	void clearLabel(uint index) {
-		slabData.clearBit(labelsIndex(index));
+	void clearFreeSpace(uint index) {
+		// FIXME: atomic
+		slabData.clearBit(freeSpaceIndex(index));
 	}
 
-	void setLabel(uint index) {
-		slabData.setBit(labelsIndex(index));
+	void setFreeSpace(uint index) {
+		// FIXME: atomic
+		slabData.setBit(freeSpaceIndex(index));
 	}
 
 	/**
