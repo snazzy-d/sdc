@@ -326,11 +326,12 @@ private:
 		// Encode freesize and write it to the last byte (or two bytes) of alloc:
 		auto freeSize = sg.size - usedCapacity;
 		auto dptr = (cast(ushort*) (sg.address + sg.size - 2));
-		// FIXME: detect that we're actually on a little-endian machine:
-		ushort old = swapEndian(*dptr);
+
 		ushort mask = ((cast(uint) (0x7f - freeSize)) >> 16);
 		ushort current = 0xffff & (freeSize << 1) | (mask & 1);
-		*dptr = swapEndian(old ^ ((mask | 0xFF) & (old ^ current)));
+		ushort old = *dptr;
+		// FIXME: detect that we're actually on a little-endian machine:
+		*dptr = old ^ ((mask | 0xFF00) & (old ^ swapEndian(current)));
 
 		sg.e.setFreeSpace(sg.index);
 		return true;
