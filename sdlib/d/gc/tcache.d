@@ -290,9 +290,9 @@ private:
 		}
 
 		// Decode label, found in the final byte (or two bytes) of the alloc:
-		ushort _data = *(cast(ushort*) (sg.address + sg.size - 2));
+		ushort read = *(cast(ushort*) (sg.address + sg.size - 2));
 		// FIXME: detect that we're actually on a little-endian machine:
-		auto data = swapEndian(_data);
+		auto data = swapEndian(read);
 		auto mask = 0x7f | -(data & 1);
 		auto freeSize = (data >>> 1) & mask;
 
@@ -325,16 +325,12 @@ private:
 
 		// Encode label and write it to the last byte (or two bytes) of alloc:
 		auto freeSize = sg.size - usedCapacity;
-		enum mask = (1 << 7) - 1;
-		ubyte hi = (freeSize >>> 7) & mask;
-		ubyte hasHi = cast(ubyte) (hi != 0);
-		ubyte lo = ((freeSize & mask) << 1) | hasHi;
-
-		auto body = cast(ubyte*) sg.address;
-		body[sg.size - 1] = lo;
-		if (hasHi) {
-			body[sg.size - 2] = hi;
-		}
+		auto dptr = (cast(ushort*) (sg.address + sg.size - 2));
+		// FIXME: detect that we're actually on a little-endian machine:
+		ushort old = swapEndian(*dptr);
+		ushort mask = ((cast(uint) (0x7f - freeSize)) >> 16);
+		ushort current = 0xffff & (freeSize << 1) | (mask & 1);
+		*dptr = swapEndian(old ^ ((mask | 0xFF) & (old ^ current)));
 
 		sg.e.setLabel(sg.index);
 		return true;
