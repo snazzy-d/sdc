@@ -386,7 +386,7 @@ ushort readVar15(void* loc) {
 
 void writeVar15(void* loc, ushort x) {
 	auto locptr = (cast(ushort*) loc);
-	// If writing a one-byte varint, don't disturb the unused byte:
+	// If writing a one-byte var15, don't disturb the unused byte:
 	ushort mask = 0xff00 | (0xff & ((0x7f - x) >> 16));
 	ushort current = 0xffff & (x << 1) | (mask & 1);
 	ushort old = *locptr;
