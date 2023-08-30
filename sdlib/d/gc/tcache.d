@@ -795,7 +795,7 @@ unittest extend {
 }
 
 unittest finalization {
-	// Faux destructor which simply records used size of most recent kill:
+	// Faux destructor which simply records most recent kill:
 	static size_t lastKilledUsedCap = 0;
 	static void* lastKilledPtr;
 	static void destruct(void* body, size_t size) {
