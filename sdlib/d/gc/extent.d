@@ -98,13 +98,24 @@ private:
 
 	Links _links;
 
+	// The largest slab slot count which allows freespace flags:
+	enum maxFreeSpaceFlags = 256;
+
+	// The largest slab slot count which allows finalizer flags:
+	enum maxFinalizerFlags = 128;
+
+	struct LargeData {
+		size_t usedCapacity;
+		void* finalizer;
+	}
+
 	import d.gc.bitmap;
 	union MetaData {
-		// Slab occupancy (constrained by freeSlots, so usable for all classes).
+		// Slab occupancy (and freespace flags for supported size classes.)
 		Bitmap!512 slabData;
 
 		// Metadata for large extents.
-		size_t usedCapacity;
+		LargeData largeData;
 	}
 
 	MetaData _metadata;
@@ -130,6 +141,7 @@ private:
 			slabData.clear();
 		} else {
 			setUsedCapacity(size);
+			setFinalizer(null);
 		}
 	}
 
@@ -254,6 +266,64 @@ public:
 	}
 
 	/**
+	 * Freespace Flag features for slabs.
+	 */
+
+	@property
+	bool allowsFreeSpace() const {
+		return isSlab() && isAppendableSizeClass(sizeClass);
+	}
+
+	uint freeSpaceIndex(uint index) {
+		assert(index < maxFreeSpaceFlags, "Invalid freespace flag index!");
+		return index + maxFreeSpaceFlags;
+	}
+
+	bool hasFreeSpace(uint index) {
+		// FIXME: atomic
+		return allowsFreeSpace && slabData.valueAt(freeSpaceIndex(index));
+	}
+
+	void clearFreeSpace(uint index) {
+		// FIXME: atomic
+		slabData.clearBit(freeSpaceIndex(index));
+	}
+
+	void setFreeSpace(uint index) {
+		// FIXME: atomic
+		slabData.setBit(freeSpaceIndex(index));
+	}
+
+	/**
+	 * Finalizer Flag features for slabs.
+	 */
+
+	@property
+	bool allowsFinalized() const {
+		return isSlab() && isFinalizableSizeClass(sizeClass);
+	}
+
+	uint finalizedIndex(uint index) {
+		assert(index < maxFinalizerFlags, "Invalid finalizer flag index!");
+		return index + maxFinalizerFlags;
+	}
+
+	bool hasFinalized(uint index) {
+		// FIXME: atomic
+		return allowsFinalized && slabData.valueAt(finalizedIndex(index));
+	}
+
+	void clearFinalized(uint index) {
+		// FIXME: atomic
+		slabData.clearBit(finalizedIndex(index));
+	}
+
+	void setFinalized(uint index) {
+		// FIXME: atomic
+		slabData.setBit(finalizedIndex(index));
+	}
+
+	/**
 	 * Large features.
 	 */
 	bool isLarge() const {
@@ -263,12 +333,23 @@ public:
 	@property
 	ulong usedCapacity() {
 		assert(isLarge(), "usedCapacity accessed on non large!");
-		return _metadata.usedCapacity;
+		return _metadata.largeData.usedCapacity;
 	}
 
 	void setUsedCapacity(size_t size) {
 		assert(isLarge(), "Cannot set used capacity on a slab alloc!");
-		_metadata.usedCapacity = size;
+		_metadata.largeData.usedCapacity = size;
+	}
+
+	@property
+	void* finalizer() {
+		assert(isLarge(), "finalizer accessed on non large!");
+		return _metadata.largeData.finalizer;
+	}
+
+	void setFinalizer(void* finalizer) {
+		assert(isLarge(), "Cannot set finalizer on a slab alloc!");
+		_metadata.largeData.finalizer = finalizer;
 	}
 }
 

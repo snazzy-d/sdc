@@ -2,9 +2,38 @@ module d.gc.bin;
 
 import d.gc.arena;
 import d.gc.emap;
+import d.gc.extent;
 import d.gc.spec;
 
 enum InvalidBinID = 0xff;
+
+struct slabAllocGeometry {
+	Extent* e;
+	uint sc;
+	size_t size;
+	uint index;
+	void* address;
+
+	this(void* ptr, PageDescriptor pd, bool ptrIsStart) {
+		assert(pd.extent !is null, "Extent is null!");
+		assert(pd.isSlab(), "Expected a slab!");
+		assert(pd.extent.contains(ptr), "ptr not in slab!");
+
+		e = pd.extent;
+		sc = pd.sizeClass;
+
+		import d.gc.util;
+		auto offset = alignDownOffset(ptr, PageSize) + pd.index * PageSize;
+		index = binInfos[sc].computeIndex(offset);
+
+		auto base = ptr - offset;
+		size = binInfos[sc].itemSize;
+		address = base + index * size;
+
+		assert(!ptrIsStart || (ptr is address),
+		       "ptr does not point to start of slab alloc!");
+	}
+}
 
 /**
  * A bin is used to keep track of runs of a certain
@@ -14,7 +43,6 @@ struct Bin {
 	import d.sync.mutex;
 	shared Mutex mutex;
 
-	import d.gc.extent;
 	Extent* current;
 
 	// XXX: We might want to consider targeting Extents
@@ -24,7 +52,7 @@ struct Bin {
 
 	void* alloc(shared(Arena)* arena, shared(ExtentMap)* emap,
 	            ubyte sizeClass) shared {
-		assert(sizeClass < ClassCount.Small);
+		assert(isSmallSizeClass(sizeClass));
 		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
 
 		// Load eagerly as prefetching.
@@ -49,27 +77,16 @@ struct Bin {
 	}
 
 	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {
-		assert(pd.extent !is null, "Extent is null!");
-		assert(pd.isSlab(), "Expected a slab!");
-		assert(pd.extent.contains(ptr), "ptr not in slab!");
 		assert(&arena.bins[pd.sizeClass] == &this,
 		       "Invalid arena or sizeClass!");
 
-		auto e = pd.extent;
-		auto sc = pd.sizeClass;
-
-		import d.gc.util;
-		auto offset = alignDownOffset(ptr, PageSize) + pd.index * PageSize;
-		auto index = binInfos[sc].computeIndex(offset);
-		auto slots = binInfos[sc].slots;
-
-		auto base = ptr - offset;
-		assert(ptr is base + index * binInfos[sc].itemSize);
+		auto sg = slabAllocGeometry(ptr, pd, true);
+		auto slots = binInfos[sg.sc].slots;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Bin*) &this).freeImpl(e, index, slots);
+		return (cast(Bin*) &this).freeImpl(sg.e, sg.index, slots);
 	}
 
 private:
@@ -78,6 +95,9 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		e.free(index);
+		if (e.allowsFinalized) {
+			e.clearFinalized(index);
+		}
 
 		auto nfree = e.freeSlots;
 		if (nfree == slots) {
