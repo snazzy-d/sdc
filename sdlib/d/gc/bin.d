@@ -30,7 +30,7 @@ struct slabAllocGeometry {
 		size = binInfos[sc].itemSize;
 		address = base + index * size;
 
-		assert(!ptrIsStart || (ptr is base + index * size),
+		assert(!ptrIsStart || (ptr is address),
 		       "ptr does not point to start of slab alloc!");
 	}
 }
