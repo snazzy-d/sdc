@@ -290,11 +290,7 @@ private:
 		}
 
 		// Decode freesize, found in the final byte (or two bytes) of the alloc:
-		ushort read = *(cast(ushort*) (sg.address + sg.size - 2));
-		// FIXME: detect that we're actually on a little-endian machine:
-		auto data = swapEndian(read);
-		auto mask = 0x7f | -(data & 1);
-		auto freeSize = (data >>> 1) & mask;
+		auto freeSize = readVar15(sg.address + sg.size - 2);
 
 		return capacityInfo(sg.address, sg.size, sg.size - freeSize);
 	}
@@ -325,13 +321,7 @@ private:
 
 		// Encode freesize and write it to the last byte (or two bytes) of alloc:
 		auto freeSize = sg.size - usedCapacity;
-		auto dptr = (cast(ushort*) (sg.address + sg.size - 2));
-
-		ushort mask = 0xff00 | (0xff & ((0x7f - freeSize) >> 16));
-		ushort current = 0xffff & (freeSize << 1) | (mask & 1);
-		ushort old = *dptr;
-		// FIXME: detect that we're actually on a little-endian machine:
-		*dptr = old ^ (mask & (old ^ swapEndian(current)));
+		writeVar15(sg.address + sg.size - 2, freeSize & 0x3fff);
 
 		sg.e.setFreeSpace(sg.index);
 		return true;
@@ -376,6 +366,33 @@ private:
 }
 
 private:
+
+/**
+ * A "var15" represents a 15-bit unsigned integer residing in one or two bytes.
+ * It is always written in 'big-endian' orientation, with the least-significant
+ * byte (always present) occupying position 'loc + 1', and the most-significant
+ * byte (may or may not be present) occupying position 'loc'.
+ * The least-significant bit of the upper byte indicates the presence of the
+ * lower byte; its remaining 7 bits store the least-significant 7 bits of the
+ * value. The second byte, if present, stores the most significant 8 bits.
+ */
+
+ushort readVar15(void* loc) {
+	// FIXME: detect that we're actually on a little-endian machine:
+	auto data = swapEndian(*(cast(ushort*) loc));
+	auto mask = 0x7f | -(data & 1);
+	return (data >>> 1) & mask;
+}
+
+void writeVar15(void* loc, ushort x) {
+	auto locptr = (cast(ushort*) loc);
+	// If writing a one-byte varint, don't disturb the preceding byte:
+	ushort mask = 0xff00 | (0xff & ((0x7f - x) >> 16));
+	ushort current = 0xffff & (x << 1) | (mask & 1);
+	ushort old = *locptr;
+	// FIXME: detect that we're actually on a little-endian machine:
+	*locptr = old ^ (mask & (old ^ swapEndian(current)));
+}
 
 extern(C):
 version(OSX) {
