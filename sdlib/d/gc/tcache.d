@@ -48,8 +48,9 @@ public:
 
 	void* allocAppendable(size_t size, bool containsPointers,
 	                      bool finalizable = false) {
-		auto alignment = finalizable ? 32 : 2 * Quantum;
-		auto asize = alignUp(size, alignment);
+		auto asize = finalizable
+			? alignUp(size + PointerSize, 32)
+			: alignUp(size, 2 * Quantum);
 		assert(isAppendableSizeClass(getSizeClass(asize)),
 		       "allocAppendable got non-appendable size class!");
 		auto ptr = alloc(asize, containsPointers);
