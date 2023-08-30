@@ -418,6 +418,8 @@ unittest Var15 {
 
 	writeVar15(foo.ptr, 0x7fff);
 	assert(readVar15(foo.ptr) == 0x7fff);
+	assert(foo[0] == 0xff);
+	assert(foo[1] == 0xff);
 }
 
 extern(C):
