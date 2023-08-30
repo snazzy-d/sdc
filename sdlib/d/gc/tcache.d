@@ -395,35 +395,21 @@ void writeVar15(void* loc, ushort x) {
 }
 
 unittest Var15 {
-	ubyte[2] foo = [0xab, 0xcd];
+	ubyte[2] a;
+	foreach (ushort i; 0 .. 0x7fff) {
+		writeVar15(a.ptr, i);
+		assert(readVar15(a.ptr) == i);
+	}
 
-	writeVar15(foo.ptr, 0);
-	assert(readVar15(foo.ptr) == 0);
-	assert(foo[0] == 0xab);
-	assert(foo[1] == 0);
-
-	writeVar15(foo.ptr, 0x7f);
-	assert(readVar15(foo.ptr) == 0x7f);
-	assert(foo[0] == 0xab);
-	assert(foo[1] == 0xfe);
-
-	foo[0] = 0xff;
-	assert(readVar15(foo.ptr) == 0x7f);
-	foo[0] = 0x00;
-	assert(readVar15(foo.ptr) == 0x7f);
-
-	writeVar15(foo.ptr, 0x80);
-	assert(foo[0] == 0x01);
-	assert(foo[1] == 0x01);
-
-	writeVar15(foo.ptr, 0x7fff);
-	assert(readVar15(foo.ptr) == 0x7fff);
-	assert(foo[0] == 0xff);
-	assert(foo[1] == 0xff);
-	foo[0] = 0x01;
-	assert(readVar15(foo.ptr) == 0xff);
-	foo[1] = 0xfe;
-	assert(readVar15(foo.ptr) == 0x7f);
+	ubyte[2] b = [0xab, 0xcd];
+	writeVar15(b.ptr, 0);
+	assert(readVar15(b.ptr) == 0);
+	assert(b[0] == 0xab);
+	assert(b[1] == 0);
+	b[0] = 0x33;
+	assert(readVar15(b.ptr) == 0);
+	writeVar15(b.ptr, 0x7f);
+	assert(b[0] == 0x33);
 }
 
 extern(C):
