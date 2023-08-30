@@ -401,15 +401,13 @@ unittest Var15 {
 		assert(readVar15(a.ptr) == i);
 	}
 
-	ubyte[2] b = [0xab, 0xcd];
-	writeVar15(b.ptr, 0);
-	assert(readVar15(b.ptr) == 0);
-	assert(b[0] == 0xab);
-	assert(b[1] == 0);
-	b[0] = 0x33;
-	assert(readVar15(b.ptr) == 0);
-	writeVar15(b.ptr, 0x7f);
-	assert(b[0] == 0x33);
+	foreach (x; 0 .. 256) {
+		a[0] = 0xff & x;
+		foreach (ubyte y; 0 .. 0x80) {
+			writeVar15(a.ptr, y);
+			assert(a[0] == x);
+		}
+	}
 }
 
 extern(C):
