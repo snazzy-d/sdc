@@ -111,7 +111,7 @@ private:
 
 	import d.gc.bitmap;
 	union MetaData {
-		// Slab occupancy (and freespace flags for supported size classes.)
+		// Slab occupancy (and metadata flags for supported size classes.)
 		Bitmap!512 slabData;
 
 		// Metadata for large extents.
