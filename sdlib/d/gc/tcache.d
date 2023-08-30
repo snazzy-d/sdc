@@ -794,9 +794,11 @@ unittest extend {
 
 unittest finalization {
 	// Faux destructor which simply records used size of most recent kill:
-	static size_t lastKilledSize = 0;
+	static size_t lastKilledUsedCap = 0;
+	static void* lastKilledPtr;
 	static void destruct(void* body, size_t size) {
-		lastKilledSize = size;
+		lastKilledUsedCap = size;
+		lastKilledPtr = body;
 	}
 
 	// Prohibited scenarios:
@@ -819,9 +821,11 @@ unittest finalization {
 	// Working finalizers:
 	auto s0 = threadCache.allocAppendable(42, false, true);
 	assert(threadCache.getCapacity(s0[0 .. 42]) == 64);
+
 	assert(threadCache.makeFinalizable(s0, &destruct));
 	threadCache.destroy(s0);
-	assert(lastKilledSize == 42);
+	assert(lastKilledPtr == s0);
+	assert(lastKilledUsedCap == 42);
 
 	auto s1 = threadCache.allocAppendable(42, false, true);
 	assert(threadCache.makeFinalizable(s1, &destruct));
@@ -829,7 +833,8 @@ unittest finalization {
 	assert(!threadCache.extend(s1[0 .. 42], 15));
 	assert(threadCache.extend(s1[0 .. 42], 14));
 	threadCache.destroy(s1);
-	assert(lastKilledSize == 56);
+	assert(lastKilledPtr == s1);
+	assert(lastKilledUsedCap == 56);
 
 	auto s2 = threadCache.allocAppendable(13000, false, true);
 	assert(threadCache.makeFinalizable(s2, &destruct));
@@ -837,12 +842,14 @@ unittest finalization {
 	assert(s3 !is s2);
 	assert(threadCache.extend(s3[0 .. 13000], 10000));
 	threadCache.destroy(s3);
-	assert(lastKilledSize == 23000);
+	assert(lastKilledPtr == s3);
+	assert(lastKilledUsedCap == 23000);
 
 	auto s4 = threadCache.allocAppendable(13000, false, true);
 	assert(threadCache.makeFinalizable(s4, &destruct));
 	auto s5 = threadCache.realloc(s4, 128, false);
 	assert(s5 !is s4);
 	threadCache.destroy(s5);
-	assert(lastKilledSize == 120);
+	assert(lastKilledPtr == s5);
+	assert(lastKilledUsedCap == 120);
 }
