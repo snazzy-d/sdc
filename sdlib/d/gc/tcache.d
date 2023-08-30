@@ -104,12 +104,14 @@ public:
 		auto copySize = min(size, info.usedCapacity);
 
 		if (pd.isSlab()) {
-			if (getSizeClass(size) == pd.sizeClass) {
+			auto newSizeClass = getSizeClass(size);
+			if (newSizeClass == pd.sizeClass) {
 				return ptr;
 			}
 
 			// If we had a finalizer, must then reserve space for it:
-			if ((info.finalizer !is null) && (copySize < info.usedCapacity)) {
+			if ((info.finalizer !is null) && (copySize < info.usedCapacity)
+				    && (isFinalizableSizeClass(newSizeClass))) {
 				copySize -= PointerSize;
 			}
 		} else {
