@@ -374,7 +374,7 @@ private:
  * byte (may or may not be present) occupying position 'loc'.
  * The least-significant bit of the upper byte indicates the presence of the
  * lower byte; its remaining 7 bits store the least-significant 7 bits of the
- * value. The second byte, if present, stores the most significant 8 bits.
+ * value. The lower byte, if present, stores the most significant 8 bits.
  */
 
 ushort readVar15(void* loc) {
