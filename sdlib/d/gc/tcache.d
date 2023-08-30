@@ -103,16 +103,16 @@ public:
 		auto info = getAllocInfo(pd, ptr);
 		auto copySize = min(size, info.usedCapacity);
 
-		if (pd.isSlab()) {
-			auto newSizeClass = getSizeClass(size);
-			if (newSizeClass == pd.sizeClass) {
-				return ptr;
-			}
+		// If we had a finalizer, the new size class is small, and
+		// we are truncating capacity, reserve space for finalizer:
+		if (isSmallSize(size) && (info.finalizer !is null)
+			    && (copySize < info.usedCapacity)) {
+			copySize -= PointerSize;
+		}
 
-			// If we had a finalizer, must then reserve space for it:
-			if ((info.finalizer !is null) && (copySize < info.usedCapacity)
-				    && (isFinalizableSizeClass(newSizeClass))) {
-				copySize -= PointerSize;
+		if (pd.isSlab()) {
+			if (getSizeClass(size) == pd.sizeClass) {
+				return ptr;
 			}
 		} else {
 			if (alignUp(size, PageSize) == info.size) {
@@ -130,11 +130,12 @@ public:
 		}
 
 		auto npd = getPageDescriptor(newPtr);
+
 		// If new size class does not support appendability, the new alloc's
 		// used capacity will permanently span the entire alloc:
 		setUsedCapacity(npd, newPtr, copySize);
 
-		// TODO: should we fail if we had finalizer but new size class cannot ?
+		// TODO: what if we had a finalizer, but new size class not supports ?
 		setFinalizer(npd, newPtr, info.finalizer);
 
 		memcpy(newPtr, ptr, copySize);
@@ -803,7 +804,7 @@ unittest finalization {
 		lastKilledPtr = body;
 	}
 
-	// Prohibited scenarios:
+	// Pointers unknown to GC:
 	void* nullPtr = null;
 	void* stackPtr = &nullPtr;
 	void* tlPtr = &threadCache;
@@ -811,6 +812,7 @@ unittest finalization {
 	assert(!threadCache.makeFinalizable(stackPtr, &destruct));
 	assert(!threadCache.makeFinalizable(tlPtr, &destruct));
 
+	// Non-finalizable size classes:
 	auto nope0 = threadCache.allocAppendable(5, false, false);
 	assert(!threadCache.makeFinalizable(nope0, &destruct));
 
@@ -821,14 +823,14 @@ unittest finalization {
 	assert(!threadCache.makeFinalizable(nope2, &destruct));
 
 	// Working finalizers:
-	auto s0 = threadCache.allocAppendable(42, false, true);
-	assert(threadCache.getCapacity(s0[0 .. 42]) == 64);
-
+	auto s0 = threadCache.allocAppendable(45, false, true);
+	assert(threadCache.getCapacity(s0[0 .. 45]) == 64);
 	assert(threadCache.makeFinalizable(s0, &destruct));
 	threadCache.destroy(s0);
 	assert(lastKilledPtr == s0);
-	assert(lastKilledUsedCap == 42);
+	assert(lastKilledUsedCap == 45);
 
+	// Extending with a finalizer:
 	auto s1 = threadCache.allocAppendable(42, false, true);
 	assert(threadCache.makeFinalizable(s1, &destruct));
 	assert(threadCache.getCapacity(s1[0 .. 42]) == 56);
@@ -838,6 +840,7 @@ unittest finalization {
 	assert(lastKilledPtr == s1);
 	assert(lastKilledUsedCap == 56);
 
+	// Large:
 	auto s2 = threadCache.allocAppendable(13000, false, true);
 	assert(threadCache.makeFinalizable(s2, &destruct));
 	auto s3 = threadCache.realloc(s2, 60000, false);
@@ -847,11 +850,23 @@ unittest finalization {
 	assert(lastKilledPtr == s3);
 	assert(lastKilledUsedCap == 23000);
 
-	auto s4 = threadCache.allocAppendable(13000, false, true);
+	// Realloc, with finalizer, small to large, then back:
+	auto s4 = threadCache.allocAppendable(77, false, true);
 	assert(threadCache.makeFinalizable(s4, &destruct));
-	auto s5 = threadCache.realloc(s4, 128, false);
+	auto s5 = threadCache.realloc(s4, 99999, false);
 	assert(s5 !is s4);
-	threadCache.destroy(s5);
-	assert(lastKilledPtr == s5);
+	auto s6 = threadCache.realloc(s5, 128, false);
+	assert(s6 !is s5);
+	threadCache.destroy(s6);
+	assert(lastKilledPtr == s6);
+	assert(lastKilledUsedCap == 77);
+
+	// Realloc down with used capacity truncation preserves finalizer:
+	auto s7 = threadCache.allocAppendable(50000, false, true);
+	assert(threadCache.makeFinalizable(s7, &destruct));
+	auto s8 = threadCache.realloc(s7, 128, false);
+	assert(s8 !is s7);
+	threadCache.destroy(s8);
+	assert(lastKilledPtr == s8);
 	assert(lastKilledUsedCap == 120);
 }
