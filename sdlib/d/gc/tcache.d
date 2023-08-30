@@ -110,6 +110,9 @@ public:
 			copySize -= PointerSize;
 		}
 
+		// TODO: do we want a slice-callable destroy(), so can call it
+		// when downsizing via realloc() and discarding used capacity ?
+
 		if (pd.isSlab()) {
 			if (getSizeClass(size) == pd.sizeClass) {
 				return ptr;
