@@ -46,8 +46,10 @@ public:
 			: arena.allocLarge(emap, size, false);
 	}
 
-	void* allocAppendable(size_t size, bool containsPointers) {
-		auto asize = alignUp(size, 2 * Quantum);
+	void* allocAppendable(size_t size, bool containsPointers,
+	                      bool finalizable = false) {
+		auto alignment = finalizable ? 32 : 2 * Quantum;
+		auto asize = alignUp(size, alignment);
 		assert(isAppendableSizeClass(getSizeClass(asize)),
 		       "allocAppendable got non-appendable size class!");
 		auto ptr = alloc(asize, containsPointers);
@@ -104,6 +106,11 @@ public:
 		if (pd.isSlab()) {
 			if (getSizeClass(size) == pd.sizeClass) {
 				return ptr;
+			}
+
+			// If we had a finalizer, must then reserve space for it:
+			if ((info.finalizer !is null) && (copySize < info.usedCapacity)) {
+				copySize -= PointerSize;
 			}
 		} else {
 			if (alignUp(size, PageSize) == info.size) {
@@ -212,20 +219,29 @@ public:
 	 * Finalization facilities.
 	 */
 
-	size_t makeFinalizableAllocSize(size_t size) {
-		auto newSize = alignUp(size, 32);
-		assert(isFinalizableSizeClass(getSizeClass(newSize)),
-		       "makeFinalizableAllocSize got non-finalizable size class!");
-		return newSize;
-	}
-
 	bool makeFinalizable(void* ptr, void* finalizer) {
-		auto pd = getPageDescriptor(ptr);
+		auto pd = maybeGetPageDescriptor(ptr);
 		if (pd.extent is null) {
 			return false;
 		}
 
 		return setFinalizer(pd, ptr, finalizer);
+	}
+
+	void destroy(void* ptr) {
+		if (ptr is null) {
+			return;
+		}
+
+		auto pd = getPageDescriptor(ptr);
+		auto info = getAllocInfo(pd, ptr);
+
+		if (info.finalizer !is null) {
+			(cast(void function(void* body, size_t size)) info.finalizer)(
+				info.address, info.usedCapacity);
+		}
+
+		pd.arena.free(emap, pd, ptr);
 	}
 
 	/**
@@ -774,4 +790,59 @@ unittest extend {
 
 	// Extend by size zero still works, though:
 	assert(threadCache.extend(p0[0 .. 16384], 0));
+}
+
+unittest finalization {
+	// Faux destructor which simply records used size of most recent kill:
+	static size_t lastKilledSize = 0;
+	static void destruct(void* body, size_t size) {
+		lastKilledSize = size;
+	}
+
+	// Prohibited scenarios:
+	void* nullPtr = null;
+	void* stackPtr = &nullPtr;
+	void* tlPtr = &threadCache;
+	assert(!threadCache.makeFinalizable(nullPtr, &destruct));
+	assert(!threadCache.makeFinalizable(stackPtr, &destruct));
+	assert(!threadCache.makeFinalizable(tlPtr, &destruct));
+
+	auto nope0 = threadCache.allocAppendable(5, false, false);
+	assert(!threadCache.makeFinalizable(nope0, &destruct));
+
+	auto nope1 = threadCache.allocAppendable(45, false, false);
+	assert(!threadCache.makeFinalizable(nope1, &destruct));
+
+	auto nope2 = threadCache.allocAppendable(64, false, false);
+	assert(!threadCache.makeFinalizable(nope2, &destruct));
+
+	// Working finalizers:
+	auto s0 = threadCache.allocAppendable(42, false, true);
+	assert(threadCache.getCapacity(s0[0 .. 42]) == 64);
+	assert(threadCache.makeFinalizable(s0, &destruct));
+	threadCache.destroy(s0);
+	assert(lastKilledSize == 42);
+
+	auto s1 = threadCache.allocAppendable(42, false, true);
+	assert(threadCache.makeFinalizable(s1, &destruct));
+	assert(threadCache.getCapacity(s1[0 .. 42]) == 56);
+	assert(!threadCache.extend(s1[0 .. 42], 15));
+	assert(threadCache.extend(s1[0 .. 42], 14));
+	threadCache.destroy(s1);
+	assert(lastKilledSize == 56);
+
+	auto s2 = threadCache.allocAppendable(13000, false, true);
+	assert(threadCache.makeFinalizable(s2, &destruct));
+	auto s3 = threadCache.realloc(s2, 60000, false);
+	assert(s3 !is s2);
+	assert(threadCache.extend(s3[0 .. 13000], 10000));
+	threadCache.destroy(s3);
+	assert(lastKilledSize == 23000);
+
+	auto s4 = threadCache.allocAppendable(13000, false, true);
+	assert(threadCache.makeFinalizable(s4, &destruct));
+	auto s5 = threadCache.realloc(s4, 128, false);
+	assert(s5 !is s4);
+	threadCache.destroy(s5);
+	assert(lastKilledSize == 120);
 }
