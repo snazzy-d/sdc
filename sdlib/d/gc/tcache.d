@@ -33,7 +33,7 @@ private:
 	}
 
 public:
-	void* alloc(size_t size, bool containsPointers) {
+	void* alloc(size_t size, bool containsPointers, bool finalizable = false) {
 		if (!isAllocatableSize(size)) {
 			return null;
 		}
@@ -41,9 +41,15 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
-		return isSmallSize(size)
-			? arena.allocSmall(emap, size)
-			: arena.allocLarge(emap, size, false);
+
+		if (isSmallSize(size)) {
+			auto asize = finalizable ? alignUp(size + PointerSize, 32) : size;
+			if (isSmallSize(asize)) {
+				return arena.allocSmall(emap, asize);
+			}
+		}
+
+		return arena.allocLarge(emap, size, false);
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers,
@@ -396,6 +402,7 @@ private:
 		}
 
 		if (pd.extent.isLarge()) {
+			assert(pd.extent.finalizer is null, "Finalizer was already set!");
 			pd.extent.setFinalizer(finalizer);
 			return true;
 		}
@@ -410,16 +417,16 @@ private:
 		void** finalizerField =
 			(cast(void**) sg.address + sg.size - PointerSize);
 
-		// If a finalizer was already set:
-		if (sg.e.hasFinalized(sg.index)) {
+		assert(!sg.e.hasFinalized(sg.index), "Finalizer was already set!");
+
+		// Assume that this is a non-appendable alloc and set finalizer:
+		if (!sg.e.hasFreeSpace(sg.index)) {
 			*finalizerField = finalizer;
+			sg.e.setFinalized(sg.index);
 			return true;
 		}
 
-		if (!sg.e.hasFreeSpace(sg.index)) {
-			return false;
-		}
-
+		// If we do have freesize bit set, must adjust the free space:
 		void* defaultFreeSizeField = sg.address + sg.size - 2;
 		auto freeSize = readPackedU15(defaultFreeSizeField);
 		if (freeSize < PointerSize) {
@@ -823,9 +830,6 @@ unittest finalization {
 	auto nope1 = threadCache.allocAppendable(45, false, false);
 	assert(!threadCache.makeFinalizable(nope1, &destruct));
 
-	auto nope2 = threadCache.allocAppendable(64, false, false);
-	assert(!threadCache.makeFinalizable(nope2, &destruct));
-
 	// Working finalizers:
 	auto s0 = threadCache.allocAppendable(45, false, true);
 	assert(threadCache.getCapacity(s0[0 .. 45]) == 64);
@@ -873,4 +877,20 @@ unittest finalization {
 	threadCache.destroy(s8);
 	assert(lastKilledPtr == s8);
 	assert(lastKilledUsedCap == 120);
+
+	// Finalizer use with non-appendable allocs:
+
+	// Allocs not requested as appendable can still finalize,
+	// but finalizer will assume that entire capacity is used:
+	auto nonAppendableSmall = threadCache.alloc(5, false, true);
+	assert(threadCache.makeFinalizable(nonAppendableSmall, &destruct));
+	threadCache.destroy(nonAppendableSmall);
+	assert(lastKilledPtr == nonAppendableSmall);
+	assert(lastKilledUsedCap == 24);
+
+	auto nonAppendableLarge = threadCache.alloc(20000, false, true);
+	assert(threadCache.makeFinalizable(nonAppendableLarge, &destruct));
+	threadCache.destroy(nonAppendableLarge);
+	assert(lastKilledPtr == nonAppendableLarge);
+	assert(lastKilledUsedCap == 20480);
 }
