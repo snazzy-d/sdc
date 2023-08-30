@@ -420,6 +420,10 @@ unittest Var15 {
 	assert(readVar15(foo.ptr) == 0x7fff);
 	assert(foo[0] == 0xff);
 	assert(foo[1] == 0xff);
+	foo[0] = 0x01;
+	assert(readVar15(foo.ptr) == 0xff);
+	foo[1] = 0xfe;
+	assert(readVar15(foo.ptr) == 0x7f);
 }
 
 extern(C):
