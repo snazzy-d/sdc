@@ -394,6 +394,32 @@ void writeVar15(void* loc, ushort x) {
 	*locptr = old ^ (mask & (old ^ swapEndian(current)));
 }
 
+unittest Var15 {
+	ubyte[2] foo = [0xab, 0xcd];
+
+	writeVar15(foo.ptr, 0);
+	assert(readVar15(foo.ptr) == 0);
+	assert(foo[0] == 0xab);
+	assert(foo[1] == 0);
+
+	writeVar15(foo.ptr, 0x7f);
+	assert(readVar15(foo.ptr) == 0x7f);
+	assert(foo[0] == 0xab);
+	assert(foo[1] == 0xfe);
+
+	foo[0] = 0xff;
+	assert(readVar15(foo.ptr) == 0x7f);
+	foo[0] = 0x00;
+	assert(readVar15(foo.ptr) == 0x7f);
+
+	writeVar15(foo.ptr, 0x80);
+	assert(foo[0] == 0x01);
+	assert(foo[1] == 0x01);
+
+	writeVar15(foo.ptr, 0x7fff);
+	assert(readVar15(foo.ptr) == 0x7fff);
+}
+
 extern(C):
 version(OSX) {
 	// For some reason OSX's symbol get a _ prepended.
