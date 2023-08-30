@@ -89,7 +89,7 @@ unittest isAppendableSizeClass {
 		assert(isAppendableSizeClass(sc) == (bins[sc].slots <= 256));
 	}
 
-	// All large size classes are appeandable:
+	// All large size classes are appendable:
 	foreach (sc; ClassCount.Small .. ClassCount.Total) {
 		assert(isAppendableSizeClass(sc));
 	}
