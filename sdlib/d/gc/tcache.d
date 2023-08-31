@@ -414,27 +414,25 @@ private:
 
 		assert(!sg.e.hasFinalizer(sg.index), "Finalizer was already set!");
 
-		// If the freesize bit is not set, we must assume that this is a
-		// non-appendable (or couldn't support them at all), set finalizer:
-		if (!sg.e.hasFreeSpace(sg.index)) {
-			*finalizerField = finalizer;
-			sg.e.setFinalizer(sg.index);
-			return true;
+		if (sg.e.hasFreeSpace(sg.index)) {
+			// If freesize bit is set, must adjust the free space:
+			void* defaultFreeSizeField = sg.address + sg.size - 2;
+			auto freeSize = readPackedU15(defaultFreeSizeField);
+			if (freeSize < PointerSize) {
+				return false;
+			}
+
+			void* newFreeSizeField = defaultFreeSizeField - PointerSize;
+			ushort newFreeSize = 0x3fff & (freeSize - PointerSize);
+			if (newFreeSize > 0) {
+				writePackedU15(newFreeSizeField, newFreeSize);
+			} else {
+				sg.e.clearFreeSpace(sg.index);
+			}
 		}
 
-		// If we do have freesize bit set, must adjust the free space:
-		void* defaultFreeSizeField = sg.address + sg.size - 2;
-		auto freeSize = readPackedU15(defaultFreeSizeField);
-		if (freeSize < PointerSize) {
-			return false;
-		}
-
-		ushort newFreeSize = 0x3fff & (freeSize - PointerSize);
-		if (newFreeSize > 0) {
-			writePackedU15(defaultFreeSizeField - PointerSize, newFreeSize);
-		} else {
-			sg.e.clearFreeSpace(sg.index);
-		}
+		// We set the finalizer even if the freesize bit was not set
+		// (must assume that this is a non-appendable)
 
 		*finalizerField = finalizer;
 		sg.e.setFinalizer(sg.index);
