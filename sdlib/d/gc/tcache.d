@@ -419,7 +419,8 @@ private:
 
 		assert(!sg.e.hasFinalizer(sg.index), "Finalizer was already set!");
 
-		// Assume that this is a non-appendable alloc and set finalizer:
+		// If the freesize bit is not set, we must assume that this is a
+		// non-appendable (or couldn't support them at all), set finalizer:
 		if (!sg.e.hasFreeSpace(sg.index)) {
 			*finalizerField = finalizer;
 			sg.e.setFinalizer(sg.index);
