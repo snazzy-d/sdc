@@ -409,9 +409,6 @@ private:
 			return false;
 		}
 
-		void** finalizerField =
-			(cast(void**) sg.address + sg.size - PointerSize);
-
 		assert(!sg.e.hasFinalizer(sg.index), "Finalizer was already set!");
 
 		if (sg.e.hasFreeSpace(sg.index)) {
@@ -434,6 +431,8 @@ private:
 		// We set the finalizer even if the freesize bit was not set
 		// (must assume that this is a non-appendable alloctation.)
 
+		void** finalizerField =
+			(cast(void**) sg.address + sg.size - PointerSize);
 		*finalizerField = finalizer;
 		sg.e.setFinalizer(sg.index);
 		return true;
