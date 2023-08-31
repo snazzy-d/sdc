@@ -38,12 +38,10 @@ public:
 			return null;
 		}
 
-		auto asize = finalizable ? alignUp(size + PointerSize, 32) : size;
-
 		initializeExtentMap();
-
 		auto arena = chooseArena(containsPointers);
 
+		auto asize = finalizable ? alignUp(size + PointerSize, 32) : size;
 		if (isSmallSize(asize)) {
 			return arena.allocSmall(emap, asize);
 		}
