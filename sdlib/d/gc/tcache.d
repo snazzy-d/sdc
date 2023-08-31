@@ -429,7 +429,7 @@ private:
 		}
 
 		// We set the finalizer even if the freesize bit was not set
-		// (must assume that this is a non-appendable alloctation.)
+		// (must assume that this is a non-appendable allocation.)
 
 		void** finalizerField =
 			(cast(void**) sg.address + sg.size - PointerSize);
