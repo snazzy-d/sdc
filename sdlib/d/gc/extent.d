@@ -299,28 +299,28 @@ public:
 	 */
 
 	@property
-	bool allowsFinalized() const {
+	bool allowsFinalizer() const {
 		return isSlab() && isFinalizableSizeClass(sizeClass);
 	}
 
-	uint finalizedIndex(uint index) {
+	uint finalizerIndex(uint index) {
 		assert(index < maxFinalizerFlags, "Invalid finalizer flag index!");
 		return index + maxFinalizerFlags;
 	}
 
-	bool hasFinalized(uint index) {
+	bool hasFinalizer(uint index) {
 		// FIXME: atomic
-		return allowsFinalized && slabData.valueAt(finalizedIndex(index));
+		return allowsFinalizer && slabData.valueAt(finalizerIndex(index));
 	}
 
-	void clearFinalized(uint index) {
+	void clearFinalizer(uint index) {
 		// FIXME: atomic
-		slabData.clearBit(finalizedIndex(index));
+		slabData.clearBit(finalizerIndex(index));
 	}
 
-	void setFinalized(uint index) {
+	void setFinalizer(uint index) {
 		// FIXME: atomic
-		slabData.setBit(finalizedIndex(index));
+		slabData.setBit(finalizerIndex(index));
 	}
 
 	/**

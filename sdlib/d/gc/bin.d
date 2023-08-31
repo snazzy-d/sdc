@@ -95,8 +95,8 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		e.free(index);
-		if (e.allowsFinalized) {
-			e.clearFinalized(index);
+		if (e.allowsFinalizer) {
+			e.clearFinalizer(index);
 		}
 
 		auto nfree = e.freeSlots;

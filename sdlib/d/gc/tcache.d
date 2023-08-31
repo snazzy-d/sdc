@@ -339,7 +339,7 @@ private:
 		auto usableSize = sg.size;
 		void* finalizer = null;
 
-		if (sg.e.hasFinalized(sg.index)) {
+		if (sg.e.hasFinalizer(sg.index)) {
 			usableSize -= PointerSize;
 			finalizer = *(cast(void**) sg.address + sg.size - PointerSize);
 		}
@@ -374,7 +374,7 @@ private:
 		}
 
 		// If finalizer is present, last usable byte is the one prior to it:
-		if (sg.e.hasFinalized(sg.index)) {
+		if (sg.e.hasFinalizer(sg.index)) {
 			usableSize -= PointerSize;
 		}
 
@@ -410,19 +410,19 @@ private:
 		// Slab alloc:
 		auto sg = slabAllocGeometry(ptr, pd, true);
 
-		if (!sg.e.allowsFinalized) {
+		if (!sg.e.allowsFinalizer) {
 			return false;
 		}
 
 		void** finalizerField =
 			(cast(void**) sg.address + sg.size - PointerSize);
 
-		assert(!sg.e.hasFinalized(sg.index), "Finalizer was already set!");
+		assert(!sg.e.hasFinalizer(sg.index), "Finalizer was already set!");
 
 		// Assume that this is a non-appendable alloc and set finalizer:
 		if (!sg.e.hasFreeSpace(sg.index)) {
 			*finalizerField = finalizer;
-			sg.e.setFinalized(sg.index);
+			sg.e.setFinalizer(sg.index);
 			return true;
 		}
 
@@ -441,7 +441,7 @@ private:
 		}
 
 		*finalizerField = finalizer;
-		sg.e.setFinalized(sg.index);
+		sg.e.setFinalizer(sg.index);
 		return true;
 	}
 
