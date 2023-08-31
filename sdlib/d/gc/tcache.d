@@ -416,23 +416,23 @@ private:
 
 		if (sg.e.hasFreeSpace(sg.index)) {
 			// If freesize bit is set, must adjust the free space:
-			void* defaultFreeSizeField = sg.address + sg.size - 2;
-			auto freeSize = readPackedU15(defaultFreeSizeField);
+			void* freeSizeField = sg.address + sg.size - 2;
+			auto freeSize = readPackedU15(freeSizeField);
 			if (freeSize < PointerSize) {
 				return false;
 			}
 
-			ushort newFreeSize = 0x3fff & (freeSize - PointerSize);
-			if (newFreeSize > 0) {
-				void* newFreeSizeField = defaultFreeSizeField - PointerSize;
-				writePackedU15(newFreeSizeField, newFreeSize);
+			freeSize -= PointerSize;
+			if (freeSize > 0) {
+				freeSizeField -= PointerSize;
+				writePackedU15(freeSizeField, freeSize);
 			} else {
 				sg.e.clearFreeSpace(sg.index);
 			}
 		}
 
 		// We set the finalizer even if the freesize bit was not set
-		// (must assume that this is a non-appendable)
+		// (must assume that this is a non-appendable alloctation.)
 
 		*finalizerField = finalizer;
 		sg.e.setFinalizer(sg.index);
