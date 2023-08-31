@@ -422,9 +422,9 @@ private:
 				return false;
 			}
 
-			void* newFreeSizeField = defaultFreeSizeField - PointerSize;
 			ushort newFreeSize = 0x3fff & (freeSize - PointerSize);
 			if (newFreeSize > 0) {
+				void* newFreeSizeField = defaultFreeSizeField - PointerSize;
 				writePackedU15(newFreeSizeField, newFreeSize);
 			} else {
 				sg.e.clearFreeSpace(sg.index);
