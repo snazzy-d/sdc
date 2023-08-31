@@ -38,15 +38,14 @@ public:
 			return null;
 		}
 
+		auto asize = finalizable ? alignUp(size + PointerSize, 32) : size;
+
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
 
-		if (isSmallSize(size)) {
-			auto asize = finalizable ? alignUp(size + PointerSize, 32) : size;
-			if (isSmallSize(asize)) {
-				return arena.allocSmall(emap, asize);
-			}
+		if (isSmallSize(asize)) {
+			return arena.allocSmall(emap, asize);
 		}
 
 		return arena.allocLarge(emap, size, false);
@@ -54,12 +53,10 @@ public:
 
 	void* allocAppendable(size_t size, bool containsPointers,
 	                      bool finalizable = false) {
-		auto asize = finalizable
-			? alignUp(size + PointerSize, 32)
-			: alignUp(size, 2 * Quantum);
+		auto asize = alignUp(size, 2 * Quantum);
 		assert(isAppendableSizeClass(getSizeClass(asize)),
 		       "allocAppendable got non-appendable size class!");
-		auto ptr = alloc(asize, containsPointers);
+		auto ptr = alloc(asize, containsPointers, finalizable);
 		// Remember the size we actually use.
 		auto pd = getPageDescriptor(ptr);
 		assert(setUsedCapacity(pd, ptr, size), "Could not set capacity!");
