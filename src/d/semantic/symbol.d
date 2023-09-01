@@ -144,6 +144,10 @@ struct SymbolAnalyzer {
 		// we just bake the magic in the compiler.
 		set(BuiltinName!"expect", Intrinsic.Expect);
 		set(BuiltinName!"fetchAdd", Intrinsic.FetchAdd);
+		set(BuiltinName!"fetchSub", Intrinsic.FetchSub);
+		set(BuiltinName!"fetchAnd", Intrinsic.FetchAnd);
+		set(BuiltinName!"fetchOr", Intrinsic.FetchOr);
+		set(BuiltinName!"fetchXor", Intrinsic.FetchXor);
 		set(BuiltinName!"cas", Intrinsic.CompareAndSwap);
 		set(BuiltinName!"casWeak", Intrinsic.CompareAndSwapWeak);
 		set(BuiltinName!"popCount", Intrinsic.PopCount);

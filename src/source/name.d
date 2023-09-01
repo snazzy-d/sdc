@@ -180,7 +180,9 @@ enum Prefill = [
 	"endif", "endswitch", "endcatch", "unreachable",
 	"loop.continue", "loop.test", "loop.body", "loop.exit",
 	// Intrinsics
-	"3sdc10intrinsics", "expect", "fetchAdd", "cas", "casWeak",
+	"3sdc10intrinsics", "expect",
+	"fetchAdd","fetchSub","fetchAnd","fetchOr","fetchXor",
+	"cas", "casWeak",
 	"popCount", "countLeadingZeros", "countTrailingZeros", "bswap",
 	"readCycleCounter", "readFramePointer",
 	// Misc that are useful to lex other langauges.

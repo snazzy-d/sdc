@@ -39,7 +39,19 @@ struct IntrinsicGen {
 				return expect(args);
 
 			case FetchAdd:
-				return fetchAdd(args);
+				return fetchOp(LLVMAtomicRMWBinOp.Add, args);
+
+			case FetchSub:
+				return fetchOp(LLVMAtomicRMWBinOp.Sub, args);
+
+			case FetchAnd:
+				return fetchOp(LLVMAtomicRMWBinOp.And, args);
+
+			case FetchOr:
+				return fetchOp(LLVMAtomicRMWBinOp.Or, args);
+
+			case FetchXor:
+				return fetchOp(LLVMAtomicRMWBinOp.Xor, args);
 
 			case CompareAndSwap:
 				return cas(false, args);
@@ -92,24 +104,12 @@ struct IntrinsicGen {
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
 	}
 
-	LLVMValueRef fetchAdd(LLVMValueRef[] args)
+	LLVMValueRef fetchOp(LLVMAtomicRMWBinOp op, LLVMValueRef[] args)
 			in(args.length == 2, "Invalid argument count") {
-		return fetchAdd(args[0], args[1],
-		                LLVMAtomicOrdering.SequentiallyConsistent);
-	}
-
-	LLVMValueRef fetchAdd(LLVMValueRef ptr, LLVMValueRef increment,
-	                      LLVMAtomicOrdering ordering) {
-		return buildAtomicRMW(LLVMAtomicRMWBinOp.Add, ptr, increment, ordering);
-	}
-
-	LLVMValueRef buildAtomicRMW(
-		LLVMAtomicRMWBinOp op,
-		LLVMValueRef ptr,
-		LLVMValueRef increment,
-		LLVMAtomicOrdering ordering,
-	) {
-		return LLVMBuildAtomicRMW(builder, op, ptr, increment, ordering, false);
+		auto ptr = args[0];
+		auto value = args[1];
+		auto ordering = LLVMAtomicOrdering.SequentiallyConsistent;
+		return LLVMBuildAtomicRMW(builder, op, ptr, value, ordering, false);
 	}
 
 	LLVMValueRef cas(bool weak, LLVMValueRef[] args)
