@@ -97,16 +97,15 @@ public:
 				copySize = getSizeFromClass(oldSizeClass);
 			}
 		} else {
-			import d.gc.util;
-			copySize = min(size, pd.extent.usedCapacity);
-
 			auto esize = pd.extent.size;
 			if (samePointerness && alignUp(size, PageSize) == esize) {
-				pd.extent.setUsedCapacity(copySize);
+				pd.extent.setUsedCapacity(size);
 				return ptr;
 			}
 
 			// TODO: Try to extend/shrink in place.
+			import d.gc.util;
+			copySize = min(size, pd.extent.usedCapacity);
 		}
 
 		auto newPtr = alloc(size, containsPointers);
@@ -116,7 +115,7 @@ public:
 
 		if (isLargeSize(size)) {
 			auto npd = getPageDescriptor(newPtr);
-			npd.extent.setUsedCapacity(copySize);
+			npd.extent.setUsedCapacity(size);
 		}
 
 		memcpy(newPtr, ptr, copySize);
@@ -433,14 +432,13 @@ unittest getCapacity {
 	assert(threadCache.getCapacity(p2[0 .. 20000]) == 0);
 	assert(threadCache.getCapacity(p2[0 .. 20001]) == 0);
 
-	// Increasing the size of the allocation
-	// does not necesserly increase capacity.
+	// Increasing the size of the allocation increases capacity.
 	auto p3 = threadCache.realloc(p2, 20001, false);
 	assert(p3 is p2);
 
-	assert(threadCache.getCapacity(p3[0 .. 19999]) == 20480);
+	assert(threadCache.getCapacity(p3[0 .. 19999]) == 0);
 	assert(threadCache.getCapacity(p3[0 .. 20000]) == 0);
-	assert(threadCache.getCapacity(p3[0 .. 20001]) == 0);
+	assert(threadCache.getCapacity(p3[0 .. 20001]) == 20480);
 
 	auto p4 = threadCache.realloc(p3, 16000, false);
 	assert(p4 !is p3);
@@ -448,7 +446,7 @@ unittest getCapacity {
 
 	auto p5 = threadCache.realloc(p4, 20000, false);
 	assert(p5 !is p4);
-	assert(threadCache.getCapacity(p5[0 .. 16000]) == 20480);
+	assert(threadCache.getCapacity(p5[0 .. 20000]) == 20480);
 }
 
 unittest extend {
