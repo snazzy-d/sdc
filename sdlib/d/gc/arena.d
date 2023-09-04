@@ -451,11 +451,10 @@ private:
 		       "Invalid number of new pages!");
 		assert(n <= PageCount - max(oldPages, newPages), "Invalid index!");
 
-		uint updatedPages;
 		auto hpd = e.hpd;
 		auto prevIndex = getFreeSpaceClass(hpd.longestFreeRange);
 
-		updatedPages = newPages > oldPages
+		auto updatedPages = newPages > oldPages
 			? hpd.growAlloc(n, oldPages, newPages - oldPages)
 			: hpd.shrinkAlloc(n, oldPages, oldPages - newPages);
 
