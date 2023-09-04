@@ -4,6 +4,8 @@ import d.gc.base;
 import d.gc.spec;
 import d.gc.util;
 
+import sdc.intrinsics;
+
 /**
  * Each HugePageDescriptor manages a system's huge page.
  *
@@ -142,13 +144,19 @@ public:
 		}
 
 		if (freePages == longestFreeRange) {
-			assert(reserve(delta) == after,
-			       "Did not go in longest free range!");
-			allocCount--;
-		} else {
-			allocatedPages.setRange(after, delta);
-			usedCount += delta;
+			auto pos = reserve(delta);
+			// Handle the case where there are two or more segments tied for
+			// 'longest free', and we ended up with the wrong one:
+			if (unlikely(pos != after)) {
+				release(pos, delta);
+			} else {
+				allocCount--;
+				return oldPages + delta;
+			}
 		}
+
+		allocatedPages.setRange(after, delta);
+		usedCount += delta;
 
 		return oldPages + delta;
 	}
