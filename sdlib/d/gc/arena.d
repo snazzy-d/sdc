@@ -294,7 +294,7 @@ private:
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
 
 		// Huges are not currently supported
-		if (e.isHuge()) {
+		if (e.isHuge() || (newPages > PageCount)) {
 			return 0;
 		}
 
@@ -648,12 +648,6 @@ unittest resizeLarge {
 	auto pd4 = emap.lookup(ptr4);
 	assert(pd4.extent.address is ptr4);
 	assert(ptr4 is ptr2 + 7 * PageSize);
-
-	arena.free(&emap, pd0, ptr0);
-	arena.free(&emap, pd1, ptr1);
-	arena.free(&emap, pd2, ptr2);
-	arena.free(&emap, pd3, ptr3);
-	arena.free(&emap, pd4, ptr4);
 }
 
 unittest allocPages {
