@@ -148,51 +148,45 @@ public:
 		return null;
 	}
 
-	bool resizeLarge(shared(ExtentMap)* emap, ref PageDescriptor pd,
-	                 size_t size) shared {
-		assert(pd.extent !is null, "Extent is null!");
-		assert(pd.extent.arenaIndex == index, "Invalid arena index!");
+	bool resizeLarge(shared(ExtentMap)* emap, Extent* e, size_t size) shared {
+		assert(e !is null, "Extent is null!");
+		assert(e.isLarge(), "Expected a large extent!");
+		assert(e.arenaIndex == index, "Invalid arena index!");
 		assert(isLargeSize(size));
-
-		if (pd.isSlab()) {
-			return false;
-		}
 
 		auto computedPageCount = alignUp(size, PageSize) / PageSize;
 		uint newPages = computedPageCount & uint.max;
 
 		assert(newPages == computedPageCount, "Unexpected page count!");
 
-		auto e = pd.extent;
-		auto oldSize = e.size;
-		auto oldPages = e.size / PageSize;
+		// Huge is not supported:
+		if (e.size > uint.max) {
+			return false;
+		}
+
+		uint oldSize = cast(uint) e.size;
+		uint oldPages = oldSize / PageSize;
 
 		if (oldPages == newPages) {
 			return true;
 		}
 
-		auto pagesDelta = resizePages(e, newPages);
+		auto pagesDelta = resizeAlloc(e, newPages);
 
 		// Tried to resize, but failed:
 		if (pagesDelta == 0) {
 			return false;
 		}
 
-		auto sizeDelta = pagesDelta * PageSize;
-		auto newSize = oldSize + sizeDelta;
-		auto newE = e.at(e.address, newSize, e.hpd);
+		auto newSize = oldSize + pagesDelta * PageSize;
 
-		if (unlikely(!emap.remap(newE))) {
-			// Failed to map the extent, unwind!
-			assert(resizeLarge(emap, pd, oldSize), "Failed to unwind resize!");
+		if (unlikely(!emap.resize(e, newSize))) {
+			// Failed to resize the extent, unwind!
+			assert(resizeAlloc(e, oldPages), "Failed to unwind resize!");
 			return false;
 		}
 
-		// Trim the mapped range, if it shrank
-		if (pagesDelta < 0) {
-			auto startAddr = e.address + oldSize + sizeDelta;
-			emap.clear(startAddr, -sizeDelta);
-		}
+		e.at(e.address, newSize, e.hpd);
 
 		return true;
 	}
@@ -289,7 +283,7 @@ private:
 		(cast(Arena*) &this).freePagesImpl(e, n, pages);
 	}
 
-	int resizePages(Extent* e, uint newPages) shared {
+	int resizeAlloc(Extent* e, uint newPages) shared {
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
 
@@ -307,11 +301,12 @@ private:
 		uint oldPages = computedPageCount & uint.max;
 
 		assert(oldPages == computedPageCount, "Unexpected page count!");
+		assert(oldPages != newPages, "No change in number of pages!");
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Arena*) &this).resizePagesImpl(e, n, oldPages, newPages);
+		return (cast(Arena*) &this).resizeAllocImpl(e, n, oldPages, newPages);
 	}
 
 private:
@@ -448,7 +443,7 @@ private:
 		unusedExtents.insert(e);
 	}
 
-	int resizePagesImpl(Extent* e, uint n, uint oldPages, uint newPages) {
+	int resizeAllocImpl(Extent* e, uint n, uint oldPages, uint newPages) {
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(oldPages > 0 && oldPages <= PageCount,
 		       "Invalid number of old pages!");
@@ -456,17 +451,13 @@ private:
 		       "Invalid number of new pages!");
 		assert(n <= PageCount - max(oldPages, newPages), "Invalid index!");
 
-		if (oldPages == newPages) {
-			return 0;
-		}
-
 		uint updatedPages;
 		auto hpd = e.hpd;
 		auto prevIndex = getFreeSpaceClass(hpd.longestFreeRange);
 
 		updatedPages = newPages > oldPages
-			? hpd.grow(n, oldPages, newPages - oldPages)
-			: hpd.shrink(n, oldPages, oldPages - newPages);
+			? hpd.growAlloc(n, oldPages, newPages - oldPages)
+			: hpd.shrinkAlloc(n, oldPages, oldPages - newPages);
 
 		auto index = getFreeSpaceClass(hpd.longestFreeRange);
 		if (index != prevIndex) {
@@ -595,13 +586,13 @@ unittest resizeLarge {
 	assert(pd1.extent.size == 20 * PageSize);
 
 	// Can't grow no. 0 to given size, as there's no space:
-	assert(!arena.resizeLarge(&emap, pd0, 1 + (35 * PageSize)));
+	assert(!arena.resizeLarge(&emap, pd0.extent, 1 + (35 * PageSize)));
 
 	// Growing by zero is allowed, however:
-	assert(arena.resizeLarge(&emap, pd0, 35 * PageSize));
+	assert(arena.resizeLarge(&emap, pd0.extent, 35 * PageSize));
 
 	// Shrink no. 0 down to 10 pages:
-	assert(arena.resizeLarge(&emap, pd0, 10 * PageSize));
+	assert(arena.resizeLarge(&emap, pd0.extent, 10 * PageSize));
 	assert(pd0.extent.address is ptr0);
 	assert(pd0.extent.size == 10 * PageSize);
 	auto pd0xx = emap.lookup(ptr0);
@@ -616,7 +607,7 @@ unittest resizeLarge {
 	assert(badpd.extent is null);
 
 	// Grow no. 0 up to 11 pages:
-	assert(arena.resizeLarge(&emap, pd0, 11 * PageSize));
+	assert(arena.resizeLarge(&emap, pd0.extent, 11 * PageSize));
 	assert(pd0.extent.address is ptr0);
 	assert(pd0.extent.size == 11 * PageSize);
 
@@ -638,7 +629,7 @@ unittest resizeLarge {
 	assert(ptr3 is ptr0 + 11 * PageSize);
 
 	// Shrink no. 2 down :
-	assert(arena.resizeLarge(&emap, pd2, 7 * PageSize));
+	assert(arena.resizeLarge(&emap, pd2.extent, 7 * PageSize));
 	assert(pd2.extent.address is ptr2);
 	assert(pd2.extent.size == 7 * PageSize);
 

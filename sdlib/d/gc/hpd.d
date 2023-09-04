@@ -111,28 +111,16 @@ public:
 		return bestIndex;
 	}
 
-	uint shrink(uint index, uint oldPages, uint delta) {
-		assert(oldPages > 0 && oldPages <= PageCount,
-		       "Invalid expected old pages!");
-		assert(index <= PageCount - oldPages, "Invalid index!");
-		assert(delta > 0 && delta < oldPages, "Invalid shrink pages count!");
+	uint shrinkAlloc(uint index, uint oldPages, uint delta) {
+		assert(delta < oldPages, "Invalid shrink pages count!");
 
-		auto after = index + oldPages;
-		assert(allocatedPages.findClear(index) >= after,
-		       "Expected number of existing pages not found!");
-		auto newAfter = after - delta;
-
-		allocatedPages.clearRange(newAfter, delta);
-
-		auto freeEnd = allocatedPages.findSet(newAfter);
-
-		usedCount -= delta;
-		longestFreeRange = max(longestFreeRange, freeEnd - newAfter);
+		release(index + oldPages - delta, delta);
+		allocCount++;
 
 		return oldPages - delta;
 	}
 
-	uint grow(uint index, uint oldPages, uint delta) {
+	uint growAlloc(uint index, uint oldPages, uint delta) {
 		assert(oldPages > 0 && oldPages <= PageCount,
 		       "Invalid expected old pages!");
 		assert(index <= PageCount - oldPages - delta, "Invalid index!");
@@ -236,14 +224,14 @@ unittest hugePageDescriptor {
 	checkRangeState(2, 10, PageCount - 10);
 
 	// Check that reducing the first allocation works as expected.
-	assert(hpd.shrink(0, 5, 3) == 2);
+	assert(hpd.shrinkAlloc(0, 5, 3) == 2);
 	checkRangeState(2, 7, PageCount - 10);
-	hpd.shrink(0, 2, 1);
+	hpd.shrinkAlloc(0, 2, 1);
 	checkRangeState(2, 6, PageCount - 10);
 
 	// Check that growing works as expected:
-	assert(hpd.grow(0, 1, 5) == 1);
-	assert(hpd.grow(0, 1, 4) == 5);
+	assert(hpd.growAlloc(0, 1, 5) == 1);
+	assert(hpd.growAlloc(0, 1, 4) == 5);
 	checkRangeState(2, 10, PageCount - 10);
 
 	// Release the second allocation:
@@ -251,11 +239,11 @@ unittest hugePageDescriptor {
 	checkRangeState(1, 5, PageCount - 5);
 
 	// Fill everything:
-	assert(hpd.grow(0, 5, 500) == 505);
+	assert(hpd.growAlloc(0, 5, 500) == 505);
 	checkRangeState(1, 505, PageCount - 505);
 
 	// Shrink again:
-	assert(hpd.shrink(0, 505, 500) == 5);
+	assert(hpd.shrinkAlloc(0, 505, 500) == 5);
 	checkRangeState(1, 5, PageCount - 5);
 
 	// Put back second allocation:
