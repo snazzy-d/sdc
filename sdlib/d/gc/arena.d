@@ -462,16 +462,16 @@ private:
 
 		uint updatedPages;
 		auto hpd = e.hpd;
-		auto prevLongestFree = hpd.longestFreeRange;
+		auto prevIndex = getFreeSpaceClass(hpd.longestFreeRange);
 
 		updatedPages = newPages > oldPages
 			? hpd.grow(n, oldPages, newPages - oldPages)
 			: hpd.shrink(n, oldPages, oldPages - newPages);
 
-		if (hpd.longestFreeRange != prevLongestFree) {
-			auto index = getFreeSpaceClass(prevLongestFree);
-			heaps[index].remove(hpd);
-			filter &= ~(ulong(heaps[index].empty) << index);
+		auto index = getFreeSpaceClass(hpd.longestFreeRange);
+		if (index != prevIndex) {
+			heaps[prevIndex].remove(hpd);
+			filter &= ~(ulong(heaps[prevIndex].empty) << prevIndex);
 
 			if (!hpd.full) {
 				registerHPD(hpd);
