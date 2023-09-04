@@ -42,6 +42,8 @@ public:
 	}
 
 	bool resize(Extent* extent, size_t size) shared {
+		assert(size > 0, "Invalid size!");
+
 		if (extent.size == size) {
 			return true;
 		}
