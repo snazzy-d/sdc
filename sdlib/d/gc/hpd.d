@@ -132,30 +132,26 @@ public:
 			return oldPages;
 		}
 
-		auto after = index + oldPages;
-		assert(allocatedPages.findClear(index) >= after,
-		       "Expected number of existing pages not found!");
+		uint freePos, freeLength;
+		allocatedPages.nextFreeRange(index, freePos, freeLength);
 
-		auto freeEnd = allocatedPages.findSet(after);
-		auto freePages = freeEnd - after;
-
-		if (freePages < delta) {
+		if ((freePos != index + oldPages) || (freeLength < delta)) {
 			return oldPages;
 		}
 
-		if (freePages == longestFreeRange) {
+		if (freeLength == longestFreeRange) {
 			auto pos = reserve(delta);
-			if (likely(pos == after)) {
+			if (likely(pos == freePos)) {
 				allocCount--;
 				return oldPages + delta;
 			}
 
-			// Handle rare case where there were two or more segments tied
+			// Rare case where there were two or more segments tied
 			// for 'longest free', and we ended up in the wrong one:
 			release(pos, delta);
 		}
 
-		allocatedPages.setRange(after, delta);
+		allocatedPages.setRange(freePos, delta);
 		usedCount += delta;
 
 		return oldPages + delta;
