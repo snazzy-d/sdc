@@ -179,14 +179,14 @@ public:
 		}
 
 		auto newSize = oldSize + pagesDelta * PageSize;
+		auto resized = emap.resize(e, newSize);
+		e.at(e.address, newSize, e.hpd);
 
-		if (unlikely(!emap.resize(e, newSize))) {
+		if (unlikely(!resized)) {
 			// Failed to resize the extent, unwind!
 			assert(resizeAlloc(e, oldPages), "Failed to unwind resize!");
 			return false;
 		}
-
-		e.at(e.address, newSize, e.hpd);
 
 		return true;
 	}
