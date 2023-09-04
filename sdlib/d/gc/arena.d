@@ -185,6 +185,7 @@ public:
 		if (unlikely(!resized)) {
 			// Failed to resize the extent, unwind!
 			assert(resizeAlloc(e, oldPages), "Failed to unwind resize!");
+			e.at(e.address, oldSize, e.hpd);
 			return false;
 		}
 
