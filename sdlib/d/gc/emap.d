@@ -219,19 +219,17 @@ unittest ExtentMap {
 	pd = PageDescriptor(e, ec);
 
 	emap.resize(e, 3 * PageSize);
-	auto cStart = e.address + 3 * PageSize;
-	auto cSize = 2 * PageSize;
+	e.at(ptr, 3 * PageSize, null, ec);
 
-	for (auto p = ptr; p < cStart; p += PageSize) {
+	for (auto p = ptr; p < e.address + 3 * PageSize; p += PageSize) {
 		assert(emap.lookup(p).data == pd.data);
 		pd = pd.next();
 	}
 
-	for (auto p = cStart; p < cStart + cSize; p += PageSize) {
+	for (auto p = e.address + 3 * PageSize; p < e.address + 5 * PageSize;
+	     p += PageSize) {
 		assert(emap.lookup(p).data == 0);
 	}
-
-	e.at(ptr, 3 * PageSize, null, ec);
 
 	emap.resize(e, 25 * PageSize);
 	e.at(ptr, 25 * PageSize, null, ec);
