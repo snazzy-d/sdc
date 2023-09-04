@@ -141,27 +141,13 @@ public:
 			return oldPages;
 		}
 
-		allocatedPages.setRange(after, delta);
-		usedCount += delta;
-
-		// Must find new longest free space if we grew into the old one :
 		if (freePages == longestFreeRange) {
-			uint longestLength = 0;
-			uint current = 0;
-			uint index, length;
-			while (
-				current < PageCount
-					&& allocatedPages.nextFreeRange(current, index, length)) {
-				assert(length <= longestFreeRange);
-
-				if (length > longestLength) {
-					longestLength = length;
-				}
-
-				current = index + length;
-			}
-
-			longestFreeRange = longestLength;
+			assert(reserve(delta) == after,
+			       "Did not go in longest free range!");
+			allocCount--;
+		} else {
+			allocatedPages.setRange(after, delta);
+			usedCount += delta;
 		}
 
 		return oldPages + delta;
