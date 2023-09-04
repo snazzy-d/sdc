@@ -148,6 +148,55 @@ public:
 		return null;
 	}
 
+	bool resizeLarge(shared(ExtentMap)* emap, ref PageDescriptor pd,
+	                 size_t size) shared {
+		assert(pd.extent !is null, "Extent is null!");
+		assert(pd.extent.arenaIndex == index, "Invalid arena index!");
+		assert(isLargeSize(size));
+
+		if (pd.isSlab()) {
+			return false;
+		}
+
+		auto computedPageCount = alignUp(size, PageSize) / PageSize;
+		uint newPages = computedPageCount & uint.max;
+
+		assert(newPages == computedPageCount, "Unexpected page count!");
+
+		auto e = pd.extent;
+		auto oldSize = e.size;
+		auto oldPages = e.size / PageSize;
+
+		if (oldPages == newPages) {
+			return true;
+		}
+
+		auto pagesDelta = resizePages(e, newPages);
+
+		// Tried to resize, but failed:
+		if (pagesDelta == 0) {
+			return false;
+		}
+
+		auto sizeDelta = pagesDelta * PageSize;
+		auto newSize = oldSize + sizeDelta;
+		auto newE = e.at(e.address, newSize, e.hpd);
+
+		if (unlikely(!emap.remap(newE))) {
+			// Failed to map the extent, unwind!
+			assert(resizeLarge(emap, pd, oldSize), "Failed to unwind resize!");
+			return false;
+		}
+
+		// Trim the mapped range, if it shrank
+		if (pagesDelta < 0) {
+			auto startAddr = e.address + oldSize + sizeDelta;
+			emap.clear(startAddr, -sizeDelta);
+		}
+
+		return true;
+	}
+
 	/**
 	 * Deallocation facility.
 	 */
@@ -238,6 +287,31 @@ private:
 		scope(exit) mutex.unlock();
 
 		(cast(Arena*) &this).freePagesImpl(e, n, pages);
+	}
+
+	int resizePages(Extent* e, uint newPages) shared {
+		assert(isAligned(e.address, PageSize), "Invalid extent address!");
+		assert(isAligned(e.size, PageSize), "Invalid extent size!");
+
+		// Huges are not currently supported
+		if (e.isHuge()) {
+			return 0;
+		}
+
+		assert(e.hpd.address is alignDown(e.address, HugePageSize),
+		       "Invalid hpd!");
+
+		uint n = ((cast(size_t) e.address) / PageSize) % PageCount;
+
+		auto computedPageCount = modUp(e.size / PageSize, PageCount);
+		uint oldPages = computedPageCount & uint.max;
+
+		assert(oldPages == computedPageCount, "Unexpected page count!");
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(Arena*) &this).resizePagesImpl(e, n, oldPages, newPages);
 	}
 
 private:
@@ -374,6 +448,39 @@ private:
 		unusedExtents.insert(e);
 	}
 
+	int resizePagesImpl(Extent* e, uint n, uint oldPages, uint newPages) {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(oldPages > 0 && oldPages <= PageCount,
+		       "Invalid number of old pages!");
+		assert(newPages > 0 && newPages <= PageCount,
+		       "Invalid number of new pages!");
+		assert(n <= PageCount - max(oldPages, newPages), "Invalid index!");
+
+		if (oldPages == newPages) {
+			return 0;
+		}
+
+		uint updatedPages;
+		auto hpd = e.hpd;
+		auto prevLongestFree = hpd.longestFreeRange;
+
+		updatedPages = newPages > oldPages
+			? hpd.grow(n, oldPages, newPages - oldPages)
+			: hpd.shrink(n, oldPages, oldPages - newPages);
+
+		if (hpd.longestFreeRange != prevLongestFree) {
+			auto index = getFreeSpaceClass(prevLongestFree);
+			heaps[index].remove(hpd);
+			filter &= ~(ulong(heaps[index].empty) << index);
+
+			if (!hpd.full) {
+				registerHPD(hpd);
+			}
+		}
+
+		return updatedPages - oldPages;
+	}
+
 	void registerHPD(HugePageDescriptor* hpd) {
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(!hpd.full, "HPD is full!");
@@ -451,6 +558,102 @@ unittest allocLarge {
 	arena.free(&emap, pd1, ptr1);
 	arena.free(&emap, pd2, ptr2);
 	arena.free(&emap, pd3, ptr3);
+}
+
+unittest resizeLarge {
+	import d.gc.arena;
+	shared Arena arena;
+
+	auto base = &arena.base;
+	scope(exit) arena.base.clear();
+
+	import d.gc.emap;
+	static shared ExtentMap emap;
+	emap.tree.base = base;
+
+	import d.gc.region;
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = base;
+
+	arena.regionAllocator = &regionAllocator;
+
+	// Allocation 0: 35 pages:
+	auto ptr0 = arena.allocLarge(&emap, 35 * PageSize);
+	assert(ptr0 !is null);
+	auto pd0 = emap.lookup(ptr0);
+	assert(pd0.extent.address is ptr0);
+	assert(pd0.extent.size == 35 * PageSize);
+	auto pd0x = emap.lookup(ptr0);
+	assert(pd0x.extent.address is ptr0);
+
+	// Allocation 1: 20 pages:
+	auto ptr1 = arena.allocLarge(&emap, 20 * PageSize);
+	assert(ptr1 !is null);
+	assert(ptr1 is ptr0 + 35 * PageSize);
+	auto pd1 = emap.lookup(ptr1);
+	assert(pd1.extent.address is ptr1);
+	assert(pd1.extent.size == 20 * PageSize);
+
+	// Can't grow no. 0 to given size, as there's no space:
+	assert(!arena.resizeLarge(&emap, pd0, 1 + (35 * PageSize)));
+
+	// Growing by zero is allowed, however:
+	assert(arena.resizeLarge(&emap, pd0, 35 * PageSize));
+
+	// Shrink no. 0 down to 10 pages:
+	assert(arena.resizeLarge(&emap, pd0, 10 * PageSize));
+	assert(pd0.extent.address is ptr0);
+	assert(pd0.extent.size == 10 * PageSize);
+	auto pd0xx = emap.lookup(ptr0);
+	assert(pd0xx.extent.address is ptr0);
+
+	// See that newly-last page is mapped:
+	auto okpd = emap.lookup(ptr0 + 9 * PageSize);
+	assert(okpd.extent !is null);
+
+	// But the page after the newly-last one, should not be mapped:
+	auto badpd = emap.lookup(ptr0 + 10 * PageSize);
+	assert(badpd.extent is null);
+
+	// Grow no. 0 up to 11 pages:
+	assert(arena.resizeLarge(&emap, pd0, 11 * PageSize));
+	assert(pd0.extent.address is ptr0);
+	assert(pd0.extent.size == 11 * PageSize);
+
+	// Allocate 24 pages + 1 byte (i.e. 25 pages.)
+	// This new alloc will NOT fit in the free space after no. 0,
+	// and so it goes after alloc no. 1 :
+	auto ptr2 = arena.allocLarge(&emap, 1 + 24 * PageSize);
+	assert(ptr2 !is null);
+	auto pd2 = emap.lookup(ptr2);
+	assert(pd2.extent.address is ptr2);
+	assert(ptr2 is ptr1 + 20 * PageSize);
+
+	// Now allocate precisely 24 pages.
+	// This new alloc WILL fit in and fill the free space after no. 0:
+	auto ptr3 = arena.allocLarge(&emap, 24 * PageSize);
+	assert(ptr3 !is null);
+	auto pd3 = emap.lookup(ptr3);
+	assert(pd3.extent.address is ptr3);
+	assert(ptr3 is ptr0 + 11 * PageSize);
+
+	// Shrink no. 2 down :
+	assert(arena.resizeLarge(&emap, pd2, 7 * PageSize));
+	assert(pd2.extent.address is ptr2);
+	assert(pd2.extent.size == 7 * PageSize);
+
+	// Allocate 50 pages, and they should go after no. 2:
+	auto ptr4 = arena.allocLarge(&emap, 50 * PageSize);
+	assert(ptr4 !is null);
+	auto pd4 = emap.lookup(ptr4);
+	assert(pd4.extent.address is ptr4);
+	assert(ptr4 is ptr2 + 7 * PageSize);
+
+	arena.free(&emap, pd0, ptr0);
+	arena.free(&emap, pd1, ptr1);
+	arena.free(&emap, pd2, ptr2);
+	arena.free(&emap, pd3, ptr3);
+	arena.free(&emap, pd4, ptr4);
 }
 
 unittest allocPages {

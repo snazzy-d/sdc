@@ -41,6 +41,10 @@ public:
 	void clear(Extent* extent) shared {
 		tree.clearRange(extent.address, extent.size);
 	}
+
+	void clear(void* address, size_t size) shared {
+		tree.clearRange(address, size);
+	}
 }
 
 struct PageDescriptor {

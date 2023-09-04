@@ -84,6 +84,7 @@ public:
 
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
+		bool inPlace = false;
 
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
@@ -105,13 +106,21 @@ public:
 				return ptr;
 			}
 
-			// TODO: Try to extend/shrink in place.
+			if (isLargeSize(size)) {
+				inPlace = pd.arena.resizeLarge(emap, pd, size);
+			}
 		}
 
-		containsPointers = (containsPointers | pd.containsPointers) != 0;
-		auto newPtr = alloc(size, containsPointers);
-		if (newPtr is null) {
-			return null;
+		void* newPtr;
+
+		if (inPlace) {
+			newPtr = ptr;
+		} else {
+			containsPointers = (containsPointers | pd.containsPointers) != 0;
+			newPtr = alloc(size, containsPointers);
+			if (newPtr is null) {
+				return null;
+			}
 		}
 
 		if (isLargeSize(size)) {
@@ -120,7 +129,10 @@ public:
 		}
 
 		memcpy(newPtr, ptr, copySize);
-		pd.arena.free(emap, pd, ptr);
+
+		if (!inPlace) {
+			pd.arena.free(emap, pd, ptr);
+		}
 
 		return newPtr;
 	}
@@ -442,12 +454,14 @@ unittest getCapacity {
 	assert(threadCache.getCapacity(p3[0 .. 20000]) == 0);
 	assert(threadCache.getCapacity(p3[0 .. 20001]) == 0);
 
+	// This realloc happens in-place:
 	auto p4 = threadCache.realloc(p3, 16000, false);
-	assert(p4 !is p3);
+	assert(p4 is p3);
 	assert(threadCache.getCapacity(p4[0 .. 16000]) == 16384);
 
+	// Similarly:
 	auto p5 = threadCache.realloc(p4, 20000, false);
-	assert(p5 !is p4);
+	assert(p5 is p4);
 	assert(threadCache.getCapacity(p5[0 .. 16000]) == 20480);
 }
 

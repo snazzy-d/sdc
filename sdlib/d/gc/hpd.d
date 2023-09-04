@@ -111,6 +111,74 @@ public:
 		return bestIndex;
 	}
 
+	uint shrink(uint index, uint oldPages, uint delta) {
+		assert(oldPages > 0 && oldPages <= PageCount,
+		       "Invalid expected old pages!");
+		assert(index <= PageCount - oldPages, "Invalid index!");
+		assert(delta > 0 && delta < oldPages, "Invalid shrink pages count!");
+
+		auto after = index + oldPages;
+		assert(allocatedPages.findClear(index) >= after,
+		       "Expected number of existing pages not found!");
+		auto newAfter = after - delta;
+
+		allocatedPages.clearRange(newAfter, delta);
+
+		auto freeEnd = allocatedPages.findSet(newAfter);
+
+		usedCount -= delta;
+		longestFreeRange = max(longestFreeRange, freeEnd - newAfter);
+
+		return oldPages - delta;
+	}
+
+	uint grow(uint index, uint oldPages, uint delta) {
+		assert(oldPages > 0 && oldPages <= PageCount,
+		       "Invalid expected old pages!");
+		assert(index <= PageCount - oldPages - delta, "Invalid index!");
+		assert(delta > 0 && delta < PageCount, "Invalid grow pages count!");
+
+		if (delta > longestFreeRange) {
+			return oldPages;
+		}
+
+		auto after = index + oldPages;
+		assert(allocatedPages.findClear(index) >= after,
+		       "Expected number of existing pages not found!");
+
+		auto freeEnd = allocatedPages.findSet(after);
+		auto freePages = freeEnd - after;
+
+		if (freePages < delta) {
+			return oldPages;
+		}
+
+		allocatedPages.setRange(after, delta);
+		usedCount += delta;
+
+		// Must find new longest free space if we grew into the old one :
+		if (freePages == longestFreeRange) {
+			uint longestLength = 0;
+			uint current = 0;
+			uint index, length;
+			while (
+				current < PageCount
+					&& allocatedPages.nextFreeRange(current, index, length)) {
+				assert(length <= longestFreeRange);
+
+				if (length > longestLength) {
+					longestLength = length;
+				}
+
+				current = index + length;
+			}
+
+			longestFreeRange = longestLength;
+		}
+
+		return oldPages + delta;
+	}
+
 	void release(uint index, uint pages) {
 		// FIXME: in contract.
 		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
@@ -164,6 +232,33 @@ unittest hugePageDescriptor {
 	checkRangeState(1, 5, PageCount - 5);
 
 	// Second allocation.
+	assert(hpd.reserve(5) == 5);
+	checkRangeState(2, 10, PageCount - 10);
+
+	// Check that reducing the first allocation works as expected.
+	assert(hpd.shrink(0, 5, 3) == 2);
+	checkRangeState(2, 7, PageCount - 10);
+	hpd.shrink(0, 2, 1);
+	checkRangeState(2, 6, PageCount - 10);
+
+	// Check that growing works as expected:
+	assert(hpd.grow(0, 1, 5) == 1);
+	assert(hpd.grow(0, 1, 4) == 5);
+	checkRangeState(2, 10, PageCount - 10);
+
+	// Release the second allocation:
+	hpd.release(5, 5);
+	checkRangeState(1, 5, PageCount - 5);
+
+	// Fill everything:
+	assert(hpd.grow(0, 5, 500) == 505);
+	checkRangeState(1, 505, PageCount - 505);
+
+	// Shrink again:
+	assert(hpd.shrink(0, 505, 500) == 5);
+	checkRangeState(1, 5, PageCount - 5);
+
+	// Put back second allocation:
 	assert(hpd.reserve(5) == 5);
 	checkRangeState(2, 10, PageCount - 10);
 
