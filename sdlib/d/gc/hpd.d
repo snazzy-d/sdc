@@ -145,14 +145,14 @@ public:
 
 		if (freePages == longestFreeRange) {
 			auto pos = reserve(delta);
-			// Handle the case where there are two or more segments tied for
-			// 'longest free', and we ended up with the wrong one:
-			if (unlikely(pos != after)) {
-				release(pos, delta);
-			} else {
+			if (likely(pos == after)) {
 				allocCount--;
 				return oldPages + delta;
 			}
+
+			// Handle rare case where there were two or more segments tied
+			// for 'longest free', and we ended up in the wrong one:
+			release(pos, delta);
 		}
 
 		allocatedPages.setRange(after, delta);
