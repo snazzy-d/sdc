@@ -64,7 +64,7 @@ public:
 		return usedCount >= PageCount;
 	}
 
-	uint reserve(uint pages, int knownIndex = -1) {
+	uint reserve(uint pages) {
 		// FIXME: in contract
 		assert(pages > 0 && pages <= longestFreeRange,
 		       "Invalid number of pages!");
@@ -96,11 +96,7 @@ public:
 		}
 
 		assert(bestIndex < PageCount);
-		auto useIndex = knownIndex >= 0 ? knownIndex : bestIndex;
-		assert(
-			(useIndex == bestIndex) || (longestLength == secondLongestLength));
-
-		allocatedPages.setRange(useIndex, pages);
+		allocatedPages.setRange(bestIndex, pages);
 
 		// If we allocated from the longest range,
 		// compute the new longest free range.
@@ -112,7 +108,7 @@ public:
 		usedCount += pages;
 		longestFreeRange = longestLength;
 
-		return useIndex;
+		return bestIndex;
 	}
 
 	uint shrinkAlloc(uint index, uint oldPages, uint delta) {
@@ -141,15 +137,24 @@ public:
 			return oldPages;
 		}
 
-		if (freeLength == longestFreeRange) {
-			// There may be more than one range tied for 'longest free' :
-			assert(reserve(delta, freePos) == freePos,
-			       "Did not go to specified longest free range!");
+		allocatedPages.setRange(freePos, delta);
+		usedCount += delta;
 
-			allocCount--;
-		} else {
-			allocatedPages.setRange(freePos, delta);
-			usedCount += delta;
+		if (freeLength == longestFreeRange) {
+			// Must recompute longest free range:
+			auto longestFree = longestFreeRange - delta;
+			uint i = 0;
+			while (
+				i < PageCount
+					&& allocatedPages.nextFreeRange(i, freePos, freeLength)) {
+				if (freeLength > longestFree) {
+					longestFree = freeLength;
+				}
+
+				i = freePos + freeLength;
+			}
+
+			longestFreeRange = longestFree;
 		}
 
 		return oldPages + delta;
