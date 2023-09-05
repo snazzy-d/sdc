@@ -66,7 +66,7 @@ public:
 		return usedCount >= PageCount;
 	}
 
-	uint reserve(uint pages) {
+	uint reserve(uint pages, int knownIndex = -1) {
 		// FIXME: in contract
 		assert(pages > 0 && pages <= longestFreeRange,
 		       "Invalid number of pages!");
@@ -97,6 +97,7 @@ public:
 			current = index + length;
 		}
 
+		bestIndex = knownIndex != -1 ? knownIndex : bestIndex;
 		assert(bestIndex < PageCount);
 		allocatedPages.setRange(bestIndex, pages);
 
@@ -140,19 +141,14 @@ public:
 		}
 
 		if (freeLength == longestFreeRange) {
-			auto pos = reserve(delta);
-			if (likely(pos == freePos)) {
-				allocCount--;
-				return oldPages + delta;
-			}
+			assert(reserve(delta, freePos) == freePos,
+			       "Did not go to specified longest free range!");
 
-			// Rare case where there were two or more segments tied
-			// for 'longest free', and we ended up in the wrong one:
-			release(pos, delta);
+			allocCount--;
+		} else {
+			allocatedPages.setRange(freePos, delta);
+			usedCount += delta;
 		}
-
-		allocatedPages.setRange(freePos, delta);
-		usedCount += delta;
 
 		return oldPages + delta;
 	}
