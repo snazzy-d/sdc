@@ -28,8 +28,7 @@ public:
 	}
 
 	bool remap(Extent* extent, ExtentClass ec) shared {
-		return tree
-			.setRange(extent.address, extent.size, PageDescriptor(extent, ec));
+		return map(extent.address, extent.size, PageDescriptor(extent, ec));
 	}
 
 	bool remap(Extent* extent) shared {
@@ -39,7 +38,33 @@ public:
 	}
 
 	void clear(Extent* extent) shared {
-		tree.clearRange(extent.address, extent.size);
+		clear(extent.address, extent.size);
+	}
+
+	bool resize(Extent* extent, size_t size) shared {
+		assert(size > 0, "Invalid size!");
+
+		if (extent.size == size) {
+			return true;
+		}
+
+		if (extent.size > size) {
+			clear(extent.address + size, extent.size - size);
+			return true;
+		}
+
+		auto pd = PageDescriptor(extent, extent.extentClass);
+
+		return map(extent.address + extent.size, size - extent.size, pd);
+	}
+
+private:
+	bool map(void* address, size_t size, PageDescriptor pd) shared {
+		return tree.setRange(address, size, pd);
+	}
+
+	void clear(void* address, size_t size) shared {
+		tree.clearRange(address, size);
 	}
 }
 
@@ -186,5 +211,33 @@ unittest ExtentMap {
 	for (auto p = ptr; p < end; p += PageSize) {
 		assert(emap.lookup(p).data == pd.data);
 		pd = pd.next();
+	}
+
+	emap.clear(e);
+
+	// Resize a range.
+	e.at(ptr, 5 * PageSize, null, ec);
+	emap.remap(e, ec);
+	pd = PageDescriptor(e, ec);
+
+	emap.resize(e, 3 * PageSize);
+	e.at(ptr, 3 * PageSize, null, ec);
+
+	for (auto p = ptr; p < e.address + 3 * PageSize; p += PageSize) {
+		auto getpd = emap.lookup(p);
+		assert(getpd.extent == e);
+	}
+
+	for (auto p = e.address + 3 * PageSize; p < e.address + 5 * PageSize;
+	     p += PageSize) {
+		assert(emap.lookup(p).data == 0);
+	}
+
+	emap.resize(e, 25 * PageSize);
+	e.at(ptr, 25 * PageSize, null, ec);
+
+	for (auto p = ptr; p < e.address + 25 * PageSize; p += PageSize) {
+		auto getpd = emap.lookup(p);
+		assert(getpd.extent == e);
 	}
 }
