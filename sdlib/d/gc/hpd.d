@@ -98,9 +98,7 @@ public:
 		assert(bestIndex < PageCount);
 		auto useIndex = knownIndex >= 0 ? knownIndex : bestIndex;
 		assert(
-			(useIndex == bestIndex) || (longestLength == secondLongestLength),
-			"knownIndex not points to a range of longestFreeRange length!"
-		);
+			(useIndex == bestIndex) || (longestLength == secondLongestLength));
 
 		allocatedPages.setRange(useIndex, pages);
 
