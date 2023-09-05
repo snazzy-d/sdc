@@ -95,9 +95,14 @@ public:
 			current = index + length;
 		}
 
-		bestIndex = knownIndex >= 0 ? knownIndex : bestIndex;
 		assert(bestIndex < PageCount);
-		allocatedPages.setRange(bestIndex, pages);
+		auto useIndex = knownIndex >= 0 ? knownIndex : bestIndex;
+		assert(
+			(useIndex == bestIndex) || (longestLength == secondLongestLength),
+			"knownIndex not points to a range of longestFreeRange length!"
+		);
+
+		allocatedPages.setRange(useIndex, pages);
 
 		// If we allocated from the longest range,
 		// compute the new longest free range.
@@ -109,7 +114,7 @@ public:
 		usedCount += pages;
 		longestFreeRange = longestLength;
 
-		return bestIndex;
+		return useIndex;
 	}
 
 	uint shrinkAlloc(uint index, uint oldPages, uint delta) {
