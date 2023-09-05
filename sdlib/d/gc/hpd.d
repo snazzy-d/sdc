@@ -4,8 +4,6 @@ import d.gc.base;
 import d.gc.spec;
 import d.gc.util;
 
-import sdc.intrinsics;
-
 /**
  * Each HugePageDescriptor manages a system's huge page.
  *
@@ -141,6 +139,7 @@ public:
 		}
 
 		if (freeLength == longestFreeRange) {
+			// There may be more than one range tied for 'longest free' :
 			assert(reserve(delta, freePos) == freePos,
 			       "Did not go to specified longest free range!");
 
