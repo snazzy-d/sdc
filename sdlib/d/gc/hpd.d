@@ -236,6 +236,37 @@ unittest hugePageDescriptor {
 	assert(hpd.shrinkAlloc(0, 505, 500) == 5);
 	checkRangeState(1, 5, PageCount - 5);
 
+	// Remove first allocation:
+	hpd.release(0, 5);
+	checkRangeState(0, 0, PageCount);
+
+	assert(hpd.reserve(128) == 0);
+	checkRangeState(1, 128, PageCount - 128);
+
+	assert(hpd.reserve(256) == 128);
+	checkRangeState(2, 384, PageCount - 384);
+
+	assert(hpd.reserve(128) == 384);
+	checkRangeState(3, 512, 0);
+
+	hpd.release(0, 128);
+	checkRangeState(2, 384, PageCount - 384);
+
+	hpd.release(384, 128);
+	checkRangeState(1, 256, 128);
+
+	// There are now two equally 'longest length' free ranges.
+	// Check that growAlloc does the right thing:
+	assert(hpd.growAlloc(128, 256, 1) == 257);
+	checkRangeState(1, 257, 128);
+
+	hpd.release(128, 257);
+	checkRangeState(0, 0, PageCount);
+
+	// Put back first allocation.
+	assert(hpd.reserve(5) == 0);
+	checkRangeState(1, 5, PageCount - 5);
+
 	// Put back second allocation:
 	assert(hpd.reserve(5) == 5);
 	checkRangeState(2, 10, PageCount - 10);
