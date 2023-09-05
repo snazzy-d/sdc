@@ -111,15 +111,6 @@ public:
 		return bestIndex;
 	}
 
-	uint shrinkAlloc(uint index, uint oldPages, uint delta) {
-		assert(delta < oldPages, "Invalid shrink pages count!");
-
-		release(index + oldPages - delta, delta);
-		allocCount++;
-
-		return oldPages - delta;
-	}
-
 	uint growAlloc(uint index, uint oldPages, uint delta) {
 		assert(oldPages > 0 && oldPages <= PageCount,
 		       "Invalid expected old pages!");
@@ -160,7 +151,8 @@ public:
 		return oldPages + delta;
 	}
 
-	void release(uint index, uint pages) {
+
+	void shrinkAlloc(uint index, uint pages) {
 		// FIXME: in contract.
 		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
 		assert(index <= PageCount - pages, "Invalid index!");
@@ -170,9 +162,19 @@ public:
 		auto start = allocatedPages.findSetBackward(index) + 1;
 		auto stop = allocatedPages.findSet(index + pages - 1);
 
-		allocCount--;
 		usedCount -= pages;
 		longestFreeRange = max(longestFreeRange, stop - start);
+
+		
+		// assert(delta < oldPages, "Invalid shrink pages count!");
+
+		// release(index + oldPages - delta, delta);
+		// allocCount++;
+	}
+
+	void release(uint index, uint pages) {
+		shrinkAlloc(index, pages);
+		allocCount--;
 	}
 }
 
@@ -217,9 +219,9 @@ unittest hugePageDescriptor {
 	checkRangeState(2, 10, PageCount - 10);
 
 	// Check that reducing the first allocation works as expected.
-	assert(hpd.shrinkAlloc(0, 5, 3) == 2);
+	assert(hpd.shrinkAlloc(5, 3) == 2);
 	checkRangeState(2, 7, PageCount - 10);
-	hpd.shrinkAlloc(0, 2, 1);
+	hpd.shrinkAlloc(2, 1);
 	checkRangeState(2, 6, PageCount - 10);
 
 	// Check that growing works as expected:
@@ -236,7 +238,7 @@ unittest hugePageDescriptor {
 	checkRangeState(1, 505, PageCount - 505);
 
 	// Shrink again:
-	assert(hpd.shrinkAlloc(0, 505, 500) == 5);
+	assert(hpd.shrinkAlloc(505, 500) == 5);
 	checkRangeState(1, 5, PageCount - 5);
 
 	// Remove first allocation:

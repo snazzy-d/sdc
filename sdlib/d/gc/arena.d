@@ -455,10 +455,20 @@ private:
 		auto hpd = e.hpd;
 		auto prevIndex = getFreeSpaceClass(hpd.longestFreeRange);
 
-		auto updatedPages = newPages > oldPages
-			? hpd.growAlloc(n, oldPages, newPages - oldPages)
-			: hpd.shrinkAlloc(n, oldPages, oldPages - newPages);
+		// auto updatedPages = newPages > oldPages
+		// 	? hpd.growAlloc(n, oldPages, newPages - oldPages)
+		// 	: hpd.shrinkAlloc(n + oldPages, oldPages - newPages);
 
+		uint updatedPages;
+		if (newPages > oldPages) {
+			updatedPages = hpd.growAlloc(n, oldPages, newPages - oldPages);
+		} else {
+			auto delta = oldPages - newPages;
+			hpd.shrinkAlloc(n + oldPages - delta, delta);
+			updatedPages = newPages;
+		}
+
+		
 		auto index = getFreeSpaceClass(hpd.longestFreeRange);
 		if (index != prevIndex) {
 			heaps[prevIndex].remove(hpd);
