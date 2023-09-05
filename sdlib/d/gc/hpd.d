@@ -95,7 +95,7 @@ public:
 			current = index + length;
 		}
 
-		bestIndex = knownIndex != -1 ? knownIndex : bestIndex;
+		bestIndex = knownIndex >= 0 ? knownIndex : bestIndex;
 		assert(bestIndex < PageCount);
 		allocatedPages.setRange(bestIndex, pages);
 
