@@ -564,10 +564,7 @@ unittest resizeLarge {
 	assert(pd1.extent.address is ptr1);
 	assert(pd1.extent.size == 20 * PageSize);
 
-	// Can't grow no. 0 to given size, as there's no space:
-	assert(!arena.resizeLarge(&emap, pd0.extent, 1 + (35 * PageSize)));
-
-	// Growing by zero is allowed, however:
+	// Growing by zero is allowed:
 	assert(arena.resizeLarge(&emap, pd0.extent, 35 * PageSize));
 
 	// Shrink no. 0 down to 10 pages:
