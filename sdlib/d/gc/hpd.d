@@ -111,47 +111,6 @@ public:
 		return bestIndex;
 	}
 
-	uint growAlloc(uint index, uint oldPages, uint delta) {
-		assert(oldPages > 0 && oldPages <= PageCount,
-		       "Invalid expected old pages!");
-		assert(index <= PageCount - oldPages - delta, "Invalid index!");
-		assert(delta > 0 && delta < PageCount, "Invalid grow pages count!");
-
-		if (delta > longestFreeRange) {
-			return oldPages;
-		}
-
-		uint freePos, freeLength;
-		allocatedPages.nextFreeRange(index, freePos, freeLength);
-
-		if ((freePos != index + oldPages) || (freeLength < delta)) {
-			return oldPages;
-		}
-
-		allocatedPages.setRange(freePos, delta);
-		usedCount += delta;
-
-		if (freeLength == longestFreeRange) {
-			// Must recompute longest free range:
-			auto longestFree = longestFreeRange - delta;
-			uint i = 0;
-			while (
-				i < PageCount
-					&& allocatedPages.nextFreeRange(i, freePos, freeLength)) {
-				if (freeLength > longestFree) {
-					longestFree = freeLength;
-				}
-
-				i = freePos + freeLength;
-			}
-
-			longestFreeRange = longestFree;
-		}
-
-		return oldPages + delta;
-	}
-
-
 	void shrinkAlloc(uint index, uint pages) {
 		// FIXME: in contract.
 		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
@@ -164,12 +123,6 @@ public:
 
 		usedCount -= pages;
 		longestFreeRange = max(longestFreeRange, stop - start);
-
-		
-		// assert(delta < oldPages, "Invalid shrink pages count!");
-
-		// release(index + oldPages - delta, delta);
-		// allocCount++;
 	}
 
 	void release(uint index, uint pages) {
@@ -211,68 +164,38 @@ unittest hugePageDescriptor {
 	checkRangeState(0, 0, PageCount);
 
 	// First allocation.
-	assert(hpd.reserve(5) == 0);
-	checkRangeState(1, 5, PageCount - 5);
+	assert(hpd.reserve(200) == 0);
+	checkRangeState(1, 200, PageCount - 200);
 
-	// Second allocation.
-	assert(hpd.reserve(5) == 5);
-	checkRangeState(2, 10, PageCount - 10);
+	// Second allocation, now we're full:
+	assert(hpd.reserve(312) == 200);
+	checkRangeState(2, 512, 0);
 
 	// Check that reducing the first allocation works as expected.
-	assert(hpd.shrinkAlloc(5, 3) == 2);
-	checkRangeState(2, 7, PageCount - 10);
-	hpd.shrinkAlloc(2, 1);
-	checkRangeState(2, 6, PageCount - 10);
+	hpd.shrinkAlloc(100, 100);
+	checkRangeState(2, 412, PageCount - 412);
 
-	// Check that growing works as expected:
-	assert(hpd.growAlloc(0, 1, 5) == 1);
-	assert(hpd.growAlloc(0, 1, 4) == 5);
-	checkRangeState(2, 10, PageCount - 10);
-
-	// Release the second allocation:
-	hpd.release(5, 5);
-	checkRangeState(1, 5, PageCount - 5);
-
-	// Fill everything:
-	assert(hpd.growAlloc(0, 5, 500) == 505);
-	checkRangeState(1, 505, PageCount - 505);
-
-	// Shrink again:
-	assert(hpd.shrinkAlloc(505, 500) == 5);
-	checkRangeState(1, 5, PageCount - 5);
-
-	// Remove first allocation:
-	hpd.release(0, 5);
-	checkRangeState(0, 0, PageCount);
-
-	assert(hpd.reserve(128) == 0);
-	checkRangeState(1, 128, PageCount - 128);
-
-	assert(hpd.reserve(256) == 128);
-	checkRangeState(2, 384, PageCount - 384);
-
-	assert(hpd.reserve(128) == 384);
+	// Fill the resulting space:
+	assert(hpd.reserve(100) == 100);
 	checkRangeState(3, 512, 0);
 
-	hpd.release(0, 128);
-	checkRangeState(2, 384, PageCount - 384);
+	// Release the first allocation:
+	hpd.release(0, 100);
+	checkRangeState(2, 412, PageCount - 412);
 
-	hpd.release(384, 128);
-	checkRangeState(1, 256, 128);
+	// Release the third allocation:
+	hpd.release(100, 100);
+	checkRangeState(1, 312, PageCount - 312);
 
-	// There are now two equally 'longest length' free ranges.
-	// Check that growAlloc does the right thing:
-	assert(hpd.growAlloc(128, 256, 1) == 257);
-	checkRangeState(1, 257, 128);
-
-	hpd.release(128, 257);
+	// Release the second (shrank) allocation:
+	hpd.release(200, 312);
 	checkRangeState(0, 0, PageCount);
 
-	// Put back first allocation.
+	// Make another allocation.
 	assert(hpd.reserve(5) == 0);
 	checkRangeState(1, 5, PageCount - 5);
 
-	// Put back second allocation:
+	// And another allocation:
 	assert(hpd.reserve(5) == 5);
 	checkRangeState(2, 10, PageCount - 10);
 
