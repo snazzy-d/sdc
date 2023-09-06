@@ -191,4 +191,24 @@ unittest ExtentMap {
 		assert(emap.lookup(p).data == pd.data);
 		pd = pd.next();
 	}
+
+	emap.clear(e);
+
+	// Shrink a range.
+	e.at(ptr, 5 * PageSize, null, ec);
+	emap.remap(e, ec);
+	pd = PageDescriptor(e, ec);
+
+	emap.clear(e.address + 3 * PageSize, 2 * PageSize);
+	e.at(ptr, 3 * PageSize, null, ec);
+
+	for (auto p = ptr; p < e.address + 3 * PageSize; p += PageSize) {
+		assert(emap.lookup(p).data == pd.data);
+		pd = pd.next();
+	}
+
+	for (auto p = e.address + 3 * PageSize; p < e.address + 5 * PageSize;
+	     p += PageSize) {
+		assert(emap.lookup(p).data == 0);
+	}
 }

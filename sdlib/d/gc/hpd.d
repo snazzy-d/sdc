@@ -111,7 +111,7 @@ public:
 		return bestIndex;
 	}
 
-	void shrinkAlloc(uint index, uint pages) {
+	void clear(uint index, uint pages) {
 		// FIXME: in contract.
 		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
 		assert(index <= PageCount - pages, "Invalid index!");
@@ -126,7 +126,7 @@ public:
 	}
 
 	void release(uint index, uint pages) {
-		shrinkAlloc(index, pages);
+		clear(index, pages);
 		allocCount--;
 	}
 }
@@ -164,38 +164,10 @@ unittest hugePageDescriptor {
 	checkRangeState(0, 0, PageCount);
 
 	// First allocation.
-	assert(hpd.reserve(200) == 0);
-	checkRangeState(1, 200, PageCount - 200);
-
-	// Second allocation, now we're full:
-	assert(hpd.reserve(312) == 200);
-	checkRangeState(2, 512, 0);
-
-	// Check that reducing the first allocation works as expected.
-	hpd.shrinkAlloc(100, 100);
-	checkRangeState(2, 412, PageCount - 412);
-
-	// Third allocation: fill the space made available above:
-	assert(hpd.reserve(100) == 100);
-	checkRangeState(3, 512, 0);
-
-	// Release the first allocation:
-	hpd.release(0, 100);
-	checkRangeState(2, 412, PageCount - 412);
-
-	// Release the third allocation:
-	hpd.release(100, 100);
-	checkRangeState(1, 312, PageCount - 312);
-
-	// Release the second allocation:
-	hpd.release(200, 312);
-	checkRangeState(0, 0, PageCount);
-
-	// Make another allocation.
 	assert(hpd.reserve(5) == 0);
 	checkRangeState(1, 5, PageCount - 5);
 
-	// And another allocation:
+	// Second allocation.
 	assert(hpd.reserve(5) == 5);
 	checkRangeState(2, 10, PageCount - 10);
 
@@ -254,4 +226,52 @@ unittest hugePageDescriptor {
 
 	hpd.release(PageCount - 4, 4);
 	checkRangeState(PageCount / 4 - 7, PageCount - 28, 20);
+}
+
+unittest hugePageDescriptorClear {
+	enum PageCount = HugePageDescriptor.PageCount;
+	HugePageDescriptor hpd;
+
+	void checkRangeState(uint nalloc, uint nused, uint lfr) {
+		assert(hpd.allocCount == nalloc);
+		assert(hpd.usedCount == nused);
+		assert(hpd.longestFreeRange == lfr);
+		assert(hpd.allocatedPages.countBits(0, PageCount) == nused);
+	}
+
+	// First allocation.
+	assert(hpd.reserve(200) == 0);
+	checkRangeState(1, 200, PageCount - 200);
+
+	// Second allocation:
+	assert(hpd.reserve(100) == 200);
+	checkRangeState(2, 300, PageCount - 300);
+
+	// Third allocation, and we're full:
+	assert(hpd.reserve(212) == 300);
+	checkRangeState(3, 512, 0);
+
+	// Shrink the first allocation, make lfr of 100:
+	hpd.clear(100, 100);
+	checkRangeState(3, 412, PageCount - 412);
+
+	// Shrink the second allocation, lfr is still 100:
+	hpd.clear(299, 1);
+	checkRangeState(3, 411, PageCount - 412);
+
+	// Shrink the third allocation, lfr is still 100:
+	hpd.clear(500, 12);
+	checkRangeState(3, 399, PageCount - 412);
+
+	// Release the third allocation:
+	hpd.release(300, 200);
+	checkRangeState(2, 199, 213);
+
+	// Release the second allocation:
+	hpd.release(200, 99);
+	checkRangeState(1, 100, PageCount - 100);
+
+	// Release the first allocation:
+	hpd.release(0, 100);
+	checkRangeState(0, 0, PageCount);
 }
