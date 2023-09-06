@@ -175,7 +175,7 @@ unittest hugePageDescriptor {
 	hpd.shrinkAlloc(100, 100);
 	checkRangeState(2, 412, PageCount - 412);
 
-	// Fill the resulting space:
+	// Third allocation: fill the space made available above:
 	assert(hpd.reserve(100) == 100);
 	checkRangeState(3, 512, 0);
 
@@ -187,7 +187,7 @@ unittest hugePageDescriptor {
 	hpd.release(100, 100);
 	checkRangeState(1, 312, PageCount - 312);
 
-	// Release the second (shrank) allocation:
+	// Release the second allocation:
 	hpd.release(200, 312);
 	checkRangeState(0, 0, PageCount);
 
