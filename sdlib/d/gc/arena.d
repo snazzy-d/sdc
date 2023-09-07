@@ -164,8 +164,8 @@ public:
 
 		assert(newPages == computedPageCount, "Unexpected page count!");
 
-		uint oldSize = cast(uint) e.size;
-		uint oldPages = oldSize / PageSize;
+		uint currentSize = e.size & uint.max;
+		uint oldPages = currentSize / cast(uint) PageSize;
 
 		// Growing is not yet supported:
 		if (newPages >= oldPages) {
