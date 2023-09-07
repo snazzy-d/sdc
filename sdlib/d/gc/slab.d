@@ -7,7 +7,7 @@ enum InvalidBinID = 0xff;
 
 struct SlabAllocGeometry {
 	void* address;
-	size_t size;
+	uint size;
 	uint index;
 
 	this(void* ptr, PageDescriptor pd) {
