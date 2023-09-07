@@ -1,22 +1,18 @@
 module d.gc.slab;
 
 import d.gc.emap;
-import d.gc.extent;
 import d.gc.spec;
 
 enum InvalidBinID = 0xff;
 
 struct SlabAllocGeometry {
-	Extent* e;
 	void* address;
 	size_t size;
 	uint index;
 	uint sizeClass;
 
 	this(void* ptr, PageDescriptor pd) {
-		assert(pd.extent !is null, "Extent is null!");
 		assert(pd.isSlab(), "Expected a slab!");
-		assert(pd.extent.contains(ptr), "ptr not in slab!");
 
 		sizeClass = pd.sizeClass;
 
@@ -25,7 +21,6 @@ struct SlabAllocGeometry {
 		index = binInfos[sizeClass].computeIndex(offset);
 
 		auto base = ptr - offset;
-		assert(ptr is base + index * binInfos[sizeClass].itemSize);
 		size = binInfos[sizeClass].itemSize;
 		address = base + index * size;
 	}

@@ -2,8 +2,6 @@ module d.gc.bin;
 
 import d.gc.arena;
 import d.gc.emap;
-import d.gc.slab;
-import d.gc.sizeclass;
 import d.gc.spec;
 
 /**
@@ -24,10 +22,12 @@ struct Bin {
 
 	void* alloc(shared(Arena)* arena, shared(ExtentMap)* emap,
 	            ubyte sizeClass) shared {
+		import d.gc.sizeclass;
 		assert(sizeClass < ClassCount.Small);
 		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
 
 		// Load eagerly as prefetching.
+		import d.gc.slab;
 		auto size = binInfos[sizeClass].itemSize;
 
 		Extent* slab;
@@ -55,13 +55,16 @@ struct Bin {
 		assert(&arena.bins[pd.sizeClass] == &this,
 		       "Invalid arena or sizeClass!");
 
+		import d.gc.slab;
 		auto sg = SlabAllocGeometry(ptr, pd);
+		assert(ptr is sg.address);
+
 		auto slots = binInfos[sg.sizeClass].slots;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Bin*) &this).freeImpl(sg.e, sg.index, slots);
+		return (cast(Bin*) &this).freeImpl(pd.extent, sg.index, slots);
 	}
 
 private:
@@ -144,6 +147,7 @@ private:
 		assert(current.freeSlots > 0);
 
 		// In which case we put the free run back in the tree.
+		import d.gc.slab;
 		assert(slab.freeSlots == binInfos[sizeClass].slots);
 		arena.freeSlab(emap, slab);
 
