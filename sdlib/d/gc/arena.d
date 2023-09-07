@@ -402,6 +402,7 @@ private:
 		e.at(e.address, newPages * PageSize, hpd);
 		hpd.clear(n + newPages, oldPages - newPages);
 
+		assert(!hpd.empty);
 		registerHPD(hpd);
 	}
 
