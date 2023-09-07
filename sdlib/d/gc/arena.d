@@ -404,9 +404,7 @@ private:
 
 		auto hpd = e.hpd;
 		if (!hpd.full) {
-			auto index = getFreeSpaceClass(hpd.longestFreeRange);
-			heaps[index].remove(hpd);
-			filter &= ~(ulong(heaps[index].empty) << index);
+			unregisterHPD(hpd);
 		}
 
 		hpd.release(n, pages);
@@ -434,21 +432,17 @@ private:
 		assert(delta > 0 && delta < oldPages, "Invalid delta!");
 
 		auto hpd = e.hpd;
+		if (!hpd.full) {
+			unregisterHPD(hpd);
+		}
+
 		auto prevLfr = hpd.longestFreeRange;
 
 		auto newPages = oldPages - delta;
 		e.at(e.address, newPages * PageSize, hpd);
 		hpd.clear(n + newPages, delta);
 
-		if (prevLfr != hpd.longestFreeRange) {
-			if (prevLfr != 0) {
-				auto index = getFreeSpaceClass(prevLfr);
-				heaps[index].remove(hpd);
-				filter &= ~(ulong(heaps[index].empty) << index);
-			}
-
-			registerHPD(hpd);
-		}
+		registerHPD(hpd);
 	}
 
 	void registerHPD(HugePageDescriptor* hpd) {
@@ -459,6 +453,15 @@ private:
 		auto index = getFreeSpaceClass(hpd.longestFreeRange);
 		heaps[index].insert(hpd);
 		filter |= ulong(1) << index;
+	}
+
+	void unregisterHPD(HugePageDescriptor* hpd) {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(!hpd.full, "HPD is full!");
+
+		auto index = getFreeSpaceClass(hpd.longestFreeRange);
+		heaps[index].remove(hpd);
+		filter &= ~(ulong(heaps[index].empty) << index);
 	}
 
 	void releaseHPD(Extent* e, HugePageDescriptor* hpd) {
