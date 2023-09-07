@@ -385,6 +385,28 @@ private:
 		unusedExtents.insert(e);
 	}
 
+	void shrinkAllocImpl(Extent* e, uint n, uint delta) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		uint oldPages = cast(uint) e.size / PageSize;
+
+		assert(n <= PageCount - oldPages, "Invalid index!");
+		assert(delta > 0 && delta < oldPages, "Invalid delta!");
+
+		auto hpd = e.hpd;
+		if (!hpd.full) {
+			unregisterHPD(hpd);
+		}
+
+		auto prevLfr = hpd.longestFreeRange;
+
+		auto newPages = oldPages - delta;
+		e.at(e.address, newPages * PageSize, hpd);
+		hpd.clear(n + newPages, delta);
+
+		registerHPD(hpd);
+	}
+
 	/**
 	 * HugePageDescriptor heaps management.
 	 */
@@ -422,28 +444,6 @@ private:
 
 		unusedHPDs.insert(hpd);
 		return null;
-	}
-
-	void shrinkAllocImpl(Extent* e, uint n, uint delta) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		uint oldPages = cast(uint) e.size / PageSize;
-
-		assert(n <= PageCount - oldPages, "Invalid index!");
-		assert(delta > 0 && delta < oldPages, "Invalid delta!");
-
-		auto hpd = e.hpd;
-		if (!hpd.full) {
-			unregisterHPD(hpd);
-		}
-
-		auto prevLfr = hpd.longestFreeRange;
-
-		auto newPages = oldPages - delta;
-		e.at(e.address, newPages * PageSize, hpd);
-		hpd.clear(n + newPages, delta);
-
-		registerHPD(hpd);
 	}
 
 	void unregisterHPD(HugePageDescriptor* hpd) {
