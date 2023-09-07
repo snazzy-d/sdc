@@ -172,7 +172,7 @@ public:
 			return newPages == oldPages;
 		}
 
-		shrinkAlloc(emap, e, oldPages - newPages);
+		shrinkAlloc(emap, e, oldPages, newPages);
 
 		return true;
 	}
@@ -269,26 +269,27 @@ private:
 		(cast(Arena*) &this).freePagesImpl(e, n, pages);
 	}
 
-	void shrinkAlloc(shared(ExtentMap)* emap, Extent* e, uint delta) shared {
+	void shrinkAlloc(shared(ExtentMap)* emap, Extent* e, uint oldPages,
+	                 uint newPages) shared {
 		assert(!e.isHuge(), "Does not support huge!");
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
-		assert(delta > 0, "No change in number of pages!");
-
+		assert(modUp(e.size / PageSize, PageCount) == oldPages,
+		       "Unexpected number of old pages!");
+		assert(newPages < oldPages, "New page count not smaller than old!");
 		assert(e.hpd.address is alignDown(e.address, HugePageSize),
 		       "Invalid hpd!");
 
 		uint n = ((cast(size_t) e.address) / PageSize) % PageCount;
 
-		uint oldPages = cast(uint) e.size / PageSize;
-		auto newSize = (oldPages - delta) * PageSize;
+		auto newSize = newPages * PageSize;
 		emap.clear(e.address + newSize, e.size - newSize);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
 		// Shrink:
-		(cast(Arena*) &this).shrinkAllocImpl(e, n, delta);
+		(cast(Arena*) &this).shrinkAllocImpl(e, n, oldPages, newPages);
 	}
 
 private:
@@ -385,24 +386,18 @@ private:
 		unusedExtents.insert(e);
 	}
 
-	void shrinkAllocImpl(Extent* e, uint n, uint delta) {
+	void shrinkAllocImpl(Extent* e, uint n, uint oldPages, uint newPages) {
 		assert(mutex.isHeld(), "Mutex not held!");
-
-		uint oldPages = cast(uint) e.size / PageSize;
-
 		assert(n <= PageCount - oldPages, "Invalid index!");
-		assert(delta > 0 && delta < oldPages, "Invalid delta!");
+		assert(modUp(e.size / PageSize, PageCount) == oldPages,
+		       "Unexpected number of old pages!");
+		assert(newPages < oldPages, "New page count not smaller than old!");
 
 		auto hpd = e.hpd;
-		if (!hpd.full) {
-			unregisterHPD(hpd);
-		}
+		unregisterHPD(hpd);
 
-		auto prevLfr = hpd.longestFreeRange;
-
-		auto newPages = oldPages - delta;
 		e.at(e.address, newPages * PageSize, hpd);
-		hpd.clear(n + newPages, delta);
+		hpd.clear(n + newPages, oldPages - newPages);
 
 		registerHPD(hpd);
 	}

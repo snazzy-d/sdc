@@ -99,9 +99,8 @@ public:
 		} else {
 			auto esize = pd.extent.size;
 			if (samePointerness && (alignUp(size, PageSize) == esize
-				    || (isLargeSize(size) && pd
-					    .arena
-					    .resizeLarge(emap, pd.extent, getAllocSize(size))))) {
+				    || (isLargeSize(size)
+					    && pd.arena.resizeLarge(emap, pd.extent, size)))) {
 				pd.extent.setUsedCapacity(size);
 				return ptr;
 			}
