@@ -55,7 +55,7 @@ struct Bin {
 		assert(&arena.bins[pd.sizeClass] == &this,
 		       "Invalid arena or sizeClass!");
 
-		auto sg = slabAllocGeometry(ptr, pd, true);
+		auto sg = SlabAllocGeometry(ptr, pd, true);
 		auto slots = binInfos[sg.sc].slots;
 
 		mutex.lock();

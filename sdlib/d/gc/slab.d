@@ -6,7 +6,7 @@ import d.gc.spec;
 
 enum InvalidBinID = 0xff;
 
-struct slabAllocGeometry {
+struct SlabAllocGeometry {
 	Extent* e;
 	uint sc;
 	size_t size;
