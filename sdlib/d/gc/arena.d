@@ -749,7 +749,7 @@ unittest resizeLarge {
 	assert(ptr7 !is null);
 	auto pd7 = emap.lookup(ptr7);
 	assert(pd7.extent.address is ptr7);
-	assert(pd7.extent.hpd == pd5.extent.hpd);
+	assert(pd7.extent.hpd == pd6.extent.hpd);
 	assert(ptr7 is ptr5 + 128 * PageSize);
 
 	// Allocate 32 pages, should go after first alloc:
@@ -757,7 +757,7 @@ unittest resizeLarge {
 	assert(ptr8 !is null);
 	auto pd8 = emap.lookup(ptr8);
 	assert(pd8.extent.address is ptr8);
-	assert(pd8.extent.hpd == pd5.extent.hpd);
+	assert(pd8.extent.hpd == pd7.extent.hpd);
 	assert(ptr8 is ptr4 + 96 * PageSize);
 
 	// Allocate 64 pages, should go after third alloc:
@@ -765,9 +765,9 @@ unittest resizeLarge {
 	assert(ptr9 !is null);
 	auto pd9 = emap.lookup(ptr9);
 	assert(pd9.extent.address is ptr9);
-	assert(pd9.extent.hpd == pd5.extent.hpd);
+	assert(pd9.extent.hpd == pd8.extent.hpd);
 	assert(ptr9 is ptr6 + 64 * PageSize);
 
 	// Now full again:
-	assert(pd6.extent.hpd.full);
+	assert(pd9.extent.hpd.full);
 }
