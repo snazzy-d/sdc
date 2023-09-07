@@ -276,7 +276,7 @@ private:
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
 		assert(modUp(e.size / PageSize, PageCount) == oldPages,
 		       "Unexpected number of old pages!");
-		assert(newPages < oldPages, "New page count not smaller than old!");
+		assert(newPages < oldPages && newPages > 0, "Invalid new page count!");
 		assert(e.hpd.address is alignDown(e.address, HugePageSize),
 		       "Invalid hpd!");
 
@@ -391,7 +391,7 @@ private:
 		assert(n <= PageCount - oldPages, "Invalid index!");
 		assert(modUp(e.size / PageSize, PageCount) == oldPages,
 		       "Unexpected number of old pages!");
-		assert(newPages < oldPages, "New page count not smaller than old!");
+		assert(newPages < oldPages && newPages > 0, "Invalid new page count!");
 
 		auto hpd = e.hpd;
 		unregisterHPD(hpd);
