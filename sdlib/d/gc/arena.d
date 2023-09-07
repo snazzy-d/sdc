@@ -161,7 +161,6 @@ public:
 
 		auto computedPageCount = alignUp(size, PageSize) / PageSize;
 		uint newPages = computedPageCount & uint.max;
-
 		assert(newPages == computedPageCount, "Unexpected page count!");
 
 		auto currentSize = e.size;
@@ -282,17 +281,16 @@ private:
 		       "Invalid hpd!");
 
 		uint n = ((cast(size_t) e.address) / PageSize) % PageCount;
+		uint pages = cast(uint) (e.size / PageSize) - delta;
 
-		uint oldPages = cast(uint) e.size / PageSize;
-		auto newPages = oldPages - delta;
-		auto newSize = newPages * PageSize;
+		auto newSize = pages * PageSize;
 		emap.clear(e.address + newSize, e.size - newSize);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
 		// Shrink:
-		(cast(Arena*) &this).shrinkAllocImpl(e, n, oldPages, newPages);
+		(cast(Arena*) &this).shrinkAllocImpl(e, n + pages, pages, delta);
 	}
 
 private:
@@ -389,18 +387,17 @@ private:
 		unusedExtents.insert(e);
 	}
 
-	void shrinkAllocImpl(Extent* e, uint n, uint oldPages, uint newPages) {
+	void shrinkAllocImpl(Extent* e, uint index, uint pages, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(n <= PageCount - oldPages, "Invalid index!");
-		assert(modUp(e.size / PageSize, PageCount) == oldPages,
-		       "Unexpected number of old pages!");
-		assert(newPages < oldPages && newPages > 0, "Invalid new page count!");
+		assert(index <= PageCount - pages, "Invalid index!");
+		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
+		assert(delta > 0, "Invalid delta!");
 
 		auto hpd = e.hpd;
 		unregisterHPD(hpd);
 
-		e.at(e.address, newPages * PageSize, hpd);
-		hpd.clear(n + newPages, oldPages - newPages);
+		e.at(e.address, pages * PageSize, hpd);
+		hpd.clear(index, delta);
 
 		assert(!hpd.empty);
 		registerHPD(hpd);
