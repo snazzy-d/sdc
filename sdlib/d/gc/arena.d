@@ -279,8 +279,10 @@ private:
 		assert(e.hpd.address is alignDown(e.address, HugePageSize),
 		       "Invalid hpd!");
 
-		uint delta = cast(uint) (e.size / PageSize) - pages;
-		assert(delta > 0, "Invalid delta!");
+		uint currentPages = cast(uint) (e.size / PageSize);
+		assert(currentPages > pages, "Invalid shrink pages!");
+
+		uint delta = currentPages - pages;
 
 		uint n = ((cast(size_t) e.address) / PageSize) % PageCount;
 		uint index = n + pages;
