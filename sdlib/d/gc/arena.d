@@ -317,21 +317,6 @@ private:
 		return e.at(ptr, size, hpd, ec);
 	}
 
-	HugePageDescriptor* extractHPD(uint pages, ulong mask) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		auto acfilter = filter & mask;
-		if (acfilter == 0) {
-			return allocateHPD();
-		}
-
-		auto index = countTrailingZeros(acfilter);
-		auto hpd = heaps[index].pop();
-		filter &= ~(ulong(heaps[index].empty) << index);
-
-		return hpd;
-	}
-
 	Extent* allocHugeImpl(uint pages, uint extraPages) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
@@ -376,6 +361,48 @@ private:
 		return Extent.fromSlot(bits & ArenaMask, slot);
 	}
 
+	void freePagesImpl(Extent* e, uint n, uint pages) {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
+		assert(n <= PageCount - pages, "Invalid index!");
+
+		auto hpd = e.hpd;
+		unregisterHPD(hpd);
+
+		hpd.release(n, pages);
+		if (hpd.empty) {
+			releaseHPD(e, hpd);
+		} else {
+			// If the extent is huge, we need to release the concerned region.
+			if (e.isHuge()) {
+				uint count = (e.size / HugePageSize) & uint.max;
+				regionAllocator.release(e.address, count);
+			}
+
+			registerHPD(hpd);
+		}
+
+		unusedExtents.insert(e);
+	}
+
+	/**
+	 * HugePageDescriptor heaps management.
+	 */
+	HugePageDescriptor* extractHPD(uint pages, ulong mask) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto acfilter = filter & mask;
+		if (acfilter == 0) {
+			return allocateHPD();
+		}
+
+		auto index = countTrailingZeros(acfilter);
+		auto hpd = heaps[index].pop();
+		filter &= ~(ulong(heaps[index].empty) << index);
+
+		return hpd;
+	}
+
 	HugePageDescriptor* allocateHPD(uint extraPages = 0) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
@@ -397,30 +424,16 @@ private:
 		return null;
 	}
 
-	void freePagesImpl(Extent* e, uint n, uint pages) {
+	void unregisterHPD(HugePageDescriptor* hpd) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
-		assert(n <= PageCount - pages, "Invalid index!");
 
-		auto hpd = e.hpd;
-		if (!hpd.full) {
-			unregisterHPD(hpd);
+		if (hpd.full) {
+			return;
 		}
 
-		hpd.release(n, pages);
-		if (hpd.empty) {
-			releaseHPD(e, hpd);
-		} else {
-			// If the extent is huge, we need to release the concerned region.
-			if (e.isHuge()) {
-				uint count = (e.size / HugePageSize) & uint.max;
-				regionAllocator.release(e.address, count);
-			}
-
-			registerHPD(hpd);
-		}
-
-		unusedExtents.insert(e);
+		auto index = getFreeSpaceClass(hpd.longestFreeRange);
+		heaps[index].remove(hpd);
+		filter &= ~(ulong(heaps[index].empty) << index);
 	}
 
 	void shrinkAllocImpl(Extent* e, uint n, uint delta) {
