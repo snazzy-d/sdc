@@ -172,7 +172,7 @@ public:
 			return newPages == oldPages;
 		}
 
-		shrinkAlloc(emap, e, oldPages, newPages);
+		shrinkAlloc(emap, e, oldPages - newPages);
 
 		return true;
 	}
@@ -269,19 +269,18 @@ private:
 		(cast(Arena*) &this).freePagesImpl(e, n, pages);
 	}
 
-	void shrinkAlloc(shared(ExtentMap)* emap, Extent* e, uint oldPages,
-	                 uint newPages) shared {
+	void shrinkAlloc(shared(ExtentMap)* emap, Extent* e, uint delta) shared {
+		assert(delta > 0, "Invalid delta!");
 		assert(!e.isHuge(), "Does not support huge!");
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
-		assert(modUp(e.size / PageSize, PageCount) == oldPages,
-		       "Unexpected number of old pages!");
-		assert(newPages < oldPages && newPages > 0, "Invalid new page count!");
 		assert(e.hpd.address is alignDown(e.address, HugePageSize),
 		       "Invalid hpd!");
 
 		uint n = ((cast(size_t) e.address) / PageSize) % PageCount;
 
+		uint oldPages = cast(uint) e.size / PageSize;
+		auto newPages = oldPages - delta;
 		auto newSize = newPages * PageSize;
 		emap.clear(e.address + newSize, e.size - newSize);
 
