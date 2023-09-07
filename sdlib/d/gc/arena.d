@@ -278,6 +278,7 @@ private:
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
 		assert(e.hpd.address is alignDown(e.address, HugePageSize),
 		       "Invalid hpd!");
+		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
 
 		uint currentPages = cast(uint) (e.size / PageSize);
 		assert(currentPages > pages, "Invalid shrink pages!");
