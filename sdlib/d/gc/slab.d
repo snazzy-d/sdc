@@ -9,19 +9,16 @@ struct SlabAllocGeometry {
 	void* address;
 	size_t size;
 	uint index;
-	uint sizeClass;
 
 	this(void* ptr, PageDescriptor pd) {
 		assert(pd.isSlab(), "Expected a slab!");
 
-		sizeClass = pd.sizeClass;
-
 		import d.gc.util;
 		auto offset = alignDownOffset(ptr, PageSize) + pd.index * PageSize;
-		index = binInfos[sizeClass].computeIndex(offset);
+		index = binInfos[pd.sizeClass].computeIndex(offset);
 
 		auto base = ptr - offset;
-		size = binInfos[sizeClass].itemSize;
+		size = binInfos[pd.sizeClass].itemSize;
 		address = base + index * size;
 	}
 }

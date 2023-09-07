@@ -59,7 +59,7 @@ struct Bin {
 		auto sg = SlabAllocGeometry(ptr, pd);
 		assert(ptr is sg.address);
 
-		auto slots = binInfos[sg.sizeClass].slots;
+		auto slots = binInfos[pd.sizeClass].slots;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
