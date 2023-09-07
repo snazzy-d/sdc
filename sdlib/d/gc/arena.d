@@ -171,7 +171,7 @@ public:
 			return newPages == oldPages;
 		}
 
-		shrinkAlloc(emap, e, oldPages - newPages);
+		shrinkAlloc(emap, e, newPages);
 
 		return true;
 	}
@@ -272,16 +272,18 @@ private:
 		(cast(Arena*) &this).freePagesImpl(e, n, pages);
 	}
 
-	void shrinkAlloc(shared(ExtentMap)* emap, Extent* e, uint delta) shared {
-		assert(delta > 0, "Invalid delta!");
+	void shrinkAlloc(shared(ExtentMap)* emap, Extent* e, uint pages) shared {
 		assert(!e.isHuge(), "Does not support huge!");
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
 		assert(e.hpd.address is alignDown(e.address, HugePageSize),
 		       "Invalid hpd!");
 
+		uint delta = cast(uint) (e.size / PageSize) - pages;
+		assert(delta > 0, "Invalid delta!");
+
 		uint n = ((cast(size_t) e.address) / PageSize) % PageCount;
-		uint pages = cast(uint) (e.size / PageSize) - delta;
+		uint index = n + pages;
 
 		auto newSize = pages * PageSize;
 		emap.clear(e.address + newSize, e.size - newSize);
@@ -290,7 +292,7 @@ private:
 		scope(exit) mutex.unlock();
 
 		// Shrink:
-		(cast(Arena*) &this).shrinkAllocImpl(e, n + pages, pages, delta);
+		(cast(Arena*) &this).shrinkAllocImpl(e, index, pages, delta);
 	}
 
 private:
