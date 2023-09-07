@@ -723,7 +723,7 @@ unittest resizeLarge {
 	assert(pd5.extent.address is ptr5);
 	assert(pd5.extent.hpd == pd4.extent.hpd);
 
-	// Allocate 128 pages, we're full:
+	// Allocate 128 pages, hpd full:
 	auto ptr6 = arena.allocLarge(&emap, 128 * PageSize);
 	assert(ptr6 !is null);
 	auto pd6 = emap.lookup(ptr6);
