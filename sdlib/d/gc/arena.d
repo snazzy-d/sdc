@@ -424,18 +424,6 @@ private:
 		return null;
 	}
 
-	void unregisterHPD(HugePageDescriptor* hpd) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		if (hpd.full) {
-			return;
-		}
-
-		auto index = getFreeSpaceClass(hpd.longestFreeRange);
-		heaps[index].remove(hpd);
-		filter &= ~(ulong(heaps[index].empty) << index);
-	}
-
 	void shrinkAllocImpl(Extent* e, uint n, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
@@ -458,6 +446,18 @@ private:
 		registerHPD(hpd);
 	}
 
+	void unregisterHPD(HugePageDescriptor* hpd) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		if (hpd.full) {
+			return;
+		}
+
+		auto index = getFreeSpaceClass(hpd.longestFreeRange);
+		heaps[index].remove(hpd);
+		filter &= ~(ulong(heaps[index].empty) << index);
+	}
+
 	void registerHPD(HugePageDescriptor* hpd) {
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(!hpd.full, "HPD is full!");
@@ -466,15 +466,6 @@ private:
 		auto index = getFreeSpaceClass(hpd.longestFreeRange);
 		heaps[index].insert(hpd);
 		filter |= ulong(1) << index;
-	}
-
-	void unregisterHPD(HugePageDescriptor* hpd) {
-		assert(mutex.isHeld(), "Mutex not held!");
-		assert(!hpd.full, "HPD is full!");
-
-		auto index = getFreeSpaceClass(hpd.longestFreeRange);
-		heaps[index].remove(hpd);
-		filter &= ~(ulong(heaps[index].empty) << index);
 	}
 
 	void releaseHPD(Extent* e, HugePageDescriptor* hpd) {
