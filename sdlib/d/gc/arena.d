@@ -164,11 +164,10 @@ public:
 
 package:
 	Extent* allocSlab(shared(ExtentMap)* emap, ubyte sizeClass) shared {
-		auto ec = ExtentClass.slab(sizeClass);
-
 		import d.gc.slab;
 		auto neededPages = binInfos[sizeClass].needPages;
 
+		auto ec = ExtentClass.slab(sizeClass);
 		auto e = allocPages(neededPages, ec);
 		if (unlikely(e is null)) {
 			return null;
