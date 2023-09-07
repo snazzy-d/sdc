@@ -26,6 +26,7 @@ struct SlabAllocGeometry {
 		index = binInfos[sizeClass].computeIndex(offset);
 
 		auto base = ptr - offset;
+		assert(ptr is base + index * binInfos[sizeClass].itemSize);
 		size = binInfos[sizeClass].itemSize;
 		address = base + index * size;
 	}
