@@ -18,7 +18,6 @@ struct SlabAllocGeometry {
 		assert(pd.isSlab(), "Expected a slab!");
 		assert(pd.extent.contains(ptr), "ptr not in slab!");
 
-		e = pd.extent;
 		sizeClass = pd.sizeClass;
 
 		import d.gc.util;
