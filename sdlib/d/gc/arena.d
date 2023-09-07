@@ -704,4 +704,70 @@ unittest resizeLarge {
 	auto pd3 = emap.lookup(ptr3);
 	assert(pd3.extent.address is ptr3);
 	assert(ptr3 is ptr0 + 10 * PageSize);
+
+	arena.free(&emap, pd0, ptr0);
+	arena.free(&emap, pd1, ptr1);
+	arena.free(&emap, pd2, ptr2);
+	arena.free(&emap, pd3, ptr3);
+
+	// Allocate 128 pages:
+	auto ptr4 = arena.allocLarge(&emap, 128 * PageSize);
+	assert(ptr4 !is null);
+	auto pd4 = emap.lookup(ptr4);
+	assert(pd4.extent.address is ptr4);
+
+	// Allocate 256 pages:
+	auto ptr5 = arena.allocLarge(&emap, 256 * PageSize);
+	assert(ptr5 !is null);
+	auto pd5 = emap.lookup(ptr5);
+	assert(pd5.extent.address is ptr5);
+	assert(pd5.extent.hpd == pd4.extent.hpd);
+
+	// Allocate 128 pages, we're full:
+	auto ptr6 = arena.allocLarge(&emap, 128 * PageSize);
+	assert(ptr6 !is null);
+	auto pd6 = emap.lookup(ptr6);
+	assert(pd6.extent.address is ptr6);
+	assert(pd6.extent.hpd == pd5.extent.hpd);
+	assert(pd6.extent.hpd.full);
+
+	// Shrink first alloc:
+	assert(arena.resizeLarge(&emap, pd4.extent, 96 * PageSize));
+	assert(pd4.extent.size == 96 * PageSize);
+	assert(!pd6.extent.hpd.full);
+
+	// Shrink second alloc:
+	assert(arena.resizeLarge(&emap, pd5.extent, 128 * PageSize));
+	assert(pd5.extent.size == 128 * PageSize);
+
+	// Shrink third alloc:
+	assert(arena.resizeLarge(&emap, pd6.extent, 64 * PageSize));
+	assert(pd6.extent.size == 64 * PageSize);
+
+	// Allocate 128 pages, should go after second alloc:
+	auto ptr7 = arena.allocLarge(&emap, 128 * PageSize);
+	assert(ptr7 !is null);
+	auto pd7 = emap.lookup(ptr7);
+	assert(pd7.extent.address is ptr7);
+	assert(pd7.extent.hpd == pd5.extent.hpd);
+	assert(ptr7 is ptr5 + 128 * PageSize);
+
+	// Allocate 32 pages, should go after first alloc:
+	auto ptr8 = arena.allocLarge(&emap, 32 * PageSize);
+	assert(ptr8 !is null);
+	auto pd8 = emap.lookup(ptr8);
+	assert(pd8.extent.address is ptr8);
+	assert(pd8.extent.hpd == pd5.extent.hpd);
+	assert(ptr8 is ptr4 + 96 * PageSize);
+
+	// Allocate 64 pages, should go after third alloc:
+	auto ptr9 = arena.allocLarge(&emap, 64 * PageSize);
+	assert(ptr9 !is null);
+	auto pd9 = emap.lookup(ptr9);
+	assert(pd9.extent.address is ptr9);
+	assert(pd9.extent.hpd == pd5.extent.hpd);
+	assert(ptr9 is ptr6 + 64 * PageSize);
+
+	// Now full again:
+	assert(pd6.extent.hpd.full);
 }
