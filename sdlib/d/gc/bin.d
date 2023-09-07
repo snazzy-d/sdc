@@ -2,9 +2,9 @@ module d.gc.bin;
 
 import d.gc.arena;
 import d.gc.emap;
+import d.gc.slab;
+import d.gc.sizeclass;
 import d.gc.spec;
-
-enum InvalidBinID = 0xff;
 
 /**
  * A bin is used to keep track of runs of a certain
@@ -55,21 +55,13 @@ struct Bin {
 		assert(&arena.bins[pd.sizeClass] == &this,
 		       "Invalid arena or sizeClass!");
 
-		auto e = pd.extent;
-		auto sc = pd.sizeClass;
-
-		import d.gc.util;
-		auto offset = alignDownOffset(ptr, PageSize) + pd.index * PageSize;
-		auto index = binInfos[sc].computeIndex(offset);
-		auto slots = binInfos[sc].slots;
-
-		auto base = ptr - offset;
-		assert(ptr is base + index * binInfos[sc].itemSize);
+		auto sg = slabAllocGeometry(ptr, pd, true);
+		auto slots = binInfos[sg.sc].slots;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Bin*) &this).freeImpl(e, index, slots);
+		return (cast(Bin*) &this).freeImpl(sg.e, sg.index, slots);
 	}
 
 private:
@@ -159,42 +151,3 @@ private:
 		return current;
 	}
 }
-
-struct BinInfo {
-	ushort itemSize;
-	ushort slots;
-	ubyte needPages;
-	ubyte shift;
-	ushort mul;
-
-	this(ushort itemSize, ubyte shift, ubyte needPages, ushort slots) {
-		this.itemSize = itemSize;
-		this.slots = slots;
-		this.needPages = needPages;
-		this.shift = (shift + 17) & 0xff;
-
-		// XXX: out contract
-		enum MaxShiftMask = (8 * size_t.sizeof) - 1;
-		assert(this.shift == (this.shift & MaxShiftMask));
-
-		/**
-		 * This is a bunch of magic values used to avoid requiring
-		 * division to find the index of an item within a run.
-		 *
-		 * Computed using finddivisor.d
-		 */
-		ushort[4] mulIndices = [32768, 26215, 21846, 18725];
-		auto tag = (itemSize >> shift) & 0x03;
-		this.mul = mulIndices[tag];
-	}
-
-	uint computeIndex(size_t offset) const {
-		// FIXME: in contract.
-		assert(offset < needPages * PageSize, "Offset out of bounds!");
-
-		return cast(uint) ((offset * mul) >> shift);
-	}
-}
-
-import d.gc.sizeclass;
-immutable BinInfo[ClassCount.Small] binInfos = getBinInfos();

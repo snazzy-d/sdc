@@ -145,7 +145,7 @@ ubyte getSizeClass(size_t size) {
 }
 
 unittest getSizeClass {
-	import d.gc.bin;
+	import d.gc.slab;
 	assert(getSizeClass(0) == InvalidBinID);
 
 	size_t[] boundaries =
@@ -167,7 +167,7 @@ unittest getSizeClass {
 
 size_t getSizeFromClass(uint sizeClass) {
 	if (isSmallSizeClass(sizeClass)) {
-		import d.gc.bin;
+		import d.gc.slab;
 		return binInfos[sizeClass].itemSize;
 	}
 
@@ -195,7 +195,7 @@ unittest getSizeFromClass {
 }
 
 auto getBinInfos() {
-	import d.gc.bin;
+	import d.gc.slab;
 	BinInfo[ClassCount.Small] bins;
 
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {

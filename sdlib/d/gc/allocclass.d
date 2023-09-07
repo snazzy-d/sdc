@@ -18,7 +18,7 @@ ubyte getAllocClass(size_t pages) {
 }
 
 unittest getAllocClass {
-	import d.gc.bin;
+	import d.gc.slab;
 	assert(getAllocClass(0) == 0xff);
 
 	uint[] boundaries =
@@ -42,7 +42,7 @@ ubyte getFreeSpaceClass(size_t pages) {
 }
 
 unittest getFreeSpaceClass {
-	import d.gc.bin;
+	import d.gc.slab;
 	assert(getFreeSpaceClass(0) == 0xff);
 
 	uint[] boundaries =

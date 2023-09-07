@@ -124,7 +124,7 @@ private:
 		bits |= ulong(arenaIndex) << 32;
 
 		if (ec.isSlab()) {
-			import d.gc.bin;
+			import d.gc.slab;
 			bits |= ulong(binInfos[ec.sizeClass].slots) << 48;
 
 			slabData.clear();
