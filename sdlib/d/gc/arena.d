@@ -222,15 +222,8 @@ private:
 	void freePages(Extent* e) shared {
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 
+		uint n = e.hpdIndex;
 		uint pages = modUp(e.pageCount, PagesInHugePage);
-
-		uint n = 0;
-		if (!e.isHuge()) {
-			assert(e.hpd.address is alignDown(e.address, HugePageSize),
-			       "Invalid hpd!");
-
-			n = ((cast(size_t) e.address) / PageSize) % PagesInHugePage;
-		}
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
