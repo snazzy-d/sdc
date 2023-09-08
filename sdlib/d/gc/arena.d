@@ -264,15 +264,14 @@ private:
 		assert(isAligned(e.size, PageSize), "Invalid extent size!");
 		assert(e.hpd.address is alignDown(e.address, HugePageSize),
 		       "Invalid hpd!");
-		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
+		assert(pages > 0 && pages <= PagesInHugePage,
+		       "Invalid number of pages!");
 
 		uint currentPages = e.pageCount;
 		assert(currentPages > pages, "Invalid shrink pages!");
 
 		uint delta = currentPages - pages;
-
-		uint n = ((cast(size_t) e.address) / PageSize) % PageCount;
-		uint index = n + pages;
+		uint index = e.hpdIndex + pages;
 
 		auto newSize = pages * PageSize;
 		emap.clear(e.address + newSize, e.size - newSize);
@@ -381,8 +380,9 @@ private:
 
 	void shrinkAllocImpl(Extent* e, uint index, uint pages, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(index > 0 && index <= PageCount - pages, "Invalid index!");
-		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
+		assert(index > 0 && index <= PagesInHugePage - pages, "Invalid index!");
+		assert(pages > 0 && pages <= PagesInHugePage,
+		       "Invalid number of pages!");
 		assert(delta > 0, "Invalid delta!");
 
 		auto hpd = e.hpd;
