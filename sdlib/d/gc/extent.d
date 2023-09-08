@@ -163,6 +163,14 @@ public:
 		return sizeAndGen & ~PageMask;
 	}
 
+	@property
+	uint pageCount() const {
+		auto pc = sizeAndGen / PageSize;
+
+		assert(pc == pc & uint.max, "Invalid page count!");
+		return pc & uint.max;
+	}
+
 	bool isHuge() const {
 		return size > HugePageSize;
 	}

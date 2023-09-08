@@ -222,7 +222,8 @@ private:
 
 	void freePages(Extent* e) shared {
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
-		assert(isAligned(e.size, PageSize), "Invalid extent size!");
+
+		uint pages = modUp(e.pageCount, PageCount);
 
 		uint n = 0;
 		if (!e.isHuge()) {
@@ -231,11 +232,6 @@ private:
 
 			n = ((cast(size_t) e.address) / PageSize) % PageCount;
 		}
-
-		auto computedPageCount = modUp(e.size / PageSize, PageCount);
-		uint pages = computedPageCount & uint.max;
-
-		assert(pages == computedPageCount, "Unexpected page count!");
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
