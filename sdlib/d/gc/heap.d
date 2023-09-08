@@ -21,7 +21,7 @@ module d.gc.heap;
  *   recently-inserted items off the aux-list, link them, and push the resulting
  *   heap.
  * - We maintain a count of the number of insertions since the last time we
- *   merged the aux-list (i.e. via first() or remove_first()).  After N inserts,
+ *   merged the aux-list (i.e. via first() or remove_first()). After N inserts,
  *   we do ffs(N) pop-and-link operations.
  *
  * One way to think of this is that we're progressively building up a tree in
@@ -29,23 +29,23 @@ module d.gc.heap;
  * will be performed as the aux-count grows).
  *
  * There's a couple reasons we benefit from this:
- * - Ordinarily, after N insertions, the aux-list is of size N.  With our
- *   strategy, it's of size O(log(N)).  So we decrease the worst-case time of
- *   first() calls, and reduce the average cost of remove_min calls.  Since
+ * - Ordinarily, after N insertions, the aux-list is of size N. With our
+ *   strategy, it's of size O(log(N)). So we decrease the worst-case time of
+ *   first() calls, and reduce the average cost of remove_min calls. Since
  *   these almost always occur while holding a lock, we practically reduce the
  *   frequency of unusually long hold times.
  * - This moves the bulk of the work of merging the aux-list onto the threads
- *   that are inserting into the heap.  In some common scenarios, insertions
+ *   that are inserting into the heap. In some common scenarios, insertions
  *   happen in bulk, from a single thread (think tcache flushing; we potentially
- *   move many slabs from slabs_full to slabs_nonfull).  All the nodes in this
+ *   move many slabs from slabs_full to slabs_nonfull). All the nodes in this
  *   case are in the inserting threads cache, and linking them is very cheap
- *   (cache misses dominate linking cost).  Without this optimization, linking
- *   happens on the next call to remove_first.  Since that remove_first call
+ *   (cache misses dominate linking cost). Without this optimization, linking
+ *   happens on the next call to remove_first. Since that remove_first call
  *   likely happens on a different thread (or at least, after the cache has
  *   gotten cold if done on the same thread), deferring linking trades cheap
  *   link operations now for expensive ones later.
  *
- * The ffs trick keeps amortized insert cost at constant time.  Similar
+ * The ffs trick keeps amortized insert cost at constant time. Similar
  * strategies based on periodically sorting the list after a batch of operations
  * perform worse than this in practice, even with various fancy tricks; they
  * all took amortized complexity of an insert from O(1) to O(log(n)).
