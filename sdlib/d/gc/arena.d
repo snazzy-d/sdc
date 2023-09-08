@@ -128,11 +128,8 @@ public:
 		// TODO: in contracts
 		assert(isLargeSize(size));
 
-		auto computedPageCount = alignUp(size, PageSize) / PageSize;
-		uint pages = computedPageCount & uint.max;
-
-		assert(pages == computedPageCount, "Unexpected page count!");
-
+		import d.gc.size;
+		auto pages = getPageCount(size);
 		auto e = allocPages(pages);
 		if (unlikely(e is null)) {
 			return null;
@@ -392,8 +389,9 @@ private:
 		assert(hpd.empty, "HPD is not empty!");
 		assert(e.hpd is hpd, "Invalid HPD!");
 
+		import d.gc.size;
+		auto pages = getHugePageCount(e.size);
 		auto ptr = alignDown(e.address, HugePageSize);
-		uint pages = (alignUp(e.size, HugePageSize) / HugePageSize) & uint.max;
 		regionAllocator.release(ptr, pages);
 
 		unusedHPDs.insert(hpd);

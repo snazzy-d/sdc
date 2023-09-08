@@ -5,9 +5,6 @@ import d.gc.util;
 // Pointer sized one.
 enum size_t One = 1;
 
-// We make sure we can count allocated pages on a uint.
-enum size_t MaxAllocationSize = uint.max * PageSize;
-
 // Pointer size.
 enum LgPointerSize = log2floor(size_t.sizeof);
 enum PointerSize = One << LgPointerSize;
