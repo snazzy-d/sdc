@@ -112,8 +112,9 @@ public:
 	}
 
 	bool set(uint index, uint pages) {
-		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
-		assert(index <= PageCount - pages, "Invalid index!");
+		assert(pages > 0 && pages <= PagesInHugePage,
+		       "Invalid number of pages!");
+		assert(index <= PagesInHugePage - pages, "Invalid index!");
 
 		auto freeLength = allocatedPages.findSet(index) - index;
 
@@ -132,8 +133,8 @@ public:
 		uint longestLength = 0;
 		uint current = 0;
 		uint length;
-		// Could stop at PageCount - longestFree, but will require test
-		while (current < PageCount
+		// Could stop at PagesInHugePage - longestFree, but will require test
+		while (current < PagesInHugePage
 			       && allocatedPages.nextFreeRange(current, index, length)) {
 			if (length > longestLength) {
 				longestLength = length;
@@ -149,8 +150,9 @@ public:
 
 	void clear(uint index, uint pages) {
 		// FIXME: in contract.
-		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
-		assert(index <= PageCount - pages, "Invalid index!");
+		assert(pages > 0 && pages <= PagesInHugePage,
+		       "Invalid number of pages!");
+		assert(index <= PagesInHugePage - pages, "Invalid index!");
 		assert(allocatedPages.findClear(index) >= index + pages);
 
 		allocatedPages.clearRange(index, pages);
@@ -311,33 +313,33 @@ unittest hugePageDescriptorClear {
 }
 
 unittest hugePageDescriptorGrowAllocations {
-	enum PageCount = HugePageDescriptor.PageCount;
+	enum PagesInHugePage = HugePageDescriptor.PagesInHugePage;
 	HugePageDescriptor hpd;
 
 	void checkRangeState(uint nalloc, uint nused, uint lfr) {
 		assert(hpd.allocCount == nalloc);
 		assert(hpd.usedCount == nused);
 		assert(hpd.longestFreeRange == lfr);
-		assert(hpd.allocatedPages.countBits(0, PageCount) == nused);
+		assert(hpd.allocatedPages.countBits(0, PagesInHugePage) == nused);
 	}
 
-	checkRangeState(0, 0, PageCount);
+	checkRangeState(0, 0, PagesInHugePage);
 
 	// First allocation:
 	assert(hpd.reserve(64) == 0);
-	checkRangeState(1, 64, PageCount - 64);
+	checkRangeState(1, 64, PagesInHugePage - 64);
 
 	// Grow it by 32 pages:
 	assert(hpd.set(64, 32));
-	checkRangeState(1, 96, PageCount - 96);
+	checkRangeState(1, 96, PagesInHugePage - 96);
 
 	// Grow it by another 32 pages:
 	assert(hpd.set(96, 32));
-	checkRangeState(1, 128, PageCount - 128);
+	checkRangeState(1, 128, PagesInHugePage - 128);
 
 	// Second allocation:
 	assert(hpd.reserve(256) == 128);
-	checkRangeState(2, 384, PageCount - 384);
+	checkRangeState(2, 384, PagesInHugePage - 384);
 
 	// Try to grow the first allocation, but cannot, there is no space:
 	assert(!hpd.set(128, 1));
@@ -351,7 +353,7 @@ unittest hugePageDescriptorGrowAllocations {
 
 	// Release first allocation:
 	hpd.release(0, 128);
-	checkRangeState(2, 384, PageCount - 384);
+	checkRangeState(2, 384, PagesInHugePage - 384);
 
 	// Release third allocation:
 	hpd.release(384, 128);
@@ -372,13 +374,13 @@ unittest hugePageDescriptorGrowAllocations {
 
 	// Free the second allocation:
 	hpd.release(128, 257);
-	checkRangeState(0, 0, PageCount);
+	checkRangeState(0, 0, PagesInHugePage);
 
 	// Test with a full HPD:
 
 	// Make an allocation:
 	assert(hpd.reserve(256) == 0);
-	checkRangeState(1, 256, PageCount - 256);
+	checkRangeState(1, 256, PagesInHugePage - 256);
 
 	// Make another allocation, filling hpd:
 	assert(hpd.reserve(256) == 256);
