@@ -25,8 +25,6 @@ private:
 	import d.gc.heap;
 	Node!HugePageDescriptor phnode;
 
-	enum uint PageCount = HugePageSize / PageSize;
-
 	import d.gc.bitmap;
 	Bitmap!PagesInHugePage allocatedPages;
 
@@ -313,7 +311,6 @@ unittest hugePageDescriptorClear {
 }
 
 unittest hugePageDescriptorGrowAllocations {
-	enum PagesInHugePage = HugePageDescriptor.PagesInHugePage;
 	HugePageDescriptor hpd;
 
 	void checkRangeState(uint nalloc, uint nused, uint lfr) {
