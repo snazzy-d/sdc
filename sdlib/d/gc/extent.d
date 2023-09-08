@@ -176,6 +176,14 @@ public:
 	}
 
 	@property
+	uint hpdIndex() const {
+		assert(isHuge() || hpd.address is alignDown(address, HugePageSize));
+		assert(!isHuge() || isAligned(address, HugePageSize));
+
+		return ((cast(size_t) address) / PageSize) % PagesInHugePage;
+	}
+
+	@property
 	ubyte generation() const {
 		return sizeAndGen & 0xff;
 	}

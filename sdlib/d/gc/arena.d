@@ -29,8 +29,7 @@ private:
 
 	ulong filter;
 
-	enum PageCount = HugePageDescriptor.PageCount;
-	enum HeapCount = getAllocClass(PageCount);
+	enum HeapCount = getAllocClass(PagesInHugePage);
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
 	Heap!(HugePageDescriptor, epochHPDCmp)[HeapCount] heaps;
@@ -218,7 +217,7 @@ package:
 
 private:
 	Extent* allocPages(uint pages, ExtentClass ec) shared {
-		assert(pages > 0 && pages <= PageCount, "Invalid page count!");
+		assert(pages > 0 && pages <= PagesInHugePage, "Invalid page count!");
 		auto mask = ulong.max << getAllocClass(pages);
 
 		mutex.lock();
@@ -228,7 +227,7 @@ private:
 	}
 
 	Extent* allocPages(uint pages) shared {
-		if (unlikely(pages > PageCount)) {
+		if (unlikely(pages > PagesInHugePage)) {
 			return allocHuge(pages);
 		}
 
@@ -236,10 +235,10 @@ private:
 	}
 
 	Extent* allocHuge(uint pages) shared {
-		assert(pages > PageCount, "Invalid page count!");
+		assert(pages > PagesInHugePage, "Invalid page count!");
 
-		uint extraPages = (pages - 1) / PageCount;
-		pages = modUp(pages, PageCount);
+		uint extraPages = (pages - 1) / PagesInHugePage;
+		pages = modUp(pages, PagesInHugePage);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -250,15 +249,8 @@ private:
 	void freePages(Extent* e) shared {
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 
-		uint pages = modUp(e.pageCount, PageCount);
-
-		uint n = 0;
-		if (!e.isHuge()) {
-			assert(e.hpd.address is alignDown(e.address, HugePageSize),
-			       "Invalid hpd!");
-
-			n = ((cast(size_t) e.address) / PageSize) % PageCount;
-		}
+		uint n = e.hpdIndex;
+		uint pages = modUp(e.pageCount, PagesInHugePage);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -364,8 +356,9 @@ private:
 
 	void freePagesImpl(Extent* e, uint n, uint pages) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
-		assert(n <= PageCount - pages, "Invalid index!");
+		assert(pages > 0 && pages <= PagesInHugePage,
+		       "Invalid number of pages!");
+		assert(n <= PagesInHugePage - pages, "Invalid index!");
 
 		auto hpd = e.hpd;
 		unregisterHPD(hpd);
@@ -587,9 +580,7 @@ unittest allocHuge {
 	regionAllocator.base = base;
 
 	arena.regionAllocator = &regionAllocator;
-
-	enum uint PageCount = Arena.PageCount;
-	enum uint AllocSize = PageCount + 1;
+	enum uint AllocSize = PagesInHugePage + 1;
 
 	// Allocate a huge extent.
 	auto e0 = arena.allocPages(AllocSize);
@@ -628,10 +619,10 @@ unittest allocHuge {
 	assert(e3.size == PageSize);
 
 	// But allocating just the right size will reuse the region.
-	auto e4 = arena.allocPages(PageCount);
+	auto e4 = arena.allocPages(PagesInHugePage);
 	assert(e4 !is null);
 	assert(e4.address is e0Addr);
-	assert(e4.size == PageCount * PageSize);
+	assert(e4.size == PagesInHugePage * PageSize);
 
 	// Free everything.
 	arena.freePages(e1);

@@ -37,12 +37,14 @@ enum LgHugePageSize = 21;
 enum HugePageSize = One << LgHugePageSize;
 enum HugePageMask = HugePageSize - 1;
 
+enum uint PagesInHugePage = HugePageSize / PageSize;
+
 // Virtual address space.
 enum LgAddressSpace = 48;
 enum AddressSpace = One << LgAddressSpace;
 enum AddressMask = AddressSpace - 1;
 
-// Allocator spêcific config.
+// Allocator specific config.
 enum LgExtentSize = 7;
 enum ExtentSize = One << LgExtentSize;
 enum ExtentAlign = ExtentSize;

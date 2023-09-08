@@ -122,7 +122,7 @@ private:
 			return null;
 		}
 
-		import d.gc.pages;
+		import d.gc.memmap;
 		auto ptr = pages_map(null, size, alignment);
 		if (ptr is null) {
 			freeBlockImpl(block);
@@ -231,7 +231,7 @@ private:
 		auto shift = currentGeneration++;
 		auto size = HugePageSize << shift;
 
-		import d.gc.pages;
+		import d.gc.memmap;
 		auto ptr = pages_map(null, size, size);
 		if (ptr is null) {
 			return false;
@@ -266,7 +266,7 @@ struct Block {
 			auto block = next;
 			next = block.next;
 
-			import d.gc.pages;
+			import d.gc.memmap;
 			pages_unmap(block.addr, block.size);
 		}
 	}

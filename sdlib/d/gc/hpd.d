@@ -19,7 +19,7 @@ private:
 
 	uint allocCount;
 	uint usedCount;
-	uint longestFreeRange = PageCount;
+	uint longestFreeRange = PagesInHugePage;
 	ubyte generation;
 
 	import d.gc.heap;
@@ -28,7 +28,7 @@ private:
 	enum uint PageCount = HugePageSize / PageSize;
 
 	import d.gc.bitmap;
-	Bitmap!PageCount allocatedPages;
+	Bitmap!PagesInHugePage allocatedPages;
 
 	this(void* address, ulong epoch, ubyte generation = 0) {
 		this.address = address;
@@ -61,7 +61,7 @@ public:
 
 	@property
 	bool full() const {
-		return usedCount >= PageCount;
+		return usedCount >= PagesInHugePage;
 	}
 
 	uint reserve(uint pages) {
@@ -75,7 +75,7 @@ public:
 		uint secondLongestLength = 0;
 
 		uint current, index, length;
-		while (current < PageCount
+		while (current < PagesInHugePage
 			       && allocatedPages.nextFreeRange(current, index, length)) {
 			assert(length <= longestFreeRange);
 
@@ -95,7 +95,7 @@ public:
 			current = index + length;
 		}
 
-		assert(bestIndex < PageCount);
+		assert(bestIndex < PagesInHugePage);
 		allocatedPages.setRange(bestIndex, pages);
 
 		// If we allocated from the longest range,
@@ -151,101 +151,99 @@ ptrdiff_t unusedHPDCmp(HugePageDescriptor* lhs, HugePageDescriptor* rhs) {
 }
 
 unittest hugePageDescriptor {
-	enum PageCount = HugePageDescriptor.PageCount;
 	HugePageDescriptor hpd;
 
 	void checkRangeState(uint nalloc, uint nused, uint lfr) {
 		assert(hpd.allocCount == nalloc);
 		assert(hpd.usedCount == nused);
 		assert(hpd.longestFreeRange == lfr);
-		assert(hpd.allocatedPages.countBits(0, PageCount) == nused);
+		assert(hpd.allocatedPages.countBits(0, PagesInHugePage) == nused);
 	}
 
-	checkRangeState(0, 0, PageCount);
+	checkRangeState(0, 0, PagesInHugePage);
 
 	// First allocation.
 	assert(hpd.reserve(5) == 0);
-	checkRangeState(1, 5, PageCount - 5);
+	checkRangeState(1, 5, PagesInHugePage - 5);
 
 	// Second allocation.
 	assert(hpd.reserve(5) == 5);
-	checkRangeState(2, 10, PageCount - 10);
+	checkRangeState(2, 10, PagesInHugePage - 10);
 
 	// Check that freeing the first allocation works as expected.
 	hpd.release(0, 5);
-	checkRangeState(1, 5, PageCount - 10);
+	checkRangeState(1, 5, PagesInHugePage - 10);
 
 	// A new allocation that doesn't fit in the space left
 	// by the first one is done in the trailign space.
 	assert(hpd.reserve(7) == 10);
-	checkRangeState(2, 12, PageCount - 17);
+	checkRangeState(2, 12, PagesInHugePage - 17);
 
 	// A new allocation that fits is allocated in there.
 	assert(hpd.reserve(5) == 0);
-	checkRangeState(3, 17, PageCount - 17);
+	checkRangeState(3, 17, PagesInHugePage - 17);
 
 	// Make sure we keep track of the longest free range
 	// when releasing pages.
 	hpd.release(10, 7);
-	checkRangeState(2, 10, PageCount - 10);
+	checkRangeState(2, 10, PagesInHugePage - 10);
 
 	hpd.release(0, 5);
-	checkRangeState(1, 5, PageCount - 10);
+	checkRangeState(1, 5, PagesInHugePage - 10);
 
 	hpd.release(5, 5);
-	checkRangeState(0, 0, PageCount);
+	checkRangeState(0, 0, PagesInHugePage);
 
 	// Allocate the whole block.
-	foreach (i; 0 .. PageCount / 4) {
+	foreach (i; 0 .. PagesInHugePage / 4) {
 		assert(hpd.reserve(4) == 4 * i);
 	}
 
-	checkRangeState(PageCount / 4, PageCount, 0);
+	checkRangeState(PagesInHugePage / 4, PagesInHugePage, 0);
 
 	// Release in the middle.
 	hpd.release(100, 4);
-	checkRangeState(PageCount / 4 - 1, PageCount - 4, 4);
+	checkRangeState(PagesInHugePage / 4 - 1, PagesInHugePage - 4, 4);
 
 	// Release just before and after.
 	hpd.release(104, 4);
-	checkRangeState(PageCount / 4 - 2, PageCount - 8, 8);
+	checkRangeState(PagesInHugePage / 4 - 2, PagesInHugePage - 8, 8);
 
 	hpd.release(96, 4);
-	checkRangeState(PageCount / 4 - 3, PageCount - 12, 12);
+	checkRangeState(PagesInHugePage / 4 - 3, PagesInHugePage - 12, 12);
 
 	// Release futher along and then bridge.
 	hpd.release(112, 4);
-	checkRangeState(PageCount / 4 - 4, PageCount - 16, 12);
+	checkRangeState(PagesInHugePage / 4 - 4, PagesInHugePage - 16, 12);
 
 	hpd.release(108, 4);
-	checkRangeState(PageCount / 4 - 5, PageCount - 20, 20);
+	checkRangeState(PagesInHugePage / 4 - 5, PagesInHugePage - 20, 20);
 
 	// Release first and last.
 	hpd.release(0, 4);
-	checkRangeState(PageCount / 4 - 6, PageCount - 24, 20);
+	checkRangeState(PagesInHugePage / 4 - 6, PagesInHugePage - 24, 20);
 
-	hpd.release(PageCount - 4, 4);
-	checkRangeState(PageCount / 4 - 7, PageCount - 28, 20);
+	hpd.release(PagesInHugePage - 4, 4);
+	checkRangeState(PagesInHugePage / 4 - 7, PagesInHugePage - 28, 20);
 }
 
 unittest hugePageDescriptorClear {
-	enum PageCount = HugePageDescriptor.PageCount;
 	HugePageDescriptor hpd;
 
 	void checkRangeState(uint nalloc, uint nused, uint lfr) {
 		assert(hpd.allocCount == nalloc);
 		assert(hpd.usedCount == nused);
 		assert(hpd.longestFreeRange == lfr);
-		assert(hpd.allocatedPages.countBits(0, PageCount) == nused);
+		assert(hpd.allocatedPages.countBits(0, PagesInHugePage) == nused);
 	}
 
 	// First allocation.
 	assert(hpd.reserve(200) == 0);
-	checkRangeState(1, 200, PageCount - 200);
+	checkRangeState(1, 200, PagesInHugePage - 200);
 
 	// Second allocation:
 	assert(hpd.reserve(100) == 200);
-	checkRangeState(2, 300, PageCount - 300);
+	checkRangeState(2, 300, PagesInHugePage - 300);
 
 	// Third allocation, and we're full:
 	assert(hpd.reserve(212) == 300);
@@ -253,15 +251,15 @@ unittest hugePageDescriptorClear {
 
 	// Shrink the first allocation, make lfr of 100:
 	hpd.clear(100, 100);
-	checkRangeState(3, 412, PageCount - 412);
+	checkRangeState(3, 412, PagesInHugePage - 412);
 
 	// Shrink the second allocation, lfr is still 100:
 	hpd.clear(299, 1);
-	checkRangeState(3, 411, PageCount - 412);
+	checkRangeState(3, 411, PagesInHugePage - 412);
 
 	// Shrink the third allocation, lfr is still 100:
 	hpd.clear(500, 12);
-	checkRangeState(3, 399, PageCount - 412);
+	checkRangeState(3, 399, PagesInHugePage - 412);
 
 	// Release the third allocation:
 	hpd.release(300, 200);
@@ -269,9 +267,9 @@ unittest hugePageDescriptorClear {
 
 	// Release the second allocation:
 	hpd.release(200, 99);
-	checkRangeState(1, 100, PageCount - 100);
+	checkRangeState(1, 100, PagesInHugePage - 100);
 
 	// Release the first allocation:
 	hpd.release(0, 100);
-	checkRangeState(0, 0, PageCount);
+	checkRangeState(0, 0, PagesInHugePage);
 }
