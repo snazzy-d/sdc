@@ -111,6 +111,44 @@ public:
 		return bestIndex;
 	}
 
+	bool reserveAt(uint index, uint pages) {
+		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
+		assert(index <= PageCount - pages, "Invalid index!");
+
+		if (pages > longestFreeRange) {
+			return false;
+		}
+
+		uint freePos, freeLength;
+		allocatedPages.nextFreeRange(index, freePos, freeLength);
+
+		if ((freePos != index) || (freeLength < pages)) {
+			return false;
+		}
+
+		allocatedPages.setRange(index, pages);
+		usedCount += pages;
+
+		// If allocated from the longest free range, compute the new one:
+		if (freeLength == longestFreeRange) {
+			auto longestFree = longestFreeRange - pages;
+			uint i = 0;
+			while (
+				i < PageCount
+					&& allocatedPages.nextFreeRange(i, freePos, freeLength)) {
+				if (freeLength > longestFree) {
+					longestFree = freeLength;
+				}
+
+				i = freePos + freeLength;
+			}
+
+			longestFreeRange = longestFree;
+		}
+
+		return true;
+	}
+
 	void clear(uint index, uint pages) {
 		// FIXME: in contract.
 		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
@@ -272,4 +310,65 @@ unittest hugePageDescriptorClear {
 	// Release the first allocation:
 	hpd.release(0, 100);
 	checkRangeState(0, 0, PagesInHugePage);
+}
+
+unittest hugePageDescriptorReserveAt {
+	enum PageCount = HugePageDescriptor.PageCount;
+	HugePageDescriptor hpd;
+
+	void checkRangeState(uint nalloc, uint nused, uint lfr) {
+		assert(hpd.allocCount == nalloc);
+		assert(hpd.usedCount == nused);
+		assert(hpd.longestFreeRange == lfr);
+		assert(hpd.allocatedPages.countBits(0, PageCount) == nused);
+	}
+
+	checkRangeState(0, 0, PageCount);
+
+	// First allocation:
+	assert(hpd.reserve(64) == 0);
+	checkRangeState(1, 64, PageCount - 64);
+
+	// Grow it by 32 pages:
+	assert(hpd.reserveAt(64, 32));
+	checkRangeState(1, 96, PageCount - 96);
+
+	// Grow it by another 32 pages:
+	assert(hpd.reserveAt(96, 32));
+	checkRangeState(1, 128, PageCount - 128);
+
+	// Second allocation:
+	assert(hpd.reserve(256) == 128);
+	checkRangeState(2, 384, PageCount - 384);
+
+	// Try to grow the first allocation, but cannot, there is no space:
+	assert(!hpd.reserveAt(128, 1));
+
+	// Third allocation:
+	assert(hpd.reserve(128) == 384);
+	checkRangeState(3, 512, 0);
+
+	// Try to grow the second allocation, but cannot, there is no space:
+	assert(!hpd.reserveAt(384, 1));
+
+	// Release first allocation:
+	hpd.release(0, 128);
+	checkRangeState(2, 384, PageCount - 384);
+
+	// Release third allocation:
+	hpd.release(384, 128);
+	checkRangeState(1, 256, 128);
+
+	// There are now two equally 'longest length' free ranges.
+	// Grow the second allocation to see that lfr is recomputed properly:
+	assert(hpd.reserveAt(384, 1));
+	checkRangeState(1, 257, 128);
+
+	// Make an allocation in the lfr, new lfr is after the second alloc:
+	assert(hpd.reserve(128) == 0);
+	checkRangeState(2, 385, 127);
+
+	// Free the above allocation, lfr is 128 again:
+	hpd.release(0, 128);
+	checkRangeState(1, 257, 128);
 }
