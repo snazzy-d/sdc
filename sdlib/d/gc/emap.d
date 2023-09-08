@@ -28,8 +28,7 @@ public:
 	}
 
 	bool remap(Extent* extent, ExtentClass ec) shared {
-		return tree
-			.setRange(extent.address, extent.size, PageDescriptor(extent, ec));
+		return map(extent.address, extent.size, PageDescriptor(extent, ec));
 	}
 
 	bool remap(Extent* extent) shared {
@@ -38,12 +37,24 @@ public:
 		return remap(extent, ExtentClass.large());
 	}
 
+	bool extend(Extent* extent, size_t size) shared {
+		assert(size > extent.size, "Size must be larger than current size!");
+
+		return map(extent.address + extent.size, size - extent.size,
+		           PageDescriptor(extent, extent.extentClass));
+	}
+
 	void clear(Extent* extent) shared {
 		clear(extent.address, extent.size);
 	}
 
 	void clear(void* address, size_t size) shared {
 		tree.clearRange(address, size);
+	}
+
+private:
+	bool map(void* address, size_t size, PageDescriptor pd) shared {
+		return tree.setRange(address, size, pd);
 	}
 }
 
@@ -210,5 +221,14 @@ unittest ExtentMap {
 	for (auto p = e.address + 3 * PageSize; p < e.address + 5 * PageSize;
 	     p += PageSize) {
 		assert(emap.lookup(p).data == 0);
+	}
+
+	// Extend a range.
+	emap.extend(e, 25 * PageSize);
+	e.at(ptr, 25 * PageSize, null, ec);
+
+	for (auto p = ptr; p < e.address + e.pageCount * PageSize; p += PageSize) {
+		auto getpd = emap.lookup(p);
+		assert(getpd.extent == e);
 	}
 }
