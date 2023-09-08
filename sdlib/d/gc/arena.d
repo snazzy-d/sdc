@@ -29,7 +29,6 @@ private:
 
 	ulong filter;
 
-	enum PagesInHugePage = HugePageDescriptor.PageCount;
 	enum HeapCount = getAllocClass(PagesInHugePage);
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
@@ -519,8 +518,6 @@ unittest allocHuge {
 	regionAllocator.base = base;
 
 	arena.regionAllocator = &regionAllocator;
-
-	enum uint PagesInHugePage = Arena.PagesInHugePage;
 	enum uint AllocSize = PagesInHugePage + 1;
 
 	// Allocate a huge extent.
