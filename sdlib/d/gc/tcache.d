@@ -1,5 +1,6 @@
 module d.gc.tcache;
 
+import d.gc.size;
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;

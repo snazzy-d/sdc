@@ -47,21 +47,6 @@ enum SizeClass {
 
 enum MaxTinySize = ClassCount.Tiny * Quantum;
 
-// Determine whether given size is permitted by allocator.
-bool isAllocatableSize(size_t size) {
-	return size > 0 && size <= MaxAllocationSize;
-}
-
-unittest isAllocatableSize {
-	assert(!isAllocatableSize(0));
-	assert(isAllocatableSize(1));
-	assert(isAllocatableSize(42));
-	assert(isAllocatableSize(99999));
-	assert(isAllocatableSize(MaxAllocationSize));
-	assert(!isAllocatableSize(MaxAllocationSize + 1));
-	assert(!isAllocatableSize(size_t.max));
-}
-
 // Determine whether given size class is considered 'small' (slab-allocatable).
 bool isSmallSizeClass(uint sizeClass) {
 	return sizeClass < ClassCount.Small;
@@ -74,6 +59,7 @@ bool isSmallSize(size_t size) {
 
 // Determine whether given size may fit into a 'large' size class.
 bool isLargeSize(size_t size) {
+	import d.gc.size;
 	return (size > SizeClass.Small) && (size <= MaxAllocationSize);
 }
 
