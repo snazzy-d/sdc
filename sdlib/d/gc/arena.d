@@ -163,8 +163,7 @@ public:
 		uint newPages = computedPageCount & uint.max;
 		assert(newPages == computedPageCount, "Unexpected page count!");
 
-		auto currentSize = e.size;
-		uint oldPages = cast(uint) (currentSize / PageSize);
+		uint oldPages = e.pageCount;
 
 		// Growing is not yet supported:
 		if (newPages >= oldPages) {
@@ -275,7 +274,7 @@ private:
 		       "Invalid hpd!");
 		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
 
-		uint currentPages = cast(uint) (e.size / PageSize);
+		uint currentPages = e.pageCount;
 		assert(currentPages > pages, "Invalid shrink pages!");
 
 		uint delta = currentPages - pages;
