@@ -383,4 +383,19 @@ unittest hugePageDescriptorGrowAllocations {
 
 	// Try expanding the first one, but there is no space :
 	assert(!hpd.set(256, 1));
+
+	// Release the first allocation:
+	hpd.release(0, 256);
+	checkRangeState(1, 256, PagesInHugePage - 256);
+
+	// Replace it with a shorter one:
+	assert(hpd.reserve(250) == 0);
+	checkRangeState(2, 506, PagesInHugePage - 506);
+
+	// Try to grow the above by 7, but cannot, this is one page too many:
+	assert(!hpd.set(250, 7));
+
+	// Grow by 6 works, and fills hpd:
+	assert(hpd.set(250, 6));
+	checkRangeState(2, 512, 0);
 }
