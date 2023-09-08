@@ -25,8 +25,6 @@ private:
 	import d.gc.heap;
 	Node!HugePageDescriptor phnode;
 
-	enum uint PageCount = HugePageSize / PageSize;
-
 	import d.gc.bitmap;
 	Bitmap!PagesInHugePage allocatedPages;
 
@@ -113,8 +111,9 @@ public:
 
 	void clear(uint index, uint pages) {
 		// FIXME: in contract.
-		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
-		assert(index <= PageCount - pages, "Invalid index!");
+		assert(pages > 0 && pages <= PagesInHugePage,
+		       "Invalid number of pages!");
+		assert(index <= PagesInHugePage - pages, "Invalid index!");
 		assert(allocatedPages.findClear(index) >= index + pages);
 
 		allocatedPages.clearRange(index, pages);
