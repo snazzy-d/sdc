@@ -1,4 +1,4 @@
-module d.gc.pages;
+module d.gc.memmap;
 
 import d.gc.spec;
 import d.gc.util;
