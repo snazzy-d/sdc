@@ -242,16 +242,16 @@ public:
 
 		@property
 		uint length() const {
-			return _length;
+			return (_length - index) & (empty - 1);
 		}
 
 		@property
 		bool empty() const {
-			return index >= length;
+			return index >= _length;
 		}
 	}
 
-	Range opIndex() const {
+	Range opSlice() const {
 		return Range(this);
 	}
 
@@ -675,6 +675,19 @@ unittest {
 		foreach (Value e; v[]) {
 			assert(e == expected[i++]);
 		}
+
+		// Check that the length adapts when we pop elements.
+		auto r = v[];
+		assert(r.length == v.length);
+
+		foreach (n; 0 .. v.length) {
+			r.popFront();
+			assert(r.length == v.length - n - 1);
+		}
+
+		// Pop past the end.
+		r.popFront();
+		assert(r.length == 0);
 	}
 
 	Value a = [1, 2, 3, 4, 5];
