@@ -156,16 +156,15 @@ public:
 		}
 
 		import d.gc.size;
-		uint newPages = getPageCount(size);
-		uint oldPages = e.pageCount;
+		uint pages = getPageCount(size);
+		uint currentPageCount = e.pageCount;
 
 		// Growing is not yet supported:
-		if (newPages >= oldPages) {
-			return newPages == oldPages;
+		if (pages >= currentPageCount) {
+			return pages == currentPageCount;
 		}
 
-		shrinkAlloc(emap, e, newPages);
-
+		shrinkAlloc(emap, e, pages);
 		return true;
 	}
 
@@ -255,17 +254,9 @@ private:
 
 	void shrinkAlloc(shared(ExtentMap)* emap, Extent* e, uint pages) shared {
 		assert(!e.isHuge(), "Does not support huge!");
-		assert(isAligned(e.address, PageSize), "Invalid extent address!");
-		assert(isAligned(e.size, PageSize), "Invalid extent size!");
-		assert(e.hpd.address is alignDown(e.address, HugePageSize),
-		       "Invalid hpd!");
-		assert(pages > 0 && pages <= PagesInHugePage,
-		       "Invalid number of pages!");
+		assert(pages > 0 && pages < e.pageCount, "Invalid page count!");
 
-		uint currentPages = e.pageCount;
-		assert(currentPages > pages, "Invalid shrink pages!");
-
-		uint delta = currentPages - pages;
+		uint delta = e.pageCount - pages;
 		uint index = e.hpdIndex + pages;
 
 		auto newSize = pages * PageSize;
@@ -376,7 +367,7 @@ private:
 	void shrinkAllocImpl(Extent* e, uint index, uint pages, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(index > 0 && index <= PagesInHugePage - pages, "Invalid index!");
-		assert(pages > 0 && pages <= PagesInHugePage,
+		assert(pages > 0 && pages <= PagesInHugePage - index,
 		       "Invalid number of pages!");
 		assert(delta > 0, "Invalid delta!");
 
