@@ -394,7 +394,7 @@ private:
 
 	void shrinkAllocImpl(Extent* e, uint index, uint pages, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(index <= PageCount - pages, "Invalid index!");
+		assert(index > 0 && index <= PageCount - pages, "Invalid index!");
 		assert(pages > 0 && pages <= PageCount, "Invalid number of pages!");
 		assert(delta > 0, "Invalid delta!");
 
