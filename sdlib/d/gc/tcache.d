@@ -99,12 +99,13 @@ public:
 			}
 		} else {
 			auto esize = pd.extent.size;
-			if (samePointerness && alignUp(size, PageSize) == esize) {
+			if (samePointerness && (alignUp(size, PageSize) == esize
+				    || (isLargeSize(size)
+					    && pd.arena.resizeLarge(emap, pd.extent, size)))) {
 				pd.extent.setUsedCapacity(size);
 				return ptr;
 			}
 
-			// TODO: Try to extend/shrink in place.
 			import d.gc.util;
 			copySize = min(size, pd.extent.usedCapacity);
 		}
@@ -441,13 +442,19 @@ unittest getCapacity {
 	assert(threadCache.getCapacity(p3[0 .. 20000]) == 0);
 	assert(threadCache.getCapacity(p3[0 .. 20001]) == 20480);
 
+	// This realloc happens in-place:
 	auto p4 = threadCache.realloc(p3, 16000, false);
-	assert(p4 !is p3);
+	assert(p4 is p3);
 	assert(threadCache.getCapacity(p4[0 .. 16000]) == 16384);
 
+	// This one, not:
 	auto p5 = threadCache.realloc(p4, 20000, false);
 	assert(p5 !is p4);
 	assert(threadCache.getCapacity(p5[0 .. 20000]) == 20480);
+
+	// Realloc from large to small size class results in new allocation:
+	auto p6 = threadCache.realloc(p5, 100, false);
+	assert(p6 !is p5);
 }
 
 unittest extend {
