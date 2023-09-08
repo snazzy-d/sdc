@@ -451,6 +451,10 @@ unittest getCapacity {
 	auto p5 = threadCache.realloc(p4, 20000, false);
 	assert(p5 !is p4);
 	assert(threadCache.getCapacity(p5[0 .. 20000]) == 20480);
+
+	// Realloc from large to small size class results in new allocation:
+	auto p6 = threadCache.realloc(p5, 100, false);
+	assert(p6 !is p5);
 }
 
 unittest extend {

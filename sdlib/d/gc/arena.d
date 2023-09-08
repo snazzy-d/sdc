@@ -155,10 +155,8 @@ public:
 			return false;
 		}
 
-		auto computedPageCount = alignUp(size, PageSize) / PageSize;
-		uint newPages = computedPageCount & uint.max;
-		assert(newPages == computedPageCount, "Unexpected page count!");
-
+		import d.gc.size;
+		uint newPages = getPageCount(size);
 		uint oldPages = e.pageCount;
 
 		// Growing is not yet supported:
