@@ -136,6 +136,7 @@ public:
 		// If allocated from the longest free range, compute the new one:
 		auto longestFree = longestFreeRange - pages;
 		uint i = 0;
+		// FIXME: could stop at PageCount - longestFree
 		while (i < PageCount
 			       && allocatedPages.nextFreeRange(i, freePos, freeLength)) {
 			if (freeLength > longestFree) {
@@ -313,7 +314,7 @@ unittest hugePageDescriptorClear {
 	checkRangeState(0, 0, PagesInHugePage);
 }
 
-unittest hugePageDescriptorReserveAt {
+unittest hugePageDescriptorGrowAllocations {
 	enum PageCount = HugePageDescriptor.PageCount;
 	HugePageDescriptor hpd;
 
