@@ -369,4 +369,21 @@ unittest hugePageDescriptorGrowAllocations {
 	// Free the above allocation, lfr is 128 again:
 	hpd.release(0, 128);
 	checkRangeState(1, 257, 128);
+
+	// Free the second allocation:
+	hpd.release(128, 257);
+	checkRangeState(0, 0, PageCount);
+
+	// Test with a full HPD:
+
+	// Make an allocation:
+	assert(hpd.reserve(256) == 0);
+	checkRangeState(1, 256, PageCount - 256);
+
+	// Make another allocation, filling hpd:
+	assert(hpd.reserve(256) == 256);
+	checkRangeState(2, 512, 0);
+
+	// Try expanding the first one, but there is no space :
+	assert(!hpd.set(256, 1));
 }
