@@ -276,12 +276,14 @@ private:
 		assert(!e.isHuge(), "Does not support huge!");
 		assert(pages > 0 && pages > e.pageCount, "Invalid page count!");
 
-		uint delta = pages - e.pageCount;
-		uint index = e.hpdIndex + e.pageCount;
+		auto n = e.hpdIndex;
 
-		if (index + delta > PagesInHugePage) {
+		if (n + pages > PagesInHugePage) {
 			return false;
 		}
+
+		uint delta = pages - e.pageCount;
+		uint index = n + e.pageCount;
 
 		auto prevEnd = e.address + e.size;
 
@@ -295,9 +297,8 @@ private:
 			return false;
 		}
 
-		auto addedSize = delta * PageSize;
-
-		if (emap.map(prevEnd, addedSize, PageDescriptor(e, e.extentClass))) {
+		if (emap.map(prevEnd, delta * PageSize,
+		             PageDescriptor(e, e.extentClass))) {
 			return true;
 		}
 
