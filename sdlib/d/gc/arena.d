@@ -876,6 +876,17 @@ unittest resizeLargeGrow {
 	assert(pd0.extent.address is ptr0);
 	assert(pd0.extent.size == 44 * PageSize);
 
+	// Confirm that the extent correctly grew and remapped:
+	for (auto p = pd0.extent.address; p < pd0.extent.address + pd0.extent.size;
+	     p += PageSize) {
+		auto pd0probe = emap.lookup(p);
+		assert(pd0probe.extent == pd0.extent);
+	}
+
+	// Confirm that the page after the end of the extent is not included in the map:
+	auto pd0after = emap.lookup(pd0.extent.address + pd0.extent.size);
+	assert(pd0after.extent is null);
+
 	// Try to grow allocation 0 but fail:
 	assert(!arena.resizeLarge(&emap, pd0.extent, uint.max * PageSize));
 	assert(!arena.resizeLarge(&emap, pd0.extent, 9999 * PageSize));
