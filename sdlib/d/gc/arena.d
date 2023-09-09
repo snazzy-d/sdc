@@ -851,11 +851,11 @@ unittest resizeLargeGrow {
 
 	// Allocation 1: 64 pages:
 	auto pd1 = makeAllocLarge(64);
-	assert(pd1.extent.hpd == pd0.extent.hpd);
+	assert(pd1.extent.address == pd0.extent.address + pd0.extent.size);
 
 	// Allocation 2: 128 pages:
 	auto pd2 = makeAllocLarge(128);
-	assert(pd2.extent.hpd == pd1.extent.hpd);
+	assert(pd2.extent.address == pd1.extent.address + pd1.extent.size);
 
 	// Try to grow allocation 0, but cannot, there is no space to grow:
 	assert(!arena.resizeLarge(&emap, pd0.extent, 36 * PageSize));
@@ -875,7 +875,6 @@ unittest resizeLargeGrow {
 	// Grow allocation 0:
 	checkGrowLarge(pd0, 44);
 
-	// Confirm that the extent correctly grew and remapped:
 	// Confirm that the extent correctly grew and remapped:
 	auto pd0x = pd0;
 	for (auto p = pd0.extent.address; p < pd0.extent.address + pd0.extent.size;
