@@ -422,7 +422,7 @@ private:
 	bool growAllocImpl(Extent* e, uint index, uint pages, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(index > 0 && index <= PagesInHugePage - delta, "Invalid index!");
-		assert(pages > 0 && pages <= PagesInHugePage - 1,
+		assert(pages > 0 && pages <= PagesInHugePage,
 		       "Invalid number of pages!");
 		assert(delta > 0, "Invalid delta!");
 
@@ -885,6 +885,20 @@ unittest resizeLargeGrow {
 	assert(arena.resizeLarge(&emap, pd0.extent, 99 * PageSize));
 	assert(pd0.extent.address is ptr0);
 	assert(pd0.extent.size == 99 * PageSize);
+
+	// Confirm that hpd is full:
+	assert(pd0.extent.hpd.full);
+
+	// Free allocation 2:
+	arena.free(&emap, pd2, ptr2);
+
+	// Confirm that hpd is not full:
+	assert(!pd0.extent.hpd.full);
+
+	// Grow allocation 0 to fill hpd :
+	assert(arena.resizeLarge(&emap, pd0.extent, 512 * PageSize));
+	assert(pd0.extent.address is ptr0);
+	assert(pd0.extent.size == 512 * PageSize);
 
 	// Confirm that hpd is full:
 	assert(pd0.extent.hpd.full);
