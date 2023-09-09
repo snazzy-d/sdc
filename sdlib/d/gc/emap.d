@@ -232,7 +232,7 @@ unittest ExtentMap {
 	pd = PageDescriptor(e, ec);
 
 	e.at(ptr, 40 * PageSize, null, ec);
-	emap.enlarge(ptr + 5 * PageSize, 35 * PageSize);
+	assert(emap.enlarge(ptr + 5 * PageSize, 35 * PageSize));
 
 	for (auto p = ptr; p < e.address + e.size; p += PageSize) {
 		auto getpd = emap.lookup(p);
