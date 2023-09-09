@@ -284,7 +284,6 @@ private:
 
 		uint delta = pages - e.pageCount;
 		uint index = n + e.pageCount;
-
 		auto prevEnd = e.address + e.size;
 
 		mutex.lock();
