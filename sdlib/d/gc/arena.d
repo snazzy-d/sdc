@@ -298,8 +298,7 @@ private:
 			}
 		}
 
-		if (emap.map(prevEnd, delta * PageSize,
-		             PageDescriptor(e, e.extentClass))) {
+		if (emap.enlarge(prevEnd, delta * PageSize)) {
 			return true;
 		}
 
@@ -833,7 +832,7 @@ unittest resizeLargeGrow {
 
 	arena.regionAllocator = &regionAllocator;
 
-	PageDescriptor test_alloc_large(uint pages) {
+	PageDescriptor makeAllocLarge(uint pages) {
 		auto ptr = arena.allocLarge(&emap, pages * PageSize);
 		assert(ptr !is null);
 		auto pd = emap.lookup(ptr);
@@ -842,20 +841,20 @@ unittest resizeLargeGrow {
 		return pd;
 	}
 
-	void test_grow_large(PageDescriptor pd, uint pages) {
+	void checkGrowLarge(PageDescriptor pd, uint pages) {
 		assert(arena.resizeLarge(&emap, pd.extent, pages * PageSize));
 		assert(pd.extent.size == pages * PageSize);
 	}
 
 	// Allocation 0: 35 pages:
-	auto pd0 = test_alloc_large(35);
+	auto pd0 = makeAllocLarge(35);
 
 	// Allocation 1: 64 pages:
-	auto pd1 = test_alloc_large(64);
+	auto pd1 = makeAllocLarge(64);
 	assert(pd1.extent.hpd == pd0.extent.hpd);
 
 	// Allocation 2: 128 pages:
-	auto pd2 = test_alloc_large(128);
+	auto pd2 = makeAllocLarge(128);
 	assert(pd2.extent.hpd == pd1.extent.hpd);
 
 	// Try to grow allocation 0, but cannot, there is no space to grow:
@@ -868,19 +867,23 @@ unittest resizeLargeGrow {
 	assert(!arena.resizeLarge(&emap, pd2.extent, 414 * PageSize));
 
 	// Grow allocation 2 successfully by 413 pages:
-	test_grow_large(pd2, 413);
+	checkGrowLarge(pd2, 413);
 
 	// Free allocation 1:
 	arena.free(&emap, pd1, pd1.extent.address);
 
 	// Grow allocation 0:
-	test_grow_large(pd0, 44);
+	checkGrowLarge(pd0, 44);
 
 	// Confirm that the extent correctly grew and remapped:
+	// Confirm that the extent correctly grew and remapped:
+	auto pd0x = pd0;
 	for (auto p = pd0.extent.address; p < pd0.extent.address + pd0.extent.size;
 	     p += PageSize) {
 		auto pd0probe = emap.lookup(p);
 		assert(pd0probe.extent == pd0.extent);
+		assert(emap.lookup(p).data == pd0x.data);
+		pd0x = pd0x.next();
 	}
 
 	// Confirm that the page after the end of the extent is not included in the map:
@@ -893,7 +896,7 @@ unittest resizeLargeGrow {
 	assert(!arena.resizeLarge(&emap, pd0.extent, 100 * PageSize));
 
 	// Grow allocation 0 to largest size for which there is room :
-	test_grow_large(pd0, 99);
+	checkGrowLarge(pd0, 99);
 
 	// Confirm that hpd is full:
 	assert(pd0.extent.hpd.full);
@@ -905,7 +908,7 @@ unittest resizeLargeGrow {
 	assert(!pd0.extent.hpd.full);
 
 	// Grow allocation 0 to fill hpd :
-	test_grow_large(pd0, 512);
+	checkGrowLarge(pd0, 512);
 
 	// Confirm that hpd is full:
 	assert(pd0.extent.hpd.full);
