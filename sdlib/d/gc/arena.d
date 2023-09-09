@@ -833,28 +833,30 @@ unittest resizeLargeGrow {
 
 	arena.regionAllocator = &regionAllocator;
 
+	PageDescriptor test_alloc_large(uint pages) {
+		auto ptr = arena.allocLarge(&emap, pages * PageSize);
+		assert(ptr !is null);
+		auto pd = emap.lookup(ptr);
+		assert(pd.extent.address is ptr);
+		assert(pd.extent.size == pages * PageSize);
+		return pd;
+	}
+
+	void test_grow_large(PageDescriptor pd, uint pages) {
+		assert(arena.resizeLarge(&emap, pd.extent, pages * PageSize));
+		assert(pd.extent.size == pages * PageSize);
+	}
+
 	// Allocation 0: 35 pages:
-	auto ptr0 = arena.allocLarge(&emap, 35 * PageSize);
-	assert(ptr0 !is null);
-	auto pd0 = emap.lookup(ptr0);
-	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.size == 35 * PageSize);
+	auto pd0 = test_alloc_large(35);
 
 	// Allocation 1: 64 pages:
-	auto ptr1 = arena.allocLarge(&emap, 64 * PageSize);
-	assert(ptr1 !is null);
-	auto pd1 = emap.lookup(ptr1);
+	auto pd1 = test_alloc_large(64);
 	assert(pd1.extent.hpd == pd0.extent.hpd);
-	assert(pd1.extent.address is ptr1);
-	assert(pd1.extent.size == 64 * PageSize);
 
 	// Allocation 2: 128 pages:
-	auto ptr2 = arena.allocLarge(&emap, 128 * PageSize);
-	assert(ptr2 !is null);
-	auto pd2 = emap.lookup(ptr2);
+	auto pd2 = test_alloc_large(128);
 	assert(pd2.extent.hpd == pd1.extent.hpd);
-	assert(pd2.extent.address is ptr2);
-	assert(pd2.extent.size == 128 * PageSize);
 
 	// Try to grow allocation 0, but cannot, there is no space to grow:
 	assert(!arena.resizeLarge(&emap, pd0.extent, 36 * PageSize));
@@ -866,17 +868,13 @@ unittest resizeLargeGrow {
 	assert(!arena.resizeLarge(&emap, pd2.extent, 414 * PageSize));
 
 	// Grow allocation 2 successfully by 413 pages:
-	assert(arena.resizeLarge(&emap, pd2.extent, 413 * PageSize));
-	assert(pd2.extent.address is ptr2);
-	assert(pd2.extent.size == 413 * PageSize);
+	test_grow_large(pd2, 413);
 
 	// Free allocation 1:
-	arena.free(&emap, pd1, ptr1);
+	arena.free(&emap, pd1, pd1.extent.address);
 
 	// Grow allocation 0:
-	assert(arena.resizeLarge(&emap, pd0.extent, 44 * PageSize));
-	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.size == 44 * PageSize);
+	test_grow_large(pd0, 44);
 
 	// Confirm that the extent correctly grew and remapped:
 	for (auto p = pd0.extent.address; p < pd0.extent.address + pd0.extent.size;
@@ -895,27 +893,23 @@ unittest resizeLargeGrow {
 	assert(!arena.resizeLarge(&emap, pd0.extent, 100 * PageSize));
 
 	// Grow allocation 0 to largest size for which there is room :
-	assert(arena.resizeLarge(&emap, pd0.extent, 99 * PageSize));
-	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.size == 99 * PageSize);
+	test_grow_large(pd0, 99);
 
 	// Confirm that hpd is full:
 	assert(pd0.extent.hpd.full);
 
 	// Free allocation 2:
-	arena.free(&emap, pd2, ptr2);
+	arena.free(&emap, pd2, pd2.extent.address);
 
 	// Confirm that hpd is not full:
 	assert(!pd0.extent.hpd.full);
 
 	// Grow allocation 0 to fill hpd :
-	assert(arena.resizeLarge(&emap, pd0.extent, 512 * PageSize));
-	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.size == 512 * PageSize);
+	test_grow_large(pd0, 512);
 
 	// Confirm that hpd is full:
 	assert(pd0.extent.hpd.full);
 
 	// Free allocation 0:
-	arena.free(&emap, pd0, ptr0);
+	arena.free(&emap, pd0, pd0.extent.address);
 }
