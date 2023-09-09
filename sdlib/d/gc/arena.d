@@ -274,7 +274,7 @@ private:
 
 	bool growAlloc(shared(ExtentMap)* emap, Extent* e, uint pages) shared {
 		assert(!e.isHuge(), "Does not support huge!");
-		assert(pages > 0 && pages > e.pageCount, "Invalid page count!");
+		assert(pages > e.pageCount, "Invalid page count!");
 
 		auto n = e.hpdIndex;
 
