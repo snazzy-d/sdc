@@ -27,9 +27,12 @@ public:
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
+	bool map(void* address, size_t size, PageDescriptor pd) shared {
+		return tree.setRange(address, size, pd);
+	}
+
 	bool remap(Extent* extent, ExtentClass ec) shared {
-		return tree
-			.setRange(extent.address, extent.size, PageDescriptor(extent, ec));
+		return map(extent.address, extent.size, PageDescriptor(extent, ec));
 	}
 
 	bool remap(Extent* extent) shared {

@@ -447,9 +447,9 @@ unittest getCapacity {
 	assert(p4 is p3);
 	assert(threadCache.getCapacity(p4[0 .. 16000]) == 16384);
 
-	// This one, not:
+	// This one similarly happens in-place:
 	auto p5 = threadCache.realloc(p4, 20000, false);
-	assert(p5 !is p4);
+	assert(p5 is p4);
 	assert(threadCache.getCapacity(p5[0 .. 20000]) == 20480);
 
 	// Realloc from large to small size class results in new allocation:
