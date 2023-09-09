@@ -902,4 +902,7 @@ unittest resizeLargeGrow {
 
 	// Confirm that hpd is full:
 	assert(pd0.extent.hpd.full);
+
+	// Free allocation 0:
+	arena.free(&emap, pd0, ptr0);
 }
