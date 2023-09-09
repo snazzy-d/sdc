@@ -286,14 +286,14 @@ private:
 		uint index = n + e.pageCount;
 		auto prevEnd = e.address + e.size;
 
-		mutex.lock();
-		// Try to grow:
-		auto didGrow =
-			(cast(Arena*) &this).growAllocImpl(e, index, pages, delta);
-		mutex.unlock();
+		{
+			mutex.lock();
+			scope(exit) mutex.unlock();
 
-		if (!didGrow) {
-			return false;
+			// Try to grow:
+			if (!(cast(Arena*) &this).growAllocImpl(e, index, pages, delta)) {
+				return false;
+			}
 		}
 
 		if (emap.map(prevEnd, delta * PageSize,
