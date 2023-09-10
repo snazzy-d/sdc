@@ -29,10 +29,7 @@ public:
 
 	bool enlarge(void* address, size_t size) shared {
 		auto lastPd = lookup(address - PageSize);
-
-		if (lastPd.extent is null) {
-			return false;
-		}
+		assert(lastPd.extent !is null, "Nothing mapped at address!");
 
 		return map(address, size, lastPd.next());
 	}
