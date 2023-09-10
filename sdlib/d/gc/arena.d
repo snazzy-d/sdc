@@ -844,6 +844,19 @@ unittest resizeLargeGrow {
 	void checkGrowLarge(PageDescriptor pd, uint pages) {
 		assert(arena.resizeLarge(&emap, pd.extent, pages * PageSize));
 		assert(pd.extent.size == pages * PageSize);
+
+		// Confirm that the page after the end of the extent is not included in the map:
+		auto pdAfter = emap.lookup(pd.extent.address + pd.extent.size);
+		assert(pdAfter.extent !is pd.extent);
+
+		// Confirm that the extent correctly grew and remapped:
+		for (auto p = pd.extent.address; p < pd.extent.address + pd.extent.size;
+		     p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent == pd.extent);
+			assert(probe.data == pd.data);
+			pd = pd.next();
+		}
 	}
 
 	// Allocation 0: 35 pages:
@@ -874,20 +887,6 @@ unittest resizeLargeGrow {
 
 	// Grow allocation 0:
 	checkGrowLarge(pd0, 44);
-
-	// Confirm that the extent correctly grew and remapped:
-	auto pd0x = pd0;
-	for (auto p = pd0.extent.address; p < pd0.extent.address + pd0.extent.size;
-	     p += PageSize) {
-		auto pd0probe = emap.lookup(p);
-		assert(pd0probe.extent == pd0.extent);
-		assert(emap.lookup(p).data == pd0x.data);
-		pd0x = pd0x.next();
-	}
-
-	// Confirm that the page after the end of the extent is not included in the map:
-	auto pd0after = emap.lookup(pd0.extent.address + pd0.extent.size);
-	assert(pd0after.extent is null);
 
 	// Try to grow allocation 0 but fail:
 	assert(!arena.resizeLarge(&emap, pd0.extent, uint.max * PageSize));
