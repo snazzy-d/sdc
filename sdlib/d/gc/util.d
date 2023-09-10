@@ -313,7 +313,7 @@ void storeBigEndian(void* ptr, ushort x) {
 ushort readPackedU15(void* ptr) {
 	auto data = loadBigEndian(ptr);
 	auto mask = 0x7f | -(data & 1);
-	return (data >>> 1) & mask;
+	return (data >> 1) & mask;
 }
 
 void writePackedU15(void* ptr, ushort x) {
