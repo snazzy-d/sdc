@@ -842,17 +842,17 @@ unittest resizeLargeGrow {
 	}
 
 	void checkGrowLarge(PageDescriptor pd, uint pages) {
-		assert(arena.resizeLarge(&emap, pd.extent, pages * PageSize));
-		assert(pd.extent.size == pages * PageSize);
+		auto e = pd.extent;
+
+		assert(arena.resizeLarge(&emap, e, pages * PageSize));
+		assert(e.size == pages * PageSize);
 
 		// Confirm that the page after the end of the extent is not included in the map:
-		auto pdAfter = emap.lookup(pd.extent.address + pd.extent.size);
-		assert(pdAfter.extent !is pd.extent);
+		auto pdAfter = emap.lookup(e.address + e.size);
+		assert(pdAfter.extent !is e);
 
 		// Confirm that the extent correctly grew and remapped:
-		auto e = pd.extent;
-		for (auto p = pd.extent.address; p < pd.extent.address + pd.extent.size;
-		     p += PageSize) {
+		for (auto p = e.address; p < e.address + e.size; p += PageSize) {
 			auto probe = emap.lookup(p);
 			assert(probe.extent == e);
 			assert(probe.data == pd.data);
