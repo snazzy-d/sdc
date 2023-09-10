@@ -298,7 +298,6 @@ ushort loadBigEndian(void* ptr) {
 
 void storeBigEndian(void* ptr, ushort x) {
 	import sdc.intrinsics;
-
 	*(cast(ushort*) ptr) = bswap(x);
 }
 
