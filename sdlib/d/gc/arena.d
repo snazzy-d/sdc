@@ -850,11 +850,11 @@ unittest resizeLargeGrow {
 		assert(pdAfter.extent !is pd.extent);
 
 		// Confirm that the extent correctly grew and remapped:
-		auto pdBase = pd;
+		auto e = pd.extent;
 		for (auto p = pd.extent.address; p < pd.extent.address + pd.extent.size;
 		     p += PageSize) {
 			auto probe = emap.lookup(p);
-			assert(probe.extent == pdBase.extent);
+			assert(probe.extent == e);
 			assert(probe.data == pd.data);
 			pd = pd.next();
 		}
