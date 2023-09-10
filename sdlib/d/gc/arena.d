@@ -298,7 +298,7 @@ private:
 			}
 		}
 
-		if (emap.enlarge(prevEnd, delta * PageSize)) {
+		if (emap.extend(prevEnd, delta * PageSize)) {
 			return true;
 		}
 

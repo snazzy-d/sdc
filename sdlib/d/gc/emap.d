@@ -27,7 +27,7 @@ public:
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
-	bool enlarge(void* address, size_t size) shared {
+	bool extend(void* address, size_t size) shared {
 		auto lastPd = lookup(address - PageSize);
 		assert(lastPd.extent !is null, "Nothing mapped before address!");
 
@@ -223,13 +223,13 @@ unittest ExtentMap {
 		assert(emap.lookup(p).data == 0);
 	}
 
-	// Enlarge a range.
+	// Extend a range.
 	e.at(ptr, 5 * PageSize, null, ec);
 	emap.remap(e, ec);
 	pd = PageDescriptor(e, ec);
 
 	e.at(ptr, 40 * PageSize, null, ec);
-	assert(emap.enlarge(ptr + 5 * PageSize, 35 * PageSize));
+	assert(emap.extend(ptr + 5 * PageSize, 35 * PageSize));
 
 	for (auto p = ptr; p < e.address + e.size; p += PageSize) {
 		auto getpd = emap.lookup(p);
