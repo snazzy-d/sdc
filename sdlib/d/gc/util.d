@@ -288,3 +288,57 @@ unittest alignUp {
 		}
 	}
 }
+
+// FIXME: detect that we're actually on a little-endian machine:
+
+ushort loadBigEndian(void* ptr) {
+	import sdc.intrinsics;
+	return bswap(*(cast(ushort*) ptr));
+}
+
+void storeBigEndian(void* ptr, ushort x) {
+	import sdc.intrinsics;
+
+	*(cast(ushort*) ptr) = bswap(x);
+}
+
+/**
+ * A 'packedU15' represents a 15-bit unsigned integer residing in one or two bytes:
+ *
+ * /-------- ptr --------\ /------ ptr + 1 ------\
+ * B7 B6 B5 B4 B3 B2 B1 B0 A7 A6 A5 A4 A3 A2 A1 A0
+ * \_________15 bits unsigned integer_________/  \_ Set if and only if B0..B7 used.
+ */
+
+ushort readPackedU15(void* ptr) {
+	auto data = loadBigEndian(ptr);
+	auto mask = 0x7f | -(data & 1);
+	return (data >>> 1) & mask;
+}
+
+void writePackedU15(void* ptr, ushort x) {
+	auto base = cast(ushort) ((x << 1) | (x > 0x7f));
+	auto mask = (0 - (x > 0x7f)) | 0xff;
+
+	auto current = loadBigEndian(ptr);
+	auto delta = (current ^ base) & mask;
+	auto value = current ^ delta;
+
+	storeBigEndian(ptr, value & ushort.max);
+}
+
+unittest PackedU15 {
+	ubyte[2] a;
+	foreach (ushort i; 0 .. 0x8000) {
+		writePackedU15(a.ptr, i);
+		assert(readPackedU15(a.ptr) == i);
+	}
+
+	foreach (x; 0 .. 256) {
+		a[0] = 0xff & x;
+		foreach (ubyte y; 0 .. 0x80) {
+			writePackedU15(a.ptr, y);
+			assert(a[0] == x);
+		}
+	}
+}
