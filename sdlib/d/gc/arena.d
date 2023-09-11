@@ -298,7 +298,12 @@ private:
 			}
 		}
 
-		if (emap.extend(prevEnd, delta * PageSize)) {
+		// Map the new pages:
+		auto lastIndex = currPages & 0xF;
+		auto mapAddr = e.address + (currPages - lastIndex) * PageSize;
+		auto mapSize = (delta + lastIndex) * PageSize;
+
+		if (emap.map(mapAddr, mapSize, PageDescriptor(e, e.extentClass))) {
 			return true;
 		}
 
@@ -437,7 +442,6 @@ private:
 		}
 
 		if (!hpd.full) {
-			assert(!hpd.empty);
 			registerHPD(hpd);
 		}
 

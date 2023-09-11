@@ -27,13 +27,6 @@ public:
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
-	bool extend(void* address, size_t size) shared {
-		auto lastPd = lookup(address - PageSize);
-		assert(lastPd.extent !is null, "Nothing mapped before address!");
-
-		return map(address, size, lastPd.next());
-	}
-
 	bool remap(Extent* extent, ExtentClass ec) shared {
 		return map(extent.address, extent.size, PageDescriptor(extent, ec));
 	}
@@ -44,17 +37,16 @@ public:
 		return remap(extent, ExtentClass.large());
 	}
 
+	bool map(void* address, size_t size, PageDescriptor pd) shared {
+		return tree.setRange(address, size, pd);
+	}
+
 	void clear(Extent* extent) shared {
 		clear(extent.address, extent.size);
 	}
 
 	void clear(void* address, size_t size) shared {
 		tree.clearRange(address, size);
-	}
-
-private:
-	bool map(void* address, size_t size, PageDescriptor pd) shared {
-		return tree.setRange(address, size, pd);
 	}
 }
 
@@ -221,20 +213,5 @@ unittest ExtentMap {
 	for (auto p = e.address + 3 * PageSize; p < e.address + 5 * PageSize;
 	     p += PageSize) {
 		assert(emap.lookup(p).data == 0);
-	}
-
-	// Extend a range.
-	e.at(ptr, 5 * PageSize, null, ec);
-	emap.remap(e, ec);
-	pd = PageDescriptor(e, ec);
-
-	e.at(ptr, 40 * PageSize, null, ec);
-	assert(emap.extend(ptr + 5 * PageSize, 35 * PageSize));
-
-	for (auto p = ptr; p < e.address + e.size; p += PageSize) {
-		auto getpd = emap.lookup(p);
-		assert(getpd.extent == e);
-		assert(emap.lookup(p).data == pd.data);
-		pd = pd.next();
 	}
 }
