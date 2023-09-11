@@ -302,7 +302,7 @@ private:
 		auto mapAddr = e.address + origPages * PageSize;
 		auto pd = PageDescriptor(e, e.extentClass);
 
-		if (emap.map(mapAddr, delta * PageSize, pd.addIndex(pdIndex))) {
+		if (emap.map(mapAddr, delta * PageSize, pd.next(pdIndex))) {
 			return true;
 		}
 

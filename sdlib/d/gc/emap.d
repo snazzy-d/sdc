@@ -107,13 +107,8 @@ public:
 		return data >> 60;
 	}
 
-	auto next() const {
-		enum Increment = 1UL << 60;
-		return PageDescriptor(data + Increment);
-	}
-
-	auto addIndex(ulong x) const {
-		auto Increment = (x & 0xf) << 60;
+	auto next(uint pages = 1) const {
+		ulong Increment = pages << 60;
 		return PageDescriptor(data + Increment);
 	}
 
