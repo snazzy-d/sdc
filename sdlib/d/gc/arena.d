@@ -298,9 +298,9 @@ private:
 		}
 
 		// Map the new pages:
-		auto lastIndex = origPages & 0xF;
-		auto mapAddr = e.address + (origPages - lastIndex) * PageSize;
-		auto mapSize = (delta + lastIndex) * PageSize;
+		auto lastPdIndex = origPages & 0xF;
+		auto mapAddr = e.address + (origPages - lastPdIndex) * PageSize;
+		auto mapSize = (delta + lastPdIndex) * PageSize;
 
 		if (emap.map(mapAddr, mapSize, PageDescriptor(e, e.extentClass))) {
 			return true;
