@@ -293,10 +293,10 @@ unittest alignUp {
 
 T loadBigEndian(T)(T* ptr) {
 	import sdc.intrinsics;
-	return bswap(*(cast(T*) ptr));
+	return bswap(*ptr);
 }
 
 void storeBigEndian(T)(T* ptr, T x) {
 	import sdc.intrinsics;
-	*(cast(T*) ptr) = bswap(x);
+	*ptr = bswap(x);
 }
