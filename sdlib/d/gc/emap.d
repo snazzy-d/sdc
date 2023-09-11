@@ -107,7 +107,7 @@ public:
 		return data >> 60;
 	}
 
-	auto next(uint pages = 1) const {
+	auto next(ulong pages = 1) const {
 		ulong Increment = pages << 60;
 		return PageDescriptor(data + Increment);
 	}
