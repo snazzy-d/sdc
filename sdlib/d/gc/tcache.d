@@ -314,6 +314,52 @@ private:
 
 private:
 
+/**
+ * Packed Free Space is stored as a 15-bit unsigned integer, in one or two bytes:
+ *
+ * /---- byte at ptr ----\ /-- byte at ptr + 1 --\
+ * B7 B6 B5 B4 B3 B2 B1 B0 A7 A6 A5 A4 A3 A2 A1 A0
+ * \_________15 bits unsigned integer_________/  \_ Set if and only if B0..B7 used.
+ */
+
+ushort readPackedFreeSpace(ushort* ptr) {
+	auto data = loadBigEndian(ptr);
+	auto mask = 0x7f | -(data & 1);
+	return (data >> 1) & mask;
+}
+
+void writePackedFreeSpace(ushort* ptr, ushort x) {
+	assert(x < 0x8000, "x does not fit in 15 bits!");
+
+	auto base = cast(ushort) ((x << 1) | (x > 0x7f));
+	auto mask = (0 - (x > 0x7f)) | 0xff;
+
+	auto current = loadBigEndian(ptr);
+	auto delta = (current ^ base) & mask;
+	auto value = current ^ delta;
+
+	storeBigEndian(ptr, cast(ushort) (value & ushort.max));
+}
+
+unittest PackedFreeSpace {
+	ubyte[2] a;
+	foreach (ushort i; 0 .. 0x8000) {
+		auto p = cast(ushort*) a.ptr;
+		writePackedFreeSpace(p, i);
+		assert(readPackedFreeSpace(p) == i);
+	}
+
+	foreach (x; 0 .. 256) {
+		a[0] = 0xff & x;
+		foreach (ubyte y; 0 .. 0x80) {
+			auto p = cast(ushort*) a.ptr;
+			writePackedFreeSpace(p, y);
+			assert(readPackedFreeSpace(p) == y);
+			assert(a[0] == x);
+		}
+	}
+}
+
 extern(C):
 version(OSX) {
 	// For some reason OSX's symbol get a _ prepended.
