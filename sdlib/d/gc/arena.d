@@ -286,7 +286,6 @@ private:
 
 		uint delta = pages - currPages;
 		uint index = n + currPages;
-		auto prevEnd = e.address + e.size;
 
 		{
 			mutex.lock();
