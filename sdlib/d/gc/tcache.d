@@ -338,7 +338,7 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 	auto delta = (current ^ base) & mask;
 	auto value = current ^ delta;
 
-	storeBigEndian(ptr, cast(ushort) (value & ushort.max));
+	storeBigEndian(ptr, cast(ushort) value);
 }
 
 unittest PackedFreeSpace {
