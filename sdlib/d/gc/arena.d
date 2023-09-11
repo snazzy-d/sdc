@@ -275,8 +275,8 @@ private:
 	bool growAlloc(shared(ExtentMap)* emap, Extent* e, uint pages) shared {
 		assert(!e.isHuge(), "Does not support huge!");
 
-		auto currPages = e.pageCount;
-		assert(pages > currPages, "Invalid page count!");
+		auto origPages = e.pageCount;
+		assert(pages > origPages, "Invalid page count!");
 
 		auto n = e.hpdIndex;
 
@@ -284,8 +284,8 @@ private:
 			return false;
 		}
 
-		uint delta = pages - currPages;
-		uint index = n + currPages;
+		uint delta = pages - origPages;
+		uint index = n + origPages;
 
 		{
 			mutex.lock();
@@ -298,8 +298,8 @@ private:
 		}
 
 		// Map the new pages:
-		auto lastIndex = currPages & 0xF;
-		auto mapAddr = e.address + (currPages - lastIndex) * PageSize;
+		auto lastIndex = origPages & 0xF;
+		auto mapAddr = e.address + (origPages - lastIndex) * PageSize;
 		auto mapSize = (delta + lastIndex) * PageSize;
 
 		if (emap.map(mapAddr, mapSize, PageDescriptor(e, e.extentClass))) {
