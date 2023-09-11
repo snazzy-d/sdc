@@ -112,6 +112,11 @@ public:
 		return PageDescriptor(data + Increment);
 	}
 
+	auto addIndex(ulong x) const {
+		auto Increment = (x & 0xf) << 60;
+		return PageDescriptor(data + Increment);
+	}
+
 	/**
 	 * Arena.
 	 */
