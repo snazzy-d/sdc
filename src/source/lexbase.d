@@ -612,4 +612,17 @@ unittest {
 
 	// Go over invalid unicode.
 	checkLexInvalid("\xe2\x82", "Invalid UTF-8 sequence.");
+
+	{
+		// Identifier starting with a keyword
+		auto lex = makeTestLexer("dos");
+
+		import source.parserutil;
+		lex.match(TokenType.Begin);
+
+		assert(lex.front.type == TokenType.Identifier);
+		assert(
+			lex.front.location.getFullLocation(lex.context).getSlice() == "dos"
+		);
+	}
 }
