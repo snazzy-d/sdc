@@ -316,6 +316,8 @@ public:
 		// Encode freesize and write it to the last byte (or two bytes) of alloc.
 		// Only 14 bits are required to cover all small size classes :
 		auto size = getSizeFromClass(sizeClass);
+		assert(freeSpace <= size, "freeSpace exceeds alloc size!");
+
 		writePackedFreeSpace(cast(ushort*) address + size - 2, freeSpace);
 		freeSpaceFlags.setBitValueAtomic!true(index);
 
