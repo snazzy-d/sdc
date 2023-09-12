@@ -298,7 +298,7 @@ private:
 		}
 
 		// Map the new pages:
-		auto pdIndex = origPages & 0xF;
+		auto pdIndex = origPages;
 		auto mapAddr = e.address + origPages * PageSize;
 		auto pd = PageDescriptor(e, e.extentClass);
 
