@@ -179,8 +179,7 @@ public:
 		uint delta = e.pageCount - pages;
 		uint index = e.hpdIndex + pages;
 
-		auto newSize = pages * PageSize;
-		emap.clear(e.address + newSize, e.size - newSize);
+		emap.clear(e.address + pages * PageSize, delta);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -208,7 +207,7 @@ public:
 
 		auto pd = PageDescriptor(e, ExtentClass.large());
 		auto endPtr = e.address + currentPages * PageSize;
-		if (likely(emap.map(endPtr, delta * PageSize, pd.next(currentPages)))) {
+		if (likely(emap.map(endPtr, delta, pd.next(currentPages)))) {
 			return true;
 		}
 

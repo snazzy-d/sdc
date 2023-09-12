@@ -27,12 +27,13 @@ public:
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
-	bool map(void* address, size_t size, PageDescriptor pd) shared {
-		return tree.setRange(address, size, pd);
+	bool map(void* address, uint pages, PageDescriptor pd) shared {
+		return tree.setRange(address, pages, pd);
 	}
 
 	bool remap(Extent* extent, ExtentClass ec) shared {
-		return map(extent.address, extent.size, PageDescriptor(extent, ec));
+		return
+			map(extent.address, extent.pageCount, PageDescriptor(extent, ec));
 	}
 
 	bool remap(Extent* extent) shared {
@@ -42,11 +43,11 @@ public:
 	}
 
 	void clear(Extent* extent) shared {
-		clear(extent.address, extent.size);
+		clear(extent.address, extent.pageCount);
 	}
 
-	void clear(void* address, size_t size) shared {
-		tree.clearRange(address, size);
+	void clear(void* address, uint pages) shared {
+		tree.clearRange(address, pages);
 	}
 }
 
@@ -202,7 +203,7 @@ unittest ExtentMap {
 	emap.remap(e, ec);
 	pd = PageDescriptor(e, ec);
 
-	emap.clear(e.address + 3 * PageSize, 2 * PageSize);
+	emap.clear(e.address + 3 * PageSize, 2);
 	e.at(ptr, 3 * PageSize, null, ec);
 
 	for (auto p = ptr; p < e.address + 3 * PageSize; p += PageSize) {

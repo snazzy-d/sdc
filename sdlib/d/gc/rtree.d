@@ -102,9 +102,9 @@ public:
 		return true;
 	}
 
-	bool setRange(void* address, size_t size, T value) shared {
+	bool setRange(void* address, uint pages, T value) shared {
 		auto start = address;
-		auto stop = start + size;
+		auto stop = start + pages * PageSize;
 
 		// FIXME: in contract.
 		assert(isValidAddress(start));
@@ -142,9 +142,9 @@ public:
 		}
 	}
 
-	void clearRange(void* address, size_t size) shared {
+	void clearRange(void* address, uint pages) shared {
 		auto start = address;
-		auto stop = address + size;
+		auto stop = address + pages * PageSize;
 
 		// FIXME: in contract.
 		assert(isValidAddress(start));
@@ -375,7 +375,7 @@ unittest set_clear_range {
 	auto v0 = 0x0123456789abcdef;
 
 	assert(rt.get(ptr0) is null);
-	assert(rt.setRange(ptr0, PageSize, v0));
+	assert(rt.setRange(ptr0, 1, v0));
 	assert(rt.get(ptr0) !is null);
 	assert(rt.get(ptr0).load() == v0);
 
@@ -384,7 +384,7 @@ unittest set_clear_range {
 	auto v1 = 0x0123456789abcdef;
 
 	assert(rt.get(ptr1) is null);
-	assert(rt.setRange(ptr1, 1234 * PageSize, v1));
+	assert(rt.setRange(ptr1, 1234, v1));
 	assert(rt.get(ptr1) !is null);
 	assert(rt.get(ptr1).load() == v1);
 
@@ -396,7 +396,7 @@ unittest set_clear_range {
 		assert(rt.get(ptr).load() == v);
 	}
 
-	rt.clearRange(ptr1, 910 * PageSize);
+	rt.clearRange(ptr1, 910);
 	foreach (i; 0 .. 910) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
@@ -412,7 +412,7 @@ unittest set_clear_range {
 		assert(rt.get(ptr).load() == v);
 	}
 
-	rt.clearRange(ptr1, 345678 * PageSize);
+	rt.clearRange(ptr1, 345678);
 	foreach (i; 0 .. 262145) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
