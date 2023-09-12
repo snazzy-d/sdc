@@ -28,14 +28,17 @@ public:
 	}
 
 	bool remap(Extent* extent, ExtentClass ec) shared {
-		return tree
-			.setRange(extent.address, extent.size, PageDescriptor(extent, ec));
+		return map(extent.address, extent.size, PageDescriptor(extent, ec));
 	}
 
 	bool remap(Extent* extent) shared {
 		// FIXME: in contract.
 		assert(!extent.isSlab(), "Extent is a slab!");
 		return remap(extent, ExtentClass.large());
+	}
+
+	bool map(void* address, size_t size, PageDescriptor pd) shared {
+		return tree.setRange(address, size, pd);
 	}
 
 	void clear(Extent* extent) shared {
@@ -104,9 +107,9 @@ public:
 		return data >> 60;
 	}
 
-	auto next() const {
-		enum Increment = 1UL << 60;
-		return PageDescriptor(data + Increment);
+	auto next(uint pages = 1) const {
+		ulong increment = cast(ulong) pages << 60;
+		return PageDescriptor(data + increment);
 	}
 
 	/**

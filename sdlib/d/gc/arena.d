@@ -159,9 +159,12 @@ public:
 		uint pages = getPageCount(size);
 		uint currentPageCount = e.pageCount;
 
-		// Growing is not yet supported:
-		if (pages >= currentPageCount) {
-			return pages == currentPageCount;
+		if (pages == currentPageCount) {
+			return true;
+		}
+
+		if (pages > currentPageCount) {
+			return growAlloc(emap, e, pages);
 		}
 
 		shrinkAlloc(emap, e, pages);
@@ -267,6 +270,46 @@ private:
 
 		// Shrink:
 		(cast(Arena*) &this).shrinkAllocImpl(e, index, pages, delta);
+	}
+
+	bool growAlloc(shared(ExtentMap)* emap, Extent* e, uint pages) shared {
+		assert(!e.isHuge(), "Does not support huge!");
+
+		auto origPages = e.pageCount;
+		assert(pages > origPages, "Invalid page count!");
+
+		auto n = e.hpdIndex;
+
+		if (n + pages > PagesInHugePage) {
+			return false;
+		}
+
+		uint delta = pages - origPages;
+		uint index = n + origPages;
+
+		{
+			mutex.lock();
+			scope(exit) mutex.unlock();
+
+			// Try to grow:
+			if (!(cast(Arena*) &this).growAllocImpl(e, index, pages, delta)) {
+				return false;
+			}
+		}
+
+		// Map the new pages:
+		auto pdIndex = origPages & 0xF;
+		auto mapAddr = e.address + origPages * PageSize;
+		auto pd = PageDescriptor(e, e.extentClass);
+
+		if (emap.map(mapAddr, delta * PageSize, pd.next(pdIndex))) {
+			return true;
+		}
+
+		// We failed to map the new pages, unwind!
+		shrinkAlloc(emap, e, pages - delta);
+
+		return false;
 	}
 
 private:
@@ -379,6 +422,29 @@ private:
 
 		assert(!hpd.empty);
 		registerHPD(hpd);
+	}
+
+	bool growAllocImpl(Extent* e, uint index, uint pages, uint delta) {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(index > 0 && index <= PagesInHugePage - delta, "Invalid index!");
+		assert(pages > 0 && pages <= PagesInHugePage,
+		       "Invalid number of pages!");
+		assert(delta > 0, "Invalid delta!");
+
+		auto hpd = e.hpd;
+		unregisterHPD(hpd);
+
+		auto didGrow = hpd.set(index, delta);
+
+		if (didGrow) {
+			e.at(e.address, pages * PageSize, hpd);
+		}
+
+		if (!hpd.full) {
+			registerHPD(hpd);
+		}
+
+		return didGrow;
 	}
 
 	/**
@@ -618,7 +684,7 @@ unittest allocHuge {
 	arena.freePages(e4);
 }
 
-unittest resizeLarge {
+unittest resizeLargeShrink {
 	import d.gc.arena;
 	shared Arena arena;
 
@@ -750,4 +816,92 @@ unittest resizeLarge {
 
 	// Now full again:
 	assert(pd9.extent.hpd.full);
+}
+
+unittest resizeLargeGrow {
+	import d.gc.arena;
+	shared Arena arena;
+
+	auto base = &arena.base;
+	scope(exit) arena.base.clear();
+
+	import d.gc.emap;
+	static shared ExtentMap emap;
+	emap.tree.base = base;
+
+	import d.gc.region;
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = base;
+
+	arena.regionAllocator = &regionAllocator;
+
+	Extent* makeAllocLarge(uint pages) {
+		auto ptr = arena.allocLarge(&emap, pages * PageSize);
+		assert(ptr !is null);
+		auto pd = emap.lookup(ptr);
+		auto e = pd.extent;
+		assert(e !is null);
+		assert(e.address is ptr);
+		assert(e.pageCount == pages);
+		return e;
+	}
+
+	void checkGrowLarge(Extent* e, uint pages) {
+		assert(arena.resizeLarge(&emap, e, pages * PageSize));
+		assert(e.pageCount == pages);
+
+		// Confirm that the page after the end of the extent is not included in the map:
+		auto pdAfter = emap.lookup(e.address + e.size);
+		assert(pdAfter.extent !is e);
+
+		auto pd = emap.lookup(e.address);
+		// Confirm that the extent correctly grew and remapped:
+		for (auto p = e.address; p < e.address + e.size; p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent == e);
+			assert(probe.data == pd.data);
+			pd = pd.next();
+		}
+	}
+
+	// Make three allocations:
+	auto e0 = makeAllocLarge(35);
+	auto e1 = makeAllocLarge(64);
+	assert(e1.address == e0.address + e0.size);
+	auto e2 = makeAllocLarge(128);
+	assert(e2.address == e1.address + e1.size);
+
+	// Grow by 0 is always permitted:
+	assert(arena.resizeLarge(&emap, e0, 35 * PageSize));
+
+	// Prohibited grow (not enough space) :
+	assert(!arena.resizeLarge(&emap, e0, 36 * PageSize));
+	assert(!arena.resizeLarge(&emap, e2, 414 * PageSize));
+
+	// Grow:
+	checkGrowLarge(e2, 413);
+
+	auto pd1 = emap.lookup(e1.address);
+	arena.free(&emap, pd1, e1.address);
+
+	checkGrowLarge(e0, 44);
+
+	// Prohibited grow (not enough space) :
+	assert(!arena.resizeLarge(&emap, e0, uint.max * PageSize));
+	assert(!arena.resizeLarge(&emap, e0, 9999 * PageSize));
+	assert(!arena.resizeLarge(&emap, e0, 100 * PageSize));
+
+	// Grow:
+	checkGrowLarge(e0, 99);
+	assert(e0.hpd.full);
+
+	auto pd2 = emap.lookup(e2.address);
+	arena.free(&emap, pd2, e2.address);
+	assert(!e0.hpd.full);
+
+	checkGrowLarge(e0, 512);
+	assert(e0.hpd.full);
+
+	auto pd0 = emap.lookup(e0.address);
+	arena.free(&emap, pd0, e0.address);
 }
