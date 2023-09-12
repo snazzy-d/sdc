@@ -164,11 +164,57 @@ public:
 		}
 
 		if (pages > currentPageCount) {
-			return growAlloc(emap, e, pages);
+			return growLarge(emap, e, pages);
 		}
 
-		shrinkAlloc(emap, e, pages);
+		shrinkLarge(emap, e, pages);
 		return true;
+	}
+
+	void shrinkLarge(shared(ExtentMap)* emap, Extent* e, uint pages) shared {
+		assert(e.isLarge(), "Expected a large extent!");
+		assert(!e.isHuge(), "Does not support huge!");
+		assert(pages > 0 && pages < e.pageCount, "Invalid page count!");
+
+		uint delta = e.pageCount - pages;
+		uint index = e.hpdIndex + pages;
+
+		auto newSize = pages * PageSize;
+		emap.clear(e.address + newSize, e.size - newSize);
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(Arena*) &this).shrinkAllocImpl(e, index, pages, delta);
+	}
+
+	bool growLarge(shared(ExtentMap)* emap, Extent* e, uint pages) shared {
+		assert(e.isLarge(), "Expected a large extent!");
+		assert(!e.isHuge(), "Does not support huge!");
+		assert(pages > e.pageCount, "Invalid page count!");
+
+		auto n = e.hpdIndex;
+		if (n + pages > PagesInHugePage) {
+			return false;
+		}
+
+		uint currentPages = e.pageCount;
+		uint index = n + currentPages;
+		uint delta = pages - currentPages;
+
+		if (!growAlloc(e, index, pages, delta)) {
+			return false;
+		}
+
+		auto pd = PageDescriptor(e, ExtentClass.large());
+		auto endPtr = e.address + currentPages * PageSize;
+		if (likely(emap.map(endPtr, delta * PageSize, pd.next(currentPages)))) {
+			return true;
+		}
+
+		// We failed to map the new pages, unwind!
+		shrinkLarge(emap, e, currentPages);
+		return false;
 	}
 
 	/**
@@ -255,61 +301,11 @@ private:
 		(cast(Arena*) &this).freePagesImpl(e, n, pages);
 	}
 
-	void shrinkAlloc(shared(ExtentMap)* emap, Extent* e, uint pages) shared {
-		assert(!e.isHuge(), "Does not support huge!");
-		assert(pages > 0 && pages < e.pageCount, "Invalid page count!");
-
-		uint delta = e.pageCount - pages;
-		uint index = e.hpdIndex + pages;
-
-		auto newSize = pages * PageSize;
-		emap.clear(e.address + newSize, e.size - newSize);
-
+	bool growAlloc(Extent* e, uint index, uint pages, uint delta) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		// Shrink:
-		(cast(Arena*) &this).shrinkAllocImpl(e, index, pages, delta);
-	}
-
-	bool growAlloc(shared(ExtentMap)* emap, Extent* e, uint pages) shared {
-		assert(!e.isHuge(), "Does not support huge!");
-
-		auto origPages = e.pageCount;
-		assert(pages > origPages, "Invalid page count!");
-
-		auto n = e.hpdIndex;
-
-		if (n + pages > PagesInHugePage) {
-			return false;
-		}
-
-		uint delta = pages - origPages;
-		uint index = n + origPages;
-
-		{
-			mutex.lock();
-			scope(exit) mutex.unlock();
-
-			// Try to grow:
-			if (!(cast(Arena*) &this).growAllocImpl(e, index, pages, delta)) {
-				return false;
-			}
-		}
-
-		// Map the new pages:
-		auto pdIndex = origPages & 0xF;
-		auto mapAddr = e.address + origPages * PageSize;
-		auto pd = PageDescriptor(e, e.extentClass);
-
-		if (emap.map(mapAddr, delta * PageSize, pd.next(pdIndex))) {
-			return true;
-		}
-
-		// We failed to map the new pages, unwind!
-		shrinkAlloc(emap, e, pages - delta);
-
-		return false;
+		return (cast(Arena*) &this).growAllocImpl(e, index, pages, delta);
 	}
 
 private:
@@ -435,7 +431,6 @@ private:
 		unregisterHPD(hpd);
 
 		auto didGrow = hpd.set(index, delta);
-
 		if (didGrow) {
 			e.at(e.address, pages * PageSize, hpd);
 		}

@@ -27,6 +27,10 @@ public:
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
+	bool map(void* address, size_t size, PageDescriptor pd) shared {
+		return tree.setRange(address, size, pd);
+	}
+
 	bool remap(Extent* extent, ExtentClass ec) shared {
 		return map(extent.address, extent.size, PageDescriptor(extent, ec));
 	}
@@ -35,10 +39,6 @@ public:
 		// FIXME: in contract.
 		assert(!extent.isSlab(), "Extent is a slab!");
 		return remap(extent, ExtentClass.large());
-	}
-
-	bool map(void* address, size_t size, PageDescriptor pd) shared {
-		return tree.setRange(address, size, pd);
 	}
 
 	void clear(Extent* extent) shared {
@@ -108,7 +108,7 @@ public:
 	}
 
 	auto next(uint pages = 1) const {
-		ulong increment = cast(ulong) pages << 60;
+		auto increment = ulong(pages) << 60;
 		return PageDescriptor(data + increment);
 	}
 
