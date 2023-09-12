@@ -98,7 +98,7 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		auto info = getAllocInfo(pd, ptr);
+		auto info = getCapacityInfo(pd, ptr);
 
 		import d.gc.util;
 		auto copySize = min(size, info.usedCapacity);
@@ -168,7 +168,7 @@ public:
 			return false;
 		}
 
-		info = getAllocInfo(pd, cast(void*) slice.ptr);
+		info = getCapacityInfo(pd, cast(void*) slice.ptr);
 
 		// Slice must not end before valid data ends, or capacity is zero:
 		auto startIndex = slice.ptr - info.address;
@@ -282,7 +282,7 @@ public:
 
 private:
 
-	CapacityInfo getAllocInfo(PageDescriptor pd, void* ptr) {
+	CapacityInfo getCapacityInfo(PageDescriptor pd, void* ptr) {
 		auto e = pd.extent;
 
 		if (e.isLarge()) {
