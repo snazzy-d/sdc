@@ -288,3 +288,15 @@ unittest alignUp {
 		}
 	}
 }
+
+// FIXME: detect that we're actually on a little-endian machine:
+
+T loadBigEndian(T)(T* ptr) {
+	import sdc.intrinsics;
+	return bswap(*ptr);
+}
+
+void storeBigEndian(T)(T* ptr, T x) {
+	import sdc.intrinsics;
+	*ptr = bswap(x);
+}

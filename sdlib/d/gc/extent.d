@@ -100,7 +100,7 @@ private:
 
 	import d.gc.bitmap;
 	union MetaData {
-		// Slab occupancy (constrained by freeSlots, so usable for all classes).
+		// Slab occupancy (and metadata flags for supported size classes)
 		Bitmap!512 slabData;
 
 		// Metadata for large extents.
@@ -267,6 +267,40 @@ public:
 		assert(isSlab(), "slabData accessed on non slab!");
 
 		return _metadata.slabData;
+	}
+
+	/**
+	 * Freespace Flag features for slabs.
+	 */
+
+	@property
+	bool allowsFreeSpace() const {
+		return isSlab() && isAppendableSizeClass(sizeClass);
+	}
+
+	uint freeSpaceIndex(uint index) {
+		// The largest slab slot count for which the use of flags is possible:
+		enum MaxFlags = 256;
+
+		assert(index < MaxFlags, "Invalid flag index!");
+		return index + MaxFlags;
+	}
+
+	bool hasFreeSpace(uint index) {
+		// FIXME: atomic
+		return allowsFreeSpace && slabData.valueAt(freeSpaceIndex(index));
+	}
+
+	void clearFreeSpace(uint index) {
+		// FIXME: atomic
+		(cast(shared Bitmap!512) slabData)
+			.setBitValueAtomic!false(freeSpaceIndex(index));
+	}
+
+	void setFreeSpace(uint index) {
+		// FIXME: atomic
+		(cast(shared Bitmap!512) slabData)
+			.setBitValueAtomic!true(freeSpaceIndex(index));
 	}
 
 	/**

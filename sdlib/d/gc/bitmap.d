@@ -170,6 +170,22 @@ public:
 		}
 	}
 
+	void setBitValueAtomic(bool V)(uint index) shared {
+		import sdc.intrinsics;
+		// FIXME: in contracts.
+		assert(index < N);
+
+		auto i = index / NimbleSize;
+		auto o = index % NimbleSize;
+		auto b = ulong(1) << o;
+
+		if (V) {
+			fetchOr(&bits[i], b);
+		} else {
+			fetchAnd(&bits[i], ~b);
+		}
+	}
+
 	void setRange(uint index, uint length) {
 		setRangeValue!true(index, length);
 	}
