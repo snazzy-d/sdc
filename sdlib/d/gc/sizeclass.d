@@ -63,24 +63,6 @@ bool isLargeSize(size_t size) {
 	return (size > SizeClass.Small) && (size <= MaxAllocationSize);
 }
 
-// Determine whether given size class supports appendability.
-bool isAppendableSizeClass(uint sizeClass) {
-	return sizeClass & 1 || sizeClass > 6;
-}
-
-unittest isAppendableSizeClass {
-	auto bins = getBinInfos();
-	// Small size classes are appendable if and only if have <= 256 slab slots:
-	foreach (sc; 0 .. ClassCount.Small) {
-		assert(isAppendableSizeClass(sc) == (bins[sc].slots <= 256));
-	}
-
-	// All large size classes are appendable:
-	foreach (sc; ClassCount.Small .. ClassCount.Total) {
-		assert(isAppendableSizeClass(sc));
-	}
-}
-
 unittest sizeClassPredicates {
 	foreach (s; 0 .. 38) {
 		assert(isSmallSizeClass(s));
@@ -102,6 +84,24 @@ unittest sizeClassPredicates {
 	assert(!isSmallSize(14337));
 	assert(isLargeSize(14337));
 	assert(!isSmallSizeClass(getSizeClass(14337)));
+}
+
+// Determine whether given size class supports appendability.
+bool isAppendableSizeClass(uint sizeClass) {
+	return sizeClass & 1 || sizeClass > 6;
+}
+
+unittest isAppendableSizeClass {
+	auto bins = getBinInfos();
+	// Small size classes are appendable if and only if have <= 256 slab slots:
+	foreach (sc; 0 .. ClassCount.Small) {
+		assert(isAppendableSizeClass(sc) == (bins[sc].slots <= 256));
+	}
+
+	// All large size classes are appendable:
+	foreach (sc; ClassCount.Small .. ClassCount.Total) {
+		assert(isAppendableSizeClass(sc));
+	}
 }
 
 size_t getAllocSize(size_t size) {
