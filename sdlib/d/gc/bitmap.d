@@ -30,6 +30,10 @@ public:
 		return (n & 0x01) != 0;
 	}
 
+	bool valueAtAtomic(uint index) shared {
+		return (cast(Bitmap*) &this).valueAt(index);
+	}
+
 	uint setFirst() {
 		// FIXME: in contract
 		assert(countBits(0, N) < N, "Bitmap is full!");

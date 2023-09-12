@@ -99,9 +99,20 @@ private:
 	Links _links;
 
 	import d.gc.bitmap;
+
+	struct FreeSpaceData {
+		ubyte[32] pad;
+		shared(Bitmap!256) flags;
+	}
+
+	union Bitmaps {
+		Bitmap!512 slabData;
+		FreeSpaceData freeSpaceData;
+	}
+
 	union MetaData {
 		// Slab occupancy (and metadata flags for supported size classes)
-		Bitmap!512 slabData;
+		Bitmaps bitmaps;
 
 		// Metadata for large extents.
 		size_t usedCapacity;
@@ -266,7 +277,7 @@ public:
 		// FIXME: in contract.
 		assert(isSlab(), "slabData accessed on non slab!");
 
-		return _metadata.slabData;
+		return _metadata.bitmaps.slabData;
 	}
 
 	/**
@@ -274,33 +285,28 @@ public:
 	 */
 
 	@property
+	ref shared(Bitmap!256) freeSpaceFlags() {
+		// FIXME: in contract.
+		assert(isSlab(), "slabData accessed on non slab!");
+
+		return _metadata.bitmaps.freeSpaceData.flags;
+	}
+
+	@property
 	bool allowsFreeSpace() const {
 		return isSlab() && isAppendableSizeClass(sizeClass);
 	}
 
-	uint freeSpaceIndex(uint index) {
-		// The largest slab slot count for which the use of flags is possible:
-		enum MaxFlags = 256;
-
-		assert(index < MaxFlags, "Invalid flag index!");
-		return index + MaxFlags;
-	}
-
 	bool hasFreeSpace(uint index) {
-		// FIXME: atomic
-		return allowsFreeSpace && slabData.valueAt(freeSpaceIndex(index));
+		return allowsFreeSpace && freeSpaceFlags.valueAtAtomic(index);
 	}
 
 	void clearFreeSpace(uint index) {
-		// FIXME: atomic
-		(cast(shared Bitmap!512) slabData)
-			.setBitValueAtomic!false(freeSpaceIndex(index));
+		freeSpaceFlags.setBitValueAtomic!false(index);
 	}
 
 	void setFreeSpace(uint index) {
-		// FIXME: atomic
-		(cast(shared Bitmap!512) slabData)
-			.setBitValueAtomic!true(freeSpaceIndex(index));
+		freeSpaceFlags.setBitValueAtomic!true(index);
 	}
 
 	/**
