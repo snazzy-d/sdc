@@ -31,7 +31,14 @@ public:
 	}
 
 	bool valueAtAtomic(uint index) shared {
-		return (cast(Bitmap*) &this).valueAt(index);
+		// FIXME: in contracts.
+		assert(index < N);
+
+		auto i = index / NimbleSize;
+		auto o = index % NimbleSize;
+		auto n = bits[i] >> o;
+
+		return (n & 0x01) != 0;
 	}
 
 	uint setFirst() {
