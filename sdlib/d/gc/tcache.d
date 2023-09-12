@@ -312,7 +312,7 @@ private:
 		assert(usedCapacity <= sg.size,
 		       "Used capacity may not exceed alloc size!");
 
-		return e.setFreeSpace(sg.index, sg.size - usedCapacity);
+		return e.setFreeSpace(sg.index, cast(ushort) (sg.size - usedCapacity));
 	}
 
 	auto getPageDescriptor(void* ptr) {

@@ -301,7 +301,9 @@ public:
 		return allowsFreeSpace && freeSpaceFlags.valueAtAtomic(index);
 	}
 
-	bool setFreeSpace(uint index, size_t freeSpace) {
+	bool setFreeSpace(uint index, ushort freeSpace) {
+		assert(freeSpace <= 0x3fff, "freeSpace not fits in 14 bits!");
+
 		if (!allowsFreeSpace) {
 			return false;
 		}
@@ -314,8 +316,7 @@ public:
 		// Encode freesize and write it to the last byte (or two bytes) of alloc.
 		// Only 14 bits are required to cover all small size classes :
 		auto size = getSizeFromClass(sizeClass);
-		ushort freeSize = 0x3fff & freeSpace;
-		writePackedFreeSpace(cast(ushort*) address + size - 2, freeSize);
+		writePackedFreeSpace(cast(ushort*) address + size - 2, freeSpace);
 		freeSpaceFlags.setBitValueAtomic!true(index);
 
 		return true;
@@ -324,7 +325,7 @@ public:
 	size_t getFreeSpace(uint index) {
 		// If freespace flag is 0, or this size class does not support meta,
 		// then the alloc is reported to be fully used:
-		if (!allowsFreeSpace || !hasFreeSpace(index)) {
+		if (!hasFreeSpace(index)) {
 			return 0;
 		}
 
