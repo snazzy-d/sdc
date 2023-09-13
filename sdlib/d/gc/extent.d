@@ -292,14 +292,20 @@ public:
 	 */
 
 	@property
-	bool allowsFreeSpace() const {
+	bool supportsFreeSpace() const {
 		return isAppendableSizeClass(sizeClass);
+	}
+
+	bool mayHaveFreeSpace(uint index) {
+		assert(isSlab(), "mayHaveFreeSpace accessed on non slab!");
+
+		return supportsFreeSpace && slabData.valueAt(index);
 	}
 
 	@property
 	ref shared(Bitmap!256) freeSpaceFlags() {
 		assert(isSlab(), "freeSpaceFlags accessed on non slab!");
-		assert(allowsFreeSpace, "freeSpaceFlags not supported!");
+		assert(supportsFreeSpace, "freeSpaceFlags not supported!");
 
 		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
 	}
@@ -308,7 +314,7 @@ public:
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
 		assert(freeSpace <= 0x3fff, "freeSpace not fits in 14 bits!");
 
-		if (!allowsFreeSpace || !slabData.valueAt(index)) {
+		if (!mayHaveFreeSpace(index)) {
 			return false;
 		}
 
@@ -330,8 +336,7 @@ public:
 	size_t getFreeSpace(uint index) {
 		assert(isSlab(), "getFreeSpace accessed on non slab!");
 
-		if (!(allowsFreeSpace && slabData.valueAt(index)
-			    && freeSpaceFlags.valueAtAtomic(index))) {
+		if (!mayHaveFreeSpace(index) || !freeSpaceFlags.valueAtAtomic(index)) {
 			return 0;
 		}
 
