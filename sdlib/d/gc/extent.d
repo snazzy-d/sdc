@@ -317,9 +317,9 @@ public:
 			return true;
 		}
 
-		// Encode freespace and write it to the last byte (or two bytes) of alloc.
 		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
 
+		// Encode freespace and write it to the last byte (or two bytes) of alloc.
 		writePackedFreeSpace(cast(ushort*) (address + slotSize - 2),
 		                     cast(ushort) freeSpace);
 		freeSpaceFlags.setBitValueAtomic!true(index);
