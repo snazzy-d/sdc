@@ -246,6 +246,13 @@ public:
 	}
 
 	@property
+	size_t slotSize() const {
+		assert(isSlab(), "slotSize accessed on non slab!");
+
+		return getSizeFromClass(sizeClass);
+	}
+
+	@property
 	uint freeSlots() const {
 		// FIXME: in contract.
 		assert(isSlab(), "freeSlots accessed on non slab!");
@@ -286,25 +293,22 @@ public:
 
 	@property
 	bool allowsFreeSpace() const {
-		return isSlab() && isAppendableSizeClass(sizeClass);
+		return isAppendableSizeClass(sizeClass);
 	}
 
 	@property
 	ref shared(Bitmap!256) freeSpaceFlags() {
-		// FIXME: in contract.
+		assert(isSlab(), "freeSpaceFlags accessed on non slab!");
 		assert(allowsFreeSpace, "freeSpaceFlags not supported!");
 
 		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
 	}
 
-	bool hasFreeSpace(uint index) {
-		return allowsFreeSpace && freeSpaceFlags.valueAtAtomic(index);
-	}
-
 	bool setFreeSpace(uint index, ushort freeSpace) {
+		assert(isSlab(), "setFreeSpace accessed on non slab!");
 		assert(freeSpace <= 0x3fff, "freeSpace not fits in 14 bits!");
 
-		if (!allowsFreeSpace) {
+		if (!allowsFreeSpace || !slabData.valueAt(index)) {
 			return false;
 		}
 
@@ -313,27 +317,25 @@ public:
 			return true;
 		}
 
-		// Encode freesize and write it to the last byte (or two bytes) of alloc.
-		// Only 14 bits are required to cover all small size classes :
-		auto size = getSizeFromClass(sizeClass);
-		assert(freeSpace <= size, "freeSpace exceeds alloc size!");
+		// Encode freespace and write it to the last byte (or two bytes) of alloc.
+		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
 
-		writePackedFreeSpace(cast(ushort*) address + size - 2, freeSpace);
+		writePackedFreeSpace(cast(ushort*) (address + slotSize - 2), freeSpace);
 		freeSpaceFlags.setBitValueAtomic!true(index);
 
 		return true;
 	}
 
 	size_t getFreeSpace(uint index) {
-		// If freespace flag is 0, or this size class does not support meta,
-		// then the alloc is reported to be fully used:
-		if (!hasFreeSpace(index)) {
+		assert(isSlab(), "getFreeSpace accessed on non slab!");
+
+		if (!(allowsFreeSpace && slabData.valueAt(index)
+			    && freeSpaceFlags.valueAtAtomic(index))) {
 			return 0;
 		}
 
-		// Decode freesize, found in the final byte (or two bytes) of the alloc:
-		auto size = getSizeFromClass(sizeClass);
-		return readPackedFreeSpace(cast(ushort*) address + size - 2);
+		// Decode freespace, found in the final byte (or two bytes) of the alloc:
+		return readPackedFreeSpace(cast(ushort*) (address + slotSize - 2));
 	}
 
 	/**
