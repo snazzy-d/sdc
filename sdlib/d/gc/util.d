@@ -289,14 +289,25 @@ unittest alignUp {
 	}
 }
 
-// FIXME: detect that we're actually on a little-endian machine:
+bool isLittleEndian() {
+	uint v = 1;
+	return *(cast(ubyte*) &v) != 0;
+}
 
 T loadBigEndian(T)(T* ptr) {
-	import sdc.intrinsics;
-	return bswap(*ptr);
+	static if (isLittleEndian()) {
+		import sdc.intrinsics;
+		return bswap(*ptr);
+	}
+
+	return *ptr;
 }
 
 void storeBigEndian(T)(T* ptr, T x) {
-	import sdc.intrinsics;
-	*ptr = bswap(x);
+	static if (isLittleEndian()) {
+		import sdc.intrinsics;
+		*ptr = bswap(x);
+	} else {
+		*ptr = x;
+	}
 }
