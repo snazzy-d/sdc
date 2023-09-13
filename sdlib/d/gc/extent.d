@@ -249,7 +249,16 @@ public:
 	size_t slotSize() const {
 		assert(isSlab(), "slotSize accessed on non slab!");
 
-		return getSizeFromClass(sizeClass);
+		import d.gc.slab;
+		return binInfos[sizeClass].itemSize;
+	}
+
+	@property
+	uint slotCount() const {
+		assert(isSlab(), "slotCount accessed on non slab!");
+
+		import d.gc.slab;
+		return binInfos[sizeClass].slots;
 	}
 
 	@property
@@ -296,12 +305,6 @@ public:
 		return isAppendableSizeClass(sizeClass);
 	}
 
-	bool mayHaveFreeSpace(uint index) {
-		assert(isSlab(), "mayHaveFreeSpace accessed on non slab!");
-
-		return supportsFreeSpace && slabData.valueAt(index);
-	}
-
 	@property
 	ref shared(Bitmap!256) freeSpaceFlags() {
 		assert(isSlab(), "freeSpaceFlags accessed on non slab!");
@@ -312,9 +315,10 @@ public:
 
 	bool setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
-		assert(freeSpace <= 0x3fff, "freeSpace not fits in 14 bits!");
+		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
+		assert(index < slotCount, "index is out of range!");
 
-		if (!mayHaveFreeSpace(index)) {
+		if (!supportsFreeSpace) {
 			return false;
 		}
 
@@ -323,11 +327,9 @@ public:
 			return true;
 		}
 
-		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
-
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
 		writePackedFreeSpace(cast(ushort*) (address + slotSize - 2),
-		                     cast(ushort) freeSpace);
+		                     freeSpace & ushort.max);
 		freeSpaceFlags.setBitValueAtomic!true(index);
 
 		return true;
@@ -335,8 +337,10 @@ public:
 
 	size_t getFreeSpace(uint index) {
 		assert(isSlab(), "getFreeSpace accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
 
-		if (!mayHaveFreeSpace(index) || !freeSpaceFlags.valueAtAtomic(index)) {
+		if (!(supportsFreeSpace && slabData.valueAt(index)
+			    && freeSpaceFlags.valueAtAtomic(index))) {
 			return 0;
 		}
 
