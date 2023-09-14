@@ -295,19 +295,20 @@ bool isLittleEndian() {
 }
 
 T loadBigEndian(T)(T* ptr) {
-	static if (isLittleEndian()) {
+	auto x = *ptr;
+	if (isLittleEndian()) {
 		import sdc.intrinsics;
-		return bswap(*ptr);
+		x = bswap(x);
 	}
 
-	return *ptr;
+	return x;
 }
 
 void storeBigEndian(T)(T* ptr, T x) {
-	static if (isLittleEndian()) {
+	if (isLittleEndian()) {
 		import sdc.intrinsics;
-		*ptr = bswap(x);
-	} else {
-		*ptr = x;
+		x = bswap(x);
 	}
+
+	*ptr = x;
 }
