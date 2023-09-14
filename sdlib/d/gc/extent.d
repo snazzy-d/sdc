@@ -99,9 +99,20 @@ private:
 	Links _links;
 
 	import d.gc.bitmap;
-	union MetaData {
-		// Slab occupancy (constrained by freeSlots, so usable for all classes).
+
+	struct FreeSpaceData {
+		ubyte[32] pad;
+		shared Bitmap!256 freeSpaceFlags;
+	}
+
+	union Bitmaps {
 		Bitmap!512 slabData;
+		FreeSpaceData freeSpaceData;
+	}
+
+	union MetaData {
+		// Slab occupancy (and metadata flags for supported size classes)
+		Bitmaps slabData;
 
 		// Metadata for large extents.
 		size_t usedCapacity;
@@ -235,6 +246,22 @@ public:
 	}
 
 	@property
+	size_t slotSize() const {
+		assert(isSlab(), "slotSize accessed on non slab!");
+
+		import d.gc.slab;
+		return binInfos[sizeClass].itemSize;
+	}
+
+	@property
+	uint slotCount() const {
+		assert(isSlab(), "slotCount accessed on non slab!");
+
+		import d.gc.slab;
+		return binInfos[sizeClass].slots;
+	}
+
+	@property
 	uint freeSlots() const {
 		// FIXME: in contract.
 		assert(isSlab(), "freeSlots accessed on non slab!");
@@ -266,7 +293,59 @@ public:
 		// FIXME: in contract.
 		assert(isSlab(), "slabData accessed on non slab!");
 
-		return _metadata.slabData;
+		return _metadata.slabData.slabData;
+	}
+
+	/**
+	 * Freespace Flag features for slabs.
+	 */
+
+	@property
+	bool supportsFreeSpace() const {
+		return isAppendableSizeClass(sizeClass);
+	}
+
+	@property
+	ref shared(Bitmap!256) freeSpaceFlags() {
+		assert(isSlab(), "freeSpaceFlags accessed on non slab!");
+		assert(supportsFreeSpace, "freeSpaceFlags not supported!");
+
+		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
+	}
+
+	bool setFreeSpace(uint index, size_t freeSpace) {
+		assert(isSlab(), "setFreeSpace accessed on non slab!");
+		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
+		assert(index < slotCount, "index is out of range!");
+
+		if (!supportsFreeSpace) {
+			return false;
+		}
+
+		if (freeSpace == 0) {
+			freeSpaceFlags.clearBitAtomic(index);
+			return true;
+		}
+
+		// Encode freespace and write it to the last byte (or two bytes) of alloc.
+		writePackedFreeSpace(cast(ushort*) (address + slotSize - 2),
+		                     freeSpace & ushort.max);
+		freeSpaceFlags.setBitAtomic(index);
+
+		return true;
+	}
+
+	size_t getFreeSpace(uint index) {
+		assert(isSlab(), "getFreeSpace accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+
+		if (!(supportsFreeSpace && slabData.valueAt(index)
+			    && freeSpaceFlags.valueAtAtomic(index))) {
+			return 0;
+		}
+
+		// Decode freespace, found in the final byte (or two bytes) of the alloc:
+		return readPackedFreeSpace(cast(ushort*) (address + slotSize - 2));
 	}
 
 	/**
@@ -367,4 +446,50 @@ unittest allocfree {
 	e.free(2);
 	e.free(1);
 	assert(e.freeSlots == 512);
+}
+
+/**
+ * Packed Free Space is stored as a 15-bit unsigned integer, in one or two bytes:
+ *
+ * /---- byte at ptr ----\ /-- byte at ptr + 1 --\
+ * B7 B6 B5 B4 B3 B2 B1 B0 A7 A6 A5 A4 A3 A2 A1 A0
+ * \_________15 bits unsigned integer_________/  \_ Set if and only if B0..B7 used.
+ */
+
+ushort readPackedFreeSpace(ushort* ptr) {
+	auto data = loadBigEndian(ptr);
+	auto mask = 0x7f | -(data & 1);
+	return (data >> 1) & mask;
+}
+
+void writePackedFreeSpace(ushort* ptr, ushort x) {
+	assert(x < 0x8000, "x does not fit in 15 bits!");
+
+	auto mask = 0x7f - x >> 8 | 0xff;
+	auto base = x << 1 | mask >> 8 & 1;
+
+	auto current = loadBigEndian(ptr);
+	auto delta = (current ^ base) & mask;
+	auto value = current ^ delta;
+
+	storeBigEndian(ptr, cast(ushort) value);
+}
+
+unittest PackedFreeSpace {
+	ubyte[2] a;
+	foreach (ushort i; 0 .. 0x8000) {
+		auto p = cast(ushort*) a.ptr;
+		writePackedFreeSpace(p, i);
+		assert(readPackedFreeSpace(p) == i);
+	}
+
+	foreach (x; 0 .. 256) {
+		a[0] = 0xff & x;
+		foreach (ubyte y; 0 .. 0x80) {
+			auto p = cast(ushort*) a.ptr;
+			writePackedFreeSpace(p, y);
+			assert(readPackedFreeSpace(p) == y);
+			assert(a[0] == x);
+		}
+	}
 }
