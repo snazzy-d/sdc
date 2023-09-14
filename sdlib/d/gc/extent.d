@@ -317,10 +317,7 @@ public:
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
 		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
-
-		if (!supportsFreeSpace) {
-			return false;
-		}
+		assert(supportsFreeSpace, "size class not supports freeSpace!");
 
 		if (freeSpace == 0) {
 			freeSpaceFlags.clearBitAtomic(index);
@@ -339,8 +336,7 @@ public:
 		assert(isSlab(), "getFreeSpace accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		if (!(supportsFreeSpace && slabData.valueAt(index)
-			    && freeSpaceFlags.valueAtAtomic(index))) {
+		if (!supportsFreeSpace || !freeSpaceFlags.valueAtAtomic(index)) {
 			return 0;
 		}
 

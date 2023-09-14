@@ -190,7 +190,6 @@ public:
 	}
 
 	void setBitValueAtomic(bool V)(uint index) shared {
-		import sdc.intrinsics;
 		// FIXME: in contracts.
 		assert(index < N);
 
@@ -198,6 +197,7 @@ public:
 		auto o = index % NimbleSize;
 		auto b = ulong(1) << o;
 
+		import sdc.intrinsics;
 		if (V) {
 			fetchOr(&bits[i], b);
 		} else {
