@@ -465,9 +465,8 @@ ushort readPackedFreeSpace(ushort* ptr) {
 void writePackedFreeSpace(ushort* ptr, ushort x) {
 	assert(x < 0x8000, "x does not fit in 15 bits!");
 
-	auto hiMask = 0x7f - x >> 8;
-	auto base = x << 1 | hiMask >> 7 & 1;
-	auto mask = hiMask | 0xff;
+	auto mask = 0x7f - x >> 8 | 0xff;
+	auto base = x << 1 | mask >> 8 & 1;
 
 	auto current = loadBigEndian(ptr);
 	auto delta = (current ^ base) & mask;
