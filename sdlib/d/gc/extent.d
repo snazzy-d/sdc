@@ -323,14 +323,14 @@ public:
 		}
 
 		if (freeSpace == 0) {
-			freeSpaceFlags.setBitValueAtomic!false(index);
+			freeSpaceFlags.clearBitAtomic(index);
 			return true;
 		}
 
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
 		writePackedFreeSpace(cast(ushort*) (address + slotSize - 2),
 		                     freeSpace & ushort.max);
-		freeSpaceFlags.setBitValueAtomic!true(index);
+		freeSpaceFlags.setBitAtomic(index);
 
 		return true;
 	}

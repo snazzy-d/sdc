@@ -181,6 +181,14 @@ public:
 		}
 	}
 
+	void setBitAtomic(uint index) shared {
+		setBitValueAtomic!true(index);
+	}
+
+	void clearBitAtomic(uint index) shared {
+		setBitValueAtomic!false(index);
+	}
+
 	void setBitValueAtomic(bool V)(uint index) shared {
 		import sdc.intrinsics;
 		// FIXME: in contracts.
