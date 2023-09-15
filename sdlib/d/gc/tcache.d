@@ -374,6 +374,14 @@ unittest makeRange {
 }
 
 unittest getCapacity {
+	void setUsedCapLarge(void* ptr, size_t usedCapacity) {
+		assert(ptr !is null);
+		auto pd = threadCache.getPageDescriptor(ptr);
+		assert(pd.extent !is null);
+		assert(pd.extent.isLarge());
+		pd.extent.setUsedCapLargeCapacity(usedCapacity);
+	}
+
 	// Test capacity for non appendable allocs.
 	auto nonAppendable = threadCache.alloc(100, false);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 100]) == 0);
@@ -388,8 +396,9 @@ unittest getCapacity {
 	void* tlPtr = &threadCache;
 	assert(threadCache.getCapacity(tlPtr[0 .. 100]) == 0);
 
-	// Check capacity for an appendable GC allocation.
-	auto p0 = threadCache.allocAppendable(100, false);
+	// Check capacity for an appendable large GC allocation.
+	auto p0 = threadCache.allocAppendable(16384, false);
+	setUsedCapLarge(p0, 100);
 
 	// p0 is appendable and has the minimum large size.
 	// Capacity of segment from p0, length 100 is 16384:
@@ -457,7 +466,15 @@ unittest getCapacity {
 	assert(p6 !is p5);
 }
 
-unittest extend {
+unittest extendLarge {
+	void setUsedCapLarge(void* ptr, size_t usedCapacity) {
+		assert(ptr !is null);
+		auto pd = threadCache.getPageDescriptor(ptr);
+		assert(pd.extent !is null);
+		assert(pd.extent.isLarge());
+		pd.extent.setUsedCapLargeCapacity(usedCapacity);
+	}
+
 	auto nonAppendable = threadCache.alloc(100, false);
 
 	// Attempt to extend a non-appendable:
@@ -483,7 +500,8 @@ unittest extend {
 	assert(!threadCache.extend(tlPtr[100 .. 100], 1));
 
 	// Make an appendable alloc:
-	auto p0 = threadCache.allocAppendable(100, false);
+	auto p0 = threadCache.allocAppendable(16384, false);
+	setUsedCapLarge(p0, 100);
 	assert(threadCache.getCapacity(p0[0 .. 100]) == 16384);
 
 	// Attempt to extend valid slices with capacity 0.
@@ -514,7 +532,8 @@ unittest extend {
 	assert(!threadCache.extend(p0[0 .. 16384], 1));
 
 	// Make another appendable alloc:
-	auto p1 = threadCache.allocAppendable(100, false);
+	auto p1 = threadCache.allocAppendable(16384, false);
+	setUsedCapLarge(p1, 100);
 	assert(threadCache.getCapacity(p1[0 .. 100]) == 16384);
 
 	// Valid extend :
