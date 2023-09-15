@@ -379,12 +379,12 @@ unittest getCapacity {
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
 		assert(pd.extent.isLarge());
-		pd.extent.setUsedCapLargeCapacity(usedCapacity);
+		pd.extent.setUsedCapacity(usedCapacity);
 	}
 
 	// Test capacity for non appendable allocs.
-	auto nonAppendable = threadCache.alloc(100, false);
-	assert(threadCache.getCapacity(nonAppendable[0 .. 100]) == 0);
+	auto nonAppendable = threadCache.alloc(8, false);
+	assert(threadCache.getCapacity(nonAppendable[0 .. 8]) == 0);
 
 	// Capacity of any slice in space unknown to the GC is zero:
 	void* nullPtr = null;
@@ -472,7 +472,7 @@ unittest extendLarge {
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
 		assert(pd.extent.isLarge());
-		pd.extent.setUsedCapLargeCapacity(usedCapacity);
+		pd.extent.setUsedCapacity(usedCapacity);
 	}
 
 	auto nonAppendable = threadCache.alloc(100, false);
