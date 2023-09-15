@@ -168,7 +168,8 @@ public:
 		auto stopIndex = startIndex + slice.length;
 
 		// If the slice end doesn't match the used capacity, not appendable.
-		return stopIndex == pd.extent.usedCapacity;
+		// A zero-length slice at the start of an empty alloc is also not appendable.
+		return (stopIndex == pd.extent.usedCapacity) && (stopIndex > 0);
 	}
 
 	size_t getCapacity(const void[] slice) {
@@ -569,4 +570,32 @@ unittest extend {
 
 	// Extend by size zero still works, though:
 	assert(threadCache.extend(p1[0 .. 16384], 0));
+}
+
+unittest arraySpill {
+	void setUsed(void* ptr, size_t usedCapacity) {
+		assert(ptr !is null);
+		auto pd = threadCache.getPageDescriptor(ptr);
+		assert(pd.extent !is null);
+		assert(pd.extent.isLarge());
+		pd.extent.setUsedCapacity(usedCapacity);
+	}
+
+	// Verify that zero-length interstitial slice does not spill into next alloc:
+	void testAdjacentSpill(size_t arrSize, size_t a1Cap, size_t a2Cap) {
+		auto array1 = threadCache.alloc(arrSize, false);
+		auto array2 = threadCache.alloc(arrSize, false);
+		assert(array2 is array1 + arrSize);
+		setUsed(array1, a1Cap);
+		setUsed(array2, a2Cap);
+		assert(threadCache.getCapacity(array1[arrSize .. arrSize]) == 0);
+	}
+
+	testAdjacentSpill(16384, 0, 0);
+	testAdjacentSpill(16384, 16000, 0);
+	testAdjacentSpill(16384, 16000, 16000);
+	testAdjacentSpill(16384, 16000, 1);
+	testAdjacentSpill(16384, 1, 1);
+	testAdjacentSpill(16384, 1, 16000);
+	testAdjacentSpill(16384, 0, 1);
 }
