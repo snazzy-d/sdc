@@ -313,7 +313,7 @@ public:
 		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
 	}
 
-	bool setFreeSpace(uint index, size_t freeSpace) {
+	void setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
 		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
@@ -321,15 +321,13 @@ public:
 
 		if (freeSpace == 0) {
 			freeSpaceFlags.clearBitAtomic(index);
-			return true;
+			return;
 		}
 
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
 		writePackedFreeSpace(cast(ushort*) (address + slotSize - 2),
 		                     freeSpace & ushort.max);
 		freeSpaceFlags.setBitAtomic(index);
-
-		return true;
 	}
 
 	size_t getFreeSpace(uint index) {

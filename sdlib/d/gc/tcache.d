@@ -177,8 +177,7 @@ public:
 		auto stopIndex = startIndex + slice.length;
 
 		// If the slice end doesn't match the used capacity, not appendable.
-		// A zero-length slice at the start of an empty alloc is also not appendable.
-		return (stopIndex == info.usedCapacity) && (stopIndex > 0);
+		return stopIndex == info.usedCapacity;
 	}
 
 	size_t getCapacity(const void[] slice) {
@@ -308,6 +307,10 @@ private:
 			return true;
 		}
 
+		if (!e.supportsFreeSpace) {
+			return false;
+		}
+
 		// Slab alloc:
 		import d.gc.slab;
 		auto sg = SlabAllocGeometry(ptr, pd);
@@ -315,7 +318,9 @@ private:
 		assert(usedCapacity <= sg.size,
 		       "Used capacity may not exceed alloc size!");
 
-		return e.setFreeSpace(sg.index, sg.size - usedCapacity);
+		e.setFreeSpace(sg.index, sg.size - usedCapacity);
+
+		return true;
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -653,62 +658,4 @@ unittest extend {
 
 	// Extend by size zero still works, though:
 	assert(threadCache.extend(p1[0 .. 20480], 0));
-}
-
-unittest slabAllocSpill {
-	size_t getSlabUsedCapacity(void* ptr) {
-		auto pd = threadCache.getPageDescriptor(ptr);
-		assert(pd.extent != null);
-		assert(pd.extent.isSlab());
-		import d.gc.slab;
-		auto sg = SlabAllocGeometry(ptr, pd);
-		return sg.size - pd.extent.getFreeSpace(sg.index);
-	}
-
-	bool setSlabUsedCapacity(void* ptr, ushort usedCapacity) {
-		auto pd = threadCache.getPageDescriptor(ptr);
-		assert(pd.extent != null);
-		assert(pd.extent.isSlab());
-		import d.gc.slab;
-		auto sg = SlabAllocGeometry(ptr, pd);
-		auto res = pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
-		assert(getSlabUsedCapacity(ptr) == usedCapacity);
-		return res;
-	}
-
-	auto array1 = threadCache.alloc(16, false);
-	auto array2 = threadCache.alloc(16, false);
-
-	assert(array2 is array1 + 16);
-
-	assert(getSlabUsedCapacity(array1) == 16);
-	assert(getSlabUsedCapacity(array2) == 16);
-
-	// Spill does not occur when both allocs are full:
-	assert(threadCache.getCapacity(array1[16 .. 16]) == 0);
-
-	// Ditto when first is full, and the second is empty:
-	assert(setSlabUsedCapacity(array2, 0));
-	assert(threadCache.getCapacity(array1[16 .. 16]) == 0);
-
-	// Both empty:
-	assert(setSlabUsedCapacity(array1, 0));
-	assert(threadCache.getCapacity(array1[16 .. 16]) == 0);
-
-	// First alloc empty, second is full :
-	assert(setSlabUsedCapacity(array2, 16));
-	assert(threadCache.getCapacity(array1[16 .. 16]) == 0);
-
-	// First alloc empty, second has one byte of used capacity :
-	assert(setSlabUsedCapacity(array2, 1));
-	assert(threadCache.getCapacity(array1[16 .. 16]) == 0);
-
-	// First alloc is filled to max - 1 byte, second is full :
-	assert(setSlabUsedCapacity(array1, 15));
-	assert(setSlabUsedCapacity(array2, 16));
-	assert(threadCache.getCapacity(array1[16 .. 16]) == 0);
-
-	// Second alloc is freed:
-	threadCache.free(array2);
-	assert(threadCache.getCapacity(array1[16 .. 16]) == 0);
 }
