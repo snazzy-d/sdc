@@ -288,3 +288,27 @@ unittest alignUp {
 		}
 	}
 }
+
+bool isLittleEndian() {
+	uint v = 1;
+	return *(cast(ubyte*) &v) != 0;
+}
+
+T loadBigEndian(T)(T* ptr) {
+	auto x = *ptr;
+	if (isLittleEndian()) {
+		import sdc.intrinsics;
+		x = bswap(x);
+	}
+
+	return x;
+}
+
+void storeBigEndian(T)(T* ptr, T x) {
+	if (isLittleEndian()) {
+		import sdc.intrinsics;
+		x = bswap(x);
+	}
+
+	*ptr = x;
+}
