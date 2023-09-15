@@ -294,8 +294,7 @@ bool isLittleEndian() {
 	return *(cast(ubyte*) &v) != 0;
 }
 
-T loadBigEndian(T)(T* ptr) {
-	auto x = *ptr;
+T nativeToBigEndian(T)(T x) {
 	if (isLittleEndian()) {
 		import sdc.intrinsics;
 		x = bswap(x);
@@ -304,11 +303,10 @@ T loadBigEndian(T)(T* ptr) {
 	return x;
 }
 
-void storeBigEndian(T)(T* ptr, T x) {
-	if (isLittleEndian()) {
-		import sdc.intrinsics;
-		x = bswap(x);
-	}
+T loadBigEndian(T)(T* ptr) {
+	return nativeToBigEndian(*ptr);
+}
 
-	*ptr = x;
+void storeBigEndian(T)(T* ptr, T x) {
+	*ptr = nativeToBigEndian(x);
 }
