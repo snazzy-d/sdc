@@ -582,44 +582,46 @@ unittest arraySpill {
 		pd.extent.setUsedCapacity(usedCapacity);
 	}
 
-	enum aSize = 16384;
+	void testSpill(uint arraySize, uint[] capacities) {
+		auto a0 = threadCache.alloc(arraySize, false);
+		auto a1 = threadCache.alloc(arraySize, false);
 
-	auto a0 = threadCache.alloc(aSize, false);
-	auto a1 = threadCache.alloc(aSize, false);
+		// If they're not adjacent, 'walk' until they are:
+		while (a1 !is a0 + arraySize) {
+			auto next = threadCache.alloc(arraySize, false);
+			threadCache.free(a0);
+			a0 = a1;
+			a1 = next;
+		}
 
-	// If they're not adjacent, 'walk' until they are:
-	while (a1 !is a0 + aSize) {
-		auto next = threadCache.alloc(aSize, false);
-		threadCache.free(a0);
-		a0 = a1;
-		a1 = next;
-	}
+		assert(a1 is a0 + arraySize);
 
-	assert(a1 is a0 + aSize);
-
-	void testZeroLengthSlices() {
-		// For various possible used capacities of a0:
-		foreach (a0Capacity; [0, 1, 2, 500, 16000, aSize - 1, aSize]) {
-			setUsed(a0, a0Capacity);
-			// For all possible zero-length slices of a0:
-			foreach (s; 0 .. aSize + 1) {
-				// A zero-length slice has non-zero capacity if and only if it
-				// resides at the start of the freespace of a non-empty alloc:
-				assert((threadCache.getCapacity(a0[s .. s]) > 0)
-					== (s == a0Capacity && s > 0 && s < aSize));
+		void testZeroLengthSlices() {
+			foreach (a0Capacity; capacities) {
+				setUsed(a0, a0Capacity);
+				// For all possible zero-length slices of a0:
+				foreach (s; 0 .. arraySize + 1) {
+					// A zero-length slice has non-zero capacity if and only if it
+					// resides at the start of the freespace of a non-empty alloc:
+					assert((threadCache.getCapacity(a0[s .. s]) > 0)
+						== (s == a0Capacity && s > 0 && s < arraySize));
+				}
 			}
 		}
-	}
 
-	foreach (a1Capacity; [0, 1, 2, 500, 16000, aSize - 1, aSize]) {
-		// Not matters what a1's capacity is:
-		setUsed(a1, a1Capacity);
+		foreach (a1Capacity; capacities) {
+			// Not matters what a1's capacity is:
+			setUsed(a1, a1Capacity);
+			testZeroLengthSlices();
+		}
+
+		// Same rules apply if the space above a0 is not allocated:
+		threadCache.free(a1);
 		testZeroLengthSlices();
+
+		threadCache.free(a0);
 	}
 
-	// Same rules apply if the space above a0 is not allocated:
-	threadCache.free(a1);
-	testZeroLengthSlices();
-
-	threadCache.free(a0);
+	testSpill(16384, [0, 1, 2, 500, 16000, 16383, 16384]);
+	testSpill(20480, [0, 1, 2, 500, 20000, 20479, 20480]);
 }
