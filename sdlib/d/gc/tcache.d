@@ -599,7 +599,7 @@ unittest arraySpill {
 
 	void testZeroLengthSlices() {
 		// For various possible used capacities of a0:
-		foreach (a0Capacity; [0, 1, 2, 500, 16000, aSize]) {
+		foreach (a0Capacity; [0, 1, 2, 500, 16000, aSize - 1, aSize]) {
 			setUsed(a0, a0Capacity);
 			// For all possible zero-length slices of a0:
 			foreach (s; 0 .. aSize + 1) {
@@ -612,7 +612,7 @@ unittest arraySpill {
 		}
 	}
 
-	foreach (a1Capacity; [0, 1, 2, 500, 16000, aSize]) {
+	foreach (a1Capacity; [0, 1, 2, 500, 16000, aSize - 1, aSize]) {
 		// Not matters what a1's capacity is:
 		setUsed(a1, a1Capacity);
 		testZeroLengthSlices();
