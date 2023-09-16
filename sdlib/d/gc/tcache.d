@@ -592,9 +592,10 @@ unittest arraySpill {
 				return left;
 			}
 
-			auto next = tryPair(right, alloc());
+			auto pair = tryPair(right, alloc());
+			assert(pair !is null);
 			threadCache.free(left);
-			return next;
+			return pair;
 		}
 
 		return tryPair(alloc(), alloc());
