@@ -167,9 +167,8 @@ public:
 		auto startIndex = slice.ptr - pd.extent.address;
 		auto stopIndex = startIndex + slice.length;
 
-		// If the slice end doesn't match the used capacity, not appendable.
-		// A zero-length slice is only appendable when pointing to the start
-		// of the freespace of a non-empty alloc.
+		// To be appendable, the slice end must match the alloc's used
+		// capacity, and the latter may not be zero.
 		return stopIndex > 0 && stopIndex == pd.extent.usedCapacity;
 	}
 
