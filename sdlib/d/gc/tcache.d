@@ -581,10 +581,11 @@ unittest arraySpill {
 		pd.extent.setUsedCapacity(usedCapacity);
 	}
 
+	// Get two allocs of given size guaranteed to be adjacent.
 	void* makeTwoAdjacentAllocs(uint size) {
-		void* search(void* left, void* right) {
+		void* walk(void* left, void* right) {
 			if (right !is left + size) {
-				auto next = search(right, threadCache.alloc(size, false));
+				auto next = walk(right, threadCache.alloc(size, false));
 				threadCache.free(left);
 				return next;
 			}
@@ -592,9 +593,8 @@ unittest arraySpill {
 			return left;
 		}
 
-		auto a = threadCache.alloc(size, false);
-		auto b = threadCache.alloc(size, false);
-		return search(a, b);
+		return walk(threadCache.alloc(size, false),
+		            threadCache.alloc(size, false));
 	}
 
 	void testSpill(uint arraySize, uint[] capacities) {
@@ -614,8 +614,8 @@ unittest arraySpill {
 			}
 		}
 
+		// Try it with various capacities for a1:
 		foreach (a1Capacity; capacities) {
-			// Not matters what a1's capacity is:
 			setUsed(a1, a1Capacity);
 			testZeroLengthSlices();
 		}
