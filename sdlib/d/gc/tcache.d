@@ -584,13 +584,13 @@ unittest arraySpill {
 	// Get two allocs of given size guaranteed to be adjacent.
 	void* makeTwoAdjacentAllocs(uint size) {
 		void* walk(void* left, void* right) {
-			if (right !is left + size) {
-				auto next = walk(right, threadCache.alloc(size, false));
-				threadCache.free(left);
-				return next;
+			if (left + size is right) {
+				return left;
 			}
 
-			return left;
+			auto next = walk(right, threadCache.alloc(size, false));
+			threadCache.free(left);
+			return next;
 		}
 
 		return walk(threadCache.alloc(size, false),
