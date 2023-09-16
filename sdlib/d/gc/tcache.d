@@ -581,19 +581,25 @@ unittest arraySpill {
 		pd.extent.setUsedCapacity(usedCapacity);
 	}
 
-	void testSpill(uint arraySize, uint[] capacities) {
-		auto a0 = threadCache.alloc(arraySize, false);
-		auto a1 = threadCache.alloc(arraySize, false);
+	void* makeTwoAdjacentAllocs(uint size) {
+		void* search(void* left, void* right) {
+			if (right !is left + size) {
+				auto next = search(right, threadCache.alloc(size, false));
+				threadCache.free(left);
+				return next;
+			}
 
-		// If they're not adjacent, 'walk' until they are:
-		while (a1 !is a0 + arraySize) {
-			auto next = threadCache.alloc(arraySize, false);
-			threadCache.free(a0);
-			a0 = a1;
-			a1 = next;
+			return left;
 		}
 
-		assert(a1 is a0 + arraySize);
+		auto a = threadCache.alloc(size, false);
+		auto b = threadCache.alloc(size, false);
+		return search(a, b);
+	}
+
+	void testSpill(uint arraySize, uint[] capacities) {
+		void* a0 = makeTwoAdjacentAllocs(arraySize);
+		void* a1 = a0 + arraySize;
 
 		void testZeroLengthSlices() {
 			foreach (a0Capacity; capacities) {
