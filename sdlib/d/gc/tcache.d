@@ -588,12 +588,14 @@ unittest arraySpill {
 		}
 
 		void* tryPair(void* left, void* right) {
+			assert(left !is null);
+			assert(right !is null);
+
 			if (left + size is right) {
 				return left;
 			}
 
 			auto pair = tryPair(right, alloc());
-			assert(pair !is null);
 			threadCache.free(left);
 			return pair;
 		}
