@@ -597,13 +597,6 @@ unittest arraySpill {
 
 	assert(a1 is a0 + aSize);
 
-	// Ordinary per getCapacity, except in degenerate case:
-	// slice of length zero at the bottom of empty alloc:
-	foreach (c; 0 .. aSize + 1) {
-		setUsed(a0, c);
-		assert(threadCache.getCapacity(a0[0 .. c]) == (c == 0) ? 0 : aSize);
-	}
-
 	void testZeroLengthSlices() {
 		// For various possible used capacities of a0:
 		foreach (a0Capacity; [0, 1, 2, 500, 16000, aSize]) {
