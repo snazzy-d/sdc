@@ -168,8 +168,9 @@ public:
 		auto stopIndex = startIndex + slice.length;
 
 		// If the slice end doesn't match the used capacity, not appendable.
-		// A zero-length slice at the start of an empty alloc is also not appendable.
-		return (stopIndex == pd.extent.usedCapacity) && (stopIndex > 0);
+		// A zero-length slice is only appendable when pointing to the start
+		// of the freespace of a non-empty alloc.
+		return stopIndex > 0 && stopIndex == pd.extent.usedCapacity;
 	}
 
 	size_t getCapacity(const void[] slice) {
@@ -581,21 +582,45 @@ unittest arraySpill {
 		pd.extent.setUsedCapacity(usedCapacity);
 	}
 
-	// Verify that zero-length interstitial slice does not spill into next alloc:
-	void testAdjacentSpill(size_t arrSize, size_t a1Cap, size_t a2Cap) {
-		auto array1 = threadCache.alloc(arrSize, false);
-		auto array2 = threadCache.alloc(arrSize, false);
-		assert(array2 is array1 + arrSize);
-		setUsed(array1, a1Cap);
-		setUsed(array2, a2Cap);
-		assert(threadCache.getCapacity(array1[arrSize .. arrSize]) == 0);
+	enum aSize = 16384;
+
+	auto a0 = threadCache.alloc(aSize, false);
+	auto a1 = threadCache.alloc(aSize, false);
+
+	// If they're not adjacent, 'walk' until they are:
+	while (a1 !is a0 + aSize) {
+		auto next = threadCache.alloc(aSize, false);
+		threadCache.free(a0);
+		a0 = a1;
+		a1 = next;
 	}
 
-	testAdjacentSpill(16384, 0, 0);
-	testAdjacentSpill(16384, 16000, 0);
-	testAdjacentSpill(16384, 16000, 16000);
-	testAdjacentSpill(16384, 16000, 1);
-	testAdjacentSpill(16384, 1, 1);
-	testAdjacentSpill(16384, 1, 16000);
-	testAdjacentSpill(16384, 0, 1);
+	assert(a1 is a0 + aSize);
+
+	// Ordinary per getCapacity, except in degenerate case:
+	// slice of length zero at the bottom of empty alloc:
+	foreach (c; 0 .. aSize + 1) {
+		setUsed(a0, c);
+		assert(threadCache.getCapacity(a0[0 .. c]) == (c == 0) ? 0 : aSize);
+	}
+
+	foreach (a1Capacity; [0, 1, 2, 500, 16000, aSize]) {
+		// Not matters what a1's capacity is:
+		setUsed(a1, a1Capacity);
+		// For various possible used capacities of a0:
+		foreach (a0Capacity; [0, 1, 2, 500, 16000, aSize]) {
+			setUsed(a0, a0Capacity);
+			// For all possible zero-length slices of a0:
+			foreach (s; 0 .. aSize + 1) {
+				// A zero-length slice has non-zero capacity if and only if it
+				// resides at the start of the freespace of a non-empty alloc:
+				auto zeroSliceCap = threadCache.getCapacity(a0[s .. s]);
+				assert((zeroSliceCap > 0)
+					== (s == a0Capacity && s > 0 && s < aSize));
+			}
+		}
+	}
+
+	threadCache.free(a0);
+	threadCache.free(a1);
 }
