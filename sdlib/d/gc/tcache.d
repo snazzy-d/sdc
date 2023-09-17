@@ -614,8 +614,12 @@ unittest arraySpill {
 				foreach (s; 0 .. arraySize + 1) {
 					// A zero-length slice has non-zero capacity if and only if it
 					// resides at the start of the freespace of a non-empty alloc:
-					assert((threadCache.getCapacity(a0[s .. s]) > 0)
+					auto sliceCapacity = threadCache.getCapacity(a0[s .. s]);
+					auto haveCapacity = sliceCapacity > 0;
+					assert(haveCapacity
 						== (s == a0Capacity && s > 0 && s < arraySize));
+					// Capacity in non-degenerate case follows standard rule:
+					assert(sliceCapacity == (haveCapacity ? arraySize - s : 0));
 				}
 			}
 		}
