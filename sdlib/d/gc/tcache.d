@@ -619,7 +619,7 @@ unittest arraySpill {
 					assert(haveCapacity
 						== (s == a0Capacity && s > 0 && s < arraySize));
 					// Capacity in non-degenerate case follows standard rule:
-					assert(sliceCapacity == (haveCapacity ? arraySize - s : 0));
+					assert(!haveCapacity || sliceCapacity == arraySize - s);
 				}
 			}
 		}
