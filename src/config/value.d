@@ -241,6 +241,15 @@ public:
 		}
 
 		@property
+		Value back() const {
+			return data.at(stop - 1);
+		}
+
+		void popBack() {
+			stop--;
+		}
+
+		@property
 		uint length() const {
 			return (stop - start) & (empty - 1);
 		}
@@ -680,6 +689,10 @@ unittest {
 		size_t i = 0;
 		foreach (Value e; v[]) {
 			assert(e == expected[i++]);
+		}
+
+		foreach_reverse (Value e; v[]) {
+			assert(e == expected[--i]);
 		}
 
 		// Check that the length adapts when we pop elements.
