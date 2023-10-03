@@ -6,7 +6,11 @@ bool isPow2(T)(T x) if (isIntegral!T) {
 	return (x & (x - 1)) == 0;
 }
 
-Signed!T maybeNegate(T)(T value, bool neg) {
+Signed!T maybeNegate(T)(T value, bool _neg) {
+	const neg = cast(int) _neg;
+
+	assert(neg == 0 || neg == 1);
+
 	return (value - neg) ^ -neg;
 }
 
