@@ -221,33 +221,42 @@ public:
 	static struct Range {
 	private:
 		Value data;
-		uint _length;
-		uint index;
+		uint start;
+		uint stop;
 
 		this(const ref Value data) {
 			this.data = data;
-			_length = data.isHeapValue() ? data.length : 0;
-			index = 0;
+			start = 0;
+			stop = data.isHeapValue() ? data.length : 0;
 		}
 
 	public:
 		@property
 		Value front() const {
-			return data.at(index);
+			return data.at(start);
 		}
 
 		void popFront() {
-			index++;
+			start++;
+		}
+
+		@property
+		Value back() const {
+			return data.at(stop - 1);
+		}
+
+		void popBack() {
+			stop--;
 		}
 
 		@property
 		uint length() const {
-			return (_length - index) & (empty - 1);
+			return (stop - start) & (empty - 1);
 		}
 
 		@property
 		bool empty() const {
-			return index >= _length;
+			return start >= stop;
 		}
 	}
 
@@ -680,6 +689,10 @@ unittest {
 		size_t i = 0;
 		foreach (Value e; v[]) {
 			assert(e == expected[i++]);
+		}
+
+		foreach_reverse (Value e; v[]) {
+			assert(e == expected[--i]);
 		}
 
 		// Check that the length adapts when we pop elements.
