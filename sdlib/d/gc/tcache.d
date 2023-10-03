@@ -374,16 +374,6 @@ unittest makeRange {
 }
 
 unittest getCapacity {
-	void* makeAppendableWithCap(size_t size, size_t usedCapacity) {
-		auto ptr = threadCache.allocAppendable(size, false);
-		assert(ptr !is null);
-		auto pd = threadCache.getPageDescriptor(ptr);
-		assert(pd.extent !is null);
-		assert(pd.extent.isLarge());
-		pd.extent.setUsedCapacity(usedCapacity);
-		return ptr;
-	}
-
 	// Non-appendable size class 6 (56 bytes)
 	auto nonAppendable = threadCache.alloc(50, false);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 0]) == 0);
@@ -403,8 +393,18 @@ unittest getCapacity {
 	assert(threadCache.getCapacity(tlPtr[0 .. 0]) == 0);
 	assert(threadCache.getCapacity(tlPtr[0 .. 100]) == 0);
 
+	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
+		auto ptr = threadCache.allocAppendable(size, false);
+		assert(ptr !is null);
+		auto pd = threadCache.getPageDescriptor(ptr);
+		assert(pd.extent !is null);
+		assert(pd.extent.isLarge());
+		pd.extent.setUsedCapacity(usedCapacity);
+		return ptr;
+	}
+
 	// Check capacity for an appendable large GC allocation.
-	auto p0 = makeAppendableWithCap(16384, 100);
+	auto p0 = allocAppendableWithCapacity(16384, 100);
 
 	// p0 is appendable and has the minimum large size.
 	// Capacity of segment from p0, length 100 is 16384:
@@ -473,16 +473,6 @@ unittest getCapacity {
 }
 
 unittest extendLarge {
-	void* makeAppendableWithCap(size_t size, size_t usedCapacity) {
-		auto ptr = threadCache.allocAppendable(size, false);
-		assert(ptr !is null);
-		auto pd = threadCache.getPageDescriptor(ptr);
-		assert(pd.extent !is null);
-		assert(pd.extent.isLarge());
-		pd.extent.setUsedCapacity(usedCapacity);
-		return ptr;
-	}
-
 	// Non-appendable size class 6 (56 bytes)
 	auto nonAppendable = threadCache.alloc(50, false);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 50]) == 0);
@@ -510,8 +500,18 @@ unittest extendLarge {
 	assert(!threadCache.extend(tlPtr[0 .. 100], 1));
 	assert(!threadCache.extend(tlPtr[100 .. 100], 1));
 
+	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
+		auto ptr = threadCache.allocAppendable(size, false);
+		assert(ptr !is null);
+		auto pd = threadCache.getPageDescriptor(ptr);
+		assert(pd.extent !is null);
+		assert(pd.extent.isLarge());
+		pd.extent.setUsedCapacity(usedCapacity);
+		return ptr;
+	}
+
 	// Make an appendable alloc:
-	auto p0 = makeAppendableWithCap(16384, 100);
+	auto p0 = allocAppendableWithCapacity(16384, 100);
 	assert(threadCache.getCapacity(p0[0 .. 100]) == 16384);
 
 	// Attempt to extend valid slices with capacity 0.
@@ -542,7 +542,7 @@ unittest extendLarge {
 	assert(!threadCache.extend(p0[0 .. 16384], 1));
 
 	// Make another appendable alloc:
-	auto p1 = makeAppendableWithCap(16384, 100);
+	auto p1 = allocAppendableWithCapacity(16384, 100);
 	assert(threadCache.getCapacity(p1[0 .. 100]) == 16384);
 
 	// Valid extend :
