@@ -573,7 +573,7 @@ unittest extend {
 }
 
 unittest arraySpill {
-	void setUsed(void* ptr, size_t usedCapacity) {
+	void setAllocationUsedCapacity(void* ptr, size_t usedCapacity) {
 		assert(ptr !is null);
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
@@ -582,17 +582,19 @@ unittest arraySpill {
 	}
 
 	// Get two allocs of given size guaranteed to be adjacent.
-	void* makeTwoAdjacentAllocs(uint size) {
+	void*[2] makeTwoAdjacentAllocs(uint size) {
+		void*[2] res;
+
 		void* alloc() {
 			return threadCache.alloc(size, false);
 		}
 
-		void* tryPair(void* left, void* right) {
+		void*[2] tryPair(void* left, void* right) {
 			assert(left !is null);
 			assert(right !is null);
 
 			if (left + size is right) {
-				return left;
+				return [left, right];
 			}
 
 			auto pair = tryPair(right, alloc());
@@ -604,12 +606,14 @@ unittest arraySpill {
 	}
 
 	void testSpill(uint arraySize, uint[] capacities) {
-		void* a0 = makeTwoAdjacentAllocs(arraySize);
-		void* a1 = a0 + arraySize;
+		auto pair = makeTwoAdjacentAllocs(arraySize);
+		void* a0 = pair[0];
+		void* a1 = pair[1];
+		assert(a1 == a0 + arraySize);
 
 		void testZeroLengthSlices() {
 			foreach (a0Capacity; capacities) {
-				setUsed(a0, a0Capacity);
+				setAllocationUsedCapacity(a0, a0Capacity);
 				// For all possible zero-length slices of a0:
 				foreach (s; 0 .. arraySize + 1) {
 					// A zero-length slice has non-zero capacity if and only if it
@@ -626,7 +630,7 @@ unittest arraySpill {
 
 		// Try it with various capacities for a1:
 		foreach (a1Capacity; capacities) {
-			setUsed(a1, a1Capacity);
+			setAllocationUsedCapacity(a1, a1Capacity);
 			testZeroLengthSlices();
 		}
 
