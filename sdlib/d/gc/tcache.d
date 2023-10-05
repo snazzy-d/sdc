@@ -583,8 +583,6 @@ unittest arraySpill {
 
 	// Get two allocs of given size guaranteed to be adjacent.
 	void*[2] makeTwoAdjacentAllocs(uint size) {
-		void*[2] res;
-
 		void* alloc() {
 			return threadCache.alloc(size, false);
 		}
