@@ -417,8 +417,10 @@ public:
 			case Plus:
 			case Minus:
 			case Complement:
-				// FIXME: check that type is integer.
-				type = expr.type;
+				import d.semantic.typepromotion;
+				type = getPromotedType(pass, expr.location, expr.type,
+				                       Type.get(BuiltinType.Int));
+				expr = buildExplicitCast(pass, expr.location, type, expr);
 				break;
 
 			case Not:

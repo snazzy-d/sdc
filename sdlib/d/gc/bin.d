@@ -72,10 +72,6 @@ private:
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		if (e.supportsFreeSpace) {
-			e.freeSpaceFlags.clearBitAtomic(index);
-		}
-
 		e.free(index);
 
 		auto nfree = e.freeSlots;

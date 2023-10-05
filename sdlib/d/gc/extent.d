@@ -449,7 +449,6 @@ unittest allocfree {
  * B7 B6 B5 B4 B3 B2 B1 B0 A7 A6 A5 A4 A3 A2 A1 A0
  * \_________15 bits unsigned integer_________/  \_ Set if and only if B0..B7 used.
  */
-
 ushort readPackedFreeSpace(ushort* ptr) {
 	auto data = loadBigEndian(ptr);
 	auto mask = 0x7f | -(data & 1);
@@ -459,28 +458,32 @@ ushort readPackedFreeSpace(ushort* ptr) {
 void writePackedFreeSpace(ushort* ptr, ushort x) {
 	assert(x < 0x8000, "x does not fit in 15 bits!");
 
-	auto mask = 0x7f - x >> 8 | 0xff;
-	auto base = x << 1 | mask >> 8 & 1;
+	bool isLarge = x > 0x7f;
+	ushort native = (x << 1 | isLarge) & ushort.max;
+	auto base = nativeToBigEndian(native);
+	auto mask = -isLarge | nativeToBigEndian!ushort(ushort(0xff));
 
-	auto current = loadBigEndian(ptr);
+	auto current = *ptr;
 	auto delta = (current ^ base) & mask;
 	auto value = current ^ delta;
 
-	storeBigEndian(ptr, cast(ushort) value);
+	*ptr = value & ushort.max;
 }
 
-unittest PackedFreeSpace {
+unittest packedFreeSpace {
 	ubyte[2] a;
+	auto p = cast(ushort*) a.ptr;
+
 	foreach (ushort i; 0 .. 0x8000) {
-		auto p = cast(ushort*) a.ptr;
 		writePackedFreeSpace(p, i);
 		assert(readPackedFreeSpace(p) == i);
 	}
 
+	// Make sure we do not distrub the penultimate byte
+	// when the value is small enough.
 	foreach (x; 0 .. 256) {
 		a[0] = 0xff & x;
 		foreach (ubyte y; 0 .. 0x80) {
-			auto p = cast(ushort*) a.ptr;
 			writePackedFreeSpace(p, y);
 			assert(readPackedFreeSpace(p) == y);
 			assert(a[0] == x);
