@@ -28,6 +28,22 @@ private:
 			this.size = size;
 			this.usedCapacity = used;
 		}
+
+		this(PageDescriptor pd) {
+			auto e = pd.extent;
+			this(e.address, e.size, e.usedCapacity);
+		}
+
+		this(PageDescriptor pd, void* ptr) {
+			assert(pd.isSlab(), "Not a slab!");
+			import d.gc.slab;
+			auto sg = SlabAllocGeometry(ptr, pd);
+			auto freeSize = isAppendableSizeClass(pd.sizeClass)
+				? pd.extent.getFreeSpace(sg.index)
+				: 0;
+
+			this(sg.address, sg.size, sg.size - freeSize);
+		}
 	}
 
 public:
@@ -49,11 +65,19 @@ public:
 		assert(isAppendableSizeClass(getSizeClass(asize)),
 		       "allocAppendable got non-appendable size class!");
 
-		auto ptr = alloc(asize, containsPointers);
-		// Remember the size we actually use.
-		auto pd = getPageDescriptor(ptr);
-		setUsedCapacity(pd, ptr, size);
+		initializeExtentMap();
 
+		auto arena = chooseArena(containsPointers);
+		if (isSmallSize(asize)) {
+			auto ptr = arena.allocSmall(emap, asize);
+			auto pd = getPageDescriptor(ptr);
+			setSmallUsedCapacity(pd, ptr, size);
+			return ptr;
+		}
+
+		auto ptr = arena.allocLarge(emap, asize, false);
+		auto pd = getPageDescriptor(ptr);
+		pd.extent.setUsedCapacity(size);
 		return ptr;
 	}
 
@@ -98,10 +122,7 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		auto info = getCapacityInfo(pd, ptr);
-
-		import d.gc.util;
-		auto copySize = min(size, info.usedCapacity);
+		CapacityInfo info;
 
 		auto samePointerness = containsPointers == pd.containsPointers;
 
@@ -112,6 +133,8 @@ public:
 				setSmallUsedCapacity(pd, ptr, size);
 				return ptr;
 			}
+
+			info = CapacityInfo(pd, ptr);
 		} else {
 			auto esize = pd.extent.size;
 			if (samePointerness && (alignUp(size, PageSize) == esize
@@ -120,6 +143,8 @@ public:
 				pd.extent.setUsedCapacity(size);
 				return ptr;
 			}
+
+			info = CapacityInfo(pd);
 		}
 
 		auto newPtr = alloc(size, containsPointers);
@@ -127,9 +152,13 @@ public:
 			return null;
 		}
 
-		auto npd = getPageDescriptor(newPtr);
-		setUsedCapacity(npd, newPtr, size);
+		if (isLargeSize(size)) {
+			auto npd = getPageDescriptor(newPtr);
+			npd.extent.setUsedCapacity(size);
+		}
 
+		import d.gc.util;
+		auto copySize = min(size, info.usedCapacity);
 		memcpy(newPtr, ptr, copySize);
 		pd.arena.free(emap, pd, ptr);
 
@@ -168,7 +197,9 @@ public:
 			return false;
 		}
 
-		info = getCapacityInfo(pd, cast(void*) slice.ptr);
+		info = pd.isSlab()
+			? CapacityInfo(pd, cast(void*) slice.ptr)
+			: CapacityInfo(pd);
 
 		// Slice must not end before valid data ends, or capacity is zero:
 		auto startIndex = slice.ptr - info.address;
@@ -207,7 +238,12 @@ public:
 		}
 
 		// Increase the used capacity by the requested size:
-		return setUsedCapacity(pd, info.address, newCapacity);
+		if (pd.isSlab()) {
+			return setSmallUsedCapacity(pd, info.address, newCapacity);
+		}
+
+		pd.extent.setUsedCapacity(newCapacity);
+		return true;
 	}
 
 	/**
@@ -282,21 +318,6 @@ public:
 
 private:
 
-	CapacityInfo getCapacityInfo(PageDescriptor pd, void* ptr) {
-		if (pd.isSlab()) {
-			import d.gc.slab;
-			auto sg = SlabAllocGeometry(ptr, pd);
-			auto freeSize = isAppendableSizeClass(pd.sizeClass)
-				? pd.extent.getFreeSpace(sg.index)
-				: 0;
-
-			return CapacityInfo(sg.address, sg.size, sg.size - freeSize);
-		}
-
-		auto e = pd.extent;
-		return CapacityInfo(e.address, e.size, e.usedCapacity);
-	}
-
 	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
 	                          size_t usedCapacity) {
 		if (!isAppendableSizeClass(pd.sizeClass)) {
@@ -310,15 +331,6 @@ private:
 		       "Used capacity may not exceed alloc size!");
 
 		pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
-		return true;
-	}
-
-	bool setUsedCapacity(PageDescriptor pd, void* ptr, size_t usedCapacity) {
-		if (pd.isSlab()) {
-			return setSmallUsedCapacity(pd, ptr, usedCapacity);
-		}
-
-		pd.extent.setUsedCapacity(usedCapacity);
 		return true;
 	}
 
@@ -684,10 +696,10 @@ unittest extendSmall {
 	// Increase that results in size class change:
 	auto s3 = threadCache.realloc(s2, 70, false);
 	assert(s3 !is s2);
-	assert(threadCache.getCapacity(s3[0 .. 70]) == 80);
+	assert(threadCache.getCapacity(s3[0 .. 80]) == 80);
 
 	// Decrease:
 	auto s4 = threadCache.realloc(s3, 60, false);
 	assert(s4 !is s3);
-	assert(threadCache.getCapacity(s4[0 .. 60]) == 64);
+	assert(threadCache.getCapacity(s4[0 .. 64]) == 64);
 }
