@@ -30,6 +30,7 @@ private:
 		}
 
 		this(PageDescriptor pd) {
+			assert(!pd.isSlab(), "Not a large alloc!");
 			auto e = pd.extent;
 			this(e.address, e.size, e.usedCapacity);
 		}
@@ -37,7 +38,7 @@ private:
 		this(PageDescriptor pd, void* ptr) {
 			assert(pd.isSlab(), "Not a slab!");
 			import d.gc.slab;
-			auto sg = SlabAllocGeometry(ptr, pd);
+			auto sg = SlabAllocGeometry(pd, ptr);
 			auto freeSize = isAppendableSizeClass(pd.sizeClass)
 				? pd.extent.getFreeSpace(sg.index)
 				: 0;
@@ -61,7 +62,7 @@ public:
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers) {
-		auto asize = alignUp(getAllocSize(size), 2 * Quantum);
+		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
 		assert(isAppendableSizeClass(getSizeClass(asize)),
 		       "allocAppendable got non-appendable size class!");
 
@@ -121,9 +122,8 @@ public:
 			return alloc(size, containsPointers);
 		}
 
+		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
-		CapacityInfo info;
-
 		auto samePointerness = containsPointers == pd.containsPointers;
 
 		if (pd.isSlab()) {
@@ -134,7 +134,9 @@ public:
 				return ptr;
 			}
 
-			info = CapacityInfo(pd, ptr);
+			if (newSizeClass > oldSizeClass) {
+				copySize = getSizeFromClass(oldSizeClass);
+			}
 		} else {
 			auto esize = pd.extent.size;
 			if (samePointerness && (alignUp(size, PageSize) == esize
@@ -144,7 +146,8 @@ public:
 				return ptr;
 			}
 
-			info = CapacityInfo(pd);
+			import d.gc.util;
+			copySize = min(size, pd.extent.usedCapacity);
 		}
 
 		auto newPtr = alloc(size, containsPointers);
@@ -157,8 +160,6 @@ public:
 			npd.extent.setUsedCapacity(size);
 		}
 
-		import d.gc.util;
-		auto copySize = min(size, info.usedCapacity);
 		memcpy(newPtr, ptr, copySize);
 		pd.arena.free(emap, pd, ptr);
 
@@ -326,7 +327,7 @@ private:
 		}
 
 		import d.gc.slab;
-		auto sg = SlabAllocGeometry(ptr, pd);
+		auto sg = SlabAllocGeometry(pd, ptr);
 
 		assert(usedCapacity <= sg.size,
 		       "Used capacity may not exceed alloc size!");
