@@ -205,8 +205,9 @@ public:
 		auto startIndex = slice.ptr - info.address;
 		auto stopIndex = startIndex + slice.length;
 
-		// If the slice end doesn't match the used capacity, not appendable.
-		return stopIndex == info.usedCapacity;
+		// To be appendable, the slice end must match the alloc's used
+		// capacity, and the latter may not be zero.
+		return stopIndex > 0 && stopIndex == info.usedCapacity;
 	}
 
 	size_t getCapacity(const void[] slice) {
@@ -702,4 +703,80 @@ unittest extendSmall {
 	auto s4 = threadCache.realloc(s3, 60, false);
 	assert(s4 !is s3);
 	assert(threadCache.getCapacity(s4[0 .. 64]) == 64);
+}
+
+unittest arraySpill {
+	void setAllocationUsedCapacity(void* ptr, size_t usedCapacity) {
+		assert(ptr !is null);
+		auto pd = threadCache.getPageDescriptor(ptr);
+		assert(pd.extent !is null);
+		if (pd.isSlab()) {
+			threadCache.setSmallUsedCapacity(pd, ptr, usedCapacity);
+		} else {
+			pd.extent.setUsedCapacity(usedCapacity);
+		}
+	}
+
+	// Get two allocs of given size guaranteed to be adjacent.
+	void*[2] makeTwoAdjacentAllocs(uint size) {
+		void* alloc() {
+			return threadCache.alloc(size, false);
+		}
+
+		void*[2] tryPair(void* left, void* right) {
+			assert(left !is null);
+			assert(right !is null);
+
+			if (left + size is right) {
+				return [left, right];
+			}
+
+			auto pair = tryPair(right, alloc());
+			threadCache.free(left);
+			return pair;
+		}
+
+		return tryPair(alloc(), alloc());
+	}
+
+	void testSpill(uint arraySize, uint[] capacities) {
+		auto pair = makeTwoAdjacentAllocs(arraySize);
+		void* a0 = pair[0];
+		void* a1 = pair[1];
+		assert(a1 == a0 + arraySize);
+
+		void testZeroLengthSlices() {
+			foreach (a0Capacity; capacities) {
+				setAllocationUsedCapacity(a0, a0Capacity);
+				// For all possible zero-length slices of a0:
+				foreach (s; 0 .. arraySize + 1) {
+					// A zero-length slice has non-zero capacity if and only if it
+					// resides at the start of the freespace of a non-empty alloc:
+					auto sliceCapacity = threadCache.getCapacity(a0[s .. s]);
+					auto haveCapacity = sliceCapacity > 0;
+					assert(haveCapacity
+						== (s == a0Capacity && s > 0 && s < arraySize));
+					// Capacity in non-degenerate case follows standard rule:
+					assert(!haveCapacity || sliceCapacity == arraySize - s);
+				}
+			}
+		}
+
+		// Try it with various capacities for a1:
+		foreach (a1Capacity; capacities) {
+			setAllocationUsedCapacity(a1, a1Capacity);
+			testZeroLengthSlices();
+		}
+
+		// Same rules apply if the space above a0 is not allocated:
+		threadCache.free(a1);
+		testZeroLengthSlices();
+
+		threadCache.free(a0);
+	}
+
+	testSpill(64, [0, 1, 2, 32, 63, 64]);
+	testSpill(80, [0, 1, 2, 32, 79, 80]);
+	testSpill(16384, [0, 1, 2, 500, 16000, 16383, 16384]);
+	testSpill(20480, [0, 1, 2, 500, 20000, 20479, 20480]);
 }
