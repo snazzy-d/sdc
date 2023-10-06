@@ -15,6 +15,38 @@ private:
 	const(void)* stackBottom;
 	const(void*)[][] roots;
 
+	// Data returned in response to capacity queries.
+	struct CapacityInfo {
+		void* address;
+		size_t size;
+		size_t usedCapacity;
+
+		this(void* address, size_t size, size_t used) {
+			assert(used <= size, "Used capacity exceeds alloc size!");
+
+			this.address = address;
+			this.size = size;
+			this.usedCapacity = used;
+		}
+
+		this(PageDescriptor pd) {
+			assert(!pd.isSlab(), "Not a large alloc!");
+			auto e = pd.extent;
+			this(e.address, e.size, e.usedCapacity);
+		}
+
+		this(PageDescriptor pd, void* ptr) {
+			assert(pd.isSlab(), "Not a slab!");
+			import d.gc.slab;
+			auto sg = SlabAllocGeometry(pd, ptr);
+			auto freeSize = isAppendableSizeClass(pd.sizeClass)
+				? pd.extent.getFreeSpace(sg.index)
+				: 0;
+
+			this(sg.address, sg.size, sg.size - freeSize);
+		}
+	}
+
 public:
 	void* alloc(size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
@@ -30,14 +62,21 @@ public:
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers) {
-		// Force large allocation rather than slab.
-		enum MinSize = getSizeFromClass(ClassCount.Small);
+		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
+		assert(isAppendableSizeClass(getSizeClass(asize)),
+		       "allocAppendable got non-appendable size class!");
 
-		import d.gc.util;
-		auto asize = max(MinSize, getAllocSize(size));
-		auto ptr = alloc(asize, containsPointers);
+		initializeExtentMap();
 
-		// Remember the size we actually use.
+		auto arena = chooseArena(containsPointers);
+		if (isSmallSize(asize)) {
+			auto ptr = arena.allocSmall(emap, asize);
+			auto pd = getPageDescriptor(ptr);
+			setSmallUsedCapacity(pd, ptr, size);
+			return ptr;
+		}
+
+		auto ptr = arena.allocLarge(emap, asize, false);
 		auto pd = getPageDescriptor(ptr);
 		pd.extent.setUsedCapacity(size);
 		return ptr;
@@ -91,6 +130,7 @@ public:
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
 			if (samePointerness && newSizeClass == oldSizeClass) {
+				setSmallUsedCapacity(pd, ptr, size);
 				return ptr;
 			}
 
@@ -151,35 +191,35 @@ public:
 	 * 
 	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
 	 */
-	bool getAppendablePageDescriptor(const void[] slice,
-	                                 ref PageDescriptor pd) {
+	bool getAppendablePageDescriptor(const void[] slice, ref PageDescriptor pd,
+	                                 ref CapacityInfo info) {
 		pd = maybeGetPageDescriptor(slice.ptr);
 		if (pd.extent is null) {
 			return false;
 		}
 
-		// Appendable slabs are not supported.
-		if (pd.isSlab()) {
-			return false;
-		}
+		info = pd.isSlab()
+			? CapacityInfo(pd, cast(void*) slice.ptr)
+			: CapacityInfo(pd);
 
 		// Slice must not end before valid data ends, or capacity is zero:
-		auto startIndex = slice.ptr - pd.extent.address;
+		auto startIndex = slice.ptr - info.address;
 		auto stopIndex = startIndex + slice.length;
 
 		// To be appendable, the slice end must match the alloc's used
 		// capacity, and the latter may not be zero.
-		return stopIndex > 0 && stopIndex == pd.extent.usedCapacity;
+		return stopIndex > 0 && stopIndex == info.usedCapacity;
 	}
 
 	size_t getCapacity(const void[] slice) {
 		PageDescriptor pd;
-		if (!getAppendablePageDescriptor(slice, pd)) {
+		CapacityInfo info;
+		if (!getAppendablePageDescriptor(slice, pd, info)) {
 			return 0;
 		}
 
-		auto startIndex = slice.ptr - pd.extent.address;
-		return pd.extent.size - startIndex;
+		auto startIndex = slice.ptr - info.address;
+		return info.size - startIndex;
 	}
 
 	bool extend(const void[] slice, size_t size) {
@@ -188,19 +228,23 @@ public:
 		}
 
 		PageDescriptor pd;
-		if (!getAppendablePageDescriptor(slice, pd)) {
+		CapacityInfo info;
+		if (!getAppendablePageDescriptor(slice, pd, info)) {
 			return false;
 		}
 
 		// There must be sufficient free space to extend into:
-		auto newCapacity = pd.extent.usedCapacity + size;
-		if (pd.extent.size < newCapacity) {
+		auto newCapacity = info.usedCapacity + size;
+		if (info.size < newCapacity) {
 			return false;
 		}
 
 		// Increase the used capacity by the requested size:
-		pd.extent.setUsedCapacity(newCapacity);
+		if (pd.isSlab()) {
+			return setSmallUsedCapacity(pd, info.address, newCapacity);
+		}
 
+		pd.extent.setUsedCapacity(newCapacity);
 		return true;
 	}
 
@@ -275,6 +319,23 @@ public:
 	}
 
 private:
+
+	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
+	                          size_t usedCapacity) {
+		if (!isAppendableSizeClass(pd.sizeClass)) {
+			return false;
+		}
+
+		import d.gc.slab;
+		auto sg = SlabAllocGeometry(pd, ptr);
+
+		assert(usedCapacity <= sg.size,
+		       "Used capacity may not exceed alloc size!");
+
+		pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
+		return true;
+	}
+
 	auto getPageDescriptor(void* ptr) {
 		auto pd = maybeGetPageDescriptor(ptr);
 		assert(pd.extent !is null);
@@ -379,7 +440,7 @@ unittest getCapacity {
 	auto nonAppendable = threadCache.alloc(50, false);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 0]) == 0);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 50]) == 0);
-	assert(threadCache.getCapacity(nonAppendable[0 .. 56]) == 0);
+	assert(threadCache.getCapacity(nonAppendable[0 .. 56]) == 56);
 
 	// Capacity of any slice in space unknown to the GC is zero:
 	void* nullPtr = null;
@@ -600,13 +661,61 @@ unittest extendLarge {
 	assert(threadCache.extend(p1[0 .. 16384], 0));
 }
 
+unittest extendSmall {
+	// Make a small appendable alloc:
+	auto s0 = threadCache.allocAppendable(42, false);
+
+	assert(threadCache.getCapacity(s0[0 .. 42]) == 48);
+	assert(threadCache.extend(s0[0 .. 0], 0));
+	assert(!threadCache.extend(s0[0 .. 0], 10));
+	assert(!threadCache.extend(s0[0 .. 41], 10));
+	assert(!threadCache.extend(s0[1 .. 41], 10));
+	assert(!threadCache.extend(s0[0 .. 20], 10));
+
+	// Extend:
+	assert(!threadCache.extend(s0[0 .. 42], 7));
+	assert(!threadCache.extend(s0[32 .. 42], 7));
+	assert(threadCache.extend(s0[0 .. 42], 3));
+	assert(threadCache.getCapacity(s0[0 .. 45]) == 48);
+	assert(threadCache.getCapacity(s0[0 .. 42]) == 0);
+	assert(threadCache.extend(s0[40 .. 45], 2));
+	assert(threadCache.getCapacity(s0[0 .. 45]) == 0);
+	assert(threadCache.getCapacity(s0[0 .. 47]) == 48);
+	assert(!threadCache.extend(s0[0 .. 47], 2));
+	assert(threadCache.extend(s0[0 .. 47], 1));
+
+	// Decreasing the size of the allocation
+	// should adjust capacity acordingly.
+	auto s1 = threadCache.realloc(s0, 42, false);
+	assert(s1 is s0);
+	assert(threadCache.getCapacity(s1[0 .. 42]) == 48);
+
+	// Same is true for increasing:
+	auto s2 = threadCache.realloc(s1, 45, false);
+	assert(s2 is s1);
+	assert(threadCache.getCapacity(s2[0 .. 45]) == 48);
+
+	// Increase that results in size class change:
+	auto s3 = threadCache.realloc(s2, 70, false);
+	assert(s3 !is s2);
+	assert(threadCache.getCapacity(s3[0 .. 80]) == 80);
+
+	// Decrease:
+	auto s4 = threadCache.realloc(s3, 60, false);
+	assert(s4 !is s3);
+	assert(threadCache.getCapacity(s4[0 .. 64]) == 64);
+}
+
 unittest arraySpill {
 	void setAllocationUsedCapacity(void* ptr, size_t usedCapacity) {
 		assert(ptr !is null);
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
-		assert(pd.extent.isLarge());
-		pd.extent.setUsedCapacity(usedCapacity);
+		if (pd.isSlab()) {
+			threadCache.setSmallUsedCapacity(pd, ptr, usedCapacity);
+		} else {
+			pd.extent.setUsedCapacity(usedCapacity);
+		}
 	}
 
 	// Get two allocs of given size guaranteed to be adjacent.
@@ -667,6 +776,8 @@ unittest arraySpill {
 		threadCache.free(a0);
 	}
 
+	testSpill(64, [0, 1, 2, 32, 63, 64]);
+	testSpill(80, [0, 1, 2, 32, 79, 80]);
 	testSpill(16384, [0, 1, 2, 500, 16000, 16383, 16384]);
 	testSpill(20480, [0, 1, 2, 500, 20000, 20479, 20480]);
 }

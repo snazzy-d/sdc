@@ -10,7 +10,7 @@ struct SlabAllocGeometry {
 	uint size;
 	uint index;
 
-	this(void* ptr, PageDescriptor pd) {
+	this(PageDescriptor pd, void* ptr) {
 		assert(pd.isSlab(), "Expected a slab!");
 
 		import d.gc.util;

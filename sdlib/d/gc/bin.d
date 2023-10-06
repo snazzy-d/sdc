@@ -56,7 +56,7 @@ struct Bin {
 		       "Invalid arena or sizeClass!");
 
 		import d.gc.slab;
-		auto sg = SlabAllocGeometry(ptr, pd);
+		auto sg = SlabAllocGeometry(pd, ptr);
 		assert(ptr is sg.address);
 
 		auto slots = binInfos[pd.sizeClass].slots;
