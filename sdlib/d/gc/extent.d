@@ -105,9 +105,15 @@ private:
 		shared Bitmap!256 freeSpaceFlags;
 	}
 
+	struct FinalizationData {
+		ubyte[48] pad;
+		shared Bitmap!128 finalizationFlags;
+	}
+
 	union Bitmaps {
 		Bitmap!512 slabData;
 		FreeSpaceData freeSpaceData;
+		FinalizationData finalizationData;
 	}
 
 	union MetaData {
@@ -116,6 +122,9 @@ private:
 
 		// Metadata for large extents.
 		size_t usedCapacity;
+
+		// Optional finalizer.
+		void* finalizer;
 	}
 
 	MetaData _metadata;
@@ -141,6 +150,7 @@ private:
 			slabData.clear();
 		} else {
 			setUsedCapacity(size);
+			setFinalizer(null);
 		}
 	}
 
@@ -313,6 +323,14 @@ public:
 		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
 	}
 
+	ushort* getFreeSpacePosition(uint index) {
+		assert(isSlab(), "getFreeSpacePosition accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+
+		return cast(ushort*) address + slotSize - 2
+			- (hasFinalizer(index) ? 6 : 0);
+	}
+
 	void setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
 		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
@@ -324,8 +342,8 @@ public:
 			return;
 		}
 
-		// Encode freespace and write it to the last byte (or two bytes) of alloc.
-		writePackedFreeSpace(cast(ushort*) (address + slotSize - 2),
+		// Encode freespace and write it to the last usable byte (or two bytes):
+		writePackedFreeSpace(getFreeSpacePosition(index),
 		                     freeSpace & ushort.max);
 		freeSpaceFlags.setBitAtomic(index);
 	}
@@ -338,8 +356,77 @@ public:
 			return 0;
 		}
 
-		// Decode freespace, found in the final byte (or two bytes) of the alloc:
-		return readPackedFreeSpace(cast(ushort*) (address + slotSize - 2));
+		// Decode freespace, found in the final usable byte (or two bytes) :
+		return readPackedFreeSpace(getFreeSpacePosition(index));
+	}
+
+	/**
+	 * Finalizer Flag features for slabs.
+	 */
+
+	@property
+	bool supportsFinalization() const {
+		return isFinalizableSizeClass(sizeClass);
+	}
+
+	bool hasFinalizer(uint index) {
+		assert(isSlab(), "hasFinalizer accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+
+		return supportsFinalization && finalizationFlags.valueAtAtomic(index);
+	}
+
+	@property
+	ref shared(Bitmap!128) finalizationFlags() {
+		assert(isSlab(), "finalizationFlags accessed on non slab!");
+		assert(supportsFinalization, "finalizationFlags not supported!");
+
+		return _metadata.slabData.finalizationData.finalizationFlags;
+	}
+
+	void* getFinalizer(uint index) {
+		assert(isSlab(), "getFinalizer accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+		assert(hasFinalizer(index), "No finalizer is set!");
+
+		ulong finalizer = 0;
+		ubyte* field = cast(ubyte*) (address + slotSize - 6);
+
+		foreach_reverse (i; 0 .. 6) {
+			finalizer <<= 8;
+			finalizer |= *(field + i);
+		}
+
+		return cast(void*) finalizer;
+	}
+
+	void setFinalizer(uint index, void* finalizerPtr) {
+		assert(isSlab(), "setFinalizer accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+		assert(supportsFinalization, "size class not supports finalization!");
+		assert(!hasFinalizer(index), "finalizer is already set!");
+
+		auto freeSpace = getFreeSpace(index);
+
+		ulong finalizer = cast(ulong) finalizerPtr;
+		ubyte* field = cast(ubyte*) (address + slotSize - 6);
+
+		foreach (i; 0 .. 6) {
+			*(field + i) = finalizer & 0xff;
+			finalizer >>= 8;
+		}
+
+		finalizationFlags.setBitAtomic(index);
+		setFreeSpace(index, freeSpace);
+	}
+
+	void clearFinalizer(uint index) {
+		assert(isSlab(), "clearFinalizer accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+		assert(supportsFinalization, "size class not supports finalization!");
+		assert(hasFinalizer(index), "No finalizer is set!");
+
+		finalizationFlags.clearBitAtomic(index);
 	}
 
 	/**
@@ -358,6 +445,17 @@ public:
 	void setUsedCapacity(size_t size) {
 		assert(isLarge(), "Cannot set used capacity on a slab alloc!");
 		_metadata.usedCapacity = size;
+	}
+
+	@property
+	void* finalizer() {
+		assert(isLarge(), "Finalizer accessed on non large!");
+		return _metadata.finalizer;
+	}
+
+	void setFinalizer(void* finalizer) {
+		assert(isLarge(), "Cannot set finalizer on a slab alloc!");
+		_metadata.finalizer = finalizer;
 	}
 }
 
