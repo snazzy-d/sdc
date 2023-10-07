@@ -384,15 +384,17 @@ public:
 		return _metadata.slabData.finalizationData.finalizationFlags;
 	}
 
+	@property
+	ulong* finalizerField() {
+		return cast(ulong*) (address + slotSize - 8);
+	}
+
 	void* getFinalizer(uint index) {
 		assert(isSlab(), "getFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 		assert(hasFinalizer(index), "No finalizer is set!");
 
-		auto field = address + slotSize - 8;
-		auto finalizer = *(cast(ulong*) field) & AddressMask;
-
-		return cast(void*) finalizer;
+		return cast(void*) (*finalizerField & AddressMask);
 	}
 
 	void setFinalizer(uint index, void* finalizerPtr) {
@@ -403,9 +405,8 @@ public:
 
 		auto freeSpace = getFreeSpace(index);
 
-		auto field = address + slotSize - 8;
-		*(cast(ulong*) field) =
-			cast(ulong) finalizerPtr | *(cast(ushort*) field) << 48;
+		*finalizerField =
+			cast(ulong) finalizerPtr | *(cast(ushort*) finalizerField) << 48;
 
 		finalizationFlags.setBitAtomic(index);
 		setFreeSpace(index, freeSpace);
