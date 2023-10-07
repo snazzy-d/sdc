@@ -389,13 +389,8 @@ public:
 		assert(index < slotCount, "index is out of range!");
 		assert(hasFinalizer(index), "No finalizer is set!");
 
-		ulong finalizer = 0;
-		ubyte* field = cast(ubyte*) (address + slotSize - 6);
-
-		foreach_reverse (i; 0 .. 6) {
-			finalizer <<= 8;
-			finalizer |= *(field + i);
-		}
+		auto field = address + slotSize - 8;
+		auto finalizer = *(cast(ulong*) field) & AddressMask;
 
 		return cast(void*) finalizer;
 	}
@@ -408,13 +403,9 @@ public:
 
 		auto freeSpace = getFreeSpace(index);
 
-		ulong finalizer = cast(ulong) finalizerPtr;
-		ubyte* field = cast(ubyte*) (address + slotSize - 6);
-
-		foreach (i; 0 .. 6) {
-			*(field + i) = finalizer & 0xff;
-			finalizer >>= 8;
-		}
+		auto field = address + slotSize - 8;
+		*(cast(ulong*) field) =
+			cast(ulong) finalizerPtr | *(cast(ushort*) field) << 48;
 
 		finalizationFlags.setBitAtomic(index);
 		setFreeSpace(index, freeSpace);
