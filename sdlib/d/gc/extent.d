@@ -123,7 +123,7 @@ private:
 		// Slab occupancy (and metadata flags for supported size classes)
 		Bitmaps slabData;
 
-		// Metadata for large allocs
+		// Metadata for large extents.
 		LargeData largeData;
 	}
 
