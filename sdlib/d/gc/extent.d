@@ -100,31 +100,31 @@ private:
 
 	import d.gc.bitmap;
 
-	struct FreeSpaceData {
-		ubyte[32] pad;
-		shared Bitmap!256 freeSpaceFlags;
-	}
-
-	struct FinalizationData {
-		ubyte[48] pad;
+	struct SlabFlagData {
+		ubyte[16] pad;
 		shared Bitmap!128 finalizationFlags;
+		shared Bitmap!256 freeSpaceFlags;
 	}
 
 	union Bitmaps {
 		Bitmap!512 slabData;
-		FreeSpaceData freeSpaceData;
-		FinalizationData finalizationData;
+		SlabFlagData slabFlagData;
+	}
+
+	struct LargeData {
+		// Metadata for large extents.
+		size_t usedCapacity;
+
+		// Optional finalizer.
+		void* finalizer;
 	}
 
 	union MetaData {
 		// Slab occupancy (and metadata flags for supported size classes)
 		Bitmaps slabData;
 
-		// Metadata for large extents.
-		size_t usedCapacity;
-
-		// Optional finalizer.
-		void* finalizer;
+		// Metadata for large allocs
+		LargeData largeData;
 	}
 
 	MetaData _metadata;
@@ -320,7 +320,7 @@ public:
 		assert(isSlab(), "freeSpaceFlags accessed on non slab!");
 		assert(supportsFreeSpace, "freeSpaceFlags not supported!");
 
-		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
+		return _metadata.slabData.slabFlagData.freeSpaceFlags;
 	}
 
 	ushort* getFreeSpacePosition(uint index) {
@@ -381,7 +381,7 @@ public:
 		assert(isSlab(), "finalizationFlags accessed on non slab!");
 		assert(supportsFinalization, "finalizationFlags not supported!");
 
-		return _metadata.slabData.finalizationData.finalizationFlags;
+		return _metadata.slabData.slabFlagData.finalizationFlags;
 	}
 
 	@property
@@ -431,23 +431,23 @@ public:
 	@property
 	ulong usedCapacity() {
 		assert(isLarge(), "usedCapacity accessed on non large!");
-		return _metadata.usedCapacity;
+		return _metadata.largeData.usedCapacity;
 	}
 
 	void setUsedCapacity(size_t size) {
 		assert(isLarge(), "Cannot set used capacity on a slab alloc!");
-		_metadata.usedCapacity = size;
+		_metadata.largeData.usedCapacity = size;
 	}
 
 	@property
 	void* finalizer() {
 		assert(isLarge(), "Finalizer accessed on non large!");
-		return _metadata.finalizer;
+		return _metadata.largeData.finalizer;
 	}
 
 	void setFinalizer(void* finalizer) {
 		assert(isLarge(), "Cannot set finalizer on a slab alloc!");
-		_metadata.finalizer = finalizer;
+		_metadata.largeData.finalizer = finalizer;
 	}
 }
 
