@@ -259,7 +259,9 @@ private:
 		size_t usedCapacity;
 
 		size_t getSliceCapacity(const void[] space) {
-			// Slice must not end before valid data ends, or capacity is zero:
+			// Slice must not end before valid data ends, or capacity is zero.
+			// To be appendable, the slice end must match the alloc's used
+			// capacity, and the latter may not be zero.
 			auto startIndex = slice.ptr - space.ptr;
 			auto stopIndex = startIndex + slice.length;
 
