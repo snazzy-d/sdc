@@ -15,38 +15,6 @@ private:
 	const(void)* stackBottom;
 	const(void*)[][] roots;
 
-	// Data returned in response to capacity queries.
-	struct CapacityInfo {
-		void* address;
-		size_t size;
-		size_t usedCapacity;
-
-		this(void* address, size_t size, size_t used) {
-			assert(used <= size, "Used capacity exceeds alloc size!");
-
-			this.address = address;
-			this.size = size;
-			this.usedCapacity = used;
-		}
-
-		this(PageDescriptor pd) {
-			assert(!pd.isSlab(), "Not a large alloc!");
-			auto e = pd.extent;
-			this(e.address, e.size, e.usedCapacity);
-		}
-
-		this(PageDescriptor pd, void* ptr) {
-			assert(pd.isSlab(), "Not a slab!");
-			import d.gc.slab;
-			auto sg = SlabAllocGeometry(pd, ptr);
-			auto freeSize = isAppendableSizeClass(pd.sizeClass)
-				? pd.extent.getFreeSpace(sg.index)
-				: 0;
-
-			this(sg.address, sg.size, sg.size - freeSize);
-		}
-	}
-
 public:
 	void* alloc(size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
@@ -170,82 +138,19 @@ public:
 	 * Appendable facilities.
 	 */
 
-	/**
-	 * Appendable's mechanics:
-	 * 
-	 *  __data__  _____free space_______
-	 * /        \/                      \
-	 * -----sss s....... ....... ........
-	 *      \___________________________/
-	 * 	           Capacity is 27
-	 * 
-	 * If the slice's end doesn't match the used capacity,
-	 * then we return 0 in order to force a reallocation
-	 * when appending:
-	 * 
-	 *  ___data____  ____free space_____
-	 * /           \/                   \
-	 * -----sss s---.... ....... ........
-	 *      \___________________________/
-	 * 	           Capacity is 0
-	 * 
-	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
-	 */
-	bool getAppendablePageDescriptor(const void[] slice, ref PageDescriptor pd,
-	                                 ref CapacityInfo info) {
-		pd = maybeGetPageDescriptor(slice.ptr);
-		if (pd.extent is null) {
-			return false;
-		}
-
-		info = pd.isSlab()
-			? CapacityInfo(pd, cast(void*) slice.ptr)
-			: CapacityInfo(pd);
-
-		// Slice must not end before valid data ends, or capacity is zero:
-		auto startIndex = slice.ptr - info.address;
-		auto stopIndex = startIndex + slice.length;
-
-		// To be appendable, the slice end must match the alloc's used
-		// capacity, and the latter may not be zero.
-		return stopIndex > 0 && stopIndex == info.usedCapacity;
-	}
-
-	size_t getCapacity(const void[] slice) {
-		PageDescriptor pd;
-		CapacityInfo info;
-		if (!getAppendablePageDescriptor(slice, pd, info)) {
-			return 0;
-		}
-
-		auto startIndex = slice.ptr - info.address;
-		return info.size - startIndex;
-	}
-
 	bool extend(const void[] slice, size_t size) {
 		if (size == 0) {
 			return true;
 		}
 
-		PageDescriptor pd;
-		CapacityInfo info;
-		if (!getAppendablePageDescriptor(slice, pd, info)) {
-			return false;
-		}
+		size_t unused;
+		return getOrExtendCapacity(slice, size, unused);
+	}
 
-		// There must be sufficient free space to extend into:
-		auto newCapacity = info.usedCapacity + size;
-		if (info.size < newCapacity) {
-			return false;
-		}
-
-		// Increase the used capacity by the requested size:
-		if (pd.isSlab()) {
-			return setSmallUsedCapacity(pd, info.address, newCapacity);
-		}
-
-		pd.extent.setUsedCapacity(newCapacity);
-		return true;
+	size_t getCapacity(const void[] slice) {
+		size_t sliceCapacity;
+		getOrExtendCapacity(slice, 0, sliceCapacity);
+		return sliceCapacity;
 	}
 
 	/**
@@ -319,6 +224,94 @@ public:
 	}
 
 private:
+
+	/**
+	 * Appendable's mechanics:
+	 * 
+	 *  __data__  _____free space_______
+	 * /        \/                      \
+	 * -----sss s....... ....... ........
+	 *      \___________________________/
+	 * 	           Capacity is 27
+	 * 
+	 * If the slice's end doesn't match the used capacity,
+	 * then we return 0 in order to force a reallocation
+	 * when appending:
+	 * 
+	 *  ___data____  ____free space_____
+	 * /           \/                   \
+	 * -----sss s---.... ....... ........
+	 *      \___________________________/
+	 * 	           Capacity is 0
+	 * 
+	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
+	 */
+
+	bool getOrExtendCapacity(const void[] slice, size_t size,
+	                         ref size_t sliceCapacity) {
+		auto pd = maybeGetPageDescriptor(slice.ptr);
+		auto e = pd.extent;
+		if (e is null) {
+			sliceCapacity = 0;
+			return false;
+		}
+
+		size_t usedCapacity;
+
+		size_t getSliceCapacity(const void[] space) {
+			// Slice must not end before valid data ends, or capacity is zero:
+			auto startIndex = slice.ptr - space.ptr;
+			auto stopIndex = startIndex + slice.length;
+
+			if (stopIndex == 0 || stopIndex != usedCapacity) {
+				return 0;
+			}
+
+			return space.length - startIndex;
+		}
+
+		bool allowExtend(size_t sliceCapacity, size_t freeSize) {
+			return ((sliceCapacity > 0) && (freeSize >= size));
+		}
+
+		if (pd.isSlab()) {
+			import d.gc.slab;
+			auto sg = SlabAllocGeometry(pd, cast(void*) slice.ptr);
+
+			auto freeSize = isAppendableSizeClass(pd.sizeClass)
+				? pd.extent.getFreeSpace(sg.index)
+				: 0;
+
+			usedCapacity = sg.size - freeSize;
+			sliceCapacity = getSliceCapacity(sg.address[0 .. sg.size]);
+
+			if (size == 0) {
+				return true;
+			}
+
+			if ((sliceCapacity == 0) || (freeSize < size)) {
+				return false;
+			}
+
+			e.setFreeSpace(sg.index, freeSize - size);
+			return true;
+		}
+
+		usedCapacity = e.usedCapacity;
+		auto extentSize = e.size;
+		sliceCapacity = getSliceCapacity(e.address[0 .. extentSize]);
+
+		if (size == 0) {
+			return true;
+		}
+
+		if ((sliceCapacity == 0) || (extentSize - usedCapacity < size)) {
+			return false;
+		}
+
+		e.setUsedCapacity(usedCapacity + size);
+		return true;
+	}
 
 	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
 	                          size_t usedCapacity) {
