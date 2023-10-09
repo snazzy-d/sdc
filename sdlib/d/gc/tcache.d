@@ -270,10 +270,6 @@ private:
 			return space.length - startIndex;
 		}
 
-		bool allowExtend(size_t sliceCapacity, size_t freeSize) {
-			return ((sliceCapacity > 0) && (freeSize >= size));
-		}
-
 		if (pd.isSlab()) {
 			import d.gc.slab;
 			auto sg = SlabAllocGeometry(pd, cast(void*) slice.ptr);
