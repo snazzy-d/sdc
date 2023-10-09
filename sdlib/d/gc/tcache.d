@@ -2,6 +2,7 @@ module d.gc.tcache;
 
 import d.gc.size;
 import d.gc.sizeclass;
+import d.gc.slab;
 import d.gc.spec;
 import d.gc.util;
 
@@ -137,20 +138,72 @@ public:
 	/**
 	 * Appendable facilities.
 	 */
+	size_t getCapacity(const void[] slice) {
+		auto pd = maybeGetPageDescriptor(slice.ptr);
+		if (pd.extent is null) {
+			return 0;
+		}
+
+		if (pd.isSlab()) {
+			auto sg = SlabAllocGeometry(pd, slice.ptr);
+
+			size_t freeSize;
+			if (!getSmallFreeSize(slice, pd, sg, freeSize)) {
+				return 0;
+			}
+
+			auto startIndex = slice.ptr - sg.address;
+			return sg.size - startIndex;
+		}
+
+		if (!validateLargeCapacity(slice, pd)) {
+			return false;
+		}
+
+		auto e = pd.extent;
+		auto startIndex = slice.ptr - e.address;
+		return e.size - startIndex;
+	}
 
 	bool extend(const void[] slice, size_t size) {
 		if (size == 0) {
 			return true;
 		}
 
-		size_t unused;
-		return getOrExtendCapacity(slice, size, unused);
-	}
+		auto pd = maybeGetPageDescriptor(slice.ptr);
+		auto e = pd.extent;
 
-	size_t getCapacity(const void[] slice) {
-		size_t sliceCapacity;
-		getOrExtendCapacity(slice, 0, sliceCapacity);
-		return sliceCapacity;
+		if (e is null) {
+			return false;
+		}
+
+		if (pd.isSlab()) {
+			auto sg = SlabAllocGeometry(pd, slice.ptr);
+
+			size_t freeSize;
+			if (!getSmallFreeSize(slice, pd, sg, freeSize)) {
+				return false;
+			}
+
+			if (freeSize < size) {
+				return false;
+			}
+
+			e.setFreeSpace(sg.index, freeSize - size);
+			return true;
+		}
+
+		if (!validateLargeCapacity(slice, pd)) {
+			return false;
+		}
+
+		auto usedCapacity = e.usedCapacity;
+		if (e.size < size + usedCapacity) {
+			return false;
+		}
+
+		e.setUsedCapacity(usedCapacity + size);
+		return true;
 	}
 
 	/**
@@ -246,70 +299,36 @@ private:
 	 * 
 	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
 	 */
+	bool validateLargeCapacity(const void[] slice, PageDescriptor pd) {
+		auto e = pd.extent;
 
-	size_t getSliceCapacity(const void[] slice, const void[] space,
-	                        size_t usedCapacity) {
 		// Slice must not end before valid data ends, or capacity is zero.
 		// To be appendable, the slice end must match the alloc's used
 		// capacity, and the latter may not be zero.
-		auto startIndex = slice.ptr - space.ptr;
+		auto startIndex = slice.ptr - e.address;
 		auto stopIndex = startIndex + slice.length;
 
-		if (stopIndex == 0 || stopIndex != usedCapacity) {
-			return 0;
-		}
-
-		return space.length - startIndex;
+		return stopIndex != 0 && stopIndex == e.usedCapacity;
 	}
 
-	bool getOrExtendCapacity(const void[] slice, size_t size,
-	                         ref size_t sliceCapacity) {
-		auto pd = maybeGetPageDescriptor(slice.ptr);
-		auto e = pd.extent;
-		if (e is null) {
-			sliceCapacity = 0;
+	bool getSmallFreeSize(const void[] slice, PageDescriptor pd,
+	                      SlabAllocGeometry sg, ref size_t freeSize) {
+		if (!isAppendableSizeClass(pd.sizeClass)) {
 			return false;
 		}
 
-		if (pd.isSlab()) {
-			import d.gc.slab;
-			auto sg = SlabAllocGeometry(pd, slice.ptr);
+		// Slice must not end before valid data ends, or capacity is zero.
+		// To be appendable, the slice end must match the alloc's used
+		// capacity, and the latter may not be zero.
+		auto startIndex = slice.ptr - sg.address;
+		auto stopIndex = startIndex + slice.length;
 
-			auto freeSize = isAppendableSizeClass(pd.sizeClass)
-				? pd.extent.getFreeSpace(sg.index)
-				: 0;
-
-			auto usedCapacity = sg.size - freeSize;
-			sliceCapacity =
-				getSliceCapacity(slice, sg.address[0 .. sg.size], usedCapacity);
-
-			if (size == 0) {
-				return true;
-			}
-
-			if ((sliceCapacity == 0) || (freeSize < size)) {
-				return false;
-			}
-
-			e.setFreeSpace(sg.index, freeSize - size);
-			return true;
-		}
-
-		auto usedCapacity = e.usedCapacity;
-		auto extentSize = e.size;
-		sliceCapacity =
-			getSliceCapacity(slice, e.address[0 .. extentSize], usedCapacity);
-
-		if (size == 0) {
-			return true;
-		}
-
-		if ((sliceCapacity == 0) || (extentSize - usedCapacity < size)) {
+		if (stopIndex == 0) {
 			return false;
 		}
 
-		e.setUsedCapacity(usedCapacity + size);
-		return true;
+		freeSize = pd.extent.getFreeSpace(sg.index);
+		return stopIndex + freeSize == sg.size;
 	}
 
 	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
@@ -318,7 +337,6 @@ private:
 			return false;
 		}
 
-		import d.gc.slab;
 		auto sg = SlabAllocGeometry(pd, ptr);
 
 		assert(usedCapacity <= sg.size,
@@ -432,7 +450,7 @@ unittest getCapacity {
 	auto nonAppendable = threadCache.alloc(50, false);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 0]) == 0);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 50]) == 0);
-	assert(threadCache.getCapacity(nonAppendable[0 .. 56]) == 56);
+	assert(threadCache.getCapacity(nonAppendable[0 .. 56]) == 0);
 
 	// Capacity of any slice in space unknown to the GC is zero:
 	void* nullPtr = null;
