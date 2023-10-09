@@ -247,6 +247,21 @@ private:
 	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
 	 */
 
+	size_t getSliceCapacity(const void[] slice, const void[] space,
+	                        size_t usedCapacity) {
+		// Slice must not end before valid data ends, or capacity is zero.
+		// To be appendable, the slice end must match the alloc's used
+		// capacity, and the latter may not be zero.
+		auto startIndex = slice.ptr - space.ptr;
+		auto stopIndex = startIndex + slice.length;
+
+		if (stopIndex == 0 || stopIndex != usedCapacity) {
+			return 0;
+		}
+
+		return space.length - startIndex;
+	}
+
 	bool getOrExtendCapacity(const void[] slice, size_t size,
 	                         ref size_t sliceCapacity) {
 		auto pd = maybeGetPageDescriptor(slice.ptr);
@@ -254,22 +269,6 @@ private:
 		if (e is null) {
 			sliceCapacity = 0;
 			return false;
-		}
-
-		size_t usedCapacity;
-
-		size_t getSliceCapacity(const void[] space) {
-			// Slice must not end before valid data ends, or capacity is zero.
-			// To be appendable, the slice end must match the alloc's used
-			// capacity, and the latter may not be zero.
-			auto startIndex = slice.ptr - space.ptr;
-			auto stopIndex = startIndex + slice.length;
-
-			if (stopIndex == 0 || stopIndex != usedCapacity) {
-				return 0;
-			}
-
-			return space.length - startIndex;
 		}
 
 		if (pd.isSlab()) {
@@ -280,8 +279,9 @@ private:
 				? pd.extent.getFreeSpace(sg.index)
 				: 0;
 
-			usedCapacity = sg.size - freeSize;
-			sliceCapacity = getSliceCapacity(sg.address[0 .. sg.size]);
+			auto usedCapacity = sg.size - freeSize;
+			sliceCapacity =
+				getSliceCapacity(slice, sg.address[0 .. sg.size], usedCapacity);
 
 			if (size == 0) {
 				return true;
@@ -295,9 +295,10 @@ private:
 			return true;
 		}
 
-		usedCapacity = e.usedCapacity;
+		auto usedCapacity = e.usedCapacity;
 		auto extentSize = e.size;
-		sliceCapacity = getSliceCapacity(e.address[0 .. extentSize]);
+		sliceCapacity =
+			getSliceCapacity(slice, e.address[0 .. extentSize], usedCapacity);
 
 		if (size == 0) {
 			return true;
