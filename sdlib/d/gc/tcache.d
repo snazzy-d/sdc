@@ -781,3 +781,40 @@ unittest arraySpill {
 	testSpill(16384, [0, 1, 2, 500, 16000, 16383, 16384]);
 	testSpill(20480, [0, 1, 2, 500, 20000, 20479, 20480]);
 }
+
+unittest finalizers {
+	void* finalizerPtr = cast(void*) 0xBEEFBAADF00D;
+
+	// Basic test for large allocs:
+	auto large = threadCache.alloc(20000, false);
+	auto largePd = threadCache.getPageDescriptor(large);
+	largePd.extent.setUsedCapacity(19999);
+	assert(largePd.extent.finalizer is null);
+	largePd.extent.setFinalizer(finalizerPtr);
+	assert(largePd.extent.finalizer == finalizerPtr);
+	assert(largePd.extent.usedCapacity == 19999);
+
+	// Basic test for small allocs:
+	auto small = threadCache.alloc(1024, false);
+	auto smallPd = threadCache.getPageDescriptor(small);
+
+	import d.gc.slab;
+	auto sg = SlabAllocGeometry(smallPd, small);
+	auto idx = sg.index;
+	auto e = smallPd.extent;
+
+	// If no freespace, the two bytes prior to finalizer (6 bytes) are preserved:
+	auto fsBytes = cast(ushort*) e.last64Bits;
+	*fsBytes = 0xabcd;
+	e.setFinalizer(idx, finalizerPtr);
+	assert(e.hasFinalizer(idx));
+	assert(e.getFinalizer(idx) == finalizerPtr);
+	assert(*fsBytes == 0xabcd);
+
+	// Now test that freespace is set correctly and does not overwrite finalizer:
+	foreach (ushort i; 0 .. 1025) {
+		e.setFreeSpace(idx, i);
+		assert(e.getFreeSpace(idx) == i);
+		assert(e.getFinalizer(idx) == finalizerPtr);
+	}
+}

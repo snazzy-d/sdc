@@ -327,8 +327,8 @@ public:
 		assert(isSlab(), "getFreeSpacePosition accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		return cast(ushort*) address + slotSize - 2
-			- (hasFinalizer(index) ? 6 : 0);
+		return cast(ushort*)
+			(address + slotSize - (hasFinalizer(index) ? 8 : 2));
 	}
 
 	void setFreeSpace(uint index, size_t freeSpace) {
@@ -385,7 +385,7 @@ public:
 	}
 
 	@property
-	ulong* finalizerField() {
+	ulong* last64Bits() {
 		return cast(ulong*) (address + slotSize - 8);
 	}
 
@@ -394,7 +394,7 @@ public:
 		assert(index < slotCount, "index is out of range!");
 		assert(hasFinalizer(index), "No finalizer is set!");
 
-		return cast(void*) (*finalizerField & AddressMask);
+		return cast(void*) (*last64Bits >> 16 & AddressMask);
 	}
 
 	void setFinalizer(uint index, void* finalizerPtr) {
@@ -405,8 +405,8 @@ public:
 
 		auto freeSpace = getFreeSpace(index);
 
-		*finalizerField =
-			cast(ulong) finalizerPtr | *(cast(ushort*) finalizerField) << 48;
+		*last64Bits =
+			cast(ulong) finalizerPtr << 16 | *(cast(ushort*) last64Bits);
 
 		finalizationFlags.setBitAtomic(index);
 		setFreeSpace(index, freeSpace);
