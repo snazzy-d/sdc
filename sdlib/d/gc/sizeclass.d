@@ -40,12 +40,8 @@ enum ClassCount {
 	Lookup = getLookupClassCount(),
 }
 
-enum SizeClass {
-	Tiny = getSizeFromClass(ClassCount.Tiny - 1),
-	Small = getSizeFromClass(ClassCount.Small - 1),
-}
-
 enum MaxTinySize = ClassCount.Tiny * Quantum;
+enum MaxSmallSize = getSizeFromClass(ClassCount.Small - 1);
 
 // Determine whether given size class is considered 'small' (slab-allocatable).
 bool isSmallSizeClass(uint sizeClass) {
@@ -54,13 +50,13 @@ bool isSmallSizeClass(uint sizeClass) {
 
 // Determine whether given size may fit into a 'small' (slab-allocatable) size class.
 bool isSmallSize(size_t size) {
-	return (size > 0) && (size <= SizeClass.Small);
+	return (size > 0) && (size <= MaxSmallSize);
 }
 
 // Determine whether given size may fit into a 'large' size class.
 bool isLargeSize(size_t size) {
 	import d.gc.size;
-	return (size > SizeClass.Small) && (size <= MaxAllocationSize);
+	return (size > MaxSmallSize) && (size <= MaxAllocationSize);
 }
 
 unittest sizeClassPredicates {
