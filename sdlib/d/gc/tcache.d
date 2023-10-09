@@ -273,7 +273,7 @@ private:
 
 		if (pd.isSlab()) {
 			import d.gc.slab;
-			auto sg = SlabAllocGeometry(pd, cast(void*) slice.ptr);
+			auto sg = SlabAllocGeometry(pd, slice.ptr);
 
 			auto freeSize = isAppendableSizeClass(pd.sizeClass)
 				? pd.extent.getFreeSpace(sg.index)
