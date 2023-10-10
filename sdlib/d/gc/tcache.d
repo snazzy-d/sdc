@@ -197,10 +197,9 @@ public:
 			return false;
 		}
 
-		auto usedCapacity = e.usedCapacity;
-		auto newCapacity = usedCapacity + size;
+		auto newCapacity = e.usedCapacity + size;
 		if ((e.size < newCapacity)
-			    && !pd.arena.resizeLarge(emap, pd.extent, newCapacity)) {
+			    && !pd.arena.resizeLarge(emap, e, newCapacity)) {
 			return false;
 		}
 
