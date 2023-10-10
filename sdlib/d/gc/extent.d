@@ -406,10 +406,9 @@ public:
 		assert(!hasFinalizer(index), "finalizer is already set!");
 		assert(!freeSpaceFlags.valueAtAtomic(index),
 		       "finalizer must be set before freeSpace!");
+		assert(*last64Bits == 0, "finalizer must be set on an empty alloc!");
 
-		// setFinalizer is to be called on an empty alloc
 		*last64Bits = cast(ulong) finalizerPtr << 16;
-
 		finalizationFlags.setBitAtomic(index);
 	}
 
