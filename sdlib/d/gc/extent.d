@@ -323,19 +323,13 @@ public:
 		return _metadata.slabData.slabFlagData.freeSpaceFlags;
 	}
 
-	ushort* getFreeSpacePosition(uint index) {
-		assert(isSlab(), "getFreeSpacePosition accessed on non slab!");
-		assert(index < slotCount, "index is out of range!");
-
-		return cast(ushort*)
-			(address + slotSize - (hasFinalizer(index) ? 8 : 2));
-	}
-
 	void setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
-		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
 		assert(supportsFreeSpace, "size class not supports freeSpace!");
+
+		auto usableSize = getUsableSpace(index);
+		assert(freeSpace <= usableSize, "freeSpace exceeds usable alloc size!");
 
 		if (freeSpace == 0) {
 			freeSpaceFlags.clearBitAtomic(index);
@@ -343,7 +337,7 @@ public:
 		}
 
 		// Encode freespace and write it to the last usable byte (or two bytes):
-		writePackedFreeSpace(getFreeSpacePosition(index),
+		writePackedFreeSpace(cast(ushort*) (address + usableSize - 2),
 		                     freeSpace & ushort.max);
 		freeSpaceFlags.setBitAtomic(index);
 	}
@@ -357,7 +351,15 @@ public:
 		}
 
 		// Decode freespace, found in the final usable byte (or two bytes) :
-		return readPackedFreeSpace(getFreeSpacePosition(index));
+		return readPackedFreeSpace(
+			cast(ushort*) (address + getUsableSpace(index) - 2));
+	}
+
+	size_t getUsableSpace(uint index) {
+		assert(isSlab(), "getUsableSpace accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+
+		return slotSize - (hasFinalizer(index) ? 6 : 0);
 	}
 
 	/**
