@@ -394,7 +394,7 @@ public:
 		assert(index < slotCount, "index is out of range!");
 		assert(hasFinalizer(index), "No finalizer is set!");
 
-		return cast(void*) (*last64Bits >> 16 & AddressMask);
+		return cast(void*) (*last64Bits >> 16);
 	}
 
 	void setFinalizer(uint index, void* finalizerPtr) {
@@ -402,14 +402,13 @@ public:
 		assert(index < slotCount, "index is out of range!");
 		assert(supportsFinalization, "size class not supports finalization!");
 		assert(!hasFinalizer(index), "finalizer is already set!");
+		assert(!freeSpaceFlags.valueAtAtomic(index),
+		       "finalizer must be set before freeSpace!");
 
-		auto freeSpace = getFreeSpace(index);
-
-		*last64Bits =
-			cast(ulong) finalizerPtr << 16 | *(cast(ushort*) last64Bits);
+		// setFinalizer is to be called on an empty alloc
+		*last64Bits = cast(ulong) finalizerPtr << 16;
 
 		finalizationFlags.setBitAtomic(index);
-		setFreeSpace(index, freeSpace);
 	}
 
 	void clearFinalizer(uint index) {

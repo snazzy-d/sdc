@@ -828,16 +828,13 @@ unittest finalizers {
 	auto idx = sg.index;
 	auto e = smallPd.extent;
 
-	// If no freespace, the two bytes prior to finalizer (6 bytes) are preserved:
-	auto fsBytes = cast(ushort*) e.last64Bits;
-	*fsBytes = 0xabcd;
+	// Set a finalizer:
 	e.setFinalizer(idx, finalizerPtr);
 	assert(e.hasFinalizer(idx));
 	assert(e.getFinalizer(idx) == finalizerPtr);
-	assert(*fsBytes == 0xabcd);
 
 	// Now test that freespace is set correctly and does not overwrite finalizer:
-	foreach (ushort i; 0 .. 1025) {
+	foreach (ushort i; 0 .. 1019) {
 		e.setFreeSpace(idx, i);
 		assert(e.getFreeSpace(idx) == i);
 		assert(e.getFinalizer(idx) == finalizerPtr);
