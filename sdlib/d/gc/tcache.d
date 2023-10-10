@@ -204,7 +204,7 @@ public:
 			return false;
 		}
 
-		e.setUsedCapacity(usedCapacity + size);
+		e.setUsedCapacity(newCapacity);
 		return true;
 	}
 
