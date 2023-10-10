@@ -186,7 +186,7 @@ enum Prefill = [
 	"popCount", "countLeadingZeros", "countTrailingZeros", "bswap",
 	"readCycleCounter", "readFramePointer",
 	// Misc that are useful to lex other langauges.
-	"when", "match", "from", "on", "|>", "->", "\\",
+	"when", "match", "from", "on", "|>", "->", "\\", "_",
 	// sdfmt on
 ];
 

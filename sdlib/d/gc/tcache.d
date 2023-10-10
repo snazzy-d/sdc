@@ -198,7 +198,9 @@ public:
 		}
 
 		auto usedCapacity = e.usedCapacity;
-		if (e.size < size + usedCapacity) {
+		auto newCapacity = usedCapacity + size;
+		if ((e.size < newCapacity)
+			    && !pd.arena.resizeLarge(emap, pd.extent, newCapacity)) {
 			return false;
 		}
 
@@ -575,6 +577,15 @@ unittest extendLarge {
 	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
 		auto ptr = threadCache.allocAppendable(size, false);
 		assert(ptr !is null);
+
+		// We make sure we can't reisze the allocation by allocating a dead zone after it.
+		auto deadzone = threadCache.alloc(MaxSmallSize + 1, false);
+		if (deadzone !is alignUp(ptr + size, PageSize)) {
+			threadCache.free(deadzone);
+			scope(success) threadCache.free(ptr);
+			return allocAppendableWithCapacity(size, usedCapacity);
+		}
+
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
 		assert(pd.extent.isLarge());
@@ -612,6 +623,11 @@ unittest extendLarge {
 	// Now we're full, and can extend only by zero:
 	assert(threadCache.extend(p0[0 .. 16384], 0));
 	assert(!threadCache.extend(p0[0 .. 16384], 1));
+
+	// Unless we clear the deadzone, in which case we can extend again.
+	threadCache.free(p0 + 16384);
+	assert(threadCache.extend(p0[0 .. 16384], 1));
+	assert(threadCache.getCapacity(p0[0 .. 16385]) == 16384 + PageSize);
 
 	// Make another appendable alloc:
 	auto p1 = allocAppendableWithCapacity(16384, 100);
