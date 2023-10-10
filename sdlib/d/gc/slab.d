@@ -6,11 +6,11 @@ import d.gc.spec;
 enum InvalidBinID = 0xff;
 
 struct SlabAllocGeometry {
-	void* address;
+	const void* address;
 	uint size;
 	uint index;
 
-	this(PageDescriptor pd, void* ptr) {
+	this(PageDescriptor pd, const void* ptr) {
 		assert(pd.isSlab(), "Expected a slab!");
 
 		import d.gc.util;
