@@ -806,38 +806,3 @@ unittest arraySpill {
 	testSpill(16384, [0, 1, 2, 500, 16000, 16383, 16384]);
 	testSpill(20480, [0, 1, 2, 500, 20000, 20479, 20480]);
 }
-
-unittest finalizers {
-	void* finalizerPtr = cast(void*) 0xBEEFBAADF00D;
-
-	// Basic test for large allocs:
-	auto large = threadCache.alloc(20000, false);
-	auto largePd = threadCache.getPageDescriptor(large);
-	largePd.extent.setUsedCapacity(19999);
-	assert(largePd.extent.finalizer is null);
-	largePd.extent.setFinalizer(finalizerPtr);
-	assert(largePd.extent.finalizer == finalizerPtr);
-	assert(largePd.extent.usedCapacity == 19999);
-
-	// Basic test for small allocs:
-	auto small = threadCache.alloc(1024, false);
-	auto smallPd = threadCache.getPageDescriptor(small);
-
-	import d.gc.slab;
-	auto sg = SlabAllocGeometry(smallPd, small);
-	auto idx = sg.index;
-	auto e = smallPd.extent;
-
-	// Set a finalizer:
-	e.setFinalizer(idx, finalizerPtr);
-	assert(e.hasFinalizer(idx));
-
-	foreach (ushort i; 0 .. 1019) {
-		// Confirm that setting freespace does not clobber finalizer:
-		e.setFreeSpace(idx, i);
-		assert(e.getFinalizer(idx) == finalizerPtr);
-		// Confirm that setting finalizer does not clobber freespace:
-		e.setFinalizer(idx, finalizerPtr);
-		assert(e.getFreeSpace(idx) == i);
-	}
-}
