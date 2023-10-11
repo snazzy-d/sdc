@@ -475,6 +475,9 @@ unittest finalizers {
 		e.setFinalizer(idx, finalizerPtr);
 		assert(e.getFreeSpace(idx) == i);
 	}
+
+	threadCache.free(large);
+	threadCache.free(small);
 }
 
 static assert(Extent.sizeof == ExtentSize, "Unexpected Extent size!");
