@@ -323,22 +323,24 @@ public:
 		return _metadata.slabData.slabFlagData.freeSpaceFlags;
 	}
 
+	@property
+	ushort* freeSpacePtr() {
+		return cast(ushort*) (address + slotSize - 2);
+	}
+
 	void setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
+		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
 		assert(supportsFreeSpace, "size class not supports freeSpace!");
-
-		auto usableSize = getUsableSpace(index);
-		assert(freeSpace <= usableSize, "freeSpace exceeds usable alloc size!");
 
 		if (freeSpace == 0) {
 			freeSpaceFlags.clearBitAtomic(index);
 			return;
 		}
 
-		// Encode freespace and write it to the last usable byte (or two bytes):
-		writePackedFreeSpace(cast(ushort*) (address + usableSize - 2),
-		                     freeSpace & ushort.max);
+		// Encode freespace and write it to the last byte (or two bytes) of alloc.
+		writePackedFreeSpace(freeSpacePtr, freeSpace & ushort.max);
 		freeSpaceFlags.setBitAtomic(index);
 	}
 
@@ -350,16 +352,8 @@ public:
 			return 0;
 		}
 
-		// Decode freespace, found in the final usable byte (or two bytes) :
-		return readPackedFreeSpace(
-			cast(ushort*) (address + getUsableSpace(index) - 2));
-	}
-
-	size_t getUsableSpace(uint index) {
-		assert(isSlab(), "getUsableSpace accessed on non slab!");
-		assert(index < slotCount, "index is out of range!");
-
-		return slotSize - (hasFinalizer(index) ? 6 : 0);
+		// Decode freespace, found in the final byte (or two bytes) of the alloc:
+		return readPackedFreeSpace(freeSpacePtr);
 	}
 
 	/**
@@ -387,7 +381,7 @@ public:
 	}
 
 	@property
-	ulong* last64Bits() {
+	ulong* finalizerPtr() {
 		return cast(ulong*) (address + slotSize - 8);
 	}
 
@@ -396,19 +390,15 @@ public:
 		assert(index < slotCount, "index is out of range!");
 		assert(hasFinalizer(index), "No finalizer is set!");
 
-		return cast(void*) (*last64Bits >> 16);
+		return cast(void*) (*finalizerPtr & AddressMask);
 	}
 
-	void setFinalizer(uint index, void* finalizerPtr) {
+	void setFinalizer(uint index, void* finalizer) {
 		assert(isSlab(), "setFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 		assert(supportsFinalization, "size class not supports finalization!");
-		assert(!hasFinalizer(index), "finalizer is already set!");
-		assert(!freeSpaceFlags.valueAtAtomic(index),
-		       "finalizer must be set before freeSpace!");
-		assert(*last64Bits == 0, "finalizer must be set on an empty alloc!");
 
-		*last64Bits = cast(ulong) finalizerPtr << 16;
+		*finalizerPtr = *finalizerPtr & ~AddressMask | cast(ulong) finalizer;
 		finalizationFlags.setBitAtomic(index);
 	}
 

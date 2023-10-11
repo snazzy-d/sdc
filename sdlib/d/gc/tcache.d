@@ -827,18 +827,18 @@ unittest finalizers {
 	auto sg = SlabAllocGeometry(smallPd, small);
 	auto idx = sg.index;
 	auto e = smallPd.extent;
-	assert(e.getUsableSpace(idx) == 1024);
 
 	// Set a finalizer:
 	e.setFinalizer(idx, finalizerPtr);
 	assert(e.hasFinalizer(idx));
-	assert(e.getFinalizer(idx) == finalizerPtr);
-	assert(e.getUsableSpace(idx) == 1018);
 
-	// Now test that freespace is set correctly and does not overwrite finalizer:
 	foreach (ushort i; 0 .. 1019) {
+		// Confirm that setting freespace does not clobber finalizer:
 		e.setFreeSpace(idx, i);
 		assert(e.getFreeSpace(idx) == i);
 		assert(e.getFinalizer(idx) == finalizerPtr);
+		// Confirm that setting finalizer does not clobber freespace:
+		e.setFinalizer(idx, finalizerPtr);
+		assert(e.getFreeSpace(idx) == i);
 	}
 }
