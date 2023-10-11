@@ -102,7 +102,7 @@ unittest isAppendableSizeClass {
 
 // Determine whether given size class supports finalization.
 bool isFinalizableSizeClass(uint sizeClass) {
-	return (getSizeFromClass(sizeClass) & 0x1f) == 0;
+	return sizeClass > 10 || (sizeClass > 5 && sizeClass & 1) || sizeClass == 3;
 }
 
 unittest isFinalizableSizeClass {
