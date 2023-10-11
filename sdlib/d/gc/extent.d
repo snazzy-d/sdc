@@ -453,6 +453,7 @@ unittest finalizers {
 	largePd.extent.setFinalizer(finalizerPtr);
 	assert(largePd.extent.finalizer == finalizerPtr);
 	assert(largePd.extent.usedCapacity == 19999);
+	threadCache.free(large);
 
 	// Basic test for small allocs:
 	auto small = threadCache.alloc(1024, false);
@@ -476,7 +477,6 @@ unittest finalizers {
 		assert(e.getFreeSpace(idx) == i);
 	}
 
-	threadCache.free(large);
 	threadCache.free(small);
 }
 
