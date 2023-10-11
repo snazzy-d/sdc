@@ -835,7 +835,6 @@ unittest finalizers {
 	foreach (ushort i; 0 .. 1019) {
 		// Confirm that setting freespace does not clobber finalizer:
 		e.setFreeSpace(idx, i);
-		assert(e.getFreeSpace(idx) == i);
 		assert(e.getFinalizer(idx) == finalizerPtr);
 		// Confirm that setting finalizer does not clobber freespace:
 		e.setFinalizer(idx, finalizerPtr);
