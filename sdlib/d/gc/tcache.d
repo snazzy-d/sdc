@@ -61,7 +61,7 @@ public:
 			return ptr;
 		}
 
-		auto ptr = arena.allocLarge(emap, size, false);
+		auto ptr = arena.allocLarge(emap, asize, false);
 		auto pd = getPageDescriptor(ptr);
 		pd.extent.setFinalizer(finalizer);
 		pd.extent.setUsedCapacity(size);
