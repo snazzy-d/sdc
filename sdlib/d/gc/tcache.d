@@ -83,7 +83,24 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		destroyImpl(pd, ptr);
+
+		auto e = pd.extent;
+		if (e is null) {
+			return;
+		}
+
+		if (pd.isSlab()) {
+			// Slab is not yet supported
+			return;
+		}
+
+		if (e.finalizer is null) {
+			return;
+		}
+
+		(cast(void function(void* body, size_t size)) e.finalizer)(
+			ptr, e.usedCapacity);
+
 		freeImpl(pd, ptr);
 	}
 
@@ -379,25 +396,6 @@ private:
 
 	void freeImpl(PageDescriptor pd, void* ptr) {
 		pd.arena.free(emap, pd, ptr);
-	}
-
-	void destroyImpl(PageDescriptor pd, void* ptr) {
-		auto e = pd.extent;
-		if (e is null) {
-			return;
-		}
-
-		if (pd.isSlab()) {
-			// Slab is not yet supported
-			return;
-		}
-
-		if (e.finalizer is null) {
-			return;
-		}
-
-		(cast(void function(void* body, size_t size)) e.finalizer)(
-			ptr, e.usedCapacity);
 	}
 
 	auto getPageDescriptor(void* ptr) {
