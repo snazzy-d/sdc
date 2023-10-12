@@ -100,6 +100,27 @@ unittest isAppendableSizeClass {
 	}
 }
 
+// Determine whether given size class supports finalization.
+bool isFinalizableSizeClass(uint sizeClass) {
+	if (sizeClass > 10) {
+		return true;
+	}
+
+	auto masked = sizeClass & 11;
+	return masked == 3 || masked == 9;
+}
+
+unittest isFinalizableSizeClass {
+	auto bins = getBinInfos();
+	foreach (sc; 0 .. ClassCount.Small) {
+		assert(isFinalizableSizeClass(sc) == (bins[sc].slots <= 128));
+	}
+
+	foreach (sc; ClassCount.Small .. ClassCount.Total) {
+		assert(isFinalizableSizeClass(sc));
+	}
+}
+
 size_t getAllocSize(size_t size) {
 	if (size <= MaxTinySize) {
 		return alignUp(size, Quantum);

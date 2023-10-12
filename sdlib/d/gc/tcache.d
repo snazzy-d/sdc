@@ -30,10 +30,18 @@ public:
 			: arena.allocLarge(emap, size, false);
 	}
 
-	void* allocAppendable(size_t size, bool containsPointers) {
-		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
-		assert(isAppendableSizeClass(getSizeClass(asize)),
-		       "allocAppendable got non-appendable size class!");
+	void* allocAppendable(size_t size, bool containsPointers,
+	                      void* finalizer = null) {
+		bool finalized = finalizer !is null;
+		auto asize = getAllocSize(alignUp(finalized ? size + PointerSize : size,
+		                                  (finalized ? 4 : 2) * Quantum));
+
+		auto sc = getSizeClass(asize);
+		assert(
+			(!finalized && isAppendableSizeClass(sc))
+				|| isFinalizableSizeClass(sc),
+			"allocAppendable got size class without requested property!"
+		);
 
 		initializeExtentMap();
 
@@ -41,12 +49,14 @@ public:
 		if (isSmallSize(asize)) {
 			auto ptr = arena.allocSmall(emap, asize);
 			auto pd = getPageDescriptor(ptr);
+			setSmallFinalizer(pd, ptr, finalizer);
 			setSmallUsedCapacity(pd, ptr, size);
 			return ptr;
 		}
 
 		auto ptr = arena.allocLarge(emap, asize, false);
 		auto pd = getPageDescriptor(ptr);
+		pd.extent.setFinalizer(finalizer);
 		pd.extent.setUsedCapacity(size);
 		return ptr;
 	}
@@ -74,7 +84,17 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		pd.arena.free(emap, pd, ptr);
+		freeImpl(pd, ptr);
+	}
+
+	void destroy(void* ptr) {
+		if (ptr is null) {
+			return;
+		}
+
+		auto pd = getPageDescriptor(ptr);
+		destroyImpl(pd, ptr);
+		freeImpl(pd, ptr);
 	}
 
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
@@ -94,8 +114,10 @@ public:
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
 		auto samePointerness = containsPointers == pd.containsPointers;
+		void* finalizer;
 
 		if (pd.isSlab()) {
+			// TODO: handle realloc for small allocs with finalizer?
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
 			if (samePointerness && newSizeClass == oldSizeClass) {
@@ -117,6 +139,7 @@ public:
 
 			import d.gc.util;
 			copySize = min(size, pd.extent.usedCapacity);
+			finalizer = pd.extent.finalizer;
 		}
 
 		auto newPtr = alloc(size, containsPointers);
@@ -127,6 +150,7 @@ public:
 		if (isLargeSize(size)) {
 			auto npd = getPageDescriptor(newPtr);
 			npd.extent.setUsedCapacity(size);
+			npd.extent.setFinalizer(finalizer);
 		}
 
 		memcpy(newPtr, ptr, copySize);
@@ -153,7 +177,7 @@ public:
 			}
 
 			auto startIndex = slice.ptr - sg.address;
-			return sg.size - startIndex;
+			return getSmallEffectiveSize(pd, sg) - startIndex;
 		}
 
 		if (!validateLargeCapacity(slice, pd)) {
@@ -162,6 +186,7 @@ public:
 
 		auto e = pd.extent;
 		auto startIndex = slice.ptr - e.address;
+
 		return e.size - startIndex;
 	}
 
@@ -329,7 +354,16 @@ private:
 		}
 
 		freeSize = pd.extent.getFreeSpace(sg.index);
-		return stopIndex + freeSize == sg.size;
+		return stopIndex + freeSize == getSmallEffectiveSize(pd, sg);
+	}
+
+	size_t getSmallEffectiveSize(PageDescriptor pd, SlabAllocGeometry sg) {
+		if (!isFinalizableSizeClass(pd.sizeClass)
+			    || !pd.extent.hasFinalizer(sg.index)) {
+			return sg.size;
+		}
+
+		return sg.size - PointerSize;
 	}
 
 	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
@@ -339,12 +373,69 @@ private:
 		}
 
 		auto sg = SlabAllocGeometry(pd, ptr);
+		auto effectiveSize = getSmallEffectiveSize(pd, sg);
 
-		assert(usedCapacity <= sg.size,
+		assert(usedCapacity <= effectiveSize,
 		       "Used capacity may not exceed alloc size!");
 
-		pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
+		pd.extent.setFreeSpace(sg.index, effectiveSize - usedCapacity);
 		return true;
+	}
+
+	bool setSmallFinalizer(PageDescriptor pd, void* ptr, void* finalizer) {
+		if (!isFinalizableSizeClass(pd.sizeClass) || (finalizer is null)) {
+			return false;
+		}
+
+		auto sg = SlabAllocGeometry(pd, ptr);
+
+		pd.extent.setFinalizer(sg.index, finalizer);
+		return true;
+	}
+
+	void* getSmallFinalizer(PageDescriptor pd, void* ptr) {
+		if (!isFinalizableSizeClass(pd.sizeClass)) {
+			return null;
+		}
+
+		auto sg = SlabAllocGeometry(pd, ptr);
+
+		return pd.extent.getFinalizer(sg.index);
+	}
+
+	void freeImpl(PageDescriptor pd, void* ptr) {
+		pd.arena.free(emap, pd, ptr);
+	}
+
+	void destroyImpl(PageDescriptor pd, void* ptr) {
+		auto e = pd.extent;
+		if (e is null) {
+			return;
+		}
+
+		if (pd.isSlab()) {
+			auto sg = SlabAllocGeometry(pd, ptr);
+
+			if (!e.hasFinalizer(sg.index)) {
+				return;
+			}
+
+			auto finalizer = e.getFinalizer(sg.index);
+			auto usedCapacity =
+				sg.size - PointerSize - e.getFreeSpace(sg.index);
+
+			(cast(void function(void* body, size_t size)) finalizer)(
+				ptr, usedCapacity);
+
+			return;
+		}
+
+		if (e.finalizer is null) {
+			return;
+		}
+
+		(cast(void function(void* body, size_t size)) e.finalizer)(
+			ptr, e.usedCapacity);
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -805,4 +896,50 @@ unittest arraySpill {
 	testSpill(80, [0, 1, 2, 32, 79, 80]);
 	testSpill(16384, [0, 1, 2, 500, 16000, 16383, 16384]);
 	testSpill(20480, [0, 1, 2, 500, 20000, 20479, 20480]);
+}
+
+unittest finalization {
+	// Faux destructor which simply records most recent kill:
+	static size_t lastKilledUsedCap = 0;
+	static void* lastKilledPtr;
+	static void destruct(void* body, size_t size) {
+		lastKilledUsedCap = size;
+		lastKilledPtr = body;
+	}
+
+	// Finalizers for small allocs:
+	auto s0 = threadCache.allocAppendable(45, false, &destruct);
+	assert(threadCache.getCapacity(s0[0 .. 45]) == 56);
+	threadCache.destroy(s0);
+	assert(lastKilledPtr == s0);
+	assert(lastKilledUsedCap == 45);
+
+	// Extending with a finalizer:
+	auto s1 = threadCache.allocAppendable(42, false, &destruct);
+	assert(threadCache.getCapacity(s1[0 .. 42]) == 56);
+	assert(!threadCache.extend(s1[0 .. 42], 15));
+	assert(threadCache.extend(s1[0 .. 42], 14));
+	threadCache.destroy(s1);
+	assert(lastKilledPtr == s1);
+	assert(lastKilledUsedCap == 56);
+
+	// Finalizers for large allocs:
+	auto s2 = threadCache.allocAppendable(16384, false, &destruct);
+	threadCache.destroy(s2);
+	assert(lastKilledPtr == s2);
+	assert(lastKilledUsedCap == 16384);
+
+	// Resize preserves finalizer:
+	auto s3 = threadCache.allocAppendable(20000, false, &destruct);
+	auto deadspace = threadCache.allocAppendable(20000, false);
+	auto s4 = threadCache.realloc(s3, 60000, false);
+	assert(s4 !is s3);
+	threadCache.destroy(s4);
+	assert(lastKilledPtr == s4);
+	assert(lastKilledUsedCap == 60000);
+
+	// TODO: handle realloc for small allocs with finalizer?
+
+	// Destroy on non-finalized alloc is harmless:
+	threadCache.destroy(deadspace);
 }
