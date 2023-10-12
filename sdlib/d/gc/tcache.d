@@ -137,10 +137,8 @@ public:
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
 		auto samePointerness = containsPointers == pd.containsPointers;
-		void* finalizer = null;
 
 		if (pd.isSlab()) {
-			// TODO: how to handle realloc for small allocs with finalizer?
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
 			if (samePointerness && newSizeClass == oldSizeClass) {
@@ -162,7 +160,6 @@ public:
 
 			import d.gc.util;
 			copySize = min(size, pd.extent.usedCapacity);
-			finalizer = pd.extent.finalizer;
 		}
 
 		auto newPtr = alloc(size, containsPointers);
@@ -173,7 +170,6 @@ public:
 		if (isLargeSize(size)) {
 			auto npd = getPageDescriptor(newPtr);
 			npd.extent.setUsedCapacity(size);
-			npd.extent.setFinalizer(finalizer);
 		}
 
 		memcpy(newPtr, ptr, copySize);
@@ -879,15 +875,10 @@ unittest finalization {
 	// Resize preserves finalizer:
 	auto s1 = threadCache.allocAppendable(20000, false);
 	threadCache.setFinalizer(s1, &destruct);
-	auto deadspace = threadCache.allocAppendable(20000, false);
-	auto s2 = threadCache.realloc(s1, 60000, false);
-	assert(s2 !is s1);
-	threadCache.destroy(s2);
-	assert(lastKilledAddress == s2);
-	assert(lastKilledUsedCapacity == 60000);
 
 	// Destroy on non-finalized alloc is harmless:
+	auto s2 = threadCache.allocAppendable(20000, false);
 	auto oldDestroyCount = destroyCount;
-	threadCache.destroy(deadspace);
+	threadCache.destroy(s2);
 	assert(destroyCount == oldDestroyCount);
 }
