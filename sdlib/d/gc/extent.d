@@ -325,6 +325,9 @@ public:
 
 	@property
 	ushort* freeSpacePtr() {
+		assert(isSlab(), "freeSpacePtr accessed on non slab!");
+		assert(supportsFreeSpace, "size class not supports freeSpace!");
+
 		return cast(ushort*) (address + slotSize - 2);
 	}
 
