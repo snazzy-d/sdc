@@ -385,6 +385,9 @@ public:
 
 	@property
 	ulong* finalizerPtr() {
+		assert(isSlab(), "finalizerPtr accessed on non slab!");
+		assert(supportsFinalization, "size class not supports finalization!");
+
 		return cast(ulong*) (address + slotSize - 8);
 	}
 
