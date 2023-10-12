@@ -110,12 +110,20 @@ private:
 		FreeSpaceData freeSpaceData;
 	}
 
+	struct LargeData {
+		// Metadata for large extents.
+		size_t usedCapacity;
+
+		// Optional finalizer.
+		void* finalizer;
+	}
+
 	union MetaData {
 		// Slab occupancy (and metadata flags for supported size classes)
 		Bitmaps slabData;
 
 		// Metadata for large extents.
-		size_t usedCapacity;
+		LargeData largeData;
 	}
 
 	MetaData _metadata;
@@ -141,6 +149,7 @@ private:
 			slabData.clear();
 		} else {
 			setUsedCapacity(size);
+			setFinalizer(null);
 		}
 	}
 
@@ -297,7 +306,7 @@ public:
 	}
 
 	/**
-	 * Freespace Flag features for slabs.
+	 * Freespace and Finalizer features for slabs.
 	 */
 
 	@property
@@ -313,20 +322,35 @@ public:
 		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
 	}
 
+	bool hasFreeSpace(uint index) {
+		assert(isSlab(), "hasFreeSpace accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+
+		return supportsFreeSpace && freeSpaceFlags.valueAtAtomic(index);
+	}
+
+	@property
+	ushort* freeSpacePtr() {
+		assert(isSlab(), "freeSpacePtr accessed on non slab!");
+		assert(supportsFreeSpace, "size class not supports freeSpace!");
+
+		return cast(ushort*) (address + slotSize - 2);
+	}
+
 	void setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
-		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
+		assert(freeSpace <= getTotalSpace(index),
+		       "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
 		assert(supportsFreeSpace, "size class not supports freeSpace!");
 
-		if (freeSpace == 0) {
+		if (freeSpace == 0 && !hasFinalizer(index)) {
 			freeSpaceFlags.clearBitAtomic(index);
 			return;
 		}
 
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
-		writePackedFreeSpace(cast(ushort*) (address + slotSize - 2),
-		                     freeSpace & ushort.max);
+		writePackedFreeSpace(freeSpacePtr, freeSpace & ushort.max);
 		freeSpaceFlags.setBitAtomic(index);
 	}
 
@@ -334,12 +358,74 @@ public:
 		assert(isSlab(), "getFreeSpace accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		if (!supportsFreeSpace || !freeSpaceFlags.valueAtAtomic(index)) {
+		if (!hasFreeSpace(index)) {
 			return 0;
 		}
 
 		// Decode freespace, found in the final byte (or two bytes) of the alloc:
-		return readPackedFreeSpace(cast(ushort*) (address + slotSize - 2));
+		return readPackedFreeSpace(freeSpacePtr);
+	}
+
+	size_t getTotalSpace(uint index) {
+		assert(isSlab(), "getTotalSpace accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+
+		if (!hasFinalizer(index)) {
+			return slotSize;
+		}
+
+		return slotSize - PointerSize;
+	}
+
+	bool hasFinalizer(uint index) {
+		assert(isSlab(), "hasFinalizer accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+
+		return hasFreeSpace(index) && finalizerEnabled(freeSpacePtr);
+	}
+
+	@property
+	ulong* finalizerPtr() {
+		assert(isSlab(), "finalizerPtr accessed on non slab!");
+		assert(supportsFreeSpace, "size class not supports finalization!");
+
+		return cast(ulong*) (address + slotSize - 8);
+	}
+
+	void* getFinalizer(uint index) {
+		assert(isSlab(), "getFinalizer accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+		assert(hasFinalizer(index), "No finalizer is set!");
+
+		return cast(void*) (*finalizerPtr & AddressMask);
+	}
+
+	void setFinalizer(uint index, void* finalizer) {
+		assert(isSlab(), "setFinalizer accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+
+		auto freeSpace = getFreeSpace(index);
+		size_t reserveBytes = 0;
+
+		if (!finalizerEnabled(freeSpacePtr)) {
+			assert(freeSpace >= PointerSize,
+			       "setFinalizer requires sufficient freeSpace!");
+			reserveBytes = PointerSize;
+		}
+
+		*finalizerPtr = cast(ulong) finalizer;
+		writePackedFreeSpace(freeSpacePtr,
+		                     freeSpace - reserveBytes & ushort.max);
+		enableFinalizer(freeSpacePtr);
+	}
+
+	void clearFinalizer(uint index) {
+		assert(isSlab(), "clearFinalizer accessed on non slab!");
+		assert(index < slotCount, "index is out of range!");
+		assert(supportsFreeSpace, "size class not supports finalization!");
+		assert(hasFinalizer(index), "No finalizer is set!");
+
+		disableFinalizer(freeSpacePtr);
 	}
 
 	/**
@@ -352,13 +438,66 @@ public:
 	@property
 	ulong usedCapacity() {
 		assert(isLarge(), "usedCapacity accessed on non large!");
-		return _metadata.usedCapacity;
+		return _metadata.largeData.usedCapacity;
 	}
 
 	void setUsedCapacity(size_t size) {
 		assert(isLarge(), "Cannot set used capacity on a slab alloc!");
-		_metadata.usedCapacity = size;
+		_metadata.largeData.usedCapacity = size;
 	}
+
+	@property
+	void* finalizer() {
+		assert(isLarge(), "Finalizer accessed on non large!");
+		return _metadata.largeData.finalizer;
+	}
+
+	void setFinalizer(void* finalizer) {
+		assert(isLarge(), "Cannot set finalizer on a slab alloc!");
+		_metadata.largeData.finalizer = finalizer;
+	}
+}
+
+unittest finalizers {
+	void* finalizerPtr = cast(void*) 0xBEEFBAADF00D;
+
+	// Basic test for large allocs:
+	import d.gc.tcache;
+	auto large = threadCache.alloc(20000, false);
+	auto largePd = threadCache.getPageDescriptor(large);
+	largePd.extent.setUsedCapacity(19999);
+	assert(largePd.extent.finalizer is null);
+	largePd.extent.setFinalizer(finalizerPtr);
+	assert(largePd.extent.finalizer == finalizerPtr);
+	assert(largePd.extent.usedCapacity == 19999);
+	threadCache.free(large);
+
+	// Basic test for small allocs:
+	auto small = threadCache.allocAppendable(1000, false);
+	auto smallPd = threadCache.getPageDescriptor(small);
+
+	import d.gc.slab;
+	auto sg = SlabAllocGeometry(smallPd, small);
+	auto idx = sg.index;
+	auto e = smallPd.extent;
+
+	assert(e.getTotalSpace(idx) == 1024);
+
+	// Set a finalizer:
+	e.setFinalizer(idx, finalizerPtr);
+	assert(e.hasFinalizer(idx));
+	assert(e.getTotalSpace(idx) == 1016);
+
+	foreach (ushort i; 0 .. 1017) {
+		// Confirm that setting freespace does not clobber finalizer:
+		e.setFreeSpace(idx, i);
+		assert(e.getFinalizer(idx) == finalizerPtr);
+		// Confirm that setting finalizer does not clobber freespace:
+		e.setFinalizer(idx, finalizerPtr);
+		assert(e.getFreeSpace(idx) == i);
+	}
+
+	threadCache.free(small);
 }
 
 static assert(Extent.sizeof == ExtentSize, "Unexpected Extent size!");
@@ -443,39 +582,62 @@ unittest allocfree {
 }
 
 /**
- * Packed Free Space is stored as a 15-bit unsigned integer, in one or two bytes:
+ * Packed Free Space is stored as a 14-bit unsigned integer, in one or two bytes:
  *
  * /---- byte at ptr ----\ /-- byte at ptr + 1 --\
  * B7 B6 B5 B4 B3 B2 B1 B0 A7 A6 A5 A4 A3 A2 A1 A0
- * \_________15 bits unsigned integer_________/  \_ Set if and only if B0..B7 used.
+ * \_______14 bits unsigned integer________/  \  \_ Set if and only if B0..B7 used.
+ *                                             \_ Set when finalizer is present;
+ *                                                preserved when writing.
  */
 ushort readPackedFreeSpace(ushort* ptr) {
 	auto data = loadBigEndian(ptr);
-	auto mask = 0x7f | -(data & 1);
-	return (data >> 1) & mask;
+	auto mask = 0x3f | -(data & 1);
+	return (data >> 2) & mask;
 }
 
 void writePackedFreeSpace(ushort* ptr, ushort x) {
-	assert(x < 0x8000, "x does not fit in 15 bits!");
+	assert(x < 0x4000, "x does not fit in 14 bits!");
 
-	bool isLarge = x > 0x7f;
-	ushort native = (x << 1 | isLarge) & ushort.max;
+	bool isLarge = x > 0x3f;
+	ushort native = (x << 2 | isLarge) & ushort.max;
 	auto base = nativeToBigEndian(native);
 	auto mask = -isLarge | nativeToBigEndian!ushort(ushort(0xff));
 
 	auto current = *ptr;
 	auto delta = (current ^ base) & mask;
-	auto value = current ^ delta;
+	auto value = (current ^ delta) | (current & 0x200);
 
 	*ptr = value & ushort.max;
+}
+
+void enableFinalizer(ushort* ptr) {
+	*ptr |= 0x200;
+}
+
+void disableFinalizer(ushort* ptr) {
+	*ptr &= ~0x200;
+}
+
+bool finalizerEnabled(ushort* ptr) {
+	return (*ptr & 0x200) != 0;
 }
 
 unittest packedFreeSpace {
 	ubyte[2] a;
 	auto p = cast(ushort*) a.ptr;
 
-	foreach (ushort i; 0 .. 0x8000) {
+	foreach (ushort i; 0 .. 0x4000) {
 		writePackedFreeSpace(p, i);
+		assert(readPackedFreeSpace(p) == i);
+		enableFinalizer(p);
+		assert(finalizerEnabled(p));
+		// No clobber:
+		assert(readPackedFreeSpace(p) == i);
+		writePackedFreeSpace(p, i);
+		assert(finalizerEnabled(p));
+		disableFinalizer(p);
+		assert(!finalizerEnabled(p));
 		assert(readPackedFreeSpace(p) == i);
 	}
 
@@ -483,10 +645,19 @@ unittest packedFreeSpace {
 	// when the value is small enough.
 	foreach (x; 0 .. 256) {
 		a[0] = 0xff & x;
-		foreach (ubyte y; 0 .. 0x80) {
+		foreach (ubyte y; 0 .. 0x40) {
 			writePackedFreeSpace(p, y);
 			assert(readPackedFreeSpace(p) == y);
 			assert(a[0] == x);
+			enableFinalizer(p);
+			assert(finalizerEnabled(p));
+			// No clobber:
+			assert(readPackedFreeSpace(p) == y);
+			writePackedFreeSpace(p, y);
+			assert(finalizerEnabled(p));
+			disableFinalizer(p);
+			assert(!finalizerEnabled(p));
+			assert(readPackedFreeSpace(p) == y);
 		}
 	}
 }
