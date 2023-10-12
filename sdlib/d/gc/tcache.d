@@ -89,16 +89,9 @@ public:
 		auto pd = getPageDescriptor(ptr);
 
 		auto e = pd.extent;
-		if (e is null) {
-			return;
-		}
-
-		if (pd.isSlab()) {
-			// Slab is not yet supported
-			return;
-		}
-
-		if (e.finalizer is null) {
+		// Slab is not yet supported
+		if (e is null || pd.isSlab() || e.finalizer is null) {
+			freeImpl(pd, ptr);
 			return;
 		}
 
