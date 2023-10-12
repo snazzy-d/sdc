@@ -121,7 +121,7 @@ public:
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
 		auto samePointerness = containsPointers == pd.containsPointers;
-		void* finalizer;
+		void* finalizer = null;
 
 		if (pd.isSlab()) {
 			// TODO: handle realloc for small allocs with finalizer?
