@@ -102,7 +102,7 @@ public:
 			return;
 		}
 
-		(cast(void function(void* body, size_t size)) e.finalizer)(
+		(cast(void function(void* ptr, size_t size)) e.finalizer)(
 			ptr, e.usedCapacity);
 
 		freeImpl(pd, ptr);
@@ -847,9 +847,9 @@ unittest finalization {
 	static size_t lastKilledUsedCapacity = 0;
 	static void* lastKilledAddress;
 	static uint destroyCount = 0;
-	static void destruct(void* body, size_t size) {
+	static void destruct(void* ptr, size_t size) {
 		lastKilledUsedCapacity = size;
-		lastKilledAddress = body;
+		lastKilledAddress = ptr;
 		destroyCount++;
 	}
 
