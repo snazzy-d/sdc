@@ -74,7 +74,32 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		pd.arena.free(emap, pd, ptr);
+		freeImpl(pd, ptr);
+	}
+
+	void destroy(void* ptr) {
+		if (ptr is null) {
+			return;
+		}
+
+		auto pd = getPageDescriptor(ptr);
+		destroyImpl(pd, ptr);
+		freeImpl(pd, ptr);
+	}
+
+	bool setFinalizer(void* ptr, void* finalizer) {
+		auto pd = maybeGetPageDescriptor(ptr);
+		if (pd.extent is null) {
+			return false;
+		}
+
+		if (pd.isSlab()) {
+			// Slab is not yet supported
+			return false;
+		}
+
+		pd.extent.setFinalizer(finalizer);
+		return true;
 	}
 
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
@@ -94,8 +119,10 @@ public:
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
 		auto samePointerness = containsPointers == pd.containsPointers;
+		void* finalizer = null;
 
 		if (pd.isSlab()) {
+			// TODO: how to handle realloc for small allocs with finalizer?
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
 			if (samePointerness && newSizeClass == oldSizeClass) {
@@ -117,6 +144,7 @@ public:
 
 			import d.gc.util;
 			copySize = min(size, pd.extent.usedCapacity);
+			finalizer = pd.extent.finalizer;
 		}
 
 		auto newPtr = alloc(size, containsPointers);
@@ -127,6 +155,7 @@ public:
 		if (isLargeSize(size)) {
 			auto npd = getPageDescriptor(newPtr);
 			npd.extent.setUsedCapacity(size);
+			npd.extent.setFinalizer(finalizer);
 		}
 
 		memcpy(newPtr, ptr, copySize);
@@ -345,6 +374,29 @@ private:
 
 		pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
 		return true;
+	}
+
+	void freeImpl(PageDescriptor pd, void* ptr) {
+		pd.arena.free(emap, pd, ptr);
+	}
+
+	void destroyImpl(PageDescriptor pd, void* ptr) {
+		auto e = pd.extent;
+		if (e is null) {
+			return;
+		}
+
+		if (pd.isSlab()) {
+			// Slab is not yet supported
+			return;
+		}
+
+		if (e.finalizer is null) {
+			return;
+		}
+
+		(cast(void function(void* body, size_t size)) e.finalizer)(
+			ptr, e.usedCapacity);
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -805,4 +857,34 @@ unittest arraySpill {
 	testSpill(80, [0, 1, 2, 32, 79, 80]);
 	testSpill(16384, [0, 1, 2, 500, 16000, 16383, 16384]);
 	testSpill(20480, [0, 1, 2, 500, 20000, 20479, 20480]);
+}
+
+unittest finalization {
+	// Faux destructor which simply records most recent kill:
+	static size_t lastKilledUsedCap = 0;
+	static void* lastKilledPtr;
+	static void destruct(void* body, size_t size) {
+		lastKilledUsedCap = size;
+		lastKilledPtr = body;
+	}
+
+	// Finalizers for large allocs:
+	auto s0 = threadCache.allocAppendable(16384, false);
+	threadCache.setFinalizer(s0, &destruct);
+	threadCache.destroy(s0);
+	assert(lastKilledPtr == s0);
+	assert(lastKilledUsedCap == 16384);
+
+	// Resize preserves finalizer:
+	auto s1 = threadCache.allocAppendable(20000, false);
+	threadCache.setFinalizer(s1, &destruct);
+	auto deadspace = threadCache.allocAppendable(20000, false);
+	auto s2 = threadCache.realloc(s1, 60000, false);
+	assert(s2 !is s1);
+	threadCache.destroy(s2);
+	assert(lastKilledPtr == s2);
+	assert(lastKilledUsedCap == 60000);
+
+	// Destroy on non-finalized alloc is harmless:
+	threadCache.destroy(deadspace);
 }
