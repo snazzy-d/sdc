@@ -49,7 +49,15 @@ public:
 		if (isSmallSize(asize)) {
 			auto ptr = arena.allocSmall(emap, asize);
 			auto pd = getPageDescriptor(ptr);
-			setSmallAttributes(pd, ptr, size, finalizer);
+			auto sg = SlabAllocGeometry(pd, ptr);
+			auto freeSize = sg.size - size;
+
+			if (finalized) {
+				pd.extent.setFinalizer(sg.index, finalizer);
+				freeSize -= PointerSize;
+			}
+
+			pd.extent.setFreeSpace(sg.index, freeSize);
 			return ptr;
 		}
 
@@ -363,31 +371,6 @@ private:
 		}
 
 		return sg.size - PointerSize;
-	}
-
-	bool setSmallAttributes(PageDescriptor pd, void* ptr, size_t usedCapacity,
-	                        void* finalizer) {
-		bool finalizable = finalizer !is null;
-
-		auto sc = pd.sizeClass;
-		if ((finalizable && !isFinalizableSizeClass(sc))
-			    || !isAppendableSizeClass(sc)) {
-			return false;
-		}
-
-		auto sg = SlabAllocGeometry(pd, ptr);
-
-		if (finalizable) {
-			pd.extent.setFinalizer(sg.index, finalizer);
-		}
-
-		auto effectiveSize = getSmallEffectiveSize(pd, sg);
-
-		assert(usedCapacity <= effectiveSize,
-		       "Used capacity may not exceed alloc size!");
-
-		pd.extent.setFreeSpace(sg.index, effectiveSize - usedCapacity);
-		return true;
 	}
 
 	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
