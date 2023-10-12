@@ -54,6 +54,7 @@ public:
 
 			if (finalized) {
 				pd.extent.setFinalizer(sg.index, finalizer);
+				assert(freeSize >= PointerSize, "No room for finalizer!");
 				freeSize -= PointerSize;
 			}
 
