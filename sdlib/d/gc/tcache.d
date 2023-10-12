@@ -89,7 +89,8 @@ public:
 
 	bool setFinalizer(void* ptr, void* finalizer) {
 		auto pd = maybeGetPageDescriptor(ptr);
-		if (pd.extent is null) {
+		auto e = pd.extent;
+		if (e is null) {
 			return false;
 		}
 
@@ -98,7 +99,7 @@ public:
 			return false;
 		}
 
-		pd.extent.setFinalizer(finalizer);
+		e.setFinalizer(finalizer);
 		return true;
 	}
 
