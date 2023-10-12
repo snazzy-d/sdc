@@ -325,6 +325,9 @@ public:
 
 	@property
 	ushort* freeSpacePtr() {
+		assert(isSlab(), "freeSpacePtr accessed on non slab!");
+		assert(supportsFreeSpace, "size class not supports freeSpace!");
+
 		return cast(ushort*) (address + slotSize - 2);
 	}
 
@@ -382,6 +385,9 @@ public:
 
 	@property
 	ulong* finalizerPtr() {
+		assert(isSlab(), "finalizerPtr accessed on non slab!");
+		assert(supportsFinalization, "size class not supports finalization!");
+
 		return cast(ulong*) (address + slotSize - 8);
 	}
 
