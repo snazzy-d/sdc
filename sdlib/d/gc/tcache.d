@@ -393,15 +393,15 @@ private:
 		return true;
 	}
 
-	void* getSmallFinalizer(PageDescriptor pd, void* ptr) {
-		if (!isFinalizableSizeClass(pd.sizeClass)) {
-			return null;
-		}
+	// void* getSmallFinalizer(PageDescriptor pd, void* ptr) {
+	// 	if (!isFinalizableSizeClass(pd.sizeClass)) {
+	// 		return null;
+	// 	}
 
-		auto sg = SlabAllocGeometry(pd, ptr);
+	// 	auto sg = SlabAllocGeometry(pd, ptr);
 
-		return pd.extent.getFinalizer(sg.index);
-	}
+	// 	return pd.extent.getFinalizer(sg.index);
+	// }
 
 	void freeImpl(PageDescriptor pd, void* ptr) {
 		pd.arena.free(emap, pd, ptr);
