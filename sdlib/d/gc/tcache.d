@@ -30,7 +30,8 @@ public:
 			: arena.allocLarge(emap, size, false);
 	}
 
-	void* allocAppendable(size_t size, bool containsPointers) {
+	void* allocAppendable(size_t size, bool containsPointers,
+	                      void* finalizer = null) {
 		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
 		assert(isAppendableSizeClass(getSizeClass(asize)),
 		       "allocAppendable got non-appendable size class!");
@@ -42,12 +43,15 @@ public:
 			auto ptr = arena.allocSmall(emap, asize);
 			auto pd = getPageDescriptor(ptr);
 			setSmallUsedCapacity(pd, ptr, size);
+			assert(finalizer is null, "finalizer not yet supported for slab!");
 			return ptr;
 		}
 
 		auto ptr = arena.allocLarge(emap, asize, false);
 		auto pd = getPageDescriptor(ptr);
-		pd.extent.setUsedCapacity(size);
+		auto e = pd.extent;
+		e.setUsedCapacity(size);
+		e.setFinalizer(finalizer);
 		return ptr;
 	}
 
@@ -102,22 +106,6 @@ public:
 			ptr, e.usedCapacity);
 
 		freeImpl(pd, ptr);
-	}
-
-	bool setFinalizer(void* ptr, void* finalizer) {
-		auto pd = maybeGetPageDescriptor(ptr);
-		auto e = pd.extent;
-		if (e is null) {
-			return false;
-		}
-
-		if (pd.isSlab()) {
-			// Slab is not yet supported
-			return false;
-		}
-
-		e.setFinalizer(finalizer);
-		return true;
 	}
 
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
@@ -866,8 +854,7 @@ unittest finalization {
 	}
 
 	// Finalizers for large allocs:
-	auto s0 = threadCache.allocAppendable(16384, false);
-	threadCache.setFinalizer(s0, &destruct);
+	auto s0 = threadCache.allocAppendable(16384, false, &destruct);
 	threadCache.destroy(s0);
 	assert(lastKilledAddress == s0);
 	assert(lastKilledUsedCapacity == 16384);
