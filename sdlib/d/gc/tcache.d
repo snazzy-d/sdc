@@ -872,13 +872,9 @@ unittest finalization {
 	assert(lastKilledAddress == s0);
 	assert(lastKilledUsedCapacity == 16384);
 
-	// Resize preserves finalizer:
-	auto s1 = threadCache.allocAppendable(20000, false);
-	threadCache.setFinalizer(s1, &destruct);
-
 	// Destroy on non-finalized alloc is harmless:
-	auto s2 = threadCache.allocAppendable(20000, false);
+	auto s1 = threadCache.allocAppendable(20000, false);
 	auto oldDestroyCount = destroyCount;
-	threadCache.destroy(s2);
+	threadCache.destroy(s1);
 	assert(destroyCount == oldDestroyCount);
 }
