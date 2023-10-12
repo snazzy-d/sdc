@@ -862,19 +862,21 @@ unittest arraySpill {
 
 unittest finalization {
 	// Faux destructor which simply records most recent kill:
-	static size_t lastKilledUsedCap = 0;
-	static void* lastKilledPtr;
+	static size_t lastKilledUsedCapacity = 0;
+	static void* lastKilledAddress;
+	static uint destroyCount = 0;
 	static void destruct(void* body, size_t size) {
-		lastKilledUsedCap = size;
-		lastKilledPtr = body;
+		lastKilledUsedCapacity = size;
+		lastKilledAddress = body;
+		destroyCount++;
 	}
 
 	// Finalizers for large allocs:
 	auto s0 = threadCache.allocAppendable(16384, false);
 	threadCache.setFinalizer(s0, &destruct);
 	threadCache.destroy(s0);
-	assert(lastKilledPtr == s0);
-	assert(lastKilledUsedCap == 16384);
+	assert(lastKilledAddress == s0);
+	assert(lastKilledUsedCapacity == 16384);
 
 	// Resize preserves finalizer:
 	auto s1 = threadCache.allocAppendable(20000, false);
@@ -883,9 +885,11 @@ unittest finalization {
 	auto s2 = threadCache.realloc(s1, 60000, false);
 	assert(s2 !is s1);
 	threadCache.destroy(s2);
-	assert(lastKilledPtr == s2);
-	assert(lastKilledUsedCap == 60000);
+	assert(lastKilledAddress == s2);
+	assert(lastKilledUsedCapacity == 60000);
 
 	// Destroy on non-finalized alloc is harmless:
+	auto oldDestroyCount = destroyCount;
 	threadCache.destroy(deadspace);
+	assert(destroyCount == oldDestroyCount);
 }
