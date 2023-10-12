@@ -322,14 +322,6 @@ public:
 		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
 	}
 
-	@property
-	ushort* freeSpacePtr() {
-		assert(isSlab(), "freeSpacePtr accessed on non slab!");
-		assert(supportsFreeSpace, "size class not supports freeSpace!");
-
-		return cast(ushort*) (address + slotSize - 2);
-	}
-
 	void setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
 		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
@@ -342,7 +334,8 @@ public:
 		}
 
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
-		writePackedFreeSpace(freeSpacePtr, freeSpace & ushort.max);
+		writePackedFreeSpace(cast(ushort*) (address + slotSize - 2),
+		                     freeSpace & ushort.max);
 		freeSpaceFlags.setBitAtomic(index);
 	}
 
@@ -355,7 +348,7 @@ public:
 		}
 
 		// Decode freespace, found in the final byte (or two bytes) of the alloc:
-		return readPackedFreeSpace(freeSpacePtr);
+		return readPackedFreeSpace(cast(ushort*) (address + slotSize - 2));
 	}
 
 	/**
