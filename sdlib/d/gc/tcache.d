@@ -78,7 +78,7 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		freeImpl(pd, ptr);
+		pd.arena.free(emap, pd, ptr);
 	}
 
 	void destroy(void* ptr) {
@@ -94,7 +94,7 @@ public:
 			e.finalizer(ptr, e.usedCapacity);
 		}
 
-		freeImpl(pd, ptr);
+		pd.arena.free(emap, pd, ptr);
 	}
 
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
@@ -365,10 +365,6 @@ private:
 
 		pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
 		return true;
-	}
-
-	void freeImpl(PageDescriptor pd, void* ptr) {
-		pd.arena.free(emap, pd, ptr);
 	}
 
 	auto getPageDescriptor(void* ptr) {
