@@ -492,8 +492,6 @@ ushort readPackedFreeSpace(ushort* ptr) {
 	return (data >> 2) & mask;
 }
 
-enum FinalizerBit = nativeToBigEndian!ushort(ushort(0x2));
-
 void writePackedFreeSpace(ushort* ptr, ushort x) {
 	assert(x < 0x4000, "x does not fit in 14 bits!");
 
@@ -513,21 +511,24 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 }
 
 unittest packedFreeSpace {
+	enum FinalizerBit = nativeToBigEndian!ushort(ushort(0x2));
+
 	ubyte[2] a;
 	auto p = cast(ushort*) a.ptr;
 
 	foreach (ushort i; 0 .. 0x4000) {
-		writePackedFreeSpace(p, i);
-		assert(readPackedFreeSpace(p) == i);
+		// With finalizer bit set:
 		*p |= FinalizerBit;
-		assert((*p & FinalizerBit) != 0);
-		// No clobber:
+		writePackedFreeSpace(p, i);
+		assert(readPackedFreeSpace(p) == i);
+		assert(*p & FinalizerBit);
+
+		// With finalizer bit cleared:
+		*p &= ~FinalizerBit;
+		// Should remain same as before:
 		assert(readPackedFreeSpace(p) == i);
 		writePackedFreeSpace(p, i);
-		assert((*p & FinalizerBit) != 0);
-		*p &= ~FinalizerBit;
-		assert((*p & FinalizerBit) == 0);
-		assert(readPackedFreeSpace(p) == i);
+		assert(!(*p & FinalizerBit));
 	}
 
 	// Make sure we do not distrub the penultimate byte
@@ -538,15 +539,6 @@ unittest packedFreeSpace {
 			writePackedFreeSpace(p, y);
 			assert(readPackedFreeSpace(p) == y);
 			assert(a[0] == x);
-			*p |= FinalizerBit;
-			assert((*p & FinalizerBit) != 0);
-			// No clobber:
-			assert(readPackedFreeSpace(p) == y);
-			writePackedFreeSpace(p, y);
-			assert((*p & FinalizerBit) != 0);
-			*p &= ~FinalizerBit;
-			assert((*p & FinalizerBit) == 0);
-			assert(readPackedFreeSpace(p) == y);
 		}
 	}
 }
