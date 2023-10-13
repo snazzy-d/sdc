@@ -322,8 +322,8 @@ public:
 		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
 	}
 
-	bool hasFreeSpace(uint index) {
-		assert(isSlab(), "hasFreeSpace accessed on non slab!");
+	bool hasFreeSpaceField(uint index) {
+		assert(isSlab(), "hasFreeSpaceField accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
 		return supportsFreeSpace && freeSpaceFlags.valueAtAtomic(index);
@@ -344,6 +344,7 @@ public:
 		assert(index < slotCount, "index is out of range!");
 		assert(supportsFreeSpace, "size class not supports freeSpace!");
 
+		// If we have a finalizer, the freeSpace field is permanent and may be 0:
 		if (freeSpace == 0 && !hasFinalizer(index)) {
 			freeSpaceFlags.clearBitAtomic(index);
 			return;
@@ -358,7 +359,7 @@ public:
 		assert(isSlab(), "getFreeSpace accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		if (!hasFreeSpace(index)) {
+		if (!hasFreeSpaceField(index)) {
 			return 0;
 		}
 
@@ -381,7 +382,7 @@ public:
 		assert(isSlab(), "hasFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		return hasFreeSpace(index) && finalizerEnabled(freeSpacePtr);
+		return hasFreeSpaceField(index) && finalizerEnabled(freeSpacePtr);
 	}
 
 	@property
@@ -404,7 +405,8 @@ public:
 	void setFinalizer(uint index, void* finalizer) {
 		assert(isSlab(), "setFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
-		assert(hasFreeSpace(index), "freeSpace must be set before finalizer!");
+		assert(hasFreeSpaceField(index),
+		       "freeSpace must be set before finalizer!");
 
 		*finalizerPtr = *finalizerPtr & ~AddressMask | cast(ulong) finalizer;
 		enableFinalizer(freeSpacePtr);
