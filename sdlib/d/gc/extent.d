@@ -512,18 +512,6 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 	*ptr = value & ushort.max;
 }
 
-void enableFinalizer(ushort* ptr) {
-	*ptr |= FinalizerBit;
-}
-
-void disableFinalizer(ushort* ptr) {
-	*ptr &= ~FinalizerBit;
-}
-
-bool finalizerEnabled(ushort* ptr) {
-	return (*ptr & FinalizerBit) != 0;
-}
-
 unittest packedFreeSpace {
 	ubyte[2] a;
 	auto p = cast(ushort*) a.ptr;
@@ -531,14 +519,14 @@ unittest packedFreeSpace {
 	foreach (ushort i; 0 .. 0x4000) {
 		writePackedFreeSpace(p, i);
 		assert(readPackedFreeSpace(p) == i);
-		enableFinalizer(p);
-		assert(finalizerEnabled(p));
+		*p |= FinalizerBit;
+		assert((*p & FinalizerBit) != 0);
 		// No clobber:
 		assert(readPackedFreeSpace(p) == i);
 		writePackedFreeSpace(p, i);
-		assert(finalizerEnabled(p));
-		disableFinalizer(p);
-		assert(!finalizerEnabled(p));
+		assert((*p & FinalizerBit) != 0);
+		*p &= ~FinalizerBit;
+		assert((*p & FinalizerBit) == 0);
 		assert(readPackedFreeSpace(p) == i);
 	}
 
@@ -550,14 +538,14 @@ unittest packedFreeSpace {
 			writePackedFreeSpace(p, y);
 			assert(readPackedFreeSpace(p) == y);
 			assert(a[0] == x);
-			enableFinalizer(p);
-			assert(finalizerEnabled(p));
+			*p |= FinalizerBit;
+			assert((*p & FinalizerBit) != 0);
 			// No clobber:
 			assert(readPackedFreeSpace(p) == y);
 			writePackedFreeSpace(p, y);
-			assert(finalizerEnabled(p));
-			disableFinalizer(p);
-			assert(!finalizerEnabled(p));
+			assert((*p & FinalizerBit) != 0);
+			*p &= ~FinalizerBit;
+			assert((*p & FinalizerBit) == 0);
 			assert(readPackedFreeSpace(p) == y);
 		}
 	}
