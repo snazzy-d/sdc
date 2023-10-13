@@ -297,14 +297,6 @@ public:
 		slabData.clearBit(index);
 	}
 
-	void* slotEndPtr(uint index) {
-		// FIXME: in contract.
-		assert(isSlab(), "free accessed on non slab!");
-		assert(slabData.valueAt(index), "Slot is not in use!");
-
-		return cast(void*) (address + (index + 1) * slotSize);
-	}
-
 	@property
 	ref Bitmap!512 slabData() {
 		// FIXME: in contract.
