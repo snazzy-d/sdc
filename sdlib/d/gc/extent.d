@@ -338,7 +338,7 @@ public:
 
 	void setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
-		assert(freeSpace <= getTotalSpace(index),
+		assert(freeSpace <= getTotalCapacity(index),
 		       "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
 		assert(supportsFreeSpace, "size class not supports freeSpace!");
@@ -366,8 +366,8 @@ public:
 		return readPackedFreeSpace(freeSpacePtr(index));
 	}
 
-	size_t getTotalSpace(uint index) {
-		assert(isSlab(), "getTotalSpace accessed on non slab!");
+	size_t getTotalCapacity(uint index) {
+		assert(isSlab(), "getTotalCapacity accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
 		if (!hasFinalizer(index)) {
@@ -472,12 +472,12 @@ unittest finalizers {
 	auto sg = SlabAllocGeometry(smallPd, small);
 	auto idx = sg.index;
 	auto e = smallPd.extent;
-	assert(e.getTotalSpace(idx) == 1024);
+	assert(e.getTotalCapacity(idx) == 1024);
 
 	// Set a finalizer:
 	e.setFinalizer(idx, &destruct);
 	assert(e.hasFinalizer(idx));
-	assert(e.getTotalSpace(idx) == 1016);
+	assert(e.getTotalCapacity(idx) == 1016);
 
 	foreach (ushort i; 0 .. 1017) {
 		// Confirm that setting freespace does not clobber finalizer:
