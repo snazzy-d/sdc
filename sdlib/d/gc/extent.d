@@ -492,7 +492,7 @@ ushort readPackedFreeSpace(ushort* ptr) {
 	return (data >> 2) & mask;
 }
 
-enum finalizerBit = nativeToBigEndian!ushort(ushort(0x2));
+enum FinalizerBit = nativeToBigEndian!ushort(ushort(0x2));
 
 void writePackedFreeSpace(ushort* ptr, ushort x) {
 	assert(x < 0x4000, "x does not fit in 14 bits!");
@@ -513,15 +513,15 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 }
 
 void enableFinalizer(ushort* ptr) {
-	*ptr |= finalizerBit;
+	*ptr |= FinalizerBit;
 }
 
 void disableFinalizer(ushort* ptr) {
-	*ptr &= ~finalizerBit;
+	*ptr &= ~FinalizerBit;
 }
 
 bool finalizerEnabled(ushort* ptr) {
-	return (*ptr & finalizerBit) != 0;
+	return (*ptr & FinalizerBit) != 0;
 }
 
 unittest packedFreeSpace {
