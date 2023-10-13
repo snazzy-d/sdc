@@ -397,10 +397,17 @@ public:
 	Finalizer getFinalizer(uint index) {
 		assert(isSlab(), "getFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
-		assert(hasFinalizer(index), "No finalizer is set!");
 
-		return cast(Finalizer) cast(void*)
-			(*(finalizerPtr(index)) & AddressMask);
+		if (!hasSlabMetaData(index)) {
+			return null;
+		}
+
+		auto finalizerFieldPtr = finalizerPtr(index);
+		if (!(*finalizerFieldPtr & FinalizerBit)) {
+			return null;
+		}
+
+		return cast(Finalizer) cast(void*) (*finalizerFieldPtr & AddressMask);
 	}
 
 	void setFinalizer(uint index, Finalizer finalizer) {
