@@ -829,8 +829,7 @@ struct ExpressionGen {
 			i++;
 		}
 
-		auto funType = c.callee.type.asFunctionType();
-		auto type = TypeGen(pass.pass).getFunctionType(funType);
+		auto type = TypeGen(pass.pass).getFunctionType(cType);
 		return buildCall(callee, type, args);
 	}
 
