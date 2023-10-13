@@ -7,8 +7,6 @@ import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
 
-alias Finalizer = void function(void* ptr, size_t size);
-
 alias ExtentTree = RBTree!(Extent, addrRangeExtentCmp);
 
 alias PHNode = heap.Node!Extent;
