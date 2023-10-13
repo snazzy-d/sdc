@@ -392,30 +392,21 @@ public:
 		return cast(ulong*) (address + slotSize - 8);
 	}
 
-	void* getFinalizer(uint index) {
+	void function(void* ptr, size_t size) getFinalizer(uint index) {
 		assert(isSlab(), "getFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 		assert(hasFinalizer(index), "No finalizer is set!");
 
-		return cast(void*) (*finalizerPtr & AddressMask);
+		return cast(void function(void* ptr, size_t size))
+			(cast(void*) (*finalizerPtr & AddressMask));
 	}
 
 	void setFinalizer(uint index, void* finalizer) {
 		assert(isSlab(), "setFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
+		assert(hasFreeSpace(index), "freeSpace must be set before finalizer!");
 
-		auto freeSpace = getFreeSpace(index);
-		size_t reserveBytes = 0;
-
-		if (!finalizerEnabled(freeSpacePtr)) {
-			assert(freeSpace >= PointerSize,
-			       "setFinalizer requires sufficient freeSpace!");
-			reserveBytes = PointerSize;
-		}
-
-		*finalizerPtr = cast(ulong) finalizer;
-		writePackedFreeSpace(freeSpacePtr,
-		                     freeSpace - reserveBytes & ushort.max);
+		*finalizerPtr = *finalizerPtr & ~AddressMask | cast(ulong) finalizer;
 		enableFinalizer(freeSpacePtr);
 	}
 
@@ -447,9 +438,10 @@ public:
 	}
 
 	@property
-	void* finalizer() {
+	void function(void* ptr, size_t size) finalizer() {
 		assert(isLarge(), "Finalizer accessed on non large!");
-		return _metadata.largeData.finalizer;
+		return cast(void function(void* ptr, size_t size))
+			_metadata.largeData.finalizer;
 	}
 
 	void setFinalizer(void* finalizer) {
@@ -468,7 +460,7 @@ unittest finalizers {
 	largePd.extent.setUsedCapacity(19999);
 	assert(largePd.extent.finalizer is null);
 	largePd.extent.setFinalizer(finalizerPtr);
-	assert(largePd.extent.finalizer == finalizerPtr);
+	assert(cast(void*) largePd.extent.finalizer == finalizerPtr);
 	assert(largePd.extent.usedCapacity == 19999);
 	threadCache.free(large);
 
@@ -480,7 +472,6 @@ unittest finalizers {
 	auto sg = SlabAllocGeometry(smallPd, small);
 	auto idx = sg.index;
 	auto e = smallPd.extent;
-
 	assert(e.getTotalSpace(idx) == 1024);
 
 	// Set a finalizer:
@@ -491,7 +482,7 @@ unittest finalizers {
 	foreach (ushort i; 0 .. 1017) {
 		// Confirm that setting freespace does not clobber finalizer:
 		e.setFreeSpace(idx, i);
-		assert(e.getFinalizer(idx) == finalizerPtr);
+		assert(cast(void*) e.getFinalizer(idx) == finalizerPtr);
 		// Confirm that setting finalizer does not clobber freespace:
 		e.setFinalizer(idx, finalizerPtr);
 		assert(e.getFreeSpace(idx) == i);
@@ -596,6 +587,8 @@ ushort readPackedFreeSpace(ushort* ptr) {
 	return (data >> 2) & mask;
 }
 
+enum size_t finalizerBit = nativeToBigEndian!ushort(ushort(0x2));
+
 void writePackedFreeSpace(ushort* ptr, ushort x) {
 	assert(x < 0x4000, "x does not fit in 14 bits!");
 
@@ -606,21 +599,21 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 
 	auto current = *ptr;
 	auto delta = (current ^ base) & mask;
-	auto value = (current ^ delta) | (current & 0x200);
+	auto value = (current ^ delta) | (current & finalizerBit);
 
 	*ptr = value & ushort.max;
 }
 
 void enableFinalizer(ushort* ptr) {
-	*ptr |= 0x200;
+	*ptr |= finalizerBit;
 }
 
 void disableFinalizer(ushort* ptr) {
-	*ptr &= ~0x200;
+	*ptr &= ~finalizerBit;
 }
 
 bool finalizerEnabled(ushort* ptr) {
-	return (*ptr & 0x200) != 0;
+	return (*ptr & finalizerBit) != 0;
 }
 
 unittest packedFreeSpace {
