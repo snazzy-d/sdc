@@ -370,9 +370,10 @@ public:
 	}
 
 	@property
-	void* finalizer() {
+	void function(void* ptr, size_t size) finalizer() {
 		assert(isLarge(), "Finalizer accessed on non large!");
-		return _metadata.largeData.finalizer;
+		return cast(void function(void* ptr, size_t size))
+			_metadata.largeData.finalizer;
 	}
 
 	void setFinalizer(void* finalizer) {
@@ -391,7 +392,7 @@ unittest finalizers {
 	largePd.extent.setUsedCapacity(19999);
 	assert(largePd.extent.finalizer is null);
 	largePd.extent.setFinalizer(finalizerPtr);
-	assert(largePd.extent.finalizer == finalizerPtr);
+	assert(cast(void*) largePd.extent.finalizer == finalizerPtr);
 	assert(largePd.extent.usedCapacity == 19999);
 	threadCache.free(large);
 }
