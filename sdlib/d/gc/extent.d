@@ -500,8 +500,10 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 	bool isLarge = x > 0x3f;
 	ushort native = (x << 2 | isLarge) & ushort.max;
 	auto base = nativeToBigEndian(native);
-	auto mask =
-		(-isLarge | nativeToBigEndian!ushort(ushort(0xff))) & ~finalizerBit;
+
+	auto smallMask = nativeToBigEndian!ushort(ushort(0xfd));
+	auto largeMask = nativeToBigEndian!ushort(ushort(0xfffd));
+	auto mask = isLarge ? largeMask : smallMask;
 
 	auto current = *ptr;
 	auto delta = (current ^ base) & mask;
