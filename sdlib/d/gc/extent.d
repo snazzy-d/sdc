@@ -100,14 +100,14 @@ private:
 
 	import d.gc.bitmap;
 
-	struct FreeSpaceData {
+	struct SlabMetaData {
 		ubyte[32] pad;
-		shared Bitmap!256 freeSpaceFlags;
+		shared Bitmap!256 slabMetaDataFlags;
 	}
 
 	union Bitmaps {
 		Bitmap!512 slabData;
-		FreeSpaceData freeSpaceData;
+		SlabMetaData slabMetaData;
 	}
 
 	struct LargeData {
@@ -306,32 +306,32 @@ public:
 	}
 
 	/**
-	 * Freespace and Finalizer features for slabs.
+	 * Metadata features for slabs.
 	 */
 
 	@property
-	bool supportsFreeSpace() const {
+	bool supportsSlabMetaData() const {
 		return isAppendableSizeClass(sizeClass);
 	}
 
 	@property
-	ref shared(Bitmap!256) freeSpaceFlags() {
-		assert(isSlab(), "freeSpaceFlags accessed on non slab!");
-		assert(supportsFreeSpace, "freeSpaceFlags not supported!");
+	ref shared(Bitmap!256) slabMetaDataFlags() {
+		assert(isSlab(), "slabMetaDataFlags accessed on non slab!");
+		assert(supportsSlabMetaData, "size class not supports slab metadata!");
 
-		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
+		return _metadata.slabData.slabMetaData.slabMetaDataFlags;
 	}
 
-	bool hasFreeSpaceField(uint index) {
-		assert(isSlab(), "hasFreeSpaceField accessed on non slab!");
+	bool hasSlabMetaData(uint index) {
+		assert(isSlab(), "hasSlabMetaData accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		return supportsFreeSpace && freeSpaceFlags.valueAtAtomic(index);
+		return supportsSlabMetaData && slabMetaDataFlags.valueAtAtomic(index);
 	}
 
 	ushort* freeSpacePtr(uint index) {
 		assert(isSlab(), "freeSpacePtr accessed on non slab!");
-		assert(supportsFreeSpace, "size class not supports freeSpace!");
+		assert(supportsSlabMetaData, "size class not supports slab metadata!");
 
 		return cast(ushort*) (address + (index + 1) * slotSize) - 2;
 	}
@@ -341,24 +341,24 @@ public:
 		assert(freeSpace <= getTotalCapacity(index),
 		       "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
-		assert(supportsFreeSpace, "size class not supports freeSpace!");
+		assert(supportsSlabMetaData, "size class not supports slab metadata!");
 
-		// If we have a finalizer, the freeSpace field is permanent and may be 0:
+		// If we have a finalizer, the freeSpace may be 0:
 		if (freeSpace == 0 && !hasFinalizer(index)) {
-			freeSpaceFlags.clearBitAtomic(index);
+			slabMetaDataFlags.clearBitAtomic(index);
 			return;
 		}
 
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
 		writePackedFreeSpace(freeSpacePtr(index), freeSpace & ushort.max);
-		freeSpaceFlags.setBitAtomic(index);
+		slabMetaDataFlags.setBitAtomic(index);
 	}
 
 	size_t getFreeSpace(uint index) {
 		assert(isSlab(), "getFreeSpace accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		if (!hasFreeSpaceField(index)) {
+		if (!hasSlabMetaData(index)) {
 			return 0;
 		}
 
@@ -383,13 +383,13 @@ public:
 		assert(isSlab(), "hasFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		return hasFreeSpaceField(index)
+		return hasSlabMetaData(index)
 			&& (*(finalizerPtr(index)) & FinalizerBit);
 	}
 
 	ulong* finalizerPtr(uint index) {
 		assert(isSlab(), "finalizerPtr accessed on non slab!");
-		assert(supportsFreeSpace, "size class not supports finalization!");
+		assert(supportsSlabMetaData, "size class not supports slab metadata!");
 
 		return cast(ulong*) (address + (index + 1) * slotSize) - 8;
 	}
@@ -406,18 +406,18 @@ public:
 	void setFinalizer(uint index, Finalizer finalizer) {
 		assert(isSlab(), "setFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
-		assert(hasFreeSpaceField(index),
-		       "freeSpace must be set before finalizer!");
+		assert(hasSlabMetaData(index),
+		       "No metadata! (must set freespace before finalizer)");
+
+		auto finalizerFieldPtr = finalizerPtr(index);
 
 		if (finalizer is null) {
-			*(finalizerPtr(index)) &= ~FinalizerBit;
+			*finalizerFieldPtr &= ~FinalizerBit;
 			return;
 		}
 
-		auto finalizerFieldPtr = finalizerPtr(index);
-		auto freeSpaceField =
-			(*finalizerFieldPtr & ~AddressMask) | FinalizerBit;
-		*finalizerFieldPtr = freeSpaceField | cast(ulong) cast(void*) finalizer;
+		auto newMetaData = (*finalizerFieldPtr & ~AddressMask) | FinalizerBit;
+		*finalizerFieldPtr = newMetaData | cast(ulong) cast(void*) finalizer;
 	}
 
 	/**
