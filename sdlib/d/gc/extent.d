@@ -414,8 +414,10 @@ public:
 			return;
 		}
 
-		auto metaData = (*(finalizerPtr(index)) & ~AddressMask) | FinalizerBit;
-		*(finalizerPtr(index)) = metaData | cast(ulong) cast(void*) finalizer;
+		auto freeSpaceField =
+			(*(finalizerPtr(index)) & ~AddressMask) | FinalizerBit;
+		*(finalizerPtr(index)) =
+			freeSpaceField | cast(ulong) cast(void*) finalizer;
 	}
 
 	/**
