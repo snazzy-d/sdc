@@ -722,6 +722,16 @@ unittest extendSmall {
 	assert(!threadCache.extend(s0[32 .. 42], 7));
 	assert(threadCache.extend(s0[0 .. 42], 3));
 	assert(threadCache.getCapacity(s0[0 .. 45]) == 48);
+
+	// Make another in same size class:
+	auto s1 = threadCache.allocAppendable(42, false);
+	assert(threadCache.extend(s1[0 .. 42], 1));
+	assert(threadCache.getCapacity(s1[0 .. 43]) == 48);
+
+	// Make sure first alloc not affected:
+	assert(threadCache.getCapacity(s0[0 .. 45]) == 48);
+
+	// Extend some more:
 	assert(threadCache.getCapacity(s0[0 .. 42]) == 0);
 	assert(threadCache.extend(s0[40 .. 45], 2));
 	assert(threadCache.getCapacity(s0[0 .. 45]) == 0);
@@ -731,24 +741,24 @@ unittest extendSmall {
 
 	// Decreasing the size of the allocation
 	// should adjust capacity acordingly.
-	auto s1 = threadCache.realloc(s0, 42, false);
-	assert(s1 is s0);
-	assert(threadCache.getCapacity(s1[0 .. 42]) == 48);
+	auto s2 = threadCache.realloc(s0, 42, false);
+	assert(s2 is s0);
+	assert(threadCache.getCapacity(s2[0 .. 42]) == 48);
 
 	// Same is true for increasing:
-	auto s2 = threadCache.realloc(s1, 45, false);
-	assert(s2 is s1);
-	assert(threadCache.getCapacity(s2[0 .. 45]) == 48);
+	auto s3 = threadCache.realloc(s2, 45, false);
+	assert(s3 is s2);
+	assert(threadCache.getCapacity(s3[0 .. 45]) == 48);
 
 	// Increase that results in size class change:
-	auto s3 = threadCache.realloc(s2, 70, false);
-	assert(s3 !is s2);
-	assert(threadCache.getCapacity(s3[0 .. 80]) == 80);
+	auto s4 = threadCache.realloc(s3, 70, false);
+	assert(s4 !is s3);
+	assert(threadCache.getCapacity(s4[0 .. 80]) == 80);
 
 	// Decrease:
-	auto s4 = threadCache.realloc(s3, 60, false);
-	assert(s4 !is s3);
-	assert(threadCache.getCapacity(s4[0 .. 64]) == 64);
+	auto s5 = threadCache.realloc(s4, 60, false);
+	assert(s5 !is s4);
+	assert(threadCache.getCapacity(s5[0 .. 64]) == 64);
 }
 
 unittest arraySpill {
