@@ -377,12 +377,14 @@ public:
 		return slotSize - PointerSize;
 	}
 
+	enum FinalizerBit = nativeToBigEndian!ulong(ulong(0x2));
+
 	bool hasFinalizer(uint index) {
 		assert(isSlab(), "hasFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
 		return hasFreeSpaceField(index)
-			&& finalizerEnabled(freeSpacePtr(index));
+			&& (*(finalizerPtr(index)) & FinalizerBit);
 	}
 
 	ulong* finalizerPtr(uint index) {
@@ -408,13 +410,12 @@ public:
 		       "freeSpace must be set before finalizer!");
 
 		if (finalizer is null) {
-			disableFinalizer(freeSpacePtr(index));
+			*(finalizerPtr(index)) &= ~FinalizerBit;
 			return;
 		}
 
-		*(finalizerPtr(index)) = *(finalizerPtr(index)) & ~AddressMask
-			| cast(ulong) cast(void*) finalizer;
-		enableFinalizer(freeSpacePtr(index));
+		auto metaData = (*(finalizerPtr(index)) & ~AddressMask) | FinalizerBit;
+		*(finalizerPtr(index)) = metaData | cast(ulong) cast(void*) finalizer;
 	}
 
 	/**
@@ -584,16 +585,16 @@ ushort readPackedFreeSpace(ushort* ptr) {
 	return (data >> 2) & mask;
 }
 
-enum finalizerBit = nativeToBigEndian!ushort(ushort(0x2));
-
 void writePackedFreeSpace(ushort* ptr, ushort x) {
 	assert(x < 0x4000, "x does not fit in 14 bits!");
 
 	bool isLarge = x > 0x3f;
 	ushort native = (x << 2 | isLarge) & ushort.max;
 	auto base = nativeToBigEndian(native);
-	auto mask =
-		(-isLarge | nativeToBigEndian!ushort(ushort(0xff))) & ~finalizerBit;
+
+	auto smallMask = nativeToBigEndian!ushort(ushort(0xfd));
+	auto largeMask = nativeToBigEndian!ushort(ushort(0xfffd));
+	auto mask = isLarge ? largeMask : smallMask;
 
 	auto current = *ptr;
 	auto delta = (current ^ base) & mask;
@@ -602,34 +603,25 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 	*ptr = value & ushort.max;
 }
 
-void enableFinalizer(ushort* ptr) {
-	*ptr |= finalizerBit;
-}
-
-void disableFinalizer(ushort* ptr) {
-	*ptr &= ~finalizerBit;
-}
-
-bool finalizerEnabled(ushort* ptr) {
-	return (*ptr & finalizerBit) != 0;
-}
-
 unittest packedFreeSpace {
+	enum FinalizerBit = nativeToBigEndian!ushort(ushort(0x2));
+
 	ubyte[2] a;
 	auto p = cast(ushort*) a.ptr;
 
 	foreach (ushort i; 0 .. 0x4000) {
+		// With finalizer bit set:
+		*p |= FinalizerBit;
 		writePackedFreeSpace(p, i);
 		assert(readPackedFreeSpace(p) == i);
-		enableFinalizer(p);
-		assert(finalizerEnabled(p));
-		// No clobber:
+		assert(*p & FinalizerBit);
+
+		// With finalizer bit cleared:
+		*p &= ~FinalizerBit;
+		// Should remain same as before:
 		assert(readPackedFreeSpace(p) == i);
 		writePackedFreeSpace(p, i);
-		assert(finalizerEnabled(p));
-		disableFinalizer(p);
-		assert(!finalizerEnabled(p));
-		assert(readPackedFreeSpace(p) == i);
+		assert(!(*p & FinalizerBit));
 	}
 
 	// Make sure we do not distrub the penultimate byte
@@ -640,15 +632,6 @@ unittest packedFreeSpace {
 			writePackedFreeSpace(p, y);
 			assert(readPackedFreeSpace(p) == y);
 			assert(a[0] == x);
-			enableFinalizer(p);
-			assert(finalizerEnabled(p));
-			// No clobber:
-			assert(readPackedFreeSpace(p) == y);
-			writePackedFreeSpace(p, y);
-			assert(finalizerEnabled(p));
-			disableFinalizer(p);
-			assert(!finalizerEnabled(p));
-			assert(readPackedFreeSpace(p) == y);
 		}
 	}
 }
