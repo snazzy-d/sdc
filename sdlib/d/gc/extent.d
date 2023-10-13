@@ -484,25 +484,30 @@ unittest allocfree {
 }
 
 /**
- * Packed Free Space is stored as a 15-bit unsigned integer, in one or two bytes:
+ * Packed Free Space is stored as a 14-bit unsigned integer, in one or two bytes:
  *
  * /---- byte at ptr ----\ /-- byte at ptr + 1 --\
  * B7 B6 B5 B4 B3 B2 B1 B0 A7 A6 A5 A4 A3 A2 A1 A0
- * \_________15 bits unsigned integer_________/  \_ Set if and only if B0..B7 used.
+ * \_______14 bits unsigned integer________/  \  \_ Set if and only if B0..B7 used.
+ *                                             \_ Set when finalizer is present;
+ *                                                preserved when writing.
  */
 ushort readPackedFreeSpace(ushort* ptr) {
 	auto data = loadBigEndian(ptr);
-	auto mask = 0x7f | -(data & 1);
-	return (data >> 1) & mask;
+	auto mask = 0x3f | -(data & 1);
+	return (data >> 2) & mask;
 }
 
 void writePackedFreeSpace(ushort* ptr, ushort x) {
-	assert(x < 0x8000, "x does not fit in 15 bits!");
+	assert(x < 0x4000, "x does not fit in 14 bits!");
 
-	bool isLarge = x > 0x7f;
-	ushort native = (x << 1 | isLarge) & ushort.max;
+	bool isLarge = x > 0x3f;
+	ushort native = (x << 2 | isLarge) & ushort.max;
 	auto base = nativeToBigEndian(native);
-	auto mask = -isLarge | nativeToBigEndian!ushort(ushort(0xff));
+
+	auto smallMask = nativeToBigEndian!ushort(ushort(0xfd));
+	auto largeMask = nativeToBigEndian!ushort(ushort(0xfffd));
+	auto mask = isLarge ? largeMask : smallMask;
 
 	auto current = *ptr;
 	auto delta = (current ^ base) & mask;
@@ -512,19 +517,31 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 }
 
 unittest packedFreeSpace {
+	enum FinalizerBit = nativeToBigEndian!ushort(ushort(0x2));
+
 	ubyte[2] a;
 	auto p = cast(ushort*) a.ptr;
 
-	foreach (ushort i; 0 .. 0x8000) {
+	foreach (ushort i; 0 .. 0x4000) {
+		// With finalizer bit set:
+		*p |= FinalizerBit;
 		writePackedFreeSpace(p, i);
 		assert(readPackedFreeSpace(p) == i);
+		assert(*p & FinalizerBit);
+
+		// With finalizer bit cleared:
+		*p &= ~FinalizerBit;
+		// Should remain same as before:
+		assert(readPackedFreeSpace(p) == i);
+		writePackedFreeSpace(p, i);
+		assert(!(*p & FinalizerBit));
 	}
 
 	// Make sure we do not distrub the penultimate byte
 	// when the value is small enough.
 	foreach (x; 0 .. 256) {
 		a[0] = 0xff & x;
-		foreach (ubyte y; 0 .. 0x80) {
+		foreach (ubyte y; 0 .. 0x40) {
 			writePackedFreeSpace(p, y);
 			assert(readPackedFreeSpace(p) == y);
 			assert(a[0] == x);
