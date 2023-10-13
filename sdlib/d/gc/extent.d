@@ -417,15 +417,6 @@ public:
 		enableFinalizer(freeSpacePtr);
 	}
 
-	void clearFinalizer(uint index) {
-		assert(isSlab(), "clearFinalizer accessed on non slab!");
-		assert(index < slotCount, "index is out of range!");
-		assert(supportsFreeSpace, "size class not supports finalization!");
-		assert(hasFinalizer(index), "No finalizer is set!");
-
-		disableFinalizer(freeSpacePtr);
-	}
-
 	/**
 	 * Large features.
 	 */
