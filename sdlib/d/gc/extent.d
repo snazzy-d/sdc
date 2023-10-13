@@ -407,8 +407,13 @@ public:
 		assert(hasFreeSpaceField(index),
 		       "freeSpace must be set before finalizer!");
 
-		auto newFinalizer = cast(ulong) cast(void*) finalizer;
-		*finalizerPtr = *finalizerPtr & ~AddressMask | newFinalizer;
+		if (finalizer is null) {
+			disableFinalizer(freeSpacePtr);
+			return;
+		}
+
+		*finalizerPtr =
+			*finalizerPtr & ~AddressMask | cast(ulong) cast(void*) finalizer;
 		enableFinalizer(freeSpacePtr);
 	}
 
@@ -596,11 +601,12 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 	bool isLarge = x > 0x3f;
 	ushort native = (x << 2 | isLarge) & ushort.max;
 	auto base = nativeToBigEndian(native);
-	auto mask = -isLarge | nativeToBigEndian!ushort(ushort(0xff));
+	auto mask =
+		(-isLarge | nativeToBigEndian!ushort(ushort(0xff))) & ~finalizerBit;
 
 	auto current = *ptr;
 	auto delta = (current ^ base) & mask;
-	auto value = (current ^ delta) | (current & finalizerBit);
+	auto value = current ^ delta;
 
 	*ptr = value & ushort.max;
 }
