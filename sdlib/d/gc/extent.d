@@ -589,7 +589,7 @@ ushort readPackedFreeSpace(ushort* ptr) {
 	return (data >> 2) & mask;
 }
 
-enum size_t finalizerBit = nativeToBigEndian!ushort(ushort(0x2));
+enum finalizerBit = nativeToBigEndian!ushort(ushort(0x2));
 
 void writePackedFreeSpace(ushort* ptr, ushort x) {
 	assert(x < 0x4000, "x does not fit in 14 bits!");
