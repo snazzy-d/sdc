@@ -414,10 +414,9 @@ public:
 			return;
 		}
 
-		auto freeSpaceField =
-			(*(finalizerPtr(index)) & ~AddressMask) | FinalizerBit;
-		*(finalizerPtr(index)) =
-			freeSpaceField | cast(ulong) cast(void*) finalizer;
+		auto finalizerField = finalizerPtr(index);
+		auto freeSpaceField = (*finalizerField & ~AddressMask) | FinalizerBit;
+		*finalizerField = freeSpaceField | cast(ulong) cast(void*) finalizer;
 	}
 
 	/**
