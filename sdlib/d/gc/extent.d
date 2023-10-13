@@ -329,12 +329,11 @@ public:
 		return supportsFreeSpace && freeSpaceFlags.valueAtAtomic(index);
 	}
 
-	@property
-	ushort* freeSpacePtr() {
+	ushort* freeSpacePtr(uint index) {
 		assert(isSlab(), "freeSpacePtr accessed on non slab!");
 		assert(supportsFreeSpace, "size class not supports freeSpace!");
 
-		return cast(ushort*) (address + slotSize - 2);
+		return cast(ushort*) (address + (index + 1) * slotSize) - 2;
 	}
 
 	void setFreeSpace(uint index, size_t freeSpace) {
@@ -351,7 +350,7 @@ public:
 		}
 
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
-		writePackedFreeSpace(freeSpacePtr, freeSpace & ushort.max);
+		writePackedFreeSpace(freeSpacePtr(index), freeSpace & ushort.max);
 		freeSpaceFlags.setBitAtomic(index);
 	}
 
@@ -364,7 +363,7 @@ public:
 		}
 
 		// Decode freespace, found in the final byte (or two bytes) of the alloc:
-		return readPackedFreeSpace(freeSpacePtr);
+		return readPackedFreeSpace(freeSpacePtr(index));
 	}
 
 	size_t getTotalSpace(uint index) {
@@ -382,15 +381,15 @@ public:
 		assert(isSlab(), "hasFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		return hasFreeSpaceField(index) && finalizerEnabled(freeSpacePtr);
+		return hasFreeSpaceField(index)
+			&& finalizerEnabled(freeSpacePtr(index));
 	}
 
-	@property
-	ulong* finalizerPtr() {
+	ulong* finalizerPtr(uint index) {
 		assert(isSlab(), "finalizerPtr accessed on non slab!");
 		assert(supportsFreeSpace, "size class not supports finalization!");
 
-		return cast(ulong*) (address + slotSize - 8);
+		return cast(ulong*) (address + (index + 1) * slotSize) - 8;
 	}
 
 	Finalizer getFinalizer(uint index) {
@@ -398,7 +397,8 @@ public:
 		assert(index < slotCount, "index is out of range!");
 		assert(hasFinalizer(index), "No finalizer is set!");
 
-		return cast(Finalizer) cast(void*) (*finalizerPtr & AddressMask);
+		return cast(Finalizer) cast(void*)
+			(*(finalizerPtr(index)) & AddressMask);
 	}
 
 	void setFinalizer(uint index, Finalizer finalizer) {
@@ -408,13 +408,13 @@ public:
 		       "freeSpace must be set before finalizer!");
 
 		if (finalizer is null) {
-			disableFinalizer(freeSpacePtr);
+			disableFinalizer(freeSpacePtr(index));
 			return;
 		}
 
-		*finalizerPtr =
-			*finalizerPtr & ~AddressMask | cast(ulong) cast(void*) finalizer;
-		enableFinalizer(freeSpacePtr);
+		*(finalizerPtr(index)) = *(finalizerPtr(index)) & ~AddressMask
+			| cast(ulong) cast(void*) finalizer;
+		enableFinalizer(freeSpacePtr(index));
 	}
 
 	/**
