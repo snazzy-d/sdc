@@ -7,6 +7,8 @@ import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
 
+alias Finalizer = void function(void* ptr, size_t size);
+
 alias ExtentTree = RBTree!(Extent, addrRangeExtentCmp);
 
 alias PHNode = heap.Node!Extent;
@@ -115,7 +117,7 @@ private:
 		size_t usedCapacity;
 
 		// Optional finalizer.
-		void* finalizer;
+		Finalizer finalizer;
 	}
 
 	union MetaData {
@@ -370,20 +372,19 @@ public:
 	}
 
 	@property
-	void function(void* ptr, size_t size) finalizer() {
+	Finalizer finalizer() {
 		assert(isLarge(), "Finalizer accessed on non large!");
-		return cast(void function(void* ptr, size_t size))
-			_metadata.largeData.finalizer;
+		return _metadata.largeData.finalizer;
 	}
 
-	void setFinalizer(void* finalizer) {
+	void setFinalizer(Finalizer finalizer) {
 		assert(isLarge(), "Cannot set finalizer on a slab alloc!");
 		_metadata.largeData.finalizer = finalizer;
 	}
 }
 
 unittest finalizers {
-	void* finalizerPtr = cast(void*) 0xBEEFBAADF00D;
+	static void destruct(void* ptr, size_t size) {}
 
 	// Basic test for large allocs:
 	import d.gc.tcache;
@@ -391,8 +392,8 @@ unittest finalizers {
 	auto largePd = threadCache.getPageDescriptor(large);
 	largePd.extent.setUsedCapacity(19999);
 	assert(largePd.extent.finalizer is null);
-	largePd.extent.setFinalizer(finalizerPtr);
-	assert(cast(void*) largePd.extent.finalizer == finalizerPtr);
+	largePd.extent.setFinalizer(&destruct);
+	assert(cast(void*) largePd.extent.finalizer == cast(void*) &destruct);
 	assert(largePd.extent.usedCapacity == 19999);
 	threadCache.free(large);
 }

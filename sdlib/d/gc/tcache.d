@@ -1,5 +1,6 @@
 module d.gc.tcache;
 
+import d.gc.extent;
 import d.gc.size;
 import d.gc.sizeclass;
 import d.gc.slab;
@@ -31,7 +32,7 @@ public:
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers,
-	                      void* finalizer = null) {
+	                      Finalizer finalizer = null) {
 		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
 		assert(isAppendableSizeClass(getSizeClass(asize)),
 		       "allocAppendable got non-appendable size class!");
@@ -91,7 +92,8 @@ public:
 		auto e = pd.extent;
 		// Slab is not yet supported
 		if (e !is null && !pd.isSlab() && e.finalizer !is null) {
-			e.finalizer(ptr, e.usedCapacity);
+			auto fin = e.finalizer;
+			fin(ptr, e.usedCapacity);
 		}
 
 		freeImpl(pd, ptr);
