@@ -115,7 +115,7 @@ private:
 		size_t usedCapacity;
 
 		// Optional finalizer.
-		void* finalizer;
+		Finalizer finalizer;
 	}
 
 	union MetaData {
@@ -393,22 +393,22 @@ public:
 		return cast(ulong*) (address + slotSize - 8);
 	}
 
-	void function(void* ptr, size_t size) getFinalizer(uint index) {
+	Finalizer getFinalizer(uint index) {
 		assert(isSlab(), "getFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 		assert(hasFinalizer(index), "No finalizer is set!");
 
-		return cast(void function(void* ptr, size_t size))
-			(cast(void*) (*finalizerPtr & AddressMask));
+		return cast(Finalizer) cast(void*) (*finalizerPtr & AddressMask);
 	}
 
-	void setFinalizer(uint index, void* finalizer) {
+	void setFinalizer(uint index, Finalizer finalizer) {
 		assert(isSlab(), "setFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 		assert(hasFreeSpaceField(index),
 		       "freeSpace must be set before finalizer!");
 
-		*finalizerPtr = *finalizerPtr & ~AddressMask | cast(ulong) finalizer;
+		auto newFinalizer = cast(ulong) cast(void*) finalizer;
+		*finalizerPtr = *finalizerPtr & ~AddressMask | newFinalizer;
 		enableFinalizer(freeSpacePtr);
 	}
 
@@ -440,20 +440,19 @@ public:
 	}
 
 	@property
-	void function(void* ptr, size_t size) finalizer() {
+	Finalizer finalizer() {
 		assert(isLarge(), "Finalizer accessed on non large!");
-		return cast(void function(void* ptr, size_t size))
-			_metadata.largeData.finalizer;
+		return _metadata.largeData.finalizer;
 	}
 
-	void setFinalizer(void* finalizer) {
+	void setFinalizer(Finalizer finalizer) {
 		assert(isLarge(), "Cannot set finalizer on a slab alloc!");
 		_metadata.largeData.finalizer = finalizer;
 	}
 }
 
 unittest finalizers {
-	void* finalizerPtr = cast(void*) 0xBEEFBAADF00D;
+	static void destruct(void* ptr, size_t size) {}
 
 	// Basic test for large allocs:
 	import d.gc.tcache;
@@ -461,8 +460,8 @@ unittest finalizers {
 	auto largePd = threadCache.getPageDescriptor(large);
 	largePd.extent.setUsedCapacity(19999);
 	assert(largePd.extent.finalizer is null);
-	largePd.extent.setFinalizer(finalizerPtr);
-	assert(cast(void*) largePd.extent.finalizer == finalizerPtr);
+	largePd.extent.setFinalizer(&destruct);
+	assert(cast(void*) largePd.extent.finalizer == cast(void*) &destruct);
 	assert(largePd.extent.usedCapacity == 19999);
 	threadCache.free(large);
 
@@ -477,16 +476,16 @@ unittest finalizers {
 	assert(e.getTotalSpace(idx) == 1024);
 
 	// Set a finalizer:
-	e.setFinalizer(idx, finalizerPtr);
+	e.setFinalizer(idx, &destruct);
 	assert(e.hasFinalizer(idx));
 	assert(e.getTotalSpace(idx) == 1016);
 
 	foreach (ushort i; 0 .. 1017) {
 		// Confirm that setting freespace does not clobber finalizer:
 		e.setFreeSpace(idx, i);
-		assert(cast(void*) e.getFinalizer(idx) == finalizerPtr);
+		assert(cast(void*) e.getFinalizer(idx) == cast(void*) &destruct);
 		// Confirm that setting finalizer does not clobber freespace:
-		e.setFinalizer(idx, finalizerPtr);
+		e.setFinalizer(idx, &destruct);
 		assert(e.getFreeSpace(idx) == i);
 	}
 

@@ -395,6 +395,10 @@ struct ExpressionGen {
 		return declare(e.fun);
 	}
 
+	private static getFunctionType(Type t) {
+		return t.getCanonical().asFunctionType();
+	}
+
 	private
 	LLVMValueRef genMethod(LLVMValueRef dg, Expression[] contexts, Function f) {
 		auto m = cast(Method) f;
@@ -426,7 +430,7 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(DelegateExpression e) {
-		auto type = e.type.getCanonical().asFunctionType();
+		auto type = getFunctionType(e.type);
 		auto tCtxs = type.contexts;
 		auto eCtxs = e.contexts;
 
@@ -798,7 +802,7 @@ struct ExpressionGen {
 	}
 
 	private LLVMValueRef buildCall(CallExpression c) {
-		auto cType = c.callee.type.getCanonical().asFunctionType();
+		auto cType = getFunctionType(c.callee.type);
 		auto contexts = cType.contexts;
 		auto params = cType.parameters;
 
@@ -829,14 +833,13 @@ struct ExpressionGen {
 			i++;
 		}
 
-		auto funType = c.callee.type.asFunctionType();
-		auto type = TypeGen(pass.pass).getFunctionType(funType);
+		auto type = TypeGen(pass.pass).getFunctionType(cType);
 		return buildCall(callee, type, args);
 	}
 
 	LLVMValueRef visit(CallExpression c) {
 		auto r = buildCall(c);
-		auto isRef = c.callee.type.asFunctionType().returnType.isRef;
+		auto isRef = getFunctionType(c.callee.type).returnType.isRef;
 		if (!isRef) {
 			return r;
 		}
