@@ -50,3 +50,6 @@ enum ExtentMask = AddressSpace - ExtentAlign;
 enum LgArenaCount = 12;
 enum ArenaCount = One << LgArenaCount;
 enum ArenaMask = ArenaCount - 1;
+
+// GC-specific items
+alias Finalizer = void function(void* ptr, size_t size);

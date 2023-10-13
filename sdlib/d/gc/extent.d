@@ -110,12 +110,20 @@ private:
 		FreeSpaceData freeSpaceData;
 	}
 
+	struct LargeData {
+		// Metadata for large extents.
+		size_t usedCapacity;
+
+		// Optional finalizer.
+		Finalizer finalizer;
+	}
+
 	union MetaData {
 		// Slab occupancy (and metadata flags for supported size classes)
 		Bitmaps slabData;
 
 		// Metadata for large extents.
-		size_t usedCapacity;
+		LargeData largeData;
 	}
 
 	MetaData _metadata;
@@ -141,6 +149,7 @@ private:
 			slabData.clear();
 		} else {
 			setUsedCapacity(size);
+			setFinalizer(null);
 		}
 	}
 
@@ -352,13 +361,39 @@ public:
 	@property
 	ulong usedCapacity() {
 		assert(isLarge(), "usedCapacity accessed on non large!");
-		return _metadata.usedCapacity;
+		return _metadata.largeData.usedCapacity;
 	}
 
 	void setUsedCapacity(size_t size) {
 		assert(isLarge(), "Cannot set used capacity on a slab alloc!");
-		_metadata.usedCapacity = size;
+		_metadata.largeData.usedCapacity = size;
 	}
+
+	@property
+	Finalizer finalizer() {
+		assert(isLarge(), "Finalizer accessed on non large!");
+		return _metadata.largeData.finalizer;
+	}
+
+	void setFinalizer(Finalizer finalizer) {
+		assert(isLarge(), "Cannot set finalizer on a slab alloc!");
+		_metadata.largeData.finalizer = finalizer;
+	}
+}
+
+unittest finalizers {
+	static void destruct(void* ptr, size_t size) {}
+
+	// Basic test for large allocs:
+	import d.gc.tcache;
+	auto large = threadCache.alloc(20000, false);
+	auto largePd = threadCache.getPageDescriptor(large);
+	largePd.extent.setUsedCapacity(19999);
+	assert(largePd.extent.finalizer is null);
+	largePd.extent.setFinalizer(&destruct);
+	assert(cast(void*) largePd.extent.finalizer == cast(void*) &destruct);
+	assert(largePd.extent.usedCapacity == 19999);
+	threadCache.free(large);
 }
 
 static assert(Extent.sizeof == ExtentSize, "Unexpected Extent size!");

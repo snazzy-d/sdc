@@ -30,7 +30,8 @@ public:
 			: arena.allocLarge(emap, size, false);
 	}
 
-	void* allocAppendable(size_t size, bool containsPointers) {
+	void* allocAppendable(size_t size, bool containsPointers,
+	                      Finalizer finalizer = null) {
 		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
 		assert(isAppendableSizeClass(getSizeClass(asize)),
 		       "allocAppendable got non-appendable size class!");
@@ -42,12 +43,15 @@ public:
 			auto ptr = arena.allocSmall(emap, asize);
 			auto pd = getPageDescriptor(ptr);
 			setSmallUsedCapacity(pd, ptr, size);
+			assert(finalizer is null, "finalizer not yet supported for slab!");
 			return ptr;
 		}
 
 		auto ptr = arena.allocLarge(emap, asize, false);
 		auto pd = getPageDescriptor(ptr);
-		pd.extent.setUsedCapacity(size);
+		auto e = pd.extent;
+		e.setUsedCapacity(size);
+		e.setFinalizer(finalizer);
 		return ptr;
 	}
 
@@ -74,7 +78,23 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		pd.arena.free(emap, pd, ptr);
+		freeImpl(pd, ptr);
+	}
+
+	void destroy(void* ptr) {
+		if (ptr is null) {
+			return;
+		}
+
+		auto pd = getPageDescriptor(ptr);
+
+		auto e = pd.extent;
+		// Slab is not yet supported
+		if (e !is null && !pd.isSlab() && e.finalizer !is null) {
+			e.finalizer(ptr, e.usedCapacity);
+		}
+
+		freeImpl(pd, ptr);
 	}
 
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
@@ -345,6 +365,10 @@ private:
 
 		pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
 		return true;
+	}
+
+	void freeImpl(PageDescriptor pd, void* ptr) {
+		pd.arena.free(emap, pd, ptr);
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -805,4 +829,28 @@ unittest arraySpill {
 	testSpill(80, [0, 1, 2, 32, 79, 80]);
 	testSpill(16384, [0, 1, 2, 500, 16000, 16383, 16384]);
 	testSpill(20480, [0, 1, 2, 500, 20000, 20479, 20480]);
+}
+
+unittest finalization {
+	// Faux destructor which simply records most recent kill:
+	static size_t lastKilledUsedCapacity = 0;
+	static void* lastKilledAddress;
+	static uint destroyCount = 0;
+	static void destruct(void* ptr, size_t size) {
+		lastKilledUsedCapacity = size;
+		lastKilledAddress = ptr;
+		destroyCount++;
+	}
+
+	// Finalizers for large allocs:
+	auto s0 = threadCache.allocAppendable(16384, false, &destruct);
+	threadCache.destroy(s0);
+	assert(lastKilledAddress == s0);
+	assert(lastKilledUsedCapacity == 16384);
+
+	// Destroy on non-finalized alloc is harmless:
+	auto s1 = threadCache.allocAppendable(20000, false);
+	auto oldDestroyCount = destroyCount;
+	threadCache.destroy(s1);
+	assert(destroyCount == oldDestroyCount);
 }
