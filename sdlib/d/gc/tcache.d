@@ -92,8 +92,7 @@ public:
 		auto e = pd.extent;
 		// Slab is not yet supported
 		if (e !is null && !pd.isSlab() && e.finalizer !is null) {
-			auto fin = e.finalizer;
-			fin(ptr, e.usedCapacity);
+			e.finalizer(ptr, e.usedCapacity);
 		}
 
 		freeImpl(pd, ptr);
