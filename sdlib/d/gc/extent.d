@@ -100,14 +100,14 @@ private:
 
 	import d.gc.bitmap;
 
-	struct FreeSpaceData {
+	struct SlabMetaData {
 		ubyte[32] pad;
-		shared Bitmap!256 freeSpaceFlags;
+		shared Bitmap!256 slabMetaDataFlags;
 	}
 
 	union Bitmaps {
 		Bitmap!512 slabData;
-		FreeSpaceData freeSpaceData;
+		SlabMetaData slabMetaData;
 	}
 
 	struct LargeData {
@@ -306,50 +306,50 @@ public:
 	}
 
 	/**
-	 * Freespace Flag features for slabs.
+	 * Metadata features for slabs.
 	 */
 
 	@property
-	bool supportsFreeSpace() const {
-		return isAppendableSizeClass(sizeClass);
-	}
+	ref shared(Bitmap!256) slabMetaDataFlags() {
+		assert(isSlab(), "slabMetaDataFlags accessed on non slab!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 
-	@property
-	ref shared(Bitmap!256) freeSpaceFlags() {
-		assert(isSlab(), "freeSpaceFlags accessed on non slab!");
-		assert(supportsFreeSpace, "freeSpaceFlags not supported!");
-
-		return _metadata.slabData.freeSpaceData.freeSpaceFlags;
+		return _metadata.slabData.slabMetaData.slabMetaDataFlags;
 	}
 
 	ushort* freeSpacePtr(uint index) {
 		assert(isSlab(), "freeSpacePtr accessed on non slab!");
-		assert(supportsFreeSpace, "size class not supports freeSpace!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 
 		return cast(ushort*) (address + (index + 1) * slotSize) - 2;
 	}
 
 	void setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
-		assert(supportsFreeSpace, "size class not supports freeSpace!");
 
 		if (freeSpace == 0) {
-			freeSpaceFlags.clearBitAtomic(index);
+			slabMetaDataFlags.clearBitAtomic(index);
 			return;
 		}
 
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
 		writePackedFreeSpace(freeSpacePtr(index), freeSpace & ushort.max);
-		freeSpaceFlags.setBitAtomic(index);
+		slabMetaDataFlags.setBitAtomic(index);
 	}
 
 	size_t getFreeSpace(uint index) {
 		assert(isSlab(), "getFreeSpace accessed on non slab!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 		assert(index < slotCount, "index is out of range!");
 
-		if (!supportsFreeSpace || !freeSpaceFlags.valueAtAtomic(index)) {
+		if (!slabMetaDataFlags.valueAtAtomic(index)) {
 			return 0;
 		}
 
