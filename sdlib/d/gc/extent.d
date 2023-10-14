@@ -331,8 +331,6 @@ public:
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
 		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
-		assert(!hasFinalizer(index) || freeSpace >= PointerSize,
-		       "freeSpace must include finalizer!");
 		assert(index < slotCount, "index is out of range!");
 
 		if (freeSpace == 0) {
@@ -365,24 +363,15 @@ public:
 		       "size class not supports slab metadata!");
 		assert(index < slotCount, "index is out of range!");
 
-		if (!hasFinalizer(index)) {
-			return 0;
+		if ((*(finalizerPtr(index)) & FinalizerBit)
+			    && slabMetaDataFlags.valueAtAtomic(index)) {
+			return PointerSize;
 		}
 
-		return PointerSize;
+		return 0;
 	}
 
 	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
-
-	bool hasFinalizer(uint index) {
-		assert(isSlab(), "hasFinalizer accessed on non slab!");
-		assert(sizeClassSupportsMetadata(sizeClass),
-		       "size class not supports slab metadata!");
-		assert(index < slotCount, "index is out of range!");
-
-		return (*(finalizerPtr(index)) & FinalizerBit)
-			&& slabMetaDataFlags.valueAtAtomic(index);
-	}
 
 	size_t* finalizerPtr(uint index) {
 		assert(isSlab(), "finalizerPtr accessed on non slab!");
@@ -489,7 +478,6 @@ unittest finalizers {
 
 	// Set a finalizer:
 	e.setFinalizer(idx, &destruct_a);
-	assert(e.hasFinalizer(idx));
 	assert(e.getReservedCapacity(idx) == 8);
 
 	foreach (ushort i; 8 .. 1025) {
