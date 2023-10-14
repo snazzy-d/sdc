@@ -330,7 +330,7 @@ public:
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
-		assert(freeSpace <= getCapacity(index),
+		assert(freeSpace <= slotSize,
 		       "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
 
@@ -491,7 +491,7 @@ unittest finalizers {
 	assert(e.hasFinalizer(idx));
 	assert(e.getCapacity(idx) == 1016);
 
-	foreach (ushort i; 8 .. 1017) {
+	foreach (ushort i; 8 .. 1025) {
 		e.setFinalizer(idx, &destruct_a);
 		// Confirm that setting freespace does not clobber finalizer:
 		e.setFreeSpace(idx, i);
