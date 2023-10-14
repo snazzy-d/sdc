@@ -330,8 +330,9 @@ public:
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
-		assert(freeSpace <= slotSize,
-		       "freeSpace exceeds alloc size!");
+		assert(freeSpace <= slotSize, "freeSpace exceeds alloc size!");
+		assert(!hasFinalizer(index) || freeSpace >= PointerSize,
+		       "freeSpace must include finalizer!");
 		assert(index < slotCount, "index is out of range!");
 
 		if (freeSpace == 0) {
