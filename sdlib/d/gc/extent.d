@@ -372,7 +372,7 @@ public:
 		return PointerSize;
 	}
 
-	enum FinalizerBit = nativeToBigEndian!size_t(size_t(0x2));
+	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
 
 	bool hasFinalizer(uint index) {
 		assert(isSlab(), "hasFinalizer accessed on non slab!");
