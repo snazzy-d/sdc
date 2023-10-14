@@ -377,7 +377,7 @@ public:
 		assert(isSlab(), "finalizerPtr accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
 
-		return cast(size_t*) (address + (index + 1) * slotSize) - 8;
+		return cast(size_t*) (address + (index + 1) * slotSize) - PointerSize;
 	}
 
 	Finalizer getFinalizer(uint index) {
