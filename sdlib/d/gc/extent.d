@@ -341,7 +341,8 @@ public:
 		}
 
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
-		writePackedFreeSpace(freeSpacePtr(index), freeSpace & ushort.max);
+		// We store freespace minus one to cover entire valid range (1 .. 16384.)
+		writePackedFreeSpace(freeSpacePtr(index), (freeSpace - 1) & ushort.max);
 		slabMetaDataFlags.setBitAtomic(index);
 	}
 
@@ -356,7 +357,7 @@ public:
 		}
 
 		// Decode freespace, found in the final byte (or two bytes) of the alloc:
-		return readPackedFreeSpace(freeSpacePtr(index));
+		return readPackedFreeSpace(freeSpacePtr(index)) + 1;
 	}
 
 	size_t getCapacity(uint index) {
@@ -595,21 +596,18 @@ unittest allocfree {
  * \_______14 bits unsigned integer________/  \  \_ Set if and only if B0..B7 used.
  *                                             \_ Set when finalizer is present;
  *                                                preserved when writing.
- * Range of representable integers is 1 through 2**14, inclusive (zero is excluded.)
  */
 ushort readPackedFreeSpace(ushort* ptr) {
 	auto data = loadBigEndian(ptr);
 	auto mask = 0x3f | -(data & 1);
-	return ((data >> 2) & mask) + 1;
+	return (data >> 2) & mask;
 }
 
 void writePackedFreeSpace(ushort* ptr, ushort x) {
-	assert(x > 0, "writePackedFreeSpace may not store zero!");
-	assert(x <= 0x4000, "x does not fit in 14 bits!");
+	assert(x < 0x4000, "x does not fit in 14 bits!");
 
-	auto freeSpace = x - 1;
-	bool isLarge = freeSpace > 0x3f;
-	ushort native = (freeSpace << 2 | isLarge) & ushort.max;
+	bool isLarge = x > 0x3f;
+	ushort native = (x << 2 | isLarge) & ushort.max;
 	auto base = nativeToBigEndian(native);
 
 	auto smallMask = nativeToBigEndian!ushort(ushort(0xfd));
@@ -629,7 +627,7 @@ unittest packedFreeSpace {
 	ubyte[2] a;
 	auto p = cast(ushort*) a.ptr;
 
-	foreach (ushort i; 1 .. 0x4001) {
+	foreach (ushort i; 0 .. 0x4000) {
 		// With finalizer bit set:
 		*p |= FinalizerBit;
 		writePackedFreeSpace(p, i);
@@ -648,7 +646,7 @@ unittest packedFreeSpace {
 	// when the value is small enough.
 	foreach (x; 0 .. 256) {
 		a[0] = 0xff & x;
-		foreach (ubyte y; 1 .. 0x40) {
+		foreach (ubyte y; 0 .. 0x40) {
 			writePackedFreeSpace(p, y);
 			assert(readPackedFreeSpace(p) == y);
 			assert(a[0] == x);
