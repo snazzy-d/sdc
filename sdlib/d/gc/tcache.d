@@ -33,8 +33,8 @@ public:
 	void* allocAppendable(size_t size, bool containsPointers,
 	                      Finalizer finalizer = null) {
 		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
-		assert(isAppendableSizeClass(getSizeClass(asize)),
-		       "allocAppendable got non-appendable size class!");
+		assert(sizeClassSupportsMetadata(getSizeClass(asize)),
+		       "allocAppendable got size class without metadata support!");
 
 		initializeExtentMap();
 
@@ -334,7 +334,7 @@ private:
 
 	bool getSmallFreeSize(const void[] slice, PageDescriptor pd,
 	                      SlabAllocGeometry sg, ref size_t freeSize) {
-		if (!isAppendableSizeClass(pd.sizeClass)) {
+		if (!sizeClassSupportsMetadata(pd.sizeClass)) {
 			return false;
 		}
 
@@ -354,7 +354,7 @@ private:
 
 	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
 	                          size_t usedCapacity) {
-		if (!isAppendableSizeClass(pd.sizeClass)) {
+		if (!sizeClassSupportsMetadata(pd.sizeClass)) {
 			return false;
 		}
 

@@ -82,21 +82,21 @@ unittest sizeClassPredicates {
 	assert(!isSmallSizeClass(getSizeClass(14337)));
 }
 
-// Determine whether given size class supports appendability.
-bool isAppendableSizeClass(uint sizeClass) {
+// Determine whether given size class supports metadata.
+bool sizeClassSupportsMetadata(uint sizeClass) {
 	return sizeClass & 1 || sizeClass > 6;
 }
 
-unittest isAppendableSizeClass {
+unittest sizeClassSupportsMetadata {
 	auto bins = getBinInfos();
-	// Small size classes are appendable if and only if have <= 256 slab slots:
+	// Small size classes support metadata if and only if have <= 256 slab slots:
 	foreach (sc; 0 .. ClassCount.Small) {
-		assert(isAppendableSizeClass(sc) == (bins[sc].slots <= 256));
+		assert(sizeClassSupportsMetadata(sc) == (bins[sc].slots <= 256));
 	}
 
-	// All large size classes are appendable:
+	// All large size classes support metadata:
 	foreach (sc; ClassCount.Small .. ClassCount.Total) {
-		assert(isAppendableSizeClass(sc));
+		assert(sizeClassSupportsMetadata(sc));
 	}
 }
 

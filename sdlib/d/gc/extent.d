@@ -310,41 +310,31 @@ public:
 	 */
 
 	@property
-	bool supportsSlabMetaData() const {
-		return isAppendableSizeClass(sizeClass);
-	}
-
-	@property
 	ref shared(Bitmap!256) slabMetaDataFlags() {
 		assert(isSlab(), "slabMetaDataFlags accessed on non slab!");
-		assert(supportsSlabMetaData, "size class not supports slab metadata!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 
 		return _metadata.slabData.slabMetaData.slabMetaDataFlags;
 	}
 
-	bool hasSlabMetaData(uint index) {
-		assert(isSlab(), "hasSlabMetaData accessed on non slab!");
-		assert(index < slotCount, "index is out of range!");
-
-		return supportsSlabMetaData && slabMetaDataFlags.valueAtAtomic(index);
-	}
-
 	ushort* freeSpacePtr(uint index) {
 		assert(isSlab(), "freeSpacePtr accessed on non slab!");
-		assert(supportsSlabMetaData, "size class not supports slab metadata!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 
 		return cast(ushort*) (address + (index + 1) * slotSize) - 2;
 	}
 
 	void setFreeSpace(uint index, size_t freeSpace) {
 		assert(isSlab(), "setFreeSpace accessed on non slab!");
-		assert(freeSpace <= getTotalCapacity(index),
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
+		assert(freeSpace <= getCapacity(index),
 		       "freeSpace exceeds alloc size!");
 		assert(index < slotCount, "index is out of range!");
-		assert(supportsSlabMetaData, "size class not supports slab metadata!");
 
-		// If we have a finalizer, the freeSpace may be 0:
-		if (freeSpace == 0 && !hasFinalizer(index)) {
+		if (freeSpace == 0) {
 			slabMetaDataFlags.clearBitAtomic(index);
 			return;
 		}
@@ -356,9 +346,11 @@ public:
 
 	size_t getFreeSpace(uint index) {
 		assert(isSlab(), "getFreeSpace accessed on non slab!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 		assert(index < slotCount, "index is out of range!");
 
-		if (!hasSlabMetaData(index)) {
+		if (!slabMetaDataFlags.valueAtAtomic(index)) {
 			return 0;
 		}
 
@@ -366,8 +358,10 @@ public:
 		return readPackedFreeSpace(freeSpacePtr(index));
 	}
 
-	size_t getTotalCapacity(uint index) {
-		assert(isSlab(), "getTotalCapacity accessed on non slab!");
+	size_t getCapacity(uint index) {
+		assert(isSlab(), "getCapacity accessed on non slab!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 		assert(index < slotCount, "index is out of range!");
 
 		if (!hasFinalizer(index)) {
@@ -377,33 +371,35 @@ public:
 		return slotSize - PointerSize;
 	}
 
-	enum FinalizerBit = nativeToBigEndian!ulong(ulong(0x2));
+	enum FinalizerBit = nativeToBigEndian!size_t(size_t(0x2));
 
 	bool hasFinalizer(uint index) {
 		assert(isSlab(), "hasFinalizer accessed on non slab!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 		assert(index < slotCount, "index is out of range!");
 
-		return hasSlabMetaData(index)
-			&& (*(finalizerPtr(index)) & FinalizerBit);
+		return (*(finalizerPtr(index)) & FinalizerBit)
+			&& slabMetaDataFlags.valueAtAtomic(index);
 	}
 
-	ulong* finalizerPtr(uint index) {
+	size_t* finalizerPtr(uint index) {
 		assert(isSlab(), "finalizerPtr accessed on non slab!");
-		assert(supportsSlabMetaData, "size class not supports slab metadata!");
+		assert(index < slotCount, "index is out of range!");
 
-		return cast(ulong*) (address + (index + 1) * slotSize) - 8;
+		return cast(size_t*) (address + (index + 1) * slotSize) - 8;
 	}
 
 	Finalizer getFinalizer(uint index) {
 		assert(isSlab(), "getFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
 
-		if (!hasSlabMetaData(index)) {
-			return null;
-		}
-
+		// Check finalizer bit first to avoid atomic op penalty if finalizer disabled
 		auto finalizerFieldPtr = finalizerPtr(index);
-		if (!(*finalizerFieldPtr & FinalizerBit)) {
+		if (*finalizerFieldPtr & FinalizerBit == 0
+			    || !slabMetaDataFlags.valueAtAtomic(index)) {
 			return null;
 		}
 
@@ -413,8 +409,12 @@ public:
 	void setFinalizer(uint index, Finalizer finalizer) {
 		assert(isSlab(), "setFinalizer accessed on non slab!");
 		assert(index < slotCount, "index is out of range!");
-		assert(hasSlabMetaData(index),
-		       "No metadata! (must set freespace before finalizer)");
+		assert(sizeClassSupportsMetadata(sizeClass),
+		       "size class not supports slab metadata!");
+		assert(
+			slabMetaDataFlags.valueAtAtomic(index),
+			"Metadata flag is not set! (must set freespace before finalizer)"
+		);
 
 		auto finalizerFieldPtr = finalizerPtr(index);
 
@@ -423,8 +423,12 @@ public:
 			return;
 		}
 
+		auto newFinalizer = cast(size_t) cast(void*) finalizer;
+		assert((newFinalizer & AddressMask) == newFinalizer,
+		       "invalid finalizer pointer!");
+
 		auto newMetaData = (*finalizerFieldPtr & ~AddressMask) | FinalizerBit;
-		*finalizerFieldPtr = newMetaData | cast(ulong) cast(void*) finalizer;
+		*finalizerFieldPtr = newMetaData | newFinalizer;
 	}
 
 	/**
@@ -435,7 +439,7 @@ public:
 	}
 
 	@property
-	ulong usedCapacity() {
+	size_t usedCapacity() {
 		assert(isLarge(), "usedCapacity accessed on non large!");
 		return _metadata.largeData.usedCapacity;
 	}
@@ -458,7 +462,8 @@ public:
 }
 
 unittest finalizers {
-	static void destruct(void* ptr, size_t size) {}
+	static void destruct_a(void* ptr, size_t size) {}
+	static void destruct_b(void* ptr, size_t size) {}
 
 	// Basic test for large allocs:
 	import d.gc.tcache;
@@ -466,8 +471,8 @@ unittest finalizers {
 	auto largePd = threadCache.getPageDescriptor(large);
 	largePd.extent.setUsedCapacity(19999);
 	assert(largePd.extent.finalizer is null);
-	largePd.extent.setFinalizer(&destruct);
-	assert(cast(void*) largePd.extent.finalizer == cast(void*) &destruct);
+	largePd.extent.setFinalizer(&destruct_a);
+	assert(cast(void*) largePd.extent.finalizer == cast(void*) &destruct_a);
 	assert(largePd.extent.usedCapacity == 19999);
 	threadCache.free(large);
 
@@ -479,20 +484,22 @@ unittest finalizers {
 	auto sg = SlabAllocGeometry(smallPd, small);
 	auto idx = sg.index;
 	auto e = smallPd.extent;
-	assert(e.getTotalCapacity(idx) == 1024);
+	assert(e.getCapacity(idx) == 1024);
 
 	// Set a finalizer:
-	e.setFinalizer(idx, &destruct);
+	e.setFinalizer(idx, &destruct_a);
 	assert(e.hasFinalizer(idx));
-	assert(e.getTotalCapacity(idx) == 1016);
+	assert(e.getCapacity(idx) == 1016);
 
-	foreach (ushort i; 0 .. 1017) {
+	foreach (ushort i; 8 .. 1017) {
+		e.setFinalizer(idx, &destruct_a);
 		// Confirm that setting freespace does not clobber finalizer:
 		e.setFreeSpace(idx, i);
-		assert(cast(void*) e.getFinalizer(idx) == cast(void*) &destruct);
+		assert(cast(void*) e.getFinalizer(idx) == cast(void*) &destruct_a);
 		// Confirm that setting finalizer does not clobber freespace:
-		e.setFinalizer(idx, &destruct);
+		e.setFinalizer(idx, &destruct_b);
 		assert(e.getFreeSpace(idx) == i);
+		assert(cast(void*) e.getFinalizer(idx) == cast(void*) &destruct_b);
 	}
 
 	threadCache.free(small);
@@ -587,18 +594,21 @@ unittest allocfree {
  * \_______14 bits unsigned integer________/  \  \_ Set if and only if B0..B7 used.
  *                                             \_ Set when finalizer is present;
  *                                                preserved when writing.
+ * Range of representable integers is 1 through 2**14, inclusive (zero is excluded.)
  */
 ushort readPackedFreeSpace(ushort* ptr) {
 	auto data = loadBigEndian(ptr);
 	auto mask = 0x3f | -(data & 1);
-	return (data >> 2) & mask;
+	return ((data >> 2) & mask) + 1;
 }
 
 void writePackedFreeSpace(ushort* ptr, ushort x) {
-	assert(x < 0x4000, "x does not fit in 14 bits!");
+	assert(x > 0, "writePackedFreeSpace may not store zero!");
+	assert(x <= 0x4000, "x does not fit in 14 bits!");
 
-	bool isLarge = x > 0x3f;
-	ushort native = (x << 2 | isLarge) & ushort.max;
+	auto freeSpace = x - 1;
+	bool isLarge = freeSpace > 0x3f;
+	ushort native = (freeSpace << 2 | isLarge) & ushort.max;
 	auto base = nativeToBigEndian(native);
 
 	auto smallMask = nativeToBigEndian!ushort(ushort(0xfd));
@@ -618,7 +628,7 @@ unittest packedFreeSpace {
 	ubyte[2] a;
 	auto p = cast(ushort*) a.ptr;
 
-	foreach (ushort i; 0 .. 0x4000) {
+	foreach (ushort i; 1 .. 0x4001) {
 		// With finalizer bit set:
 		*p |= FinalizerBit;
 		writePackedFreeSpace(p, i);
@@ -637,7 +647,7 @@ unittest packedFreeSpace {
 	// when the value is small enough.
 	foreach (x; 0 .. 256) {
 		a[0] = 0xff & x;
-		foreach (ubyte y; 0 .. 0x40) {
+		foreach (ubyte y; 1 .. 0x40) {
 			writePackedFreeSpace(p, y);
 			assert(readPackedFreeSpace(p) == y);
 			assert(a[0] == x);
