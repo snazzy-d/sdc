@@ -516,6 +516,9 @@ void writePackedFreeSpace(ushort* ptr, ushort x) {
 	*ptr = value & ushort.max;
 }
 
+static assert(MaxSmallSize < 0x4000,
+              "Max small alloc size doesn't fit in 14 bits!");
+
 unittest packedFreeSpace {
 	enum FinalizerBit = nativeToBigEndian!ushort(ushort(0x2));
 
