@@ -32,7 +32,8 @@ public:
 
 	void* allocAppendable(size_t size, bool containsPointers,
 	                      Finalizer finalizer = null) {
-		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
+		auto reservedBytes = finalizer is null ? 0 : PointerSize;
+		auto asize = getAllocSize(alignUp(size + reservedBytes, 2 * Quantum));
 		assert(sizeClassSupportsMetadata(getSizeClass(asize)),
 		       "allocAppendable got size class without metadata support!");
 
@@ -42,12 +43,14 @@ public:
 		if (isSmallSize(asize)) {
 			auto ptr = arena.allocSmall(emap, asize);
 			auto pd = getPageDescriptor(ptr);
-			setSmallUsedCapacity(pd, ptr, size);
-			assert(finalizer is null, "finalizer not yet supported for slab!");
+			auto sg = SlabAllocGeometry(pd, ptr);
+			auto e = pd.extent;
+			e.setFreeSpace(sg.index, sg.size - size);
+			e.setFinalizer(sg.index, finalizer);
 			return ptr;
 		}
 
-		auto ptr = arena.allocLarge(emap, asize, false);
+		auto ptr = arena.allocLarge(emap, getAllocSize(size), false);
 		auto pd = getPageDescriptor(ptr);
 		auto e = pd.extent;
 		e.setUsedCapacity(size);
@@ -87,11 +90,20 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-
 		auto e = pd.extent;
-		// Slab is not yet supported
-		if (e !is null && !pd.isSlab() && e.finalizer !is null) {
-			e.finalizer(ptr, e.usedCapacity);
+
+		if (e !is null) {
+			if (pd.isSlab()) {
+				auto sg = SlabAllocGeometry(pd, ptr);
+				auto finalizer = e.getFinalizer(sg.index);
+				if (finalizer !is null) {
+					finalizer(ptr, sg.size - e.getFreeSpace(sg.index));
+				}
+			} else {
+				if (e.finalizer !is null) {
+					e.finalizer(ptr, e.usedCapacity);
+				}
+			}
 		}
 
 		pd.arena.free(emap, pd, ptr);
@@ -160,7 +172,8 @@ public:
 	 */
 	size_t getCapacity(const void[] slice) {
 		auto pd = maybeGetPageDescriptor(slice.ptr);
-		if (pd.extent is null) {
+		auto e = pd.extent;
+		if (e is null) {
 			return 0;
 		}
 
@@ -173,14 +186,15 @@ public:
 			}
 
 			auto startIndex = slice.ptr - sg.address;
-			return sg.size - startIndex;
+			auto slotCapacity = sg.size - e.getReservedCapacity(sg.index);
+
+			return slotCapacity - startIndex;
 		}
 
 		if (!validateLargeCapacity(slice, pd)) {
 			return false;
 		}
 
-		auto e = pd.extent;
 		auto startIndex = slice.ptr - e.address;
 		return e.size - startIndex;
 	}
@@ -205,7 +219,7 @@ public:
 				return false;
 			}
 
-			if (freeSize < size) {
+			if (freeSize - e.getReservedCapacity(sg.index) < size) {
 				return false;
 			}
 
@@ -349,6 +363,7 @@ private:
 		}
 
 		freeSize = pd.extent.getFreeSpace(sg.index);
+
 		return stopIndex + freeSize == sg.size;
 	}
 
@@ -358,12 +373,13 @@ private:
 			return false;
 		}
 
+		auto e = pd.extent;
 		auto sg = SlabAllocGeometry(pd, ptr);
 
-		assert(usedCapacity <= sg.size,
-		       "Used capacity may not exceed alloc size!");
+		assert(usedCapacity <= sg.size - e.getReservedCapacity(sg.index),
+		       "Used capacity may not exceed slot capacity!");
 
-		pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
+		e.setFreeSpace(sg.index, sg.size - usedCapacity);
 		return true;
 	}
 
@@ -859,4 +875,14 @@ unittest finalization {
 	auto oldDestroyCount = destroyCount;
 	threadCache.destroy(s1);
 	assert(destroyCount == oldDestroyCount);
+
+	// Finalizers for small allocs:
+	auto s2 = threadCache.allocAppendable(45, false, &destruct);
+	assert(threadCache.getCapacity(s2[0 .. 45]) == 56);
+	assert(!threadCache.extend(s2[0 .. 45], 12));
+	assert(threadCache.extend(s2[0 .. 45], 11));
+	assert(threadCache.getCapacity(s2[0 .. 56]) == 56);
+	threadCache.destroy(s2);
+	assert(lastKilledAddress == s2);
+	assert(lastKilledUsedCapacity == 56);
 }

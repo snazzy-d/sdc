@@ -341,8 +341,7 @@ public:
 		}
 
 		// Encode freespace and write it to the last byte (or two bytes) of alloc.
-		// We store freespace minus one to cover entire valid range (1 .. 16384.)
-		writePackedFreeSpace(freeSpacePtr(index), (freeSpace - 1) & ushort.max);
+		writePackedFreeSpace(freeSpacePtr(index), freeSpace & ushort.max);
 		slabMetaDataFlags.setBitAtomic(index);
 	}
 
@@ -357,20 +356,20 @@ public:
 		}
 
 		// Decode freespace, found in the final byte (or two bytes) of the alloc:
-		return readPackedFreeSpace(freeSpacePtr(index)) + 1;
+		return readPackedFreeSpace(freeSpacePtr(index));
 	}
 
-	size_t getCapacity(uint index) {
-		assert(isSlab(), "getCapacity accessed on non slab!");
+	size_t getReservedCapacity(uint index) {
+		assert(isSlab(), "getReservedCapacity accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
 		assert(index < slotCount, "index is out of range!");
 
 		if (!hasFinalizer(index)) {
-			return slotSize;
+			return 0;
 		}
 
-		return slotSize - PointerSize;
+		return PointerSize;
 	}
 
 	enum FinalizerBit = nativeToBigEndian!size_t(size_t(0x2));
@@ -486,12 +485,12 @@ unittest finalizers {
 	auto sg = SlabAllocGeometry(smallPd, small);
 	auto idx = sg.index;
 	auto e = smallPd.extent;
-	assert(e.getCapacity(idx) == 1024);
+	assert(e.getReservedCapacity(idx) == 0);
 
 	// Set a finalizer:
 	e.setFinalizer(idx, &destruct_a);
 	assert(e.hasFinalizer(idx));
-	assert(e.getCapacity(idx) == 1016);
+	assert(e.getReservedCapacity(idx) == 8);
 
 	foreach (ushort i; 8 .. 1025) {
 		e.setFinalizer(idx, &destruct_a);
