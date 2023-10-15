@@ -724,6 +724,7 @@ unittest extendSmall {
 	// Decrease:
 	auto s5 = threadCache.realloc(s4, 60, false);
 	assert(s5 !is s4);
+	assert(threadCache.getCapacity(s5[0 .. 64]) == 64);
 }
 
 unittest arraySpill {
