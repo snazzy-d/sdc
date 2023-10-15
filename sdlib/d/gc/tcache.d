@@ -42,7 +42,8 @@ public:
 		if (isSmallSize(asize)) {
 			auto ptr = arena.allocSmall(emap, asize);
 			auto pd = getPageDescriptor(ptr);
-			setSmallUsedCapacity(pd, ptr, size);
+			auto si = SlabAllocInfo(pd, ptr);
+			si.setUsedCapacity(size);
 			assert(finalizer is null, "finalizer not yet supported for slab!");
 			return ptr;
 		}
@@ -118,8 +119,9 @@ public:
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
-			if (samePointerness && newSizeClass == oldSizeClass) {
-				setSmallUsedCapacity(pd, ptr, size);
+			auto si = SlabAllocInfo(pd, ptr);
+			if ((samePointerness && newSizeClass == oldSizeClass)
+				    && (!si.allowsMetaData || si.setUsedCapacity(size))) {
 				return ptr;
 			}
 
@@ -160,27 +162,26 @@ public:
 	 */
 	size_t getCapacity(const void[] slice) {
 		auto pd = maybeGetPageDescriptor(slice.ptr);
-		if (pd.extent is null) {
+		auto e = pd.extent;
+		if (e is null) {
 			return 0;
 		}
 
 		if (pd.isSlab()) {
-			auto sg = SlabAllocGeometry(pd, slice.ptr);
+			auto si = SlabAllocInfo(pd, slice.ptr);
 
-			size_t freeSize;
-			if (!getSmallFreeSize(slice, pd, sg, freeSize)) {
+			if (!validateCapacity(slice, si.address, si.usedCapacity)) {
 				return 0;
 			}
 
-			auto startIndex = slice.ptr - sg.address;
-			return sg.size - startIndex;
+			auto startIndex = slice.ptr - si.address;
+			return si.slotCapacity - startIndex;
 		}
 
-		if (!validateLargeCapacity(slice, pd)) {
-			return false;
+		if (!validateCapacity(slice, e.address, e.usedCapacity)) {
+			return 0;
 		}
 
-		auto e = pd.extent;
 		auto startIndex = slice.ptr - e.address;
 		return e.size - startIndex;
 	}
@@ -198,22 +199,13 @@ public:
 		}
 
 		if (pd.isSlab()) {
-			auto sg = SlabAllocGeometry(pd, slice.ptr);
-
-			size_t freeSize;
-			if (!getSmallFreeSize(slice, pd, sg, freeSize)) {
-				return false;
-			}
-
-			if (freeSize < size) {
-				return false;
-			}
-
-			e.setFreeSpace(sg.index, freeSize - size);
-			return true;
+			auto si = SlabAllocInfo(pd, slice.ptr);
+			auto usedCapacity = si.usedCapacity;
+			return validateCapacity(slice, si.address, usedCapacity)
+				&& si.setUsedCapacity(usedCapacity + size);
 		}
 
-		if (!validateLargeCapacity(slice, pd)) {
+		if (!validateCapacity(slice, e.address, e.usedCapacity)) {
 			return false;
 		}
 
@@ -320,51 +312,15 @@ private:
 	 * 
 	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
 	 */
-	bool validateLargeCapacity(const void[] slice, PageDescriptor pd) {
-		auto e = pd.extent;
-
+	bool validateCapacity(const void[] slice, const void* address,
+	                      size_t usedCapacity) {
 		// Slice must not end before valid data ends, or capacity is zero.
 		// To be appendable, the slice end must match the alloc's used
 		// capacity, and the latter may not be zero.
-		auto startIndex = slice.ptr - e.address;
+		auto startIndex = slice.ptr - address;
 		auto stopIndex = startIndex + slice.length;
 
-		return stopIndex != 0 && stopIndex == e.usedCapacity;
-	}
-
-	bool getSmallFreeSize(const void[] slice, PageDescriptor pd,
-	                      SlabAllocGeometry sg, ref size_t freeSize) {
-		if (!sizeClassSupportsMetadata(pd.sizeClass)) {
-			return false;
-		}
-
-		// Slice must not end before valid data ends, or capacity is zero.
-		// To be appendable, the slice end must match the alloc's used
-		// capacity, and the latter may not be zero.
-		auto startIndex = slice.ptr - sg.address;
-		auto stopIndex = startIndex + slice.length;
-
-		if (stopIndex == 0) {
-			return false;
-		}
-
-		freeSize = pd.extent.getFreeSpace(sg.index);
-		return stopIndex + freeSize == sg.size;
-	}
-
-	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
-	                          size_t usedCapacity) {
-		if (!sizeClassSupportsMetadata(pd.sizeClass)) {
-			return false;
-		}
-
-		auto sg = SlabAllocGeometry(pd, ptr);
-
-		assert(usedCapacity <= sg.size,
-		       "Used capacity may not exceed alloc size!");
-
-		pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
-		return true;
+		return stopIndex != 0 && stopIndex == usedCapacity;
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -767,7 +723,8 @@ unittest arraySpill {
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
 		if (pd.isSlab()) {
-			threadCache.setSmallUsedCapacity(pd, ptr, usedCapacity);
+			auto si = SlabAllocInfo(pd, ptr);
+			si.setUsedCapacity(usedCapacity);
 		} else {
 			pd.extent.setUsedCapacity(usedCapacity);
 		}
