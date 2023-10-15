@@ -42,8 +42,7 @@ public:
 		if (isSmallSize(asize)) {
 			auto ptr = arena.allocSmall(emap, asize);
 			auto pd = getPageDescriptor(ptr);
-			auto si = SlabAllocInfo(pd, ptr);
-			si.setUsedCapacity(size);
+			setSmallUsedCapacity(pd, ptr, size);
 			assert(finalizer is null, "finalizer not yet supported for slab!");
 			return ptr;
 		}
@@ -119,9 +118,8 @@ public:
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
-			auto si = SlabAllocInfo(pd, ptr);
-			if ((samePointerness && newSizeClass == oldSizeClass)
-				    && (!si.allowsMetaData || si.setUsedCapacity(size))) {
+			if (samePointerness && newSizeClass == oldSizeClass) {
+				setSmallUsedCapacity(pd, ptr, size);
 				return ptr;
 			}
 
@@ -321,6 +319,12 @@ private:
 		auto stopIndex = startIndex + slice.length;
 
 		return stopIndex != 0 && stopIndex == usedCapacity;
+	}
+
+	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
+	                          size_t usedCapacity) {
+		auto si = SlabAllocInfo(pd, ptr);
+		return si.setUsedCapacity(usedCapacity);
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -723,8 +727,7 @@ unittest arraySpill {
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
 		if (pd.isSlab()) {
-			auto si = SlabAllocInfo(pd, ptr);
-			si.setUsedCapacity(usedCapacity);
+			threadCache.setSmallUsedCapacity(pd, ptr, usedCapacity);
 		} else {
 			pd.extent.setUsedCapacity(usedCapacity);
 		}

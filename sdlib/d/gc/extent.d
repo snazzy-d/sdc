@@ -255,14 +255,6 @@ public:
 	}
 
 	@property
-	size_t slotSize() const {
-		assert(isSlab(), "slotSize accessed on non slab!");
-
-		import d.gc.slab;
-		return binInfos[sizeClass].itemSize;
-	}
-
-	@property
 	uint slotCount() const {
 		assert(isSlab(), "slotCount accessed on non slab!");
 
@@ -375,10 +367,11 @@ public:
 	}
 }
 
-unittest largeData {
+unittest finalizers {
+	static void destruct(void* ptr, size_t size) {}
+
 	// Basic test for large allocs:
 	import d.gc.tcache;
-	static void destruct(void* ptr, size_t size) {}
 	auto large = threadCache.alloc(20000, false);
 	auto largePd = threadCache.getPageDescriptor(large);
 	largePd.extent.setUsedCapacity(19999);

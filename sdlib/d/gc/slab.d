@@ -27,55 +27,9 @@ struct SlabAllocGeometry {
 
 struct SlabAllocInfo {
 private:
-	bool allowsMetaData = false;
 	SlabAllocGeometry sg;
 	Extent* e;
-
-	void enableMetaData() {
-		assert(allowsMetaData, "size class not supports slab metadata!");
-
-		if (!hasMetaData) {
-			e.enableMetaData(sg.index);
-			hasMetaData = true;
-		}
-	}
-
-	void disableMetaData() {
-		assert(allowsMetaData, "size class not supports slab metadata!");
-
-		e.disableMetaData(sg.index);
-		hasMetaData = false;
-	}
-
-	@property
-	T* ptrToAllocEnd(T)() {
-		return cast(T*) (sg.address + sg.size) - T.sizeof;
-	}
-
-	alias freeSpacePtr = ptrToAllocEnd!ushort;
-
-	@property
-	size_t freeSpace() {
-		if (!hasMetaData) {
-			return 0;
-		}
-
-		// Decode freespace, found in the final byte (or two bytes) of the alloc:
-		return readPackedFreeSpace(freeSpacePtr);
-	}
-
-	void setFreeSpace(size_t size) {
-		assert(allowsMetaData, "size class not supports slab metadata!");
-
-		if (size == 0) {
-			disableMetaData();
-			return;
-		}
-
-		writePackedFreeSpace(freeSpacePtr, size & ushort.max);
-		enableMetaData();
-	}
-
+	bool allowsMetaData = false;
 public:
 	bool hasMetaData = false;
 
@@ -94,12 +48,13 @@ public:
 	}
 
 	@property
-	size_t usedCapacity() {
-		if (!allowsMetaData) {
-			return 0;
-		}
+	size_t slotCapacity() {
+		return sg.size;
+	}
 
-		return sg.size - freeSpace;
+	@property
+	size_t usedCapacity() {
+		return allowsMetaData ? sg.size - freeSpace : 0;
 	}
 
 	bool setUsedCapacity(size_t size) {
@@ -111,9 +66,48 @@ public:
 		return true;
 	}
 
+private:
+
+	void enableMetaData() {
+		assert(allowsMetaData, "size class not supports slab metadata!");
+
+		if (!hasMetaData) {
+			e.enableMetaData(sg.index);
+			hasMetaData = true;
+		}
+	}
+
+	void disableMetaData() {
+		assert(allowsMetaData, "size class not supports slab metadata!");
+
+		if (hasMetaData) {
+			e.disableMetaData(sg.index);
+			hasMetaData = false;
+		}
+	}
+
 	@property
-	size_t slotCapacity() {
-		return sg.size;
+	T* ptrToAllocEnd(T)() {
+		return cast(T*) (sg.address + sg.size) - T.sizeof;
+	}
+
+	alias freeSpacePtr = ptrToAllocEnd!ushort;
+
+	@property
+	size_t freeSpace() {
+		return hasMetaData ? readPackedFreeSpace(freeSpacePtr) : 0;
+	}
+
+	void setFreeSpace(size_t size) {
+		assert(allowsMetaData, "size class not supports slab metadata!");
+
+		if (size == 0) {
+			disableMetaData();
+			return;
+		}
+
+		writePackedFreeSpace(freeSpacePtr, size & ushort.max);
+		enableMetaData();
 	}
 }
 
