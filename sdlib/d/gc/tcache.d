@@ -714,6 +714,7 @@ unittest extendSmall {
 	// Same is true for increasing:
 	auto s3 = threadCache.realloc(s2, 45, false);
 	assert(s3 is s2);
+	assert(threadCache.getCapacity(s3[0 .. 45]) == 48);
 
 	// Increase that results in size class change:
 	auto s4 = threadCache.realloc(s3, 70, false);
