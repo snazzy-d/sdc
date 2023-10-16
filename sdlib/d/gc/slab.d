@@ -64,7 +64,8 @@ public:
 
 	@property
 	size_t usedCapacity() {
-		return sg.size - freeSpace;
+		// Allocs which do not support metadata have a defined capacity of 0:
+		return _allowsMetaData ? sg.size - freeSpace : 0;
 	}
 
 	bool setUsedCapacity(size_t size) {
@@ -76,6 +77,7 @@ public:
 		return true;
 	}
 
+private:
 	@property
 	size_t freeSpace() {
 		return _hasMetaData ? readPackedFreeSpace(freeSpacePtr) : 0;
@@ -94,7 +96,6 @@ public:
 		enableMetaData();
 	}
 
-private:
 	void enableMetaData() {
 		assert(_allowsMetaData, "size class not supports slab metadata!");
 
@@ -154,6 +155,7 @@ unittest SlabAllocInfo {
 			assert(!si.allowsMetaData);
 			assert(!si.hasMetaData);
 			assert(si.freeSpace == 0);
+			assert(si.usedCapacity == 0);
 			assert(!si.setUsedCapacity(0));
 			assert(!si.setUsedCapacity(1));
 		}
