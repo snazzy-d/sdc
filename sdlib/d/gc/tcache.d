@@ -165,15 +165,15 @@ public:
 		}
 
 		if (pd.isSlab()) {
-			auto sg = SlabAllocGeometry(pd, slice.ptr);
+			auto si = SlabAllocInfo(pd, slice.ptr);
 
 			size_t freeSize;
-			if (!getSmallFreeSize(slice, pd, sg, freeSize)) {
+			if (!getSmallFreeSize(slice, si, freeSize)) {
 				return 0;
 			}
 
-			auto startIndex = slice.ptr - sg.address;
-			return sg.size - startIndex;
+			auto startIndex = slice.ptr - si.address;
+			return si.slotCapacity - startIndex;
 		}
 
 		if (!validateLargeCapacity(slice, pd)) {
@@ -198,10 +198,10 @@ public:
 		}
 
 		if (pd.isSlab()) {
-			auto sg = SlabAllocGeometry(pd, slice.ptr);
+			auto si = SlabAllocInfo(pd, slice.ptr);
 
 			size_t freeSize;
-			if (!getSmallFreeSize(slice, pd, sg, freeSize)) {
+			if (!getSmallFreeSize(slice, si, freeSize)) {
 				return false;
 			}
 
@@ -209,7 +209,7 @@ public:
 				return false;
 			}
 
-			e.setFreeSpace(sg.index, freeSize - size);
+			si.setFreeSpace(freeSize - size);
 			return true;
 		}
 
@@ -332,39 +332,30 @@ private:
 		return stopIndex != 0 && stopIndex == e.usedCapacity;
 	}
 
-	bool getSmallFreeSize(const void[] slice, PageDescriptor pd,
-	                      SlabAllocGeometry sg, ref size_t freeSize) {
-		if (!sizeClassSupportsMetadata(pd.sizeClass)) {
+	bool getSmallFreeSize(const void[] slice, SlabAllocInfo si,
+	                      ref size_t freeSize) {
+		if (!si.allowsMetaData) {
 			return false;
 		}
 
 		// Slice must not end before valid data ends, or capacity is zero.
 		// To be appendable, the slice end must match the alloc's used
 		// capacity, and the latter may not be zero.
-		auto startIndex = slice.ptr - sg.address;
+		auto startIndex = slice.ptr - si.address;
 		auto stopIndex = startIndex + slice.length;
 
 		if (stopIndex == 0) {
 			return false;
 		}
 
-		freeSize = pd.extent.getFreeSpace(sg.index);
-		return stopIndex + freeSize == sg.size;
+		freeSize = si.freeSpace;
+		return stopIndex + freeSize == si.slotCapacity;
 	}
 
 	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
 	                          size_t usedCapacity) {
-		if (!sizeClassSupportsMetadata(pd.sizeClass)) {
-			return false;
-		}
-
-		auto sg = SlabAllocGeometry(pd, ptr);
-
-		assert(usedCapacity <= sg.size,
-		       "Used capacity may not exceed alloc size!");
-
-		pd.extent.setFreeSpace(sg.index, sg.size - usedCapacity);
-		return true;
+		auto si = SlabAllocInfo(pd, ptr);
+		return si.setUsedCapacity(usedCapacity);
 	}
 
 	auto getPageDescriptor(void* ptr) {
