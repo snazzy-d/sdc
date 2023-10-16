@@ -29,17 +29,27 @@ struct SlabAllocInfo {
 private:
 	SlabAllocGeometry sg;
 	Extent* e;
-	bool allowsMetaData = false;
-public:
-	bool hasMetaData = false;
+	bool _allowsMetaData = false;
+	bool _hasMetaData = false;
 
+public:
 	this(PageDescriptor pd, const void* ptr) {
 		assert(pd.isSlab(), "Expected a slab!");
 
 		e = pd.extent;
 		sg = SlabAllocGeometry(pd, ptr);
-		allowsMetaData = sizeClassSupportsMetadata(pd.sizeClass);
-		hasMetaData = allowsMetaData && e.hasMetaData(sg.index);
+		_allowsMetaData = sizeClassSupportsMetadata(pd.sizeClass);
+		_hasMetaData = _allowsMetaData && e.hasMetaData(sg.index);
+	}
+
+	@property
+	auto allowsMetaData() {
+		return _allowsMetaData;
+	}
+
+	@property
+	auto hasMetaData() {
+		return _hasMetaData;
 	}
 
 	@property
@@ -54,11 +64,11 @@ public:
 
 	@property
 	size_t usedCapacity() {
-		return allowsMetaData ? sg.size - freeSpace : 0;
+		return sg.size - freeSpace;
 	}
 
 	bool setUsedCapacity(size_t size) {
-		if (!allowsMetaData || (size > slotCapacity)) {
+		if (!_allowsMetaData || (size > slotCapacity)) {
 			return false;
 		}
 
@@ -68,11 +78,12 @@ public:
 
 	@property
 	size_t freeSpace() {
-		return hasMetaData ? readPackedFreeSpace(freeSpacePtr) : 0;
+		return _hasMetaData ? readPackedFreeSpace(freeSpacePtr) : 0;
 	}
 
 	void setFreeSpace(size_t size) {
-		assert(allowsMetaData, "size class not supports slab metadata!");
+		assert(_allowsMetaData, "size class not supports slab metadata!");
+		assert(size <= sg.size, "size exceeds alloc size!");
 
 		if (size == 0) {
 			disableMetaData();
@@ -84,22 +95,21 @@ public:
 	}
 
 private:
-
 	void enableMetaData() {
-		assert(allowsMetaData, "size class not supports slab metadata!");
+		assert(_allowsMetaData, "size class not supports slab metadata!");
 
-		if (!hasMetaData) {
+		if (!_hasMetaData) {
 			e.enableMetaData(sg.index);
-			hasMetaData = true;
+			_hasMetaData = true;
 		}
 	}
 
 	void disableMetaData() {
-		assert(allowsMetaData, "size class not supports slab metadata!");
+		assert(_allowsMetaData, "size class not supports slab metadata!");
 
-		if (hasMetaData) {
+		if (_hasMetaData) {
 			e.disableMetaData(sg.index);
-			hasMetaData = false;
+			_hasMetaData = false;
 		}
 	}
 
@@ -109,6 +119,74 @@ private:
 	}
 
 	alias freeSpacePtr = ptrToAllocEnd!ushort;
+}
+
+unittest SlabAllocInfo {
+	import d.gc.base;
+	static Base base;
+	scope(exit) base.clear();
+
+	auto slot = base.allocSlot();
+	auto e = Extent.fromSlot(0, slot);
+	auto block = base.reserveAddressSpace(HugePageSize);
+	assert(block !is null);
+
+	static SlabAllocInfo simulateSmallAlloc(size_t size, uint slotIndex) {
+		auto ec = ExtentClass.slab(getSizeClass(size));
+		e.at(block, PageSize, null, ec);
+		auto allocAddress = block;
+		// TODO: it is probably possible to make this less hideous:
+		foreach (s; 0 .. slotIndex) {
+			assert(e.allocate() == s);
+			allocAddress += size;
+		}
+
+		auto pd = PageDescriptor(e, ec);
+		return SlabAllocInfo(pd, allocAddress);
+	}
+
+	// When metadata is not supported by the size class:
+	foreach (size; [1, 6, 8, 20, 24, 35, 40, 50, 56]) {
+		auto sc = getSizeClass(size);
+		foreach (slotIndex; 0 .. binInfos[sc].slots + 1) {
+			auto si = simulateSmallAlloc(size, slotIndex);
+			assert(si.slotCapacity == getAllocSize(size));
+			assert(!si.allowsMetaData);
+			assert(!si.hasMetaData);
+			assert(si.freeSpace == 0);
+			assert(!si.setUsedCapacity(0));
+			assert(!si.setUsedCapacity(1));
+		}
+	}
+
+	// When metadata is supported by the size class (not exhaustive) :
+	foreach (size;
+		[15, 16, 300, 320, 1000, 1024, MaxSmallSize - 1, MaxSmallSize]
+	) {
+		auto sc = getSizeClass(size);
+		foreach (slotIndex; 0 .. binInfos[sc].slots + 1) {
+			auto si = simulateSmallAlloc(size, slotIndex);
+			assert(si.allowsMetaData);
+			auto slotCapacity = si.slotCapacity;
+			assert(slotCapacity == getAllocSize(size));
+			si.setUsedCapacity(size);
+			assert(si.usedCapacity == size);
+			assert(si.hasMetaData == (size != slotCapacity));
+			assert(si.freeSpace == slotCapacity - size);
+			assert(!si.setUsedCapacity(slotCapacity + 1));
+
+			foreach (size_t i; 0 .. slotCapacity + 1) {
+				assert(si.setUsedCapacity(i));
+				assert(si.usedCapacity == i);
+				assert(si.hasMetaData == (i < slotCapacity));
+				assert(si.freeSpace == si.slotCapacity - i);
+				si.setFreeSpace(i);
+				assert(si.freeSpace == i);
+				assert(si.hasMetaData == (i > 0));
+				assert(si.usedCapacity == si.slotCapacity - i);
+			}
+		}
+	}
 }
 
 /**
