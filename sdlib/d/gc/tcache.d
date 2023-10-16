@@ -42,7 +42,8 @@ public:
 		if (isSmallSize(asize)) {
 			auto ptr = arena.allocSmall(emap, asize);
 			auto pd = getPageDescriptor(ptr);
-			setSmallUsedCapacity(pd, ptr, size);
+			auto si = SlabAllocInfo(pd, ptr);
+			si.setUsedCapacity(size);
 			assert(finalizer is null, "finalizer not yet supported for slab!");
 			return ptr;
 		}
@@ -119,7 +120,8 @@ public:
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
 			if (samePointerness && newSizeClass == oldSizeClass) {
-				setSmallUsedCapacity(pd, ptr, size);
+				auto si = SlabAllocInfo(pd, ptr);
+				si.setUsedCapacity(size);
 				return ptr;
 			}
 
@@ -350,12 +352,6 @@ private:
 
 		freeSize = si.freeSpace;
 		return stopIndex + freeSize == si.slotCapacity;
-	}
-
-	bool setSmallUsedCapacity(PageDescriptor pd, void* ptr,
-	                          size_t usedCapacity) {
-		auto si = SlabAllocInfo(pd, ptr);
-		return si.setUsedCapacity(usedCapacity);
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -758,7 +754,8 @@ unittest arraySpill {
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
 		if (pd.isSlab()) {
-			threadCache.setSmallUsedCapacity(pd, ptr, usedCapacity);
+			auto si = SlabAllocInfo(pd, ptr);
+			si.setUsedCapacity(usedCapacity);
 		} else {
 			pd.extent.setUsedCapacity(usedCapacity);
 		}
