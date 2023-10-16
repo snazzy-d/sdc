@@ -66,6 +66,23 @@ public:
 		return true;
 	}
 
+	@property
+	size_t freeSpace() {
+		return hasMetaData ? readPackedFreeSpace(freeSpacePtr) : 0;
+	}
+
+	void setFreeSpace(size_t size) {
+		assert(allowsMetaData, "size class not supports slab metadata!");
+
+		if (size == 0) {
+			disableMetaData();
+			return;
+		}
+
+		writePackedFreeSpace(freeSpacePtr, size & ushort.max);
+		enableMetaData();
+	}
+
 private:
 
 	void enableMetaData() {
@@ -92,23 +109,6 @@ private:
 	}
 
 	alias freeSpacePtr = ptrToAllocEnd!ushort;
-
-	@property
-	size_t freeSpace() {
-		return hasMetaData ? readPackedFreeSpace(freeSpacePtr) : 0;
-	}
-
-	void setFreeSpace(size_t size) {
-		assert(allowsMetaData, "size class not supports slab metadata!");
-
-		if (size == 0) {
-			disableMetaData();
-			return;
-		}
-
-		writePackedFreeSpace(freeSpacePtr, size & ushort.max);
-		enableMetaData();
-	}
 }
 
 /**
