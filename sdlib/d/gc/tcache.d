@@ -431,7 +431,7 @@ unittest getCapacity {
 	auto nonAppendable = threadCache.alloc(50, false);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 0]) == 0);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 50]) == 0);
-	assert(threadCache.getCapacity(nonAppendable[0 .. 56]) == 0);
+	assert(threadCache.getCapacity(nonAppendable[0 .. 56]) == 56);
 
 	// Capacity of any slice in space unknown to the GC is zero:
 	void* nullPtr = null;
