@@ -59,7 +59,7 @@ public:
 
 	@property
 	size_t slotCapacity() {
-		return sg.size;
+		return sg.size - (finalizerEnabled ? PointerSize : 0);
 	}
 
 	@property
@@ -74,6 +74,32 @@ public:
 
 		setFreeSpace(sg.size - size);
 		return true;
+	}
+
+	@property
+	Finalizer finalizer() {
+		if (!finalizerEnabled) {
+			return null;
+		}
+
+		return cast(Finalizer) cast(void*) (*finalizerPtr & AddressMask);
+	}
+
+	void setFinalizer(Finalizer newFinalizer) {
+		assert(hasMetaData,
+		       "Metadata is not present! (must set used capacity first)");
+
+		if (newFinalizer is null) {
+			*finalizerPtr &= ~FinalizerBit;
+			return;
+		}
+
+		auto _newFinalizer = cast(size_t) cast(void*) newFinalizer;
+		assert((_newFinalizer & AddressMask) == _newFinalizer,
+		       "New finalizer pointer is invalid!");
+
+		auto newMetaData = (*finalizerPtr & ~AddressMask) | FinalizerBit;
+		*finalizerPtr = newMetaData | _newFinalizer;
 	}
 
 private:
@@ -113,12 +139,20 @@ private:
 		}
 	}
 
+	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
+
+	@property
+	bool finalizerEnabled() {
+		return hasMetaData && (*finalizerPtr & FinalizerBit);
+	}
+
 	@property
 	T* ptrToAllocEnd(T)() {
-		return cast(T*) (sg.address + sg.size) - T.sizeof;
+		return cast(T*) (sg.address + sg.size - T.sizeof);
 	}
 
 	alias freeSpacePtr = ptrToAllocEnd!ushort;
+	alias finalizerPtr = ptrToAllocEnd!size_t;
 }
 
 unittest SlabAllocInfo {
@@ -159,6 +193,10 @@ unittest SlabAllocInfo {
 		}
 	}
 
+	// Finalizers
+	static void destruct_a(void* ptr, size_t size) {}
+	static void destruct_b(void* ptr, size_t size) {}
+
 	// When metadata is supported by the size class (not exhaustive) :
 	foreach (size;
 		[15, 16, 300, 320, 1000, 1024, MaxSmallSize - 1, MaxSmallSize]
@@ -184,6 +222,22 @@ unittest SlabAllocInfo {
 				assert(si.freeSpace == i);
 				assert(si.hasMetaData == (i > 0));
 				assert(si.usedCapacity == si.slotCapacity - i);
+			}
+
+			// Set a finalizer:
+			auto prevSlotCapacity = si.slotCapacity;
+			si.setFinalizer(&destruct_a);
+			assert(si.slotCapacity == prevSlotCapacity - PointerSize);
+
+			foreach (size_t i; 0 .. si.slotCapacity + 1) {
+				si.setFinalizer(&destruct_a);
+				// Confirm that setting freespace does not clobber finalizer:
+				assert(si.setUsedCapacity(i));
+				assert(cast(void*) si.finalizer == cast(void*) &destruct_a);
+				// Confirm that setting finalizer does not clobber freespace:
+				si.setFinalizer(&destruct_b);
+				assert(si.usedCapacity == i);
+				assert(cast(void*) si.finalizer == cast(void*) &destruct_b);
 			}
 		}
 	}

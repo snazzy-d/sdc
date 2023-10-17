@@ -32,7 +32,8 @@ public:
 
 	void* allocAppendable(size_t size, bool containsPointers,
 	                      Finalizer finalizer = null) {
-		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
+		auto reservedBytes = finalizer is null ? 0 : PointerSize;
+		auto asize = getAllocSize(alignUp(size + reservedBytes, 2 * Quantum));
 		assert(sizeClassSupportsMetadata(getSizeClass(asize)),
 		       "allocAppendable got size class without metadata support!");
 
@@ -44,11 +45,11 @@ public:
 			auto pd = getPageDescriptor(ptr);
 			auto si = SlabAllocInfo(pd, ptr);
 			si.setUsedCapacity(size);
-			assert(finalizer is null, "finalizer not yet supported for slab!");
+			si.setFinalizer(finalizer);
 			return ptr;
 		}
 
-		auto ptr = arena.allocLarge(emap, asize, false);
+		auto ptr = arena.allocLarge(emap, getAllocSize(size), false);
 		auto pd = getPageDescriptor(ptr);
 		auto e = pd.extent;
 		e.setUsedCapacity(size);
@@ -88,11 +89,20 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-
 		auto e = pd.extent;
-		// Slab is not yet supported
-		if (e !is null && !pd.isSlab() && e.finalizer !is null) {
-			e.finalizer(ptr, e.usedCapacity);
+
+		if (e !is null) {
+			if (pd.isSlab()) {
+				auto si = SlabAllocInfo(pd, ptr);
+				auto finalizer = si.finalizer;
+				if (finalizer !is null) {
+					finalizer(ptr, si.usedCapacity);
+				}
+			} else {
+				if (e.finalizer !is null) {
+					e.finalizer(ptr, e.usedCapacity);
+				}
+			}
 		}
 
 		pd.arena.free(emap, pd, ptr);
@@ -119,9 +129,9 @@ public:
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
-			if (samePointerness && newSizeClass == oldSizeClass) {
-				auto si = SlabAllocInfo(pd, ptr);
-				si.setUsedCapacity(size);
+			auto si = SlabAllocInfo(pd, ptr);
+			if ((samePointerness && newSizeClass == oldSizeClass)
+				    && (!si.allowsMetaData || si.setUsedCapacity(size))) {
 				return ptr;
 			}
 
@@ -819,5 +829,34 @@ unittest finalization {
 	auto s1 = threadCache.allocAppendable(20000, false);
 	auto oldDestroyCount = destroyCount;
 	threadCache.destroy(s1);
+	assert(destroyCount == oldDestroyCount);
+
+	// Finalizers for small allocs:
+	auto s2 = threadCache.allocAppendable(45, false, &destruct);
+	assert(threadCache.getCapacity(s2[0 .. 45]) == 56);
+	assert(!threadCache.extend(s2[0 .. 45], 12));
+	assert(threadCache.extend(s2[0 .. 45], 11));
+	assert(threadCache.getCapacity(s2[0 .. 56]) == 56);
+	threadCache.destroy(s2);
+	assert(lastKilledAddress == s2);
+	assert(lastKilledUsedCapacity == 56);
+
+	// Behaviour of realloc() on small allocs with finalizers:
+	auto s3 = threadCache.allocAppendable(70, false, &destruct);
+	assert(threadCache.getCapacity(s3[0 .. 70]) == 72);
+	auto s4 = threadCache.realloc(s3, 70, false);
+	assert(s3 == s4);
+
+	// This is in the same size class, but will not work in-place
+	// given as finalizer occupies final 8 of the 80 bytes in the slot:
+	auto s5 = threadCache.realloc(s4, 75, false);
+	assert(s5 != s4);
+
+	// So we end up with a new alloc, without metadata:
+	assert(threadCache.getCapacity(s5[0 .. 80]) == 80);
+
+	// And the finalizer has been discarded:
+	oldDestroyCount = destroyCount;
+	threadCache.destroy(s5);
 	assert(destroyCount == oldDestroyCount);
 }
