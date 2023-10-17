@@ -115,7 +115,7 @@ private:
 
 	@property
 	T* ptrToAllocEnd(T)() {
-		return cast(T*) (sg.address + sg.size) - T.sizeof;
+		return cast(T*) (sg.address + sg.size - T.sizeof);
 	}
 
 	alias freeSpacePtr = ptrToAllocEnd!ushort;
