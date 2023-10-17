@@ -91,7 +91,7 @@ private:
 			return;
 		}
 
-		writePackedFreeSpace(freeSpacePtr, size & ushort.max);
+		writePackedFreeSpace(freeSpacePtr, size);
 		enableMetaData();
 	}
 
@@ -208,7 +208,7 @@ ushort readPackedFreeSpace(ushort* ptr) {
 	return (data >> 2) & mask;
 }
 
-void writePackedFreeSpace(ushort* ptr, ushort x) {
+void writePackedFreeSpace(ushort* ptr, size_t x) {
 	assert(x < 0x4000, "x does not fit in 14 bits!");
 
 	bool isLarge = x > 0x3f;
