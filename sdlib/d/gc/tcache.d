@@ -162,15 +162,15 @@ public:
 	 */
 	size_t getCapacity(const void[] slice) {
 		auto pd = maybeGetPageDescriptor(slice.ptr);
-		if (pd.extent is null) {
+		auto e = pd.extent;
+		if (e is null) {
 			return 0;
 		}
 
 		if (pd.isSlab()) {
 			auto si = SlabAllocInfo(pd, slice.ptr);
 
-			size_t freeSize;
-			if (!getSmallFreeSize(slice, si, freeSize)) {
+			if (!validateCapacity(slice, si.address, si.usedCapacity)) {
 				return 0;
 			}
 
@@ -178,11 +178,10 @@ public:
 			return si.slotCapacity - startIndex;
 		}
 
-		if (!validateLargeCapacity(slice, pd)) {
-			return false;
+		if (!validateCapacity(slice, e.address, e.usedCapacity)) {
+			return 0;
 		}
 
-		auto e = pd.extent;
 		auto startIndex = slice.ptr - e.address;
 		return e.size - startIndex;
 	}
@@ -201,21 +200,16 @@ public:
 
 		if (pd.isSlab()) {
 			auto si = SlabAllocInfo(pd, slice.ptr);
+			auto usedCapacity = si.usedCapacity;
 
-			size_t freeSize;
-			if (!getSmallFreeSize(slice, si, freeSize)) {
+			if (!validateCapacity(slice, si.address, usedCapacity)) {
 				return false;
 			}
 
-			if (freeSize < size) {
-				return false;
-			}
-
-			si.setFreeSpace(freeSize - size);
-			return true;
+			return si.setUsedCapacity(usedCapacity + size);
 		}
 
-		if (!validateLargeCapacity(slice, pd)) {
+		if (!validateCapacity(slice, e.address, e.usedCapacity)) {
 			return false;
 		}
 
@@ -322,36 +316,15 @@ private:
 	 * 
 	 * See also: https://dlang.org/spec/arrays.html#capacity-reserve
 	 */
-	bool validateLargeCapacity(const void[] slice, PageDescriptor pd) {
-		auto e = pd.extent;
-
+	bool validateCapacity(const void[] slice, const void* address,
+	                      size_t usedCapacity) {
 		// Slice must not end before valid data ends, or capacity is zero.
 		// To be appendable, the slice end must match the alloc's used
 		// capacity, and the latter may not be zero.
-		auto startIndex = slice.ptr - e.address;
+		auto startIndex = slice.ptr - address;
 		auto stopIndex = startIndex + slice.length;
 
-		return stopIndex != 0 && stopIndex == e.usedCapacity;
-	}
-
-	bool getSmallFreeSize(const void[] slice, SlabAllocInfo si,
-	                      ref size_t freeSize) {
-		if (!si.allowsMetaData) {
-			return false;
-		}
-
-		// Slice must not end before valid data ends, or capacity is zero.
-		// To be appendable, the slice end must match the alloc's used
-		// capacity, and the latter may not be zero.
-		auto startIndex = slice.ptr - si.address;
-		auto stopIndex = startIndex + slice.length;
-
-		if (stopIndex == 0) {
-			return false;
-		}
-
-		freeSize = si.freeSpace;
-		return stopIndex + freeSize == si.slotCapacity;
+		return stopIndex != 0 && stopIndex == usedCapacity;
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -458,7 +431,7 @@ unittest getCapacity {
 	auto nonAppendable = threadCache.alloc(50, false);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 0]) == 0);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 50]) == 0);
-	assert(threadCache.getCapacity(nonAppendable[0 .. 56]) == 0);
+	assert(threadCache.getCapacity(nonAppendable[0 .. 56]) == 56);
 
 	// Capacity of any slice in space unknown to the GC is zero:
 	void* nullPtr = null;

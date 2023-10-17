@@ -76,6 +76,7 @@ public:
 		return true;
 	}
 
+private:
 	@property
 	size_t freeSpace() {
 		return _hasMetaData ? readPackedFreeSpace(freeSpacePtr) : 0;
@@ -94,7 +95,6 @@ public:
 		enableMetaData();
 	}
 
-private:
 	void enableMetaData() {
 		assert(_allowsMetaData, "size class not supports slab metadata!");
 
