@@ -91,17 +91,15 @@ public:
 		auto pd = getPageDescriptor(ptr);
 		auto e = pd.extent;
 
-		if (e !is null) {
-			if (pd.isSlab()) {
-				auto si = SlabAllocInfo(pd, ptr);
-				auto finalizer = si.finalizer;
-				if (finalizer !is null) {
-					finalizer(ptr, si.usedCapacity);
-				}
-			} else {
-				if (e.finalizer !is null) {
-					e.finalizer(ptr, e.usedCapacity);
-				}
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			auto finalizer = si.finalizer;
+			if (finalizer !is null) {
+				finalizer(ptr, si.usedCapacity);
+			}
+		} else {
+			if (e.finalizer !is null) {
+				e.finalizer(ptr, e.usedCapacity);
 			}
 		}
 
@@ -131,7 +129,7 @@ public:
 			auto oldSizeClass = pd.sizeClass;
 			auto si = SlabAllocInfo(pd, ptr);
 			if ((samePointerness && newSizeClass == oldSizeClass)
-				    && (!si.allowsMetaData || si.setUsedCapacity(size))) {
+				    && (!si.allowsMetadata || si.setUsedCapacity(size))) {
 				return ptr;
 			}
 
