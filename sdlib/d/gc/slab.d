@@ -112,29 +112,18 @@ private:
 		assert(size <= sg.size, "size exceeds alloc size!");
 
 		if (size == 0) {
-			disableMetadata();
+			if (_hasMetadata) {
+				e.disableMetadata(sg.index);
+				_hasMetadata = false;
+			}
+
 			return;
 		}
 
 		writePackedFreeSpace(freeSpacePtr, size);
-		enableMetadata();
-	}
-
-	void enableMetadata() {
-		assert(_allowsMetadata, "size class not supports slab metadata!");
-
 		if (!_hasMetadata) {
 			e.enableMetadata(sg.index);
 			_hasMetadata = true;
-		}
-	}
-
-	void disableMetadata() {
-		assert(_allowsMetadata, "size class not supports slab metadata!");
-
-		if (_hasMetadata) {
-			e.disableMetadata(sg.index);
-			_hasMetadata = false;
 		}
 	}
 
@@ -142,7 +131,8 @@ private:
 
 	@property
 	bool finalizerEnabled() {
-		// TODO: could be advantageous to check the FinalizerBit first
+		// TODO: right now we fetch hasMetadata eagerly, but the FinalizerBit check
+		// is cheaper and likely has low false positive rate.
 		return hasMetadata && (*finalizerPtr & FinalizerBit);
 	}
 
