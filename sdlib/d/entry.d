@@ -1,4 +1,4 @@
-module d.rt.dmain;
+module d.entry;
 
 extern(C):
 
