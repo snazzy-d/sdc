@@ -17,6 +17,7 @@ LIBSDRT_X64_OBJ = $(LIBSDRT_X64_SRC:sdlib/sys/x64/%.asm=obj/x64/%.o)
 
 LIBSDRT_DEPS = obj/object.o obj/sdlib/d.o obj/sdlib/gc.o obj/sdlib/rt.o \
 	obj/sdlib/stdc.o obj/sdlib/sync.o $(LIBSDRT_X64_OBJ)
+LIBDALLOC_DEPS = obj/object.o obj/sdlib/gc.o obj/sdlib/rt.o obj/sdlib/sync.o $(LIBSDRT_X64_OBJ)
 
 ifeq ($(PLATFORM),Linux)
 	LIBSDRT_DEPS += obj/sdlib/linux.o
@@ -27,6 +28,7 @@ ifeq ($(PLATFORM),Darwin)
 endif
 
 LIBSDRT = lib/libsdrt.a
+LIBDALLOC = lib/libdalloc.a
 
 SDFLAGS ?=
 LIBSDRT_IMPORTS = -Isdlib
@@ -72,6 +74,10 @@ obj/x64/%.o: sdlib/sys/x64/%.asm $(LIBSDRT_X64_SRC) $(SDLIB_DEPS)
 	$(NASM) -o $@ $< $(NASMFLAGS)
 
 $(LIBSDRT): $(LIBSDRT_DEPS)
+	@mkdir -p lib
+	ar rcs "$@" $^
+
+$(LIBDALLOC): $(LIBDALLOC_DEPS)
 	@mkdir -p lib
 	ar rcs "$@" $^
 
