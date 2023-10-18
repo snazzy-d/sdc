@@ -85,20 +85,36 @@ public:
 		return cast(Finalizer) cast(void*) (*finalizerPtr & AddressMask);
 	}
 
-	void setFinalizer(Finalizer newFinalizer) {
-		assert(hasMetadata,
-		       "Metadata is not present! (must set used capacity first)");
-		auto _newFinalizer = cast(size_t) cast(void*) newFinalizer;
-		assert((_newFinalizer & AddressMask) == _newFinalizer,
+	void initializeMetadata(Finalizer initialFinalizer,
+	                        size_t initialUsedCapacity) {
+		assert(isLittleEndian(), "Currently does not work on big-endian!");
+		assert(_allowsMetadata, "size class not supports slab metadata!");
+
+		bool hasFinalizer = initialFinalizer !is null;
+		assert(
+			initialUsedCapacity <= sg.size - (hasFinalizer ? PointerSize : 0),
+			"Insufficient alloc capacity!"
+		);
+
+		auto finalizerValue = cast(size_t) cast(void*) initialFinalizer;
+		assert((finalizerValue & AddressMask) == finalizerValue,
 		       "New finalizer pointer is invalid!");
 
-		if (newFinalizer is null) {
-			*finalizerPtr &= ~FinalizerBit;
-			return;
-		}
+		auto freeSpaceValue = sg.size - initialUsedCapacity;
+		bool isLarge = freeSpaceValue > 0x3f;
+		auto finalizerSet = hasFinalizer << 1;
+		ushort native =
+			(freeSpaceValue << 2 | isLarge | finalizerSet) & ushort.max;
 
-		auto newMetadata = (*finalizerPtr & ~AddressMask) | FinalizerBit;
-		*finalizerPtr = newMetadata | _newFinalizer;
+		auto newMetadata = nativeToBigEndian!size_t(native);
+
+		// TODO: Currently only works on little-endian!!!
+		// On a big-endian machine, the unused high 16 bits of a pointer will be
+		// found at the start, rather than end, of the memory that it occupies,
+		// and the freespace (newMetadata) will collide with the finalizer.
+		*finalizerPtr = newMetadata | finalizerValue;
+		e.enableMetadata(sg.index);
+		_hasMetadata = true;
 	}
 
 private:
@@ -131,8 +147,19 @@ private:
 
 	@property
 	bool finalizerEnabled() {
-		// TODO: right now we fetch hasMetadata eagerly, but the FinalizerBit check
-		// is cheaper and likely has low false positive rate.
+		// Right now we fetch hasMetadata eagerly, but the FinalizerBit check
+		// is cheaper. But it may be worthwhile to return early if FinalizerBit
+		// is clear, i.e. to snoop the extent's metadata lazily. The reasons:
+		// 1) If the slot is not full, the bit at the FinalizerBit position
+		//    is most likely 0.
+		// 2) If it has metadata, usually it won't have a finalizer: still 0.
+		// 3) If the metadata space contains an aligned pointer, the last byte
+		//    will be the MSB of that pointer, which will always be 0.
+		// 4) If the space contains a number, its MSB will likely be zero,
+		//    as most numbers are small.
+		// 5) If there is something else in there, that is not heavily biased
+		//    (float, random/compressed data) then we're still at 50/50.
+		// We should expect to find a zero in there the VAST majority of the time.
 		return hasMetadata && (*finalizerPtr & FinalizerBit);
 	}
 
@@ -214,26 +241,24 @@ unittest SlabAllocInfo {
 				assert(si.usedCapacity == si.slotCapacity - i);
 			}
 
-			// Set a finalizer:
-			auto prevSlotCapacity = si.slotCapacity;
-			si.setFinalizer(&destruct_a);
-			assert(si.slotCapacity == prevSlotCapacity - PointerSize);
+			// Test finalizers:
+			auto regularSlotCapacity = si.slotCapacity;
+			auto finalizedSlotCapacity = regularSlotCapacity - PointerSize;
 
-			foreach (size_t i; 0 .. si.slotCapacity + 1) {
-				si.setFinalizer(&destruct_a);
-				// Confirm that setting capacity does not clobber finalizer:
-				assert(si.setUsedCapacity(i));
-				assert(cast(void*) si.finalizer == cast(void*) &destruct_a);
-				// Confirm that disabling finalizer does not clobber capacity:
-				prevSlotCapacity = si.slotCapacity;
-				si.setFinalizer(null);
+			foreach (size_t i; 0 .. finalizedSlotCapacity + 1) {
+				// Without finalizer:
+				si.initializeMetadata(null, i);
+				assert(si.usedCapacity == i);
+				assert(si.slotCapacity == regularSlotCapacity);
 				assert(cast(void*) si.finalizer == null);
+				// With finalizer:
+				si.initializeMetadata(&destruct_a, i);
 				assert(si.usedCapacity == i);
-				// ... and restores max slot capacity to the full alloc size:
-				assert(si.slotCapacity == prevSlotCapacity + PointerSize);
-				// Confirm that setting finalizer does not clobber capacity:
-				si.setFinalizer(&destruct_b);
+				assert(si.slotCapacity == finalizedSlotCapacity);
+				assert(cast(void*) si.finalizer == cast(void*) &destruct_a);
+				si.initializeMetadata(&destruct_b, i);
 				assert(si.usedCapacity == i);
+				assert(si.slotCapacity == finalizedSlotCapacity);
 				assert(cast(void*) si.finalizer == cast(void*) &destruct_b);
 			}
 		}
