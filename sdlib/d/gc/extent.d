@@ -100,14 +100,14 @@ private:
 
 	import d.gc.bitmap;
 
-	struct SlabMetaData {
+	struct SlabMetadata {
 		ubyte[32] pad;
-		shared Bitmap!256 slabMetaDataFlags;
+		shared Bitmap!256 slabMetadataFlags;
 	}
 
 	union Bitmaps {
 		Bitmap!512 slabData;
-		SlabMetaData slabMetaData;
+		SlabMetadata slabMetadata;
 	}
 
 	struct LargeData {
@@ -118,7 +118,7 @@ private:
 		Finalizer finalizer;
 	}
 
-	union MetaData {
+	union Metadata {
 		// Slab occupancy (and metadata flags for supported size classes)
 		Bitmaps slabData;
 
@@ -126,7 +126,7 @@ private:
 		LargeData largeData;
 	}
 
-	MetaData _metadata;
+	Metadata _metadata;
 
 	this(uint arenaIndex, void* ptr, size_t size, ubyte generation,
 	     HugePageDescriptor* hpd, ExtentClass ec) {
@@ -302,39 +302,39 @@ public:
 	 */
 
 	@property
-	ref shared(Bitmap!256) slabMetaDataFlags() {
-		assert(isSlab(), "slabMetaDataFlags accessed on non slab!");
+	ref shared(Bitmap!256) slabMetadataFlags() {
+		assert(isSlab(), "slabMetadataFlags accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
 
-		return _metadata.slabData.slabMetaData.slabMetaDataFlags;
+		return _metadata.slabData.slabMetadata.slabMetadataFlags;
 	}
 
-	bool hasMetaData(uint index) {
-		assert(isSlab(), "hasMetaData accessed on non slab!");
+	bool hasMetadata(uint index) {
+		assert(isSlab(), "hasMetadata accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
 		assert(index < slotCount, "index is out of range!");
 
-		return slabMetaDataFlags.valueAtAtomic(index);
+		return slabMetadataFlags.valueAtAtomic(index);
 	}
 
-	void enableMetaData(uint index) {
-		assert(isSlab(), "hasMetaData accessed on non slab!");
+	void enableMetadata(uint index) {
+		assert(isSlab(), "hasMetadata accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
 		assert(index < slotCount, "index is out of range!");
 
-		slabMetaDataFlags.setBitAtomic(index);
+		slabMetadataFlags.setBitAtomic(index);
 	}
 
-	void disableMetaData(uint index) {
-		assert(isSlab(), "hasMetaData accessed on non slab!");
+	void disableMetadata(uint index) {
+		assert(isSlab(), "hasMetadata accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
 		assert(index < slotCount, "index is out of range!");
 
-		slabMetaDataFlags.clearBitAtomic(index);
+		slabMetadataFlags.clearBitAtomic(index);
 	}
 
 	/**
