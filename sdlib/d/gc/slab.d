@@ -29,8 +29,8 @@ struct SlabAllocInfo {
 private:
 	SlabAllocGeometry sg;
 	Extent* e;
-	bool _allowsMetaData = false;
-	bool _hasMetaData = false;
+	bool _allowsMetadata = false;
+	bool _hasMetadata = false;
 
 public:
 	this(PageDescriptor pd, const void* ptr) {
@@ -38,18 +38,18 @@ public:
 
 		e = pd.extent;
 		sg = SlabAllocGeometry(pd, ptr);
-		_allowsMetaData = sizeClassSupportsMetadata(pd.sizeClass);
-		_hasMetaData = _allowsMetaData && e.hasMetaData(sg.index);
+		_allowsMetadata = sizeClassSupportsMetadata(pd.sizeClass);
+		_hasMetadata = _allowsMetadata && e.hasMetadata(sg.index);
 	}
 
 	@property
-	auto allowsMetaData() {
-		return _allowsMetaData;
+	auto allowsMetadata() {
+		return _allowsMetadata;
 	}
 
 	@property
-	auto hasMetaData() {
-		return _hasMetaData;
+	auto hasMetadata() {
+		return _hasMetadata;
 	}
 
 	@property
@@ -68,7 +68,7 @@ public:
 	}
 
 	bool setUsedCapacity(size_t size) {
-		if (!_allowsMetaData || (size > slotCapacity)) {
+		if (!_allowsMetadata || (size > slotCapacity)) {
 			return false;
 		}
 
@@ -86,56 +86,55 @@ public:
 	}
 
 	void setFinalizer(Finalizer newFinalizer) {
-		assert(hasMetaData,
+		assert(hasMetadata,
 		       "Metadata is not present! (must set used capacity first)");
+		auto _newFinalizer = cast(size_t) cast(void*) newFinalizer;
+		assert((_newFinalizer & AddressMask) == _newFinalizer,
+		       "New finalizer pointer is invalid!");
 
 		if (newFinalizer is null) {
 			*finalizerPtr &= ~FinalizerBit;
 			return;
 		}
 
-		auto _newFinalizer = cast(size_t) cast(void*) newFinalizer;
-		assert((_newFinalizer & AddressMask) == _newFinalizer,
-		       "New finalizer pointer is invalid!");
-
-		auto newMetaData = (*finalizerPtr & ~AddressMask) | FinalizerBit;
-		*finalizerPtr = newMetaData | _newFinalizer;
+		auto newMetadata = (*finalizerPtr & ~AddressMask) | FinalizerBit;
+		*finalizerPtr = newMetadata | _newFinalizer;
 	}
 
 private:
 	@property
 	size_t freeSpace() {
-		return _hasMetaData ? readPackedFreeSpace(freeSpacePtr) : 0;
+		return _hasMetadata ? readPackedFreeSpace(freeSpacePtr) : 0;
 	}
 
 	void setFreeSpace(size_t size) {
-		assert(_allowsMetaData, "size class not supports slab metadata!");
+		assert(_allowsMetadata, "size class not supports slab metadata!");
 		assert(size <= sg.size, "size exceeds alloc size!");
 
 		if (size == 0) {
-			disableMetaData();
+			disableMetadata();
 			return;
 		}
 
-		writePackedFreeSpace(freeSpacePtr, size & ushort.max);
-		enableMetaData();
+		writePackedFreeSpace(freeSpacePtr, size);
+		enableMetadata();
 	}
 
-	void enableMetaData() {
-		assert(_allowsMetaData, "size class not supports slab metadata!");
+	void enableMetadata() {
+		assert(_allowsMetadata, "size class not supports slab metadata!");
 
-		if (!_hasMetaData) {
-			e.enableMetaData(sg.index);
-			_hasMetaData = true;
+		if (!_hasMetadata) {
+			e.enableMetadata(sg.index);
+			_hasMetadata = true;
 		}
 	}
 
-	void disableMetaData() {
-		assert(_allowsMetaData, "size class not supports slab metadata!");
+	void disableMetadata() {
+		assert(_allowsMetadata, "size class not supports slab metadata!");
 
-		if (_hasMetaData) {
-			e.disableMetaData(sg.index);
-			_hasMetaData = false;
+		if (_hasMetadata) {
+			e.disableMetadata(sg.index);
+			_hasMetadata = false;
 		}
 	}
 
@@ -143,7 +142,8 @@ private:
 
 	@property
 	bool finalizerEnabled() {
-		return hasMetaData && (*finalizerPtr & FinalizerBit);
+		// TODO: could be advantageous to check the FinalizerBit first
+		return hasMetadata && (*finalizerPtr & FinalizerBit);
 	}
 
 	@property
@@ -185,8 +185,8 @@ unittest SlabAllocInfo {
 		foreach (slotIndex; 0 .. binInfos[sc].slots + 1) {
 			auto si = simulateSmallAlloc(size, slotIndex);
 			assert(si.slotCapacity == getAllocSize(size));
-			assert(!si.allowsMetaData);
-			assert(!si.hasMetaData);
+			assert(!si.allowsMetadata);
+			assert(!si.hasMetadata);
 			assert(si.freeSpace == 0);
 			assert(!si.setUsedCapacity(0));
 			assert(!si.setUsedCapacity(1));
@@ -204,23 +204,23 @@ unittest SlabAllocInfo {
 		auto sc = getSizeClass(size);
 		foreach (slotIndex; 0 .. binInfos[sc].slots + 1) {
 			auto si = simulateSmallAlloc(size, slotIndex);
-			assert(si.allowsMetaData);
+			assert(si.allowsMetadata);
 			auto slotCapacity = si.slotCapacity;
 			assert(slotCapacity == getAllocSize(size));
 			si.setUsedCapacity(size);
 			assert(si.usedCapacity == size);
-			assert(si.hasMetaData == (size != slotCapacity));
+			assert(si.hasMetadata == (size != slotCapacity));
 			assert(si.freeSpace == slotCapacity - size);
 			assert(!si.setUsedCapacity(slotCapacity + 1));
 
 			foreach (size_t i; 0 .. slotCapacity + 1) {
 				assert(si.setUsedCapacity(i));
 				assert(si.usedCapacity == i);
-				assert(si.hasMetaData == (i < slotCapacity));
+				assert(si.hasMetadata == (i < slotCapacity));
 				assert(si.freeSpace == si.slotCapacity - i);
 				si.setFreeSpace(i);
 				assert(si.freeSpace == i);
-				assert(si.hasMetaData == (i > 0));
+				assert(si.hasMetadata == (i > 0));
 				assert(si.usedCapacity == si.slotCapacity - i);
 			}
 
@@ -269,7 +269,7 @@ ushort readPackedFreeSpace(ushort* ptr) {
 	return (data >> 2) & mask;
 }
 
-void writePackedFreeSpace(ushort* ptr, ushort x) {
+void writePackedFreeSpace(ushort* ptr, size_t x) {
 	assert(x < 0x4000, "x does not fit in 14 bits!");
 
 	bool isLarge = x > 0x3f;
