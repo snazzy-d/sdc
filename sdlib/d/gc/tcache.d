@@ -44,12 +44,11 @@ public:
 			auto ptr = arena.allocSmall(emap, asize);
 			auto pd = getPageDescriptor(ptr);
 			auto si = SlabAllocInfo(pd, ptr);
-			si.setUsedCapacity(size);
-			si.setFinalizer(finalizer);
+			si.initializeMetadata(finalizer, size);
 			return ptr;
 		}
 
-		auto ptr = arena.allocLarge(emap, getAllocSize(size), false);
+		auto ptr = arena.allocLarge(emap, size, false);
 		auto pd = getPageDescriptor(ptr);
 		auto e = pd.extent;
 		e.setUsedCapacity(size);
@@ -95,6 +94,9 @@ public:
 			auto si = SlabAllocInfo(pd, ptr);
 			auto finalizer = si.finalizer;
 			if (finalizer !is null) {
+				assert(cast(void*) si.address == ptr,
+				       "destroy() was invoked on an interior pointer!");
+
 				finalizer(ptr, si.usedCapacity);
 			}
 		} else {
@@ -127,10 +129,11 @@ public:
 		if (pd.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
 			auto oldSizeClass = pd.sizeClass;
-			auto si = SlabAllocInfo(pd, ptr);
-			if ((samePointerness && newSizeClass == oldSizeClass)
-				    && (!si.allowsMetadata || si.setUsedCapacity(size))) {
-				return ptr;
+			if (samePointerness && newSizeClass == oldSizeClass) {
+				auto si = SlabAllocInfo(pd, ptr);
+				if (!si.allowsMetadata || si.setUsedCapacity(size)) {
+					return ptr;
+				}
 			}
 
 			if (newSizeClass > oldSizeClass) {

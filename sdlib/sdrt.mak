@@ -1,3 +1,4 @@
+LIBSDRT_D_SRC = $(wildcard sdlib/d/*.d)
 LIBSDRT_GC_SRC = $(wildcard sdlib/d/gc/*.d)
 LIBSDRT_RT_SRC = $(wildcard sdlib/d/rt/*.d)
 LIBSDRT_STDC_SRC = $(wildcard sdlib/core/stdc/*.d)
@@ -14,7 +15,7 @@ LIBSDRT_OSX_OBJ = $(LIBSDRT_OSX_OBJ_C) $(LIBSDRT_OSX_OBJ_D)
 LIBSDRT_X64_SRC = $(wildcard sdlib/sys/x64/*.asm)
 LIBSDRT_X64_OBJ = $(LIBSDRT_X64_SRC:sdlib/sys/x64/%.asm=obj/x64/%.o)
 
-LIBSDRT_DEPS = obj/object.o obj/sdlib/gc.o obj/sdlib/rt.o \
+LIBSDRT_DEPS = obj/object.o obj/sdlib/d.o obj/sdlib/gc.o obj/sdlib/rt.o \
 	obj/sdlib/stdc.o obj/sdlib/sync.o $(LIBSDRT_X64_OBJ)
 
 ifeq ($(PLATFORM),Linux)
@@ -33,6 +34,10 @@ LIBSDRT_IMPORTS = -Isdlib
 obj/object.o: sdlib/object.d $(SDLIB_DEPS)
 	@mkdir -p obj
 	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
+obj/sdlib/d.o: $(LIBSDRT_D_SRC) $(SDLIB_DEPS)
+	@mkdir -p obj/sdlib
+	$(SDC) -c -o $@ $(LIBSDRT_D_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
 obj/sdlib/gc.o: $(LIBSDRT_GC_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/sdlib
