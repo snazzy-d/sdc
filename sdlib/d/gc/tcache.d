@@ -16,6 +16,107 @@ private:
 	const(void)* stackBottom;
 	const(void*)[][] roots;
 
+	//// Cache for Slab Allocs
+	struct SmallAllocCache {
+	private:
+		alias Entry = void*;
+		enum BinCount = ClassCount.Small;
+		enum CacheEntries = 4;
+		enum BinEntries = CacheEntries * 2;
+		enum LowWaterMark = 1;
+		enum HighWaterMark = CacheEntries;
+		enum Ceiling = BinEntries - 1;
+
+		struct CacheBin {
+		private:
+			uint top = 0;
+			uint bottom = 0;
+			Entry[BinEntries] entries;
+
+			void push(Entry ptr) {
+				assert(entryCount < CacheEntries, "No room to push() !");
+				assert(top < Ceiling, "No room to push()!");
+
+				entries[++top] = ptr;
+			}
+
+			Entry pop() {
+				assert(entryCount > 0, "No entry to pop() !");
+
+				auto entry = entries[bottom];
+				assert(entry !is null, "Pop() got a null!");
+
+				entries[bottom++] = null;
+				return entry;
+			}
+
+			@property
+			uint entryCount() {
+				assert(top >= bottom, "Top is below bottom!");
+
+				return top - bottom;
+			}
+
+		public:
+			@property
+			bool needRefill() {
+				return entryCount <= LowWaterMark;
+			}
+
+			@property
+			bool needFlush() {
+				return entryCount >= HighWaterMark;
+			}
+
+			void refill() {}
+
+			void flush() {}
+
+			Entry alloc() {
+				if (needRefill) {
+					refill();
+					assert(!needRefill, "Cache did not refill!");
+				}
+
+				return pop();
+			}
+
+			void free(Entry ptr) {
+				if (needFlush) {
+					flush();
+					assert(!needFlush, "Cache did not flush!");
+				}
+
+				push(ptr);
+			}
+		}
+
+		CacheBin[2][BinCount] _bins;
+
+		ref CacheBin getBin(size_t sizeClass, bool containsPointers) {
+			assert(isSmallSize(sizeClass), "Invalid size class!");
+
+			return _bins[containsPointers][sizeClass];
+		}
+
+	public:
+		Entry alloc(size_t size, bool containsPointers) {
+			auto sizeClass = getSizeClass(size);
+			assert(isSmallSize(sizeClass), "Invalid size class!");
+
+			return getBin(sizeClass, containsPointers).alloc();
+		}
+
+		void free(PageDescriptor pd, void* ptr) {
+			auto sizeClass = pd.sizeClass;
+			assert(isSmallSize(sizeClass), "Invalid size class!");
+
+			getBin(sizeClass, pd.containsPointers).free(ptr);
+		}
+	}
+
+	SmallAllocCache _smallAllocCache;
+
 public:
 	void* alloc(size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
