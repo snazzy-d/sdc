@@ -32,6 +32,10 @@ public:
 
 	void* allocAppendable(size_t size, bool containsPointers,
 	                      Finalizer finalizer = null) {
+		if (!isAllocatableSize(size)) {
+			return null;
+		}
+
 		auto reservedBytes = finalizer is null ? 0 : PointerSize;
 		auto asize = getAllocSize(alignUp(size + reservedBytes, 2 * Quantum));
 		assert(sizeClassSupportsMetadata(getSizeClass(asize)),
@@ -435,6 +439,16 @@ unittest makeRange {
 	checkRange(ptr[1 .. 6], 0, 0);
 	checkRange(ptr[1 .. 7], 0, 0);
 	checkRange(ptr[1 .. 8], 8, 8);
+}
+
+unittest nonAllocatableSizes {
+	// Prohibited sizes of allocations
+	assert(threadCache.alloc(0, false) == null);
+	assert(threadCache.alloc(MaxAllocationSize + 1, false) == null);
+	assert(threadCache.calloc(0, false) == null);
+	assert(threadCache.calloc(MaxAllocationSize + 1, false) == null);
+	assert(threadCache.allocAppendable(0, false) == null);
+	assert(threadCache.allocAppendable(MaxAllocationSize + 1, false) == null);
 }
 
 unittest getCapacity {
