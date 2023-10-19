@@ -59,7 +59,7 @@ public:
 
 	@property
 	size_t slotCapacity() {
-		return sg.size;
+		return sg.size - (finalizerEnabled ? PointerSize : 0);
 	}
 
 	@property
@@ -76,6 +76,47 @@ public:
 		return true;
 	}
 
+	@property
+	Finalizer finalizer() {
+		if (!finalizerEnabled) {
+			return null;
+		}
+
+		return cast(Finalizer) cast(void*) (*finalizerPtr & AddressMask);
+	}
+
+	void initializeMetadata(Finalizer initialFinalizer,
+	                        size_t initialUsedCapacity) {
+		assert(isLittleEndian(), "Currently does not work on big-endian!");
+		assert(_allowsMetadata, "size class not supports slab metadata!");
+
+		bool hasFinalizer = initialFinalizer !is null;
+		assert(
+			initialUsedCapacity <= sg.size - (hasFinalizer ? PointerSize : 0),
+			"Insufficient alloc capacity!"
+		);
+
+		auto finalizerValue = cast(size_t) cast(void*) initialFinalizer;
+		assert((finalizerValue & AddressMask) == finalizerValue,
+		       "New finalizer pointer is invalid!");
+
+		auto freeSpaceValue = sg.size - initialUsedCapacity;
+		bool isLarge = freeSpaceValue > 0x3f;
+		auto finalizerSet = hasFinalizer << 1;
+		ushort native =
+			(freeSpaceValue << 2 | isLarge | finalizerSet) & ushort.max;
+
+		auto newMetadata = nativeToBigEndian!size_t(native);
+
+		// TODO: Currently only works on little-endian!!!
+		// On a big-endian machine, the unused high 16 bits of a pointer will be
+		// found at the start, rather than end, of the memory that it occupies,
+		// and the freespace (newMetadata) will collide with the finalizer.
+		*finalizerPtr = newMetadata | finalizerValue;
+		e.enableMetadata(sg.index);
+		_hasMetadata = true;
+	}
+
 private:
 	@property
 	size_t freeSpace() {
@@ -87,30 +128,39 @@ private:
 		assert(size <= sg.size, "size exceeds alloc size!");
 
 		if (size == 0) {
-			disableMetadata();
+			if (_hasMetadata) {
+				e.disableMetadata(sg.index);
+				_hasMetadata = false;
+			}
+
 			return;
 		}
 
 		writePackedFreeSpace(freeSpacePtr, size);
-		enableMetadata();
-	}
-
-	void enableMetadata() {
-		assert(_allowsMetadata, "size class not supports slab metadata!");
-
 		if (!_hasMetadata) {
 			e.enableMetadata(sg.index);
 			_hasMetadata = true;
 		}
 	}
 
-	void disableMetadata() {
-		assert(_allowsMetadata, "size class not supports slab metadata!");
+	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
 
-		if (_hasMetadata) {
-			e.disableMetadata(sg.index);
-			_hasMetadata = false;
-		}
+	@property
+	bool finalizerEnabled() {
+		// Right now we fetch hasMetadata eagerly, but the FinalizerBit check
+		// is cheaper. But it may be worthwhile to return early if FinalizerBit
+		// is clear, i.e. to snoop the extent's metadata lazily. The reasons:
+		// 1) If the slot is not full, the bit at the FinalizerBit position
+		//    is most likely 0.
+		// 2) If it has metadata, usually it won't have a finalizer: still 0.
+		// 3) If the metadata space contains an aligned pointer, the last byte
+		//    will be the MSB of that pointer, which will always be 0.
+		// 4) If the space contains a number, its MSB will likely be zero,
+		//    as most numbers are small.
+		// 5) If there is something else in there, that is not heavily biased
+		//    (float, random/compressed data) then we're still at 50/50.
+		// We should expect to find a zero in there the VAST majority of the time.
+		return hasMetadata && (*finalizerPtr & FinalizerBit);
 	}
 
 	@property
@@ -119,6 +169,7 @@ private:
 	}
 
 	alias freeSpacePtr = ptrToAllocEnd!ushort;
+	alias finalizerPtr = ptrToAllocEnd!size_t;
 }
 
 unittest SlabAllocInfo {
@@ -159,6 +210,10 @@ unittest SlabAllocInfo {
 		}
 	}
 
+	// Finalizers
+	static void destruct_a(void* ptr, size_t size) {}
+	static void destruct_b(void* ptr, size_t size) {}
+
 	// When metadata is supported by the size class (not exhaustive) :
 	foreach (size;
 		[15, 16, 300, 320, 1000, 1024, MaxSmallSize - 1, MaxSmallSize]
@@ -184,6 +239,27 @@ unittest SlabAllocInfo {
 				assert(si.freeSpace == i);
 				assert(si.hasMetadata == (i > 0));
 				assert(si.usedCapacity == si.slotCapacity - i);
+			}
+
+			// Test finalizers:
+			auto regularSlotCapacity = si.slotCapacity;
+			auto finalizedSlotCapacity = regularSlotCapacity - PointerSize;
+
+			foreach (size_t i; 0 .. finalizedSlotCapacity + 1) {
+				// Without finalizer:
+				si.initializeMetadata(null, i);
+				assert(si.usedCapacity == i);
+				assert(si.slotCapacity == regularSlotCapacity);
+				assert(cast(void*) si.finalizer == null);
+				// With finalizer:
+				si.initializeMetadata(&destruct_a, i);
+				assert(si.usedCapacity == i);
+				assert(si.slotCapacity == finalizedSlotCapacity);
+				assert(cast(void*) si.finalizer == cast(void*) &destruct_a);
+				si.initializeMetadata(&destruct_b, i);
+				assert(si.usedCapacity == i);
+				assert(si.slotCapacity == finalizedSlotCapacity);
+				assert(cast(void*) si.finalizer == cast(void*) &destruct_b);
 			}
 		}
 	}
