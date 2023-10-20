@@ -76,6 +76,10 @@ public:
 		return true;
 	}
 
+	void clearMetadata() {
+		setFreeSpace(0);
+	}
+
 	@property
 	Finalizer finalizer() {
 		if (!finalizerEnabled) {

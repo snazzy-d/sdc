@@ -16,106 +16,7 @@ private:
 	const(void)* stackBottom;
 	const(void*)[][] roots;
 
-	//// Cache for Slab Allocs
-	struct SmallAllocCache {
-	private:
-		alias Entry = void*;
-		enum BinCount = ClassCount.Small;
-		enum CacheEntries = 4;
-		enum BinEntries = CacheEntries * 2;
-		enum LowWaterMark = 1;
-		enum HighWaterMark = CacheEntries;
-		enum Ceiling = BinEntries - 1;
-
-		struct CacheBin {
-		private:
-			uint top = 0;
-			uint bottom = 0;
-			Entry[BinEntries] entries;
-
-			void push(Entry ptr) {
-				assert(entryCount < CacheEntries, "No room to push() !");
-				assert(top < Ceiling, "No room to push()!");
-
-				entries[++top] = ptr;
-			}
-
-			Entry pop() {
-				assert(entryCount > 0, "No entry to pop() !");
-
-				auto entry = entries[bottom];
-				assert(entry !is null, "Pop() got a null!");
-
-				entries[bottom++] = null;
-				return entry;
-			}
-
-			@property
-			uint entryCount() {
-				assert(top >= bottom, "Top is below bottom!");
-
-				return top - bottom;
-			}
-
-		public:
-			@property
-			bool needRefill() {
-				return entryCount <= LowWaterMark;
-			}
-
-			@property
-			bool needFlush() {
-				return entryCount >= HighWaterMark;
-			}
-
-			void refill() {}
-
-			void flush() {}
-
-			Entry alloc() {
-				if (needRefill) {
-					refill();
-					assert(!needRefill, "Cache did not refill!");
-				}
-
-				return pop();
-			}
-
-			void free(Entry ptr) {
-				if (needFlush) {
-					flush();
-					assert(!needFlush, "Cache did not flush!");
-				}
-
-				push(ptr);
-			}
-		}
-
-		CacheBin[2][BinCount] _bins;
-
-		ref CacheBin getBin(size_t sizeClass, bool containsPointers) {
-			assert(isSmallSize(sizeClass), "Invalid size class!");
-
-			return _bins[containsPointers][sizeClass];
-		}
-
-	public:
-		Entry alloc(size_t size, bool containsPointers) {
-			auto sizeClass = getSizeClass(size);
-			assert(isSmallSize(sizeClass), "Invalid size class!");
-
-			return getBin(sizeClass, containsPointers).alloc();
-		}
-
-		void free(PageDescriptor pd, void* ptr) {
-			auto sizeClass = pd.sizeClass;
-			assert(isSmallSize(sizeClass), "Invalid size class!");
-
-			getBin(sizeClass, pd.containsPointers).free(ptr);
-		}
-	}
-
-	SmallAllocCache _smallAllocCache;
+	SmallAllocCache[2] TLC;
 
 public:
 	void* alloc(size_t size, bool containsPointers) {
@@ -127,13 +28,18 @@ public:
 
 		auto arena = chooseArena(containsPointers);
 		return isSmallSize(size)
-			? arena.allocSmall(emap, size)
+			? TLC[containsPointers].getSlot(arena, emap, size)
 			: arena.allocLarge(emap, size, false);
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers,
 	                      Finalizer finalizer = null) {
-		auto asize = getAllocSize(alignUp(size, 2 * Quantum));
+		if (!isAllocatableSize(size)) {
+			return null;
+		}
+
+		auto reservedBytes = finalizer is null ? 0 : PointerSize;
+		auto asize = getAllocSize(alignUp(size + reservedBytes, 2 * Quantum));
 		assert(sizeClassSupportsMetadata(getSizeClass(asize)),
 		       "allocAppendable got size class without metadata support!");
 
@@ -141,15 +47,14 @@ public:
 
 		auto arena = chooseArena(containsPointers);
 		if (isSmallSize(asize)) {
-			auto ptr = arena.allocSmall(emap, asize);
+			auto ptr = TLC[containsPointers].getSlot(arena, emap, asize);
 			auto pd = getPageDescriptor(ptr);
 			auto si = SlabAllocInfo(pd, ptr);
-			si.setUsedCapacity(size);
-			assert(finalizer is null, "finalizer not yet supported for slab!");
+			si.initializeMetadata(finalizer, size);
 			return ptr;
 		}
 
-		auto ptr = arena.allocLarge(emap, asize, false);
+		auto ptr = arena.allocLarge(emap, size, false);
 		auto pd = getPageDescriptor(ptr);
 		auto e = pd.extent;
 		e.setUsedCapacity(size);
@@ -169,7 +74,7 @@ public:
 			return arena.allocLarge(emap, size, true);
 		}
 
-		auto ret = arena.allocSmall(emap, size);
+		auto ret = TLC[containsPointers].getSlot(arena, emap, size);
 		memset(ret, 0, size);
 		return ret;
 	}
@@ -180,6 +85,14 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
+
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			si.clearMetadata();
+			TLC[pd.containsPointers].internSlot(emap, pd, ptr);
+			return;
+		}
+
 		pd.arena.free(emap, pd, ptr);
 	}
 
@@ -189,10 +102,24 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-
 		auto e = pd.extent;
-		// Slab is not yet supported
-		if (e !is null && !pd.isSlab() && e.finalizer !is null) {
+
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			auto finalizer = si.finalizer;
+			assert(cast(void*) si.address == ptr,
+			       "destroy() was invoked on an interior pointer!");
+
+			if (finalizer !is null) {
+				finalizer(ptr, si.usedCapacity);
+			}
+
+			si.clearMetadata();
+			TLC[pd.containsPointers].internSlot(emap, pd, ptr);
+			return;
+		}
+
+		if (e.finalizer !is null) {
 			e.finalizer(ptr, e.usedCapacity);
 		}
 
@@ -222,8 +149,9 @@ public:
 			auto oldSizeClass = pd.sizeClass;
 			if (samePointerness && newSizeClass == oldSizeClass) {
 				auto si = SlabAllocInfo(pd, ptr);
-				si.setUsedCapacity(size);
-				return ptr;
+				if (!si.allowsMetadata || si.setUsedCapacity(size)) {
+					return ptr;
+				}
 			}
 
 			if (newSizeClass > oldSizeClass) {
@@ -253,7 +181,7 @@ public:
 		}
 
 		memcpy(newPtr, ptr, copySize);
-		pd.arena.free(emap, pd, ptr);
+		free(ptr);
 
 		return newPtr;
 	}
@@ -464,6 +392,71 @@ private:
 		import d.gc.arena;
 		return Arena.getOrInitialize((cpuid << 1) | containsPointers);
 	}
+
+	/**
+	 * GC Allocation Cache.
+	 */
+
+	struct SmallAllocCache {
+	private:
+		enum CacheEntries = 4;
+
+		import d.gc.dequeue;
+		alias CacheBin = DEQueue!(void*, CacheEntries);
+		CacheBin[ClassCount.Small] _bins;
+
+	public:
+		import d.gc.arena;
+
+		void* getSlot(shared(Arena)* arena, shared(ExtentMap)* _emap,
+		              size_t size) {
+			auto sc = getSizeClass(size);
+			assert(isSmallSizeClass(sc), "Size class is not small!");
+			auto bin = &_bins[sc];
+
+			if (bin.empty) {
+				auto slotsBuffer = bin.buffer[0 .. CacheEntries];
+				auto gotSlots = arena.allocSmall(_emap, size, slotsBuffer);
+
+				if (gotSlots == 0) {
+					return null;
+				}
+
+				bin.pushBackAdvance(gotSlots);
+			}
+
+			return bin.popFront();
+		}
+
+		void internSlot(shared(ExtentMap)* _emap, PageDescriptor pd,
+		                void* ptr) {
+			assert(ptr !is null, "Tried to intern a null pointer!");
+			auto sc = pd.sizeClass;
+			assert(isSmallSizeClass(sc), "Tried to intern non-small alloc!");
+			auto bin = &_bins[sc];
+
+			if (bin.full) {
+				// TODO: sort by quality and evict entry on least occupied slab
+				auto evictedEntry = bin.popBack();
+				assert(evictedEntry !is null, "Got a null from the cache!");
+
+				auto entryPd = getPD(_emap, ptr);
+				entryPd.arena.free(_emap, entryPd, evictedEntry);
+			}
+
+			bin.pushFront(ptr);
+		}
+
+	private:
+		// TODO: possibly cache PD in the bin?
+		PageDescriptor getPD(shared(ExtentMap)* _emap, void* ptr) {
+			import d.gc.util;
+			auto aptr = alignDown(ptr, PageSize);
+			auto pd = _emap.lookup(aptr);
+			assert(pd.isSlab(), "Was in the cache, but is not a slab alloc!");
+			return pd;
+		}
+	}
 }
 
 private:
@@ -525,6 +518,16 @@ unittest makeRange {
 	checkRange(ptr[1 .. 6], 0, 0);
 	checkRange(ptr[1 .. 7], 0, 0);
 	checkRange(ptr[1 .. 8], 8, 8);
+}
+
+unittest nonAllocatableSizes {
+	// Prohibited sizes of allocations
+	assert(threadCache.alloc(0, false) == null);
+	assert(threadCache.alloc(MaxAllocationSize + 1, false) == null);
+	assert(threadCache.calloc(0, false) == null);
+	assert(threadCache.calloc(MaxAllocationSize + 1, false) == null);
+	assert(threadCache.allocAppendable(0, false) == null);
+	assert(threadCache.allocAppendable(MaxAllocationSize + 1, false) == null);
 }
 
 unittest getCapacity {
@@ -920,5 +923,34 @@ unittest finalization {
 	auto s1 = threadCache.allocAppendable(20000, false);
 	auto oldDestroyCount = destroyCount;
 	threadCache.destroy(s1);
+	assert(destroyCount == oldDestroyCount);
+
+	// Finalizers for small allocs:
+	auto s2 = threadCache.allocAppendable(45, false, &destruct);
+	assert(threadCache.getCapacity(s2[0 .. 45]) == 56);
+	assert(!threadCache.extend(s2[0 .. 45], 12));
+	assert(threadCache.extend(s2[0 .. 45], 11));
+	assert(threadCache.getCapacity(s2[0 .. 56]) == 56);
+	threadCache.destroy(s2);
+	assert(lastKilledAddress == s2);
+	assert(lastKilledUsedCapacity == 56);
+
+	// Behaviour of realloc() on small allocs with finalizers:
+	auto s3 = threadCache.allocAppendable(70, false, &destruct);
+	assert(threadCache.getCapacity(s3[0 .. 70]) == 72);
+	auto s4 = threadCache.realloc(s3, 70, false);
+	assert(s3 == s4);
+
+	// This is in the same size class, but will not work in-place
+	// given as finalizer occupies final 8 of the 80 bytes in the slot:
+	auto s5 = threadCache.realloc(s4, 75, false);
+	assert(s5 != s4);
+
+	// So we end up with a new alloc, without metadata:
+	assert(threadCache.getCapacity(s5[0 .. 80]) == 80);
+
+	// And the finalizer has been discarded:
+	oldDestroyCount = destroyCount;
+	threadCache.destroy(s5);
 	assert(destroyCount == oldDestroyCount);
 }
