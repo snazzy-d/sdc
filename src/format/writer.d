@@ -7,7 +7,7 @@ import std.container.rbtree;
 
 string write(Chunk[] chunks, Config config) {
 	auto context = Context(config, null);
-	auto w = Writer(BlockSpecifier(chunks, LinePrefix(0, 0)), &context);
+	auto w = BlockWriter(BlockSpecifier(chunks, LinePrefix(0, 0)), &context);
 	w.write();
 
 	// Add a new line at the end of the output
@@ -22,41 +22,6 @@ string write(Chunk[] chunks, Config config) {
 
 package:
 
-struct LinePrefix {
-	uint indent;
-	uint offset;
-
-	size_t toHash() const @safe nothrow {
-		return indent * 0x9e3779b97f4a7c15 + offset + 0xbf4600628f7c64f5;
-	}
-}
-
-struct BlockSpecifier {
-	Chunk[] chunks;
-	LinePrefix prefix;
-
-	this(Chunk[] chunks, LinePrefix prefix) {
-		this.chunks = chunks;
-		this.prefix = prefix;
-	}
-
-	bool opEquals(const ref BlockSpecifier rhs) const {
-		return chunks is rhs.chunks && prefix == rhs.prefix;
-	}
-
-	size_t toHash() const @safe nothrow {
-		size_t h = cast(size_t) chunks.ptr;
-
-		h ^= (h >>> 33);
-		h *= 0xff51afd7ed558ccd;
-		h += chunks.length;
-		h ^= (h >>> 33);
-		h *= 0xc4ceb9fe1a85ec53;
-
-		return h + prefix.toHash();
-	}
-}
-
 struct FormatResult {
 	uint cost;
 	uint overflow;
@@ -68,56 +33,30 @@ struct Context {
 	FormatResult[BlockSpecifier] cache;
 }
 
-struct Writer {
+struct LinePrefix {
+	uint indent;
+	uint offset;
+
+	size_t toHash() const @safe nothrow {
+		return indent * 0x9e3779b97f4a7c15 + offset + 0xbf4600628f7c64f5;
+	}
+}
+
+struct BaseWriter {
 	Context* context;
 	alias context this;
 
 	uint cost;
 	uint overflow;
 
-	Chunk[] chunks;
 	LinePrefix prefix;
 
 	import std.array;
 	Appender!string buffer;
 
-	this(BlockSpecifier block, Context* context) in(context !is null) {
-		chunks = block.chunks;
-		prefix = block.prefix;
-
-		this.context = context;
-	}
-
-	FormatResult write() {
-		if (chunks.length == 0) {
-			return FormatResult(0, 0, "");
-		}
-
-		cost = 0;
-		overflow = 0;
-
-		import std.array;
-		buffer = appender!string();
-
-		size_t start = 0;
-		foreach (i, ref c; chunks) {
-			if (i == 0 || !c.startsUnwrappedLine) {
-				continue;
-			}
-
-			LineWriter(&this, chunks[start .. i]).write();
-			start = i;
-		}
-
-		// Make sure we write the last line too.
-		LineWriter(&this, chunks[start .. $]).write();
-
-		return FormatResult(cost, overflow, buffer.data);
-	}
-
 	FormatResult formatBlock(Chunk[] chunks, LinePrefix prefix) {
 		auto block = BlockSpecifier(chunks, prefix);
-		return cache.require(block, Writer(block, context).write());
+		return cache.require(block, BlockWriter(block, context).write());
 	}
 
 	void output(char c) {
@@ -147,15 +86,82 @@ struct Writer {
 	}
 }
 
+struct BlockSpecifier {
+	Chunk[] chunks;
+	LinePrefix prefix;
+
+	this(Chunk[] chunks, LinePrefix prefix) {
+		this.chunks = chunks;
+		this.prefix = prefix;
+	}
+
+	bool opEquals(const ref BlockSpecifier rhs) const {
+		return chunks is rhs.chunks && prefix == rhs.prefix;
+	}
+
+	size_t toHash() const @safe nothrow {
+		size_t h = cast(size_t) chunks.ptr;
+
+		h ^= (h >>> 33);
+		h *= 0xff51afd7ed558ccd;
+		h += chunks.length;
+		h ^= (h >>> 33);
+		h *= 0xc4ceb9fe1a85ec53;
+
+		return h + prefix.toHash();
+	}
+}
+
+struct BlockWriter {
+	BaseWriter base;
+	alias base this;
+
+	Chunk[] chunks;
+
+	this(BlockSpecifier block, Context* context) in(context !is null) {
+		this.chunks = block.chunks;
+
+		base.prefix = block.prefix;
+		base.context = context;
+	}
+
+	FormatResult write() {
+		if (chunks.length == 0) {
+			return FormatResult(0, 0, "");
+		}
+
+		cost = 0;
+		overflow = 0;
+
+		import std.array;
+		buffer = appender!string();
+
+		size_t start = 0;
+		foreach (i, ref c; chunks) {
+			if (i == 0 || !c.startsUnwrappedLine) {
+				continue;
+			}
+
+			LineWriter(&base, chunks[start .. i]).write();
+			start = i;
+		}
+
+		// Make sure we write the last line too.
+		LineWriter(&base, chunks[start .. $]).write();
+
+		return FormatResult(cost, overflow, buffer.data);
+	}
+}
+
 enum MAX_ATTEMPT = 5000;
 
 struct LineWriter {
-	Writer* writer;
+	BaseWriter* writer;
 	alias writer this;
 
 	Chunk[] line;
 
-	this(Writer* writer, Chunk[] line)
+	this(BaseWriter* writer, Chunk[] line)
 			in(line.length > 0, "line must not be empty") {
 		this.writer = writer;
 		this.line = line;
@@ -458,7 +464,7 @@ struct SolveState {
 		computeCost(lineWriter.line, lineWriter.writer);
 	}
 
-	void computeCost(Chunk[] line, Writer* writer) {
+	void computeCost(Chunk[] line, BaseWriter* writer) {
 		cost = 0;
 		overflow = 0;
 		sunk = 0;
