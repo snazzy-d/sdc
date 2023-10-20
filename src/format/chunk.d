@@ -36,10 +36,6 @@ private:
 		// Each unwrapped line can be formatted completely
 		// independently of other unwrapped lines.
 		bool, "_startsUnwrappedLine", 1,
-		// This marks the boundary between regions.
-		// The effect of formatting rtules are bounded by region
-		// so the writer can use this to detect redundant paths.
-		bool, "_startsRegion", 1,
 		// The length of the line in graphemes.
 		uint, "_length", 16,
 		// sdfmt on
@@ -97,11 +93,6 @@ public:
 	@property
 	bool startsUnwrappedLine() const {
 		return _startsUnwrappedLine;
-	}
-
-	@property
-	bool startsRegion() const {
-		return _startsRegion;
 	}
 
 	@property
@@ -189,32 +180,24 @@ public:
 		foreach (i, ref c; source) {
 			auto top = c.span.getTop();
 
-			// If we have a new set of spans, then we have a new region.
-			c._startsRegion = top is null || top !is previousTop;
-
-			// Bucket brigade.
-			previousTop = top;
-
 			size_t indexInLine = i - start;
 
 			scope(success) {
+				previousTop = top;
+
 				// Run fixups that the parser may have registered.
 				while (fi < fixups.length && fixups[fi].index == i) {
 					fixups[fi++].fix(c, i - start, indexInLine);
 				}
 			}
 
-			// If this is not a new region, this is not an unwrapped line break.
-			if (!c.startsRegion) {
+			// If we have a span, this is not an unwrapped line break.
+			if (top !is null) {
 				continue;
 			}
 
 			// If this is glued, this is not an unwrapped line break.
 			if (c.glued) {
-				continue;
-			}
-
-			if (top !is null) {
 				continue;
 			}
 

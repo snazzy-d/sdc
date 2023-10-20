@@ -478,7 +478,6 @@ struct SolveState {
 		uint length = 0;
 		uint previousColumn = 0;
 		Span previousSpan = null;
-		size_t regionStart = 0;
 
 		const indentationSize = writer.config.indentationSize;
 		const pageWidth = writer.config.pageWidth;
@@ -486,10 +485,6 @@ struct SolveState {
 		foreach (i, ref c; line) {
 			uint lineLength = 0;
 			uint column = 0;
-
-			if (c.startsRegion) {
-				regionStart = i;
-			}
 
 			if (c.kind == ChunkKind.Block) {
 				auto f = writer.formatBlock(c.chunks, getLinePrefix(line, i));
