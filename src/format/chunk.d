@@ -182,8 +182,6 @@ public:
 			assert(fi == fixups.length);
 		}
 
-		Span previousTop = null;
-
 		foreach (i, ref c; source) {
 			if (i == 0) {
 				c._startsBlock = true;
@@ -194,8 +192,6 @@ public:
 			size_t indexInLine = i - start;
 
 			scope(success) {
-				previousTop = top;
-
 				// Run fixups that the parser may have registered.
 				while (fi < fixups.length && fixups[fi].index == i) {
 					fixups[fi++].fix(c, i - start, indexInLine);
