@@ -173,7 +173,7 @@ struct LineWriter {
 	void writeLine(SolveState state) {
 		foreach (i, c; line) {
 			uint lineCount = 0;
-			if (i > 0 || line.ptr !is chunks.ptr) {
+			if (i > 0 || !c.startsBlock) {
 				assert(i == 0 || !c.startsUnwrappedLine, "Line splitting bug");
 				lineCount = state.newLineCount(line, i);
 			}

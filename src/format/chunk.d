@@ -36,6 +36,8 @@ private:
 		// Each unwrapped line can be formatted completely
 		// independently of other unwrapped lines.
 		bool, "_startsUnwrappedLine", 1,
+		// This marks the start of a block of code.
+		bool, "_startsBlock", 1,
 		// The length of the line in graphemes.
 		uint, "_length", 16,
 		// sdfmt on
@@ -93,6 +95,11 @@ public:
 	@property
 	bool startsUnwrappedLine() const {
 		return _startsUnwrappedLine;
+	}
+
+	@property
+	bool startsBlock() const {
+		return _startsBlock;
 	}
 
 	@property
@@ -178,6 +185,10 @@ public:
 		Span previousTop = null;
 
 		foreach (i, ref c; source) {
+			if (i == 0) {
+				c._startsBlock = true;
+			}
+
 			auto top = c.span.getTop();
 
 			size_t indexInLine = i - start;
