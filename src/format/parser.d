@@ -3015,6 +3015,7 @@ private:
 			space();
 			nextToken();
 			parseList!parseEnumEntry(TokenType.CloseBrace, true);
+			newline(2);
 		}
 
 		return true;
@@ -3142,10 +3143,6 @@ private:
 			});
 
 			nextToken();
-		}
-
-		if (addNewLines) {
-			newline(2);
 		}
 	}
 
