@@ -3,6 +3,7 @@ module format.chunk;
 enum ChunkKind {
 	Text,
 	Block,
+	List,
 }
 
 enum Separator {
@@ -38,12 +39,18 @@ private:
 		bool, "_startsUnwrappedLine", 1,
 		// This marks the start of a block of code.
 		bool, "_startsBlock", 1,
+		// This indicate if the list is compact. A list is
+		// compact when its element cannot be split.
+		bool, "_compactList", 1,
 		// The length of the line in graphemes.
 		uint, "_length", 16,
 		// sdfmt on
 	);
 
-	enum Pad = ulong.sizeof * 8 - SizeOfBitField!FieldsTuple;
+	enum AvailableSize = ulong.sizeof * 8;
+	static assert(SizeOfBitField!FieldsTuple <= AvailableSize,
+	              "Bitfield doesn't fit in!");
+	enum Pad = AvailableSize - SizeOfBitField!FieldsTuple;
 
 	import std.bitmanip;
 	mixin(bitfields!(FieldsTuple, ulong, "", Pad));
@@ -54,6 +61,7 @@ private:
 	union {
 		string _text;
 		Chunk[] _chunks;
+		Chunk[][] _elements;
 	}
 
 public:
@@ -103,6 +111,11 @@ public:
 	}
 
 	@property
+	bool compact() const in(kind == ChunkKind.List) {
+		return _compactList;
+	}
+
+	@property
 	uint indentation() const {
 		return _indentation;
 	}
@@ -123,7 +136,16 @@ public:
 
 	@property
 	bool empty() const {
-		return kind ? chunks.length == 0 : text.length == 0;
+		final switch (kind) with (ChunkKind) {
+			case Text:
+				return text.length == 0;
+
+			case Block:
+				return chunks.length == 0;
+
+			case List:
+				return elements.length == 0;
+		}
 	}
 
 	@property
@@ -134,6 +156,11 @@ public:
 	@property
 	ref inout(Chunk[]) chunks() inout in(kind == ChunkKind.Block) {
 		return _chunks;
+	}
+
+	@property
+	ref inout(Chunk[][]) elements() inout in(kind == ChunkKind.List) {
+		return _elements;
 	}
 
 	string toString() const {
@@ -485,6 +512,64 @@ public:
 		auto guard = Guard(&this, this, args);
 
 		// Get ready to build the block.
+		this = Builder();
+
+		return guard;
+	}
+
+	/**
+	 * List management.
+	 */
+	auto list() {
+		// We delegate indentation to the list itself.
+		emitPendingSeparator();
+
+		// We delegate indentation to the list itself.
+		split(true, true, true);
+
+		static struct Guard {
+			void next() {
+				auto item = builder.build();
+				*builder = Builder();
+
+				if (item.length > 0) {
+					elements ~= item;
+					if (compact) {
+						compact = isCompact(item);
+					}
+				}
+			}
+
+			~this() {
+				next();
+
+				auto chunk = outerBuilder.chunk;
+				chunk._kind = ChunkKind.List;
+				chunk.elements ~= elements;
+				chunk._compactList = compact;
+
+				// Restore the outer builder.
+				*builder = outerBuilder;
+				builder.chunk = chunk;
+
+				builder.split(false, true);
+			}
+
+		private:
+			Builder* builder;
+			Builder outerBuilder;
+
+			Chunk[][] elements;
+			bool compact = true;
+
+			bool isCompact(Chunk[] chunks) {
+				return chunks.length <= 1;
+			}
+		}
+
+		auto guard = Guard(&this, this);
+
+		// Get ready to build the list.
 		this = Builder();
 
 		return guard;

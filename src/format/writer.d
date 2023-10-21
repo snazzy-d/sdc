@@ -59,6 +59,10 @@ struct BaseWriter {
 		return cache.require(block, BlockWriter(block, context).write());
 	}
 
+	FormatResult formatList(Chunk[][] elements, LinePrefix prefix) {
+		assert(0, "List formatting is not implemented!");
+	}
+
 	void output(char c) {
 		buffer ~= c;
 	}
@@ -198,15 +202,21 @@ struct LineWriter {
 				output(' ');
 			}
 
+			FormatResult f;
 			final switch (c.kind) with (ChunkKind) {
 				case Text:
 					output(c.text);
 					break;
 
 				case Block:
-					auto f =
-						formatBlock(c.chunks, state.getLinePrefix(line, i));
+					f = formatBlock(c.chunks, state.getLinePrefix(line, i));
+					goto HandleFormatResult;
 
+				case List:
+					f = formatList(c.elements, state.getLinePrefix(line, i));
+					goto HandleFormatResult;
+
+				HandleFormatResult:
 					cost += f.cost;
 					overflow += f.overflow;
 
