@@ -379,7 +379,11 @@ struct JitRepacker {
 
 		CompileTimeExpression[] elements;
 
-		foreach (uint i, f; s.fields) {
+		static if (uint.max < size_t.max)
+			assert(s.fields.length <= uint.max);
+		foreach (size_t idx, f; s.fields) {
+			auto i = cast(uint) idx;
+
 			assert(f.index == i, "fields are out of order");
 			auto t = f.type;
 

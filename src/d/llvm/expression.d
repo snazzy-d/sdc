@@ -439,7 +439,10 @@ struct ExpressionGen {
 
 		auto dg = LLVMGetUndef(TypeGen(pass.pass).visit(type));
 
-		foreach (uint i, c; eCtxs) {
+		static if (uint.max < size_t.max)
+			assert(eCtxs.length <= uint.max);
+		foreach (size_t idx, c; eCtxs) {
+			auto i = cast(uint) idx;
 			auto ctxValue = tCtxs[i].isRef ? addressOf(c) : visit(c);
 			dg = LLVMBuildInsertValue(builder, dg, ctxValue, i, "");
 		}
