@@ -95,13 +95,16 @@ class Module : Declaration {
 
 	Declaration[] declarations;
 
+	Location locationStatement;
+
 	this(Location location, Name name, Name[] packages,
-	     Declaration[] declarations) {
+	     Declaration[] declarations, Location locationStatement) {
 		super(location);
 
 		this.name = name;
 		this.packages = packages;
 		this.declarations = declarations;
+		this.locationStatement = locationStatement;
 	}
 }
 
