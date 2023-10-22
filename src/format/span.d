@@ -330,10 +330,9 @@ final class ListSpan : Span {
 		return trailingSplit != size_t.max;
 	}
 
-	void registerElement(size_t i) in {
-		assert(elements.length == 0 || elements[$ - 1] <= i);
-		assert(!hasTrailingSplit);
-	} do {
+	void registerElement(size_t i)
+			in(elements.length == 0 || elements[$ - 1] <= i)
+			in(!hasTrailingSplit) {
 		import std.algorithm;
 		headerSplit = min(i, headerSplit);
 
@@ -345,11 +344,8 @@ final class ListSpan : Span {
 		headerSplit = i;
 	}
 
-	void registerTrailingSplit(size_t i) in {
-		assert(elements.length > 0);
-		assert(elements[$ - 1] <= i);
-		assert(!hasTrailingSplit);
-	} do {
+	void registerTrailingSplit(size_t i) in(elements.length > 0)
+			in(elements[$ - 1] <= i) in(!hasTrailingSplit) {
 		trailingSplit = i;
 
 		if (elements.length > 1) {

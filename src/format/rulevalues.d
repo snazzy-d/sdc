@@ -66,10 +66,7 @@ public:
 	}
 
 	@property
-	size_t frozen(size_t f) in {
-		assert(f > 0 && f <= capacity);
-		assert(this[f - 1]);
-	} do {
+	size_t frozen(size_t f) in(f > 0 && f <= capacity) in(this[f - 1]) {
 		if (isDirect()) {
 			// Replace the previous frozen value.
 			direct[1] &= (size_t(1) << DirectShift) - 1;

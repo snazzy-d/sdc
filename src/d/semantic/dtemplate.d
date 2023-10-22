@@ -120,11 +120,9 @@ struct TemplateInstancier {
 
 private:
 	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs,
-	                    TemplateArgument[] matchedArgs) in {
-		assert(t.step == Step.Processed);
-		assert(t.parameters.length >= args.length);
-		assert(matchedArgs.length == t.parameters.length);
-	} do {
+	                    TemplateArgument[] matchedArgs)
+			in(t.step == Step.Processed) in(t.parameters.length >= args.length)
+			in(matchedArgs.length == t.parameters.length) {
 		uint i = 0;
 		foreach (a; args) {
 			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
@@ -185,11 +183,11 @@ private:
 		})();
 	}
 
-	auto instanciateFromResolvedArgs(Location location, Template t,
-	                                 TemplateArgument[] args) in {
-		assert(t.step == Step.Processed);
-		assert(t.parameters.length == args.length);
-	} do {
+	auto instanciateFromResolvedArgs(
+		Location location,
+		Template t,
+		TemplateArgument[] args
+	) in(t.step == Step.Processed) in(t.parameters.length == args.length) {
 		auto i = 0;
 		Symbol[] argSyms;
 

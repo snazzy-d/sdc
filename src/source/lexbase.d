@@ -130,12 +130,8 @@ mixin template LexBaseImpl(Token, alias BaseMap, alias KeywordMap,
 		// +/
 	}
 
-	void moveTo(ref TokenRange fr) in {
-		assert(base is fr.base);
-		assert(context is fr.context);
-		assert(content is fr.content);
-		assert(index < fr.index);
-	} do {
+	void moveTo(ref TokenRange fr) in(base is fr.base) in(context is fr.context)
+			in(content is fr.content) in(index < fr.index) {
 		index = fr.index;
 		t = fr.t;
 		previous = fr.previous;

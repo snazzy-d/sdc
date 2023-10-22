@@ -235,10 +235,8 @@ struct SourceEntries {
 			: (offset < sourceEntries[fileID + 1].offset);
 	}
 
-	FileID getFileID(Position p) in {
-		assert(p.isMixin() == nextSourcePos.isMixin());
-		assert(p.offset < nextSourcePos.offset);
-	} do {
+	FileID getFileID(Position p) in(p.isMixin() == nextSourcePos.isMixin())
+			in(p.offset < nextSourcePos.offset) {
 		// It is common to query the same file many time,
 		// so we have a one entry cache for it.
 		if (isPositionInFileID(p, lastFileID)) {

@@ -2,6 +2,9 @@ module source.location;
 
 import source.context;
 
+version(D_PreConditions)
+	import std.conv;
+
 /**
  * Struct representing a location in a source file.
  * Effectively a pair of Position within the source file.
@@ -12,10 +15,8 @@ package:
 	Position _stop;
 
 public:
-	this(Position start, Position stop) in {
-		assert(start.isMixin() == stop.isMixin());
-		assert(start.offset <= stop.offset);
-	} do {
+	this(Position start, Position stop) in(start.isMixin() == stop.isMixin())
+			in(start.offset <= stop.offset) {
 		this._start = start;
 		this._stop = stop;
 	}
@@ -45,19 +46,15 @@ public:
 		return start.isMixin();
 	}
 
-	auto spanTo(Location end) in {
-		import std.conv;
-		assert(stop.offset <= end.stop.offset,
-		       to!string(stop.offset) ~ " > " ~ to!string(end.stop.offset));
-	} do {
+	auto spanTo(Location end)
+			in(stop.offset <= end.stop.offset,
+			   to!string(stop.offset) ~ " > " ~ to!string(end.stop.offset)) {
 		return spanTo(end.stop);
 	}
 
-	auto spanTo(Position end) const in {
-		import std.conv;
-		assert(stop.offset <= end.offset,
-		       to!string(stop.offset) ~ " > " ~ to!string(end.offset));
-	} do {
+	auto spanTo(Position end) const
+			in(stop.offset <= end.offset,
+			   to!string(stop.offset) ~ " > " ~ to!string(end.offset)) {
 		return Location(start, end);
 	}
 

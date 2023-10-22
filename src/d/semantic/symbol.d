@@ -1062,10 +1062,8 @@ struct SymbolAnalyzer {
 		e.step = Step.Processed;
 	}
 
-	void analyze(AstExpression dv, Variable v) in {
-		assert(v.storage == Storage.Enum);
-		assert(v.type.kind == TypeKind.Enum);
-	} do {
+	void analyze(AstExpression dv, Variable v) in(v.storage == Storage.Enum)
+			in(v.type.kind == TypeKind.Enum) {
 		auto e = v.type.denum;
 
 		if (dv !is null) {

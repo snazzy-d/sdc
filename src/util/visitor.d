@@ -20,10 +20,11 @@ auto dispatch(alias unhandled = function void(t) {
 }
 
 // XXX: is @trusted if visitor.visit is @safe .
-private auto dispatchImpl(alias unhandled, V, T, Args...)(auto ref V visitor,
-                                                          Args args, T t) in {
-	assert(t, "You can't dispatch null");
-} do {
+private auto dispatchImpl(alias unhandled, V, T, Args...)(
+	auto ref V visitor,
+	Args args,
+	T t
+) in(t, "You can't dispatch null") {
 	static if (is(T == class)) {
 		alias o = t;
 	} else {
