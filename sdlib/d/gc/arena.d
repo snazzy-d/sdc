@@ -112,12 +112,26 @@ public:
 	/**
 	 * Small allocation facilities.
 	 */
-	void* allocSmall(shared(ExtentMap)* emap, size_t size) shared {
+	uint allocSmallBulk(shared(ExtentMap)* emap, size_t size,
+	                    void*[] allocs) shared {
 		// TODO: in contracts
 		assert(isSmallSize(size));
 
 		auto sizeClass = getSizeClass(size);
-		return bins[sizeClass].alloc(&this, emap, sizeClass);
+		return bins[sizeClass].alloc(&this, emap, sizeClass, allocs);
+	}
+
+	void* allocSmall(shared(ExtentMap)* emap, size_t size) shared {
+		// TODO: in contracts
+		assert(isSmallSize(size));
+
+		void*[1] buffer;
+		auto gotSlots = allocSmallBulk(emap, size, buffer[0 .. 1]);
+		if (gotSlots == 0) {
+			return null;
+		}
+
+		return buffer[0];
 	}
 
 	/**
@@ -513,6 +527,54 @@ private:
 		regionAllocator.release(ptr, pages);
 
 		unusedHPDs.insert(hpd);
+	}
+}
+
+unittest allocSmallBulk {
+	import d.gc.arena;
+	shared Arena arena;
+
+	auto base = &arena.base;
+	scope(exit) arena.base.clear();
+
+	import d.gc.emap;
+	static shared ExtentMap emap;
+	emap.tree.base = base;
+
+	import d.gc.region;
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = base;
+
+	arena.regionAllocator = &regionAllocator;
+
+	void*[512] buffer;
+
+	// Slab is empty, so should be able to bulk-allocate all of it in one shot:
+	foreach (sc; 0 .. ClassCount.Small) {
+		auto size = getSizeFromClass(sc);
+
+		import d.gc.slab;
+		auto slots = binInfos[sc].slots;
+
+		auto gotSlots = arena.allocSmallBulk(&emap, size, buffer[0 .. slots]);
+		assert(gotSlots == slots);
+
+		auto ptr = buffer[0];
+		assert(ptr !is null);
+		auto aptr = alignDown(ptr, PageSize);
+		auto pd = emap.lookup(aptr);
+
+		// They should all be on one extent:
+		auto address = pd.extent.address;
+
+		foreach (i; 0 .. slots) {
+			auto ptr = buffer[i];
+			assert(ptr !is null);
+			assert(ptr == address + i * size);
+			auto aptr = alignDown(ptr, PageSize);
+			auto pd = emap.lookup(aptr);
+			arena.free(&emap, pd, ptr);
+		}
 	}
 }
 
