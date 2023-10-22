@@ -112,12 +112,13 @@ public:
 	/**
 	 * Small allocation facilities.
 	 */
-	void* allocSmall(shared(ExtentMap)* emap, size_t size) shared {
+	uint allocSmall(shared(ExtentMap)* emap, size_t size,
+	                void*[] allocs) shared {
 		// TODO: in contracts
 		assert(isSmallSize(size));
 
 		auto sizeClass = getSizeClass(size);
-		return bins[sizeClass].alloc(&this, emap, sizeClass);
+		return bins[sizeClass].alloc(&this, emap, sizeClass, allocs);
 	}
 
 	/**

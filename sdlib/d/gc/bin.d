@@ -20,8 +20,8 @@ struct Bin {
 	import d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 
-	void* alloc(shared(Arena)* arena, shared(ExtentMap)* emap,
-	            ubyte sizeClass) shared {
+	uint alloc(shared(Arena)* arena, shared(ExtentMap)* emap, ubyte sizeClass,
+	           void*[] allocs) shared {
 		import d.gc.sizeclass;
 		assert(sizeClass < ClassCount.Small);
 		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
@@ -31,7 +31,7 @@ struct Bin {
 		auto size = binInfos[sizeClass].itemSize;
 
 		Extent* slab;
-		uint index;
+		uint gotAllocs;
 
 		{
 			mutex.lock();
@@ -39,13 +39,19 @@ struct Bin {
 
 			slab = (cast(Bin*) &this).getSlab(arena, emap, sizeClass);
 			if (slab is null) {
-				return null;
+				return 0;
 			}
 
-			index = slab.allocate();
+			// Get as many of the requested slots as we can from the current slab:
+			import d.gc.util;
+			gotAllocs = min(cast(uint) allocs.length, slab.freeSlots);
+			foreach (i; 0 .. gotAllocs) {
+				auto index = slab.allocate();
+				allocs[i] = slab.address + index * size;
+			}
 		}
 
-		return slab.address + index * size;
+		return gotAllocs;
 	}
 
 	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {

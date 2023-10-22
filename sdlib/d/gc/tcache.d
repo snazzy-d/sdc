@@ -16,6 +16,8 @@ private:
 	const(void)* stackBottom;
 	const(void*)[][] roots;
 
+	SmallAllocCache[2] TLC;
+
 public:
 	void* alloc(size_t size, bool containsPointers) {
 		if (!isAllocatableSize(size)) {
@@ -26,7 +28,7 @@ public:
 
 		auto arena = chooseArena(containsPointers);
 		return isSmallSize(size)
-			? arena.allocSmall(emap, size)
+			? TLC[containsPointers].getSlot(arena, emap, size)
 			: arena.allocLarge(emap, size, false);
 	}
 
@@ -45,7 +47,7 @@ public:
 
 		auto arena = chooseArena(containsPointers);
 		if (isSmallSize(asize)) {
-			auto ptr = arena.allocSmall(emap, asize);
+			auto ptr = TLC[containsPointers].getSlot(arena, emap, asize);
 			auto pd = getPageDescriptor(ptr);
 			auto si = SlabAllocInfo(pd, ptr);
 			si.initializeMetadata(finalizer, size);
@@ -72,7 +74,7 @@ public:
 			return arena.allocLarge(emap, size, true);
 		}
 
-		auto ret = arena.allocSmall(emap, size);
+		auto ret = TLC[containsPointers].getSlot(arena, emap, size);
 		memset(ret, 0, size);
 		return ret;
 	}
@@ -83,6 +85,14 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
+
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			si.clearMetadata();
+			TLC[pd.containsPointers].internSlot(emap, pd, ptr);
+			return;
+		}
+
 		pd.arena.free(emap, pd, ptr);
 	}
 
@@ -97,16 +107,20 @@ public:
 		if (pd.isSlab()) {
 			auto si = SlabAllocInfo(pd, ptr);
 			auto finalizer = si.finalizer;
-			if (finalizer !is null) {
-				assert(cast(void*) si.address == ptr,
-				       "destroy() was invoked on an interior pointer!");
+			assert(cast(void*) si.address == ptr,
+			       "destroy() was invoked on an interior pointer!");
 
+			if (finalizer !is null) {
 				finalizer(ptr, si.usedCapacity);
 			}
-		} else {
-			if (e.finalizer !is null) {
-				e.finalizer(ptr, e.usedCapacity);
-			}
+
+			si.clearMetadata();
+			TLC[pd.containsPointers].internSlot(emap, pd, ptr);
+			return;
+		}
+
+		if (e.finalizer !is null) {
+			e.finalizer(ptr, e.usedCapacity);
 		}
 
 		pd.arena.free(emap, pd, ptr);
@@ -167,7 +181,7 @@ public:
 		}
 
 		memcpy(newPtr, ptr, copySize);
-		pd.arena.free(emap, pd, ptr);
+		free(ptr);
 
 		return newPtr;
 	}
@@ -377,6 +391,71 @@ private:
 
 		import d.gc.arena;
 		return Arena.getOrInitialize((cpuid << 1) | containsPointers);
+	}
+
+	/**
+	 * GC Allocation Cache.
+	 */
+
+	struct SmallAllocCache {
+	private:
+		enum CacheEntries = 4;
+
+		import d.gc.dequeue;
+		alias CacheBin = DEQueue!(void*, CacheEntries);
+		CacheBin[ClassCount.Small] _bins;
+
+	public:
+		import d.gc.arena;
+
+		void* getSlot(shared(Arena)* arena, shared(ExtentMap)* _emap,
+		              size_t size) {
+			auto sc = getSizeClass(size);
+			assert(isSmallSizeClass(sc), "Size class is not small!");
+			auto bin = &_bins[sc];
+
+			if (bin.empty) {
+				auto slotsBuffer = bin.buffer[0 .. CacheEntries];
+				auto gotSlots = arena.allocSmall(_emap, size, slotsBuffer);
+
+				if (gotSlots == 0) {
+					return null;
+				}
+
+				bin.pushBackAdvance(gotSlots);
+			}
+
+			return bin.popFront();
+		}
+
+		void internSlot(shared(ExtentMap)* _emap, PageDescriptor pd,
+		                void* ptr) {
+			assert(ptr !is null, "Tried to intern a null pointer!");
+			auto sc = pd.sizeClass;
+			assert(isSmallSizeClass(sc), "Tried to intern non-small alloc!");
+			auto bin = &_bins[sc];
+
+			if (bin.full) {
+				// TODO: sort by quality and evict entry on least occupied slab
+				auto evictedEntry = bin.popBack();
+				assert(evictedEntry !is null, "Got a null from the cache!");
+
+				auto entryPd = getPD(_emap, ptr);
+				entryPd.arena.free(_emap, entryPd, evictedEntry);
+			}
+
+			bin.pushFront(ptr);
+		}
+
+	private:
+		// TODO: possibly cache PD in the bin?
+		PageDescriptor getPD(shared(ExtentMap)* _emap, void* ptr) {
+			import d.gc.util;
+			auto aptr = alignDown(ptr, PageSize);
+			auto pd = _emap.lookup(aptr);
+			assert(pd.isSlab(), "Was in the cache, but is not a slab alloc!");
+			return pd;
+		}
 	}
 }
 
