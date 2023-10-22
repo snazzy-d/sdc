@@ -111,9 +111,9 @@ public:
 			// We have one; compare it to the file.
 			// XXX: Do proper error checking. Consider doing fixup.
 			if (m.name != name)
-				throw new CompileException(m.locationStatement, "Module name mismatches filename");
+				throw new CompileException(m.locationName, "Module name mismatches filename");
 			if (m.packages != packages)
-				throw new CompileException(m.locationStatement, "Module package mismatches directory hierarchy");
+				throw new CompileException(m.locationName, "Module package mismatches directory hierarchy");
 		}
 
 		return m;
