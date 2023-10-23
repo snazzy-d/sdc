@@ -263,6 +263,14 @@ public:
 	}
 
 	@property
+	uint slotSize() const {
+		assert(isSlab(), "slotSize accessed on non slab!");
+
+		import d.gc.slab;
+		return binInfos[sizeClass].itemSize;
+	}
+
+	@property
 	uint freeSlots() const {
 		// FIXME: in contract.
 		assert(isSlab(), "freeSlots accessed on non slab!");
@@ -280,46 +288,26 @@ public:
 		return slabData.setFirst();
 	}
 
-	uint allocateBestRange(ref uint slots) {
-		assert(isSlab(), "allocateBestRange accessed on non slab!");
+	uint allocateBulk(void*[] allocs) {
+		assert(isSlab(), "allocateBulk accessed on non slab!");
+		auto slots = cast(uint) allocs.length;
 		assert(slots <= freeSlots, "Asked for more slots than available!");
 
-		uint bestIndex = uint.max;
-		uint bestLength = 0;
-		uint leastDelta = uint.max;
+		uint allocSize = slotSize;
+		uint nAllocs, index = 0;
+		for (nAllocs = 0; nAllocs < slots; nAllocs++) {
+			index = slabData.findClear(index);
 
-		uint current, index, length;
-		while (current < slotCount
-			       && slabData.nextFreeRange(current, index, length)) {
-			auto fit = min(slots, length);
-			uint delta = max(slots, length) - fit;
-
-			if ((delta < leastDelta) && (fit >= bestLength)) {
-				leastDelta = delta;
-				bestIndex = index;
-				bestLength = fit;
+			if (index >= slotCount) {
+				break;
 			}
 
-			current = index + length;
+			slabData.setBit(index);
+			allocs[nAllocs] = address + index * allocSize;
 		}
 
-		assert(bestIndex < slotCount);
-		assert(bestLength <= slots);
-		slots = bestLength;
-		slabData.setRange(bestIndex, slots);
-
-		scope(success) bits -= (ulong(slots) << 48);
-		return bestIndex;
-	}
-
-	void freeRange(uint index, uint slots) {
-		assert(isSlab(), "freeRange accessed on non slab!");
-		assert(slots > 0 && slots <= slotCount, "Invalid number of slots!");
-		assert(slabData.findClear(index) >= index + slots,
-		       "Range is already free!");
-
-		scope(exit) bits += (ulong(slots) << 48);
-		slabData.clearRange(index, slots);
+		scope(success) bits -= (ulong(nAllocs) << 48);
+		return slots;
 	}
 
 	void free(uint index) {
@@ -503,77 +491,4 @@ unittest allocfree {
 	e.free(2);
 	e.free(1);
 	assert(e.freeSlots == 512);
-}
-
-unittest bulkAllocations {
-	Extent e;
-	e.at(null, PageSize, null, ExtentClass.slab(0));
-
-	assert(e.isSlab());
-	assert(e.sizeClass == 0);
-	assert(e.freeSlots == 512);
-
-	uint slots = 512;
-	assert(e.allocateBestRange(slots) == 0);
-	assert(slots == 512);
-	assert(e.freeSlots == 0);
-
-	e.freeRange(0, 100);
-	e.freeRange(400, 100);
-	assert(e.freeSlots == 200);
-
-	slots = 200;
-	assert(e.allocateBestRange(slots) == 0);
-	assert(slots == 100);
-
-	e.freeRange(300, 33);
-	slots = 34;
-	assert(e.allocateBestRange(slots) == 300);
-	assert(slots == 33);
-
-	assert(e.freeSlots == 100);
-	e.freeRange(0, 400);
-	e.freeRange(500, 12);
-	assert(e.freeSlots == 512);
-
-	slots = 512;
-	assert(e.allocateBestRange(slots) == 0);
-	assert(slots == 512);
-	assert(e.freeSlots == 0);
-
-	e.freeRange(0, 14);
-	e.freeRange(100, 10);
-	e.freeRange(200, 8);
-	e.freeRange(300, 11);
-
-	slots = 9;
-	assert(e.allocateBestRange(slots) == 100);
-	assert(slots == 9);
-
-	e.freeRange(100, 9);
-	slots = 8;
-	assert(e.allocateBestRange(slots) == 200);
-	assert(slots == 8);
-	e.freeRange(200, 8);
-
-	slots = 12;
-	assert(e.allocateBestRange(slots) == 0);
-	assert(slots == 12);
-	e.freeRange(0, 12);
-
-	slots = 16;
-	assert(e.allocateBestRange(slots) == 0);
-	assert(slots == 14);
-	e.freeRange(0, 14);
-
-	e.freeRange(150, 15);
-	slots = 16;
-	assert(e.allocateBestRange(slots) == 150);
-	assert(slots == 15);
-	e.freeRange(150, 15);
-
-	e.freeRange(250, 16);
-	slots = 16;
-	assert(e.allocateBestRange(slots) == 250);
-	assert(slots == 16);
 }

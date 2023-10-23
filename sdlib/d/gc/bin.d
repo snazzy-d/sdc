@@ -42,14 +42,9 @@ struct Bin {
 				return 0;
 			}
 
-			// Get as many of the requested slots as we can get consecutively.
-			// If the slab has fragmented space, it will be used in the next shot.
 			import d.gc.util;
-			allocCount = min(cast(uint) allocs.length, slab.freeSlots);
-			auto index = slab.allocateBestRange(allocCount);
-			foreach (i; 0 .. allocCount) {
-				allocs[i] = slab.address + (index + i) * size;
-			}
+			auto wantSlots = min(cast(uint) allocs.length, slab.freeSlots);
+			allocCount = slab.allocateBulk(allocs[0 .. wantSlots]);
 		}
 
 		return allocCount;
