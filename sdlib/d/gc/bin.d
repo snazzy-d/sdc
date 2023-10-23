@@ -31,7 +31,7 @@ struct Bin {
 		auto size = binInfos[sizeClass].itemSize;
 
 		Extent* slab;
-		uint gotAllocs;
+		uint allocCount;
 
 		{
 			mutex.lock();
@@ -42,16 +42,17 @@ struct Bin {
 				return 0;
 			}
 
-			// Get as many of the requested slots as we can from the current slab:
+			// Get as many of the requested slots as we can get consecutively.
+			// If the slab has fragmented space, it will be used in the next shot.
 			import d.gc.util;
-			gotAllocs = min(cast(uint) allocs.length, slab.freeSlots);
-			foreach (i; 0 .. gotAllocs) {
-				auto index = slab.allocate();
-				allocs[i] = slab.address + index * size;
+			allocCount = min(cast(uint) allocs.length, slab.freeSlots);
+			auto index = slab.allocateBestRange(allocCount);
+			foreach (i; 0 .. allocCount) {
+				allocs[i] = slab.address + (index + i) * size;
 			}
 		}
 
-		return gotAllocs;
+		return allocCount;
 	}
 
 	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {
