@@ -30,22 +30,20 @@ struct Bin {
 		import d.gc.slab;
 		auto size = binInfos[sizeClass].itemSize;
 
-		Extent* slab;
-		uint index;
+		mutex.lock();
+		scope(exit) mutex.unlock();
 
-		{
-			mutex.lock();
-			scope(exit) mutex.unlock();
-
-			slab = (cast(Bin*) &this).getSlab(arena, emap, sizeClass);
-			if (slab is null) {
-				return null;
-			}
-
-			index = slab.allocate();
+		auto slab = (cast(Bin*) &this).getSlab(arena, emap, sizeClass);
+		if (slab is null) {
+			return null;
 		}
 
-		return slab.address + index * size;
+		void*[1] buffer = void;
+		if (slab.batchAllocate(buffer[0 .. 1], size) == 0) {
+			return null;
+		}
+
+		return buffer[0];
 	}
 
 	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {

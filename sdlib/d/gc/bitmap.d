@@ -13,6 +13,11 @@ private:
 	ulong[NimbleCount] bits;
 
 public:
+	@property
+	ref ulong[NimbleCount] rawContent() {
+		return bits;
+	}
+
 	void clear() {
 		foreach (i; 0 .. NimbleCount) {
 			bits[i] = 0;

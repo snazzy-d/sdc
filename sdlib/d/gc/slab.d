@@ -185,14 +185,12 @@ unittest SlabAllocInfo {
 	static SlabAllocInfo simulateSmallAlloc(size_t size, uint slotIndex) {
 		auto ec = ExtentClass.slab(getSizeClass(size));
 		e.at(block, PageSize, null, ec);
-		auto allocAddress = block;
-		// TODO: it is probably possible to make this less hideous:
-		foreach (s; 0 .. slotIndex) {
-			assert(e.allocate() == s);
-			allocAddress += size;
-		}
+
+		void*[512] buffer = void;
+		e.batchAllocate(buffer[0 .. 512], size);
 
 		auto pd = PageDescriptor(e, ec);
+		auto allocAddress = block + slotIndex * size;
 		return SlabAllocInfo(pd, allocAddress);
 	}
 

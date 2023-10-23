@@ -271,13 +271,46 @@ public:
 		return (bits >> 48) & Mask;
 	}
 
-	uint allocate() {
+	uint batchAllocate(void*[] buffer, size_t slotSize) {
 		// FIXME: in contract.
 		assert(isSlab(), "allocate accessed on non slab!");
 		assert(freeSlots > 0, "Slab is full!");
 
-		scope(success) bits -= (1UL << 48);
-		return slabData.setFirst();
+		void** insert = buffer.ptr;
+		uint count = min(buffer.length, freeSlots) & uint.max;
+
+		uint total = 0;
+		uint n = -1;
+		ulong nimble = 0;
+		ulong current = 0;
+
+		while (total < count) {
+			while (current == 0) {
+				nimble = slabData.rawContent[++n];
+				current = ~nimble;
+			}
+
+			enum NimbleSize = 8 * ulong.sizeof;
+			auto shift = n * NimbleSize;
+
+			import sdc.intrinsics;
+			uint nCount = min(popCount(current), count) & uint.max;
+
+			foreach (_; 0 .. nCount) {
+				import sdc.intrinsics;
+				auto bit = countTrailingZeros(current);
+				current ^= 1UL << bit;
+
+				auto slot = shift + bit;
+				*(insert++) = address + slot * slotSize;
+			}
+
+			slabData.rawContent[n] = ~current;
+			total += nCount;
+		}
+
+		scope(success) bits -= ulong(count) << 48;
+		return count;
 	}
 
 	void free(uint index) {
@@ -434,26 +467,36 @@ unittest allocfree {
 	Extent e;
 	e.at(null, PageSize, null, ExtentClass.slab(0));
 
+	static checkAllocate(ref Extent e, uint index) {
+		void*[1] buffer;
+		assert(e.batchAllocate(buffer[0 .. 1], PointerSize) == 1);
+
+		auto expected = index * PointerSize;
+		auto provided = cast(size_t) buffer[0];
+
+		assert(provided == expected);
+	}
+
 	assert(e.isSlab());
 	assert(e.sizeClass == 0);
 	assert(e.freeSlots == 512);
 
-	assert(e.allocate() == 0);
+	checkAllocate(e, 0);
 	assert(e.freeSlots == 511);
 
-	assert(e.allocate() == 1);
+	checkAllocate(e, 1);
 	assert(e.freeSlots == 510);
 
-	assert(e.allocate() == 2);
+	checkAllocate(e, 2);
 	assert(e.freeSlots == 509);
 
 	e.free(1);
 	assert(e.freeSlots == 510);
 
-	assert(e.allocate() == 1);
+	checkAllocate(e, 1);
 	assert(e.freeSlots == 509);
 
-	assert(e.allocate() == 3);
+	checkAllocate(e, 3);
 	assert(e.freeSlots == 508);
 
 	e.free(0);
@@ -461,4 +504,48 @@ unittest allocfree {
 	e.free(2);
 	e.free(1);
 	assert(e.freeSlots == 512);
+}
+
+unittest batchAllocate {
+	Extent e;
+	e.at(null, PageSize, null, ExtentClass.slab(0));
+
+	void*[1024] buffer;
+	assert(e.batchAllocate(buffer[0 .. 1024], PointerSize) == 512);
+	assert(e.freeSlots == 0);
+
+	foreach (i; 0 .. 512) {
+		assert(i * PointerSize == cast(size_t) buffer[i]);
+	}
+
+	// Free half the elements.
+	foreach (i; 0 .. 256) {
+		e.free(2 * i);
+	}
+
+	assert(e.freeSlots == 256);
+	assert(e.batchAllocate(buffer[512 .. 1024], PointerSize) == 256);
+	assert(e.freeSlots == 0);
+
+	foreach (i; 0 .. 256) {
+		assert(2 * i * PointerSize == cast(size_t) buffer[512 + i]);
+	}
+
+	// Free All the element but two in the middle
+	foreach (i; 0 .. 255) {
+		e.free(i);
+		e.free(511 - i);
+	}
+
+	assert(e.freeSlots == 510);
+	assert(e.batchAllocate(buffer[0 .. 500], PointerSize) == 500);
+	assert(e.freeSlots == 10);
+
+	foreach (i; 0 .. 255) {
+		assert(i * PointerSize == cast(size_t) buffer[i]);
+	}
+
+	foreach (i; 0 .. 245) {
+		assert((i + 257) * PointerSize == cast(size_t) buffer[255 + i]);
+	}
 }
