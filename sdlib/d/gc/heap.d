@@ -155,16 +155,9 @@ public:
 	void remove(N* n) {
 		auto ln = Link(n);
 		if (root.node is n) {
-			if (ln.child.isNull()) {
-				root = ln.next;
-				return;
-			}
-
 			mergeAux();
-			if (root.node is n) {
-				root = mergeChildren(ln);
-				return;
-			}
+			root = mergeChildren(ln);
+			return;
 		}
 
 		auto prev = ln.prev;
@@ -217,7 +210,8 @@ private:
 
 		n = mergeSiblings(n);
 		assert(n.next.isNull());
-		root = merge(root, n);
+
+		addChild(root, n);
 	}
 
 	bool tryAuxMergePair() {
@@ -267,16 +261,23 @@ private:
 		auto x0 = cmp ? n0 : n1;
 		auto x1 = cmp ? n1 : n0;
 
-		auto x0child = x0.child;
-		x1.next = x0child;
-		x0.child = x1;
-		x1.prev = x0;
-
-		if (!x0child.isNull()) {
-			x0child.prev = x1;
-		}
-
+		addChild(x0, x1);
 		return x0;
+	}
+
+	static void addChild(Link n, Link child) {
+		assert(!n.isNull());
+		assert(!child.isNull());
+		assert(compare(n.node, child.node) <= 0);
+
+		auto nchild = n.child;
+		child.next = nchild;
+		n.child = child;
+		child.prev = n;
+
+		if (!nchild.isNull()) {
+			nchild.prev = child;
+		}
 	}
 
 	static Link mergeChildren(Link n) {
