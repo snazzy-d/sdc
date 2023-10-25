@@ -20,8 +20,8 @@ struct Bin {
 	import d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 
-	void* alloc(shared(Arena)* arena, shared(ExtentMap)* emap,
-	            ubyte sizeClass) shared {
+	uint batchAllocate(shared(Arena)* arena, shared(ExtentMap)* emap,
+	                   ubyte sizeClass, void*[] buffer) shared {
 		import d.gc.sizeclass;
 		assert(sizeClass < ClassCount.Small);
 		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
@@ -33,17 +33,21 @@ struct Bin {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		auto slab = (cast(Bin*) &this).getSlab(arena, emap, sizeClass);
-		if (slab is null) {
-			return null;
+		auto remainBuffer = buffer;
+
+		while (remainBuffer.length > 0) {
+			auto slab = (cast(Bin*) &this).getSlab(arena, emap, sizeClass);
+			if (slab is null) {
+				break;
+			}
+
+			assert(slab.freeSlots > 0);
+			auto filled = slab.batchAllocate(remainBuffer, size);
+
+			remainBuffer = remainBuffer[filled .. remainBuffer.length];
 		}
 
-		void*[1] buffer = void;
-		if (slab.batchAllocate(buffer[0 .. 1], size) == 0) {
-			return null;
-		}
-
-		return buffer[0];
+		return cast(uint) (buffer.length - remainBuffer.length);
 	}
 
 	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {
@@ -151,5 +155,120 @@ private:
 
 		// And use the metadata run.
 		return current;
+	}
+}
+
+unittest batchAllocation {
+	import d.gc.util;
+	shared Arena arena;
+
+	auto base = &arena.base;
+	scope(exit) arena.base.clear();
+
+	import d.gc.emap;
+	static shared ExtentMap emap;
+	emap.tree.base = base;
+
+	import d.gc.region;
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = base;
+
+	arena.regionAllocator = &regionAllocator;
+
+	void*[2048] buffer;
+
+	auto checkSlotAndGetPd(void* ptr) {
+		assert(ptr !is null);
+		auto aptr = alignDown(ptr, PageSize);
+		auto pd = emap.lookup(aptr);
+		return pd;
+	}
+
+	// Basic test: confirm that we get the expected batch of slots
+	import d.gc.slab;
+	import d.gc.sizeclass;
+	foreach (expectedSlabs; [1, 3, 4]) {
+		foreach (sc; [0, 2, 6, 12, 38]) {
+			auto expectedAllocsPerSlab = binInfos[sc].slots;
+			auto wantSlots = expectedSlabs * expectedAllocsPerSlab;
+			auto size = getSizeFromClass(sc);
+
+			auto gotSlots = arena.bins[sc]
+			                     .batchAllocate(&arena, &emap, cast(ubyte) sc,
+			                                    buffer[0 .. wantSlots]);
+
+			assert(gotSlots == wantSlots);
+
+			uint countExtents = 0;
+			PageDescriptor prevPd;
+
+			foreach (i; 0 .. gotSlots) {
+				auto ptr = buffer[i];
+				auto pd = checkSlotAndGetPd(ptr);
+				auto e = pd.extent;
+
+				if (e !is prevPd.extent) {
+					assert(e.freeSlots == 0);
+					assert(ptr == e.address);
+					countExtents++;
+				} else {
+					auto index = i % expectedAllocsPerSlab;
+					assert(ptr == e.address + size * index);
+				}
+
+				prevPd = pd;
+			}
+
+			assert(countExtents == expectedSlabs);
+		}
+	}
+
+	// "Checkerboard" test
+	foreach (sc; [0, 2, 6, 12, 38]) {
+		auto wantSlots = binInfos[sc].slots;
+		auto size = getSizeFromClass(sc);
+
+		// Get a slab's worth of slots:
+		auto gotSlots = arena.bins[sc]
+		                     .batchAllocate(&arena, &emap, cast(ubyte) sc,
+		                                    buffer[0 .. wantSlots]);
+
+		assert(gotSlots == wantSlots);
+
+		auto slabPd = checkSlotAndGetPd(buffer[0]);
+		auto slab = slabPd.extent.address;
+
+		// Confirm that they're all actually on one slab:
+		foreach (i; 0 .. gotSlots) {
+			auto ptr = buffer[i];
+			auto pd = checkSlotAndGetPd(ptr);
+			assert(ptr == slab + size * i);
+			assert(pd.extent.address == slab);
+		}
+
+		// Free only the even slots:
+		foreach (i; 0 .. gotSlots / 2) {
+			auto ptr = buffer[i * 2];
+			assert(ptr == slab + size * (i * 2));
+			auto pd = checkSlotAndGetPd(ptr);
+			arena.free(&emap, pd, ptr);
+		}
+
+		// Ask for half the slot count, intend to reoccupy the even slots:
+		auto wantEvenSlots = gotSlots / 2;
+		auto gotEvenSlots = arena.bins[sc]
+		                         .batchAllocate(&arena, &emap, cast(ubyte) sc,
+		                                        buffer[0 .. wantEvenSlots]);
+
+		assert(gotEvenSlots == wantEvenSlots);
+
+		foreach (i; 0 .. gotEvenSlots) {
+			auto ptr = buffer[i];
+			auto pd = checkSlotAndGetPd(ptr);
+			assert(pd.extent.address == slab);
+			// Confirm that these all went in the slab slots we freed earlier:
+			assert(ptr == slab + size * (i * 2));
+			arena.free(&emap, pd, ptr);
+		}
 	}
 }

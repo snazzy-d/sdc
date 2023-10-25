@@ -116,8 +116,15 @@ public:
 		// TODO: in contracts
 		assert(isSmallSize(size));
 
+		void*[1] buffer;
 		auto sizeClass = getSizeClass(size);
-		return bins[sizeClass].alloc(&this, emap, sizeClass);
+		auto gotSlots = bins[sizeClass]
+			.batchAllocate(&this, emap, sizeClass, buffer[0 .. 1]);
+		if (gotSlots == 0) {
+			return null;
+		}
+
+		return buffer[0];
 	}
 
 	/**
