@@ -86,6 +86,18 @@ public:
 		return (cast(Base*) &this).reserveAddressSpaceImpl(size, alignment);
 	}
 
+	void purgeAddressSpace(void* address, size_t size) shared {
+		assert(address !is null && isAligned(address, HugePageSize),
+		       "Invalid address!");
+		assert(size > 0 && isAligned(size, HugePageSize), "Invalid size!");
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		import d.gc.memmap;
+		pages_purge(address, size);
+	}
+
 private:
 	void clearImpl() {
 		assert(mutex.isHeld(), "Mutex not held!");
