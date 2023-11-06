@@ -11,7 +11,7 @@ jobs:
         strategy:
             matrix:
                 os: [ubuntu-latest]
-                dc: [dmd-latest]
+                dc: [dmd-beta] # We shoudl use latest, but it's broken, so in the meantime we use beta.
 
         runs-on: ${{ matrix.os }}
 
@@ -40,7 +40,7 @@ jobs:
             fail-fast: false
             matrix:
                 os: [ubuntu-latest]
-                dc: [dmd-latest, ldc-latest]
+                dc: [dmd-latest, dmd-beta, ldc-latest]
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v2
