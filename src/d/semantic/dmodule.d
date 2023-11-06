@@ -10,7 +10,6 @@ import d.ast.declaration;
 
 import d.ir.symbol;
 
-import source.exception;
 import source.name;
 
 alias AstModule = d.ast.declaration.Module;
@@ -109,11 +108,19 @@ public:
 			m.packages = packages;
 		} else {
 			// We have one; compare it to the file.
-			// XXX: Do proper error checking. Consider doing fixup.
-			if (m.name != name)
-				throw new CompileException(m.locationName, "Module name mismatches filename");
-			if (m.packages != packages)
-				throw new CompileException(m.locationName, "Module package mismatches directory hierarchy");
+			import source.exception;
+
+			if (m.name != name) {
+				throw new CompileException(m.locationDeclarationName,
+				                           "Module name mismatches filename.");
+			}
+
+			if (m.packages != packages) {
+				throw new CompileException(
+					m.locationDeclarationName,
+					"Module package mismatches directory hierarchy."
+				);
+			}
 		}
 
 		return m;
