@@ -111,13 +111,13 @@ public:
 			import source.exception;
 
 			if (m.name != name) {
-				throw new CompileException(m.locationDeclarationName,
+				throw new CompileException(m.declaredNameLocation,
 				                           "Module name mismatches filename.");
 			}
 
 			if (m.packages != packages) {
 				throw new CompileException(
-					m.locationDeclarationName,
+					m.declaredNameLocation,
 					"Module package mismatches directory hierarchy."
 				);
 			}

@@ -17,12 +17,12 @@ auto parseModule(ref TokenRange trange) {
 
 	Name name;
 	Name[] packages;
-	Location locationName;
+	Location declaredNameLocation;
 
 	if (trange.front.type == TokenType.Module) {
 		trange.popFront();
 		name = trange.front.name;
-		locationName = trange.front.location;
+		declaredNameLocation = trange.front.location;
 
 		trange.match(TokenType.Identifier);
 		while (trange.front.type == TokenType.Dot) {
@@ -34,7 +34,7 @@ auto parseModule(ref TokenRange trange) {
 			trange.match(TokenType.Identifier);
 		}
 
-		locationName = locationName.spanTo(trange.previous);
+		declaredNameLocation = declaredNameLocation.spanTo(trange.previous);
 		trange.match(TokenType.Semicolon);
 	}
 
@@ -44,5 +44,5 @@ auto parseModule(ref TokenRange trange) {
 	}
 
 	return new Module(location.spanTo(trange.previous), name, packages,
-	                  declarations, locationName);
+	                  declaredNameLocation, declarations);
 }
