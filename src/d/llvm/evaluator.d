@@ -98,14 +98,11 @@ final class LLVMEvaluator : Evaluator {
 		auto et = t.element.getCanonical();
 		assert(et.builtin = BuiltinType.Char);
 	} do {
-		return jit!(function string(CodeGen pass, Expression e, void[] p) in {
-			assert(p.length == string.sizeof);
-		} do {
-			auto s = *(cast(string*) p.ptr);
-			return s.idup;
-		}
-
-		)(e);
+		return jit!(function string(CodeGen pass, Expression e, void[] p)
+			in (p.length == string.sizeof) {
+				auto s = *(cast(string*) p.ptr);
+				return s.idup;
+			})(e);
 	}
 
 	private
