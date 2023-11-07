@@ -39,10 +39,9 @@ struct ValueRangePropagator(T) if (is(T == uint) || is(T == ulong)) {
 		return canFit(e, getBuiltin(t));
 	}
 
-	bool canFit(Expression e, BuiltinType t) in {
-		assert(isValidExpr(e), "VRP expect integral types.");
-		assert(canConvertToIntegral(t), "VRP only supports integral types.");
-	} do {
+	bool canFit(Expression e, BuiltinType t)
+			in(isValidExpr(e), "VRP expect integral types.")
+			in(canConvertToIntegral(t), "VRP only supports integral types.") {
 		static canFitDMDMonkeyDance(R)(R r, BuiltinType t) {
 			auto mask = cast(R.U) ((1UL << t.getBits()) - 1);
 
@@ -1054,11 +1053,9 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		return ValueRange(-neg.max, pos.max);
 	}
 
-	auto urem()(ValueRange rhs) const if (isUnsigned!T) in {
-		assert(this != ValueRange(0));
-		assert(rhs is rhs.normalized);
-		assert(rhs.min > 0);
-	} do {
+	auto urem()(ValueRange rhs) const if (isUnsigned!T)
+			in(this != ValueRange(0)) in(rhs is rhs.normalized)
+			in(rhs.min > 0) {
 		auto lhs = this.normalized;
 
 		// If lhs is within the bound of rhs.
@@ -1118,11 +1115,9 @@ struct ValueRange(T) if (is(uint : T) && isIntegral!T) {
 		return ValueRange(v1.min, v0.max);
 	}
 
-	auto ushl()(ValueRange rhs) const if (isUnsigned!T) in {
-		assert(rhs is rhs.normalized);
-		assert(rhs.max < Bits);
-		assert(this.min <= Signed!T.max);
-	} do {
+	auto ushl()(ValueRange rhs) const if (isUnsigned!T)
+			in(rhs is rhs.normalized) in(rhs.max < Bits)
+			in(this.min <= Signed!T.max) {
 		auto minhi = rhs.min ? (min >> (Bits - rhs.min)) : 0;
 		auto maxhi = rhs.max ? (max >> (Bits - rhs.max)) : 0;
 		if (minhi != maxhi) {
