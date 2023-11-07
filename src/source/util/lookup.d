@@ -6,10 +6,9 @@
  */
 module source.util.lookup;
 
-uint lookup(alias f, uint N, T)(T[] items, uint needle, uint pivot) in {
-	assert(items.length > 0, "items must not be empty");
-	assert(pivot < items.length);
-} do {
+uint lookup(alias f, uint N, T)(T[] items, uint needle, uint pivot)
+		in(items.length > 0, "items must not be empty")
+		in(pivot < items.length) {
 	return (needle > f(items[pivot]))
 		? forwardLinearLookup!(f, N, binaryLookup)(items, needle, pivot)
 		: backwardLinearLookup!(f, N, binaryLookup)(items, needle, pivot);
@@ -36,11 +35,10 @@ unittest {
 private:
 
 uint forwardLinearLookup(alias f, uint N, alias fallback,
-                         T)(T[] items, uint needle, uint first) in {
-	assert(items.length > 0, "items must not be empty");
-	assert(first < items.length - 1, "first is out of bound");
-	assert(needle >= f(items[first + 1]), "needle is before first");
-} do {
+                         T)(T[] items, uint needle, uint first)
+		in(items.length > 0, "items must not be empty")
+		in(first < items.length - 1, "first is out of bound")
+		in(needle >= f(items[first + 1]), "needle is before first") {
 	auto l = cast(uint) items.length;
 
 	uint stop = first + N + 2;
@@ -81,12 +79,11 @@ unittest {
 }
 
 uint backwardLinearLookup(alias f, uint N, alias fallback,
-                          T)(T[] items, uint needle, uint last) in {
-	assert(items.length > 0, "items must not be empty");
-	assert(last > 0 && last < items.length, "last is out of bound");
-	assert(needle >= f(items[0]), "needle is before first");
-	assert(needle < f(items[last]), "needle is past last");
-} do {
+                          T)(T[] items, uint needle, uint last)
+		in(items.length > 0, "items must not be empty")
+		in(last > 0 && last < items.length, "last is out of bound")
+		in(needle >= f(items[0]), "needle is before first")
+		in(needle < f(items[last]), "needle is past last") {
 	auto stop = (last < N) ? 0 : last - N;
 
 	auto i = last - 1;
@@ -120,12 +117,11 @@ unittest {
 	assert(bll8(items, 3, 7) == 1);
 }
 
-uint binaryLookup(alias f, T)(T[] items, uint needle, uint min, uint max) in {
-	assert(items.length > 0, "items must not be empty");
-	assert(needle >= f(items[min]), "needle is before first");
-	assert(max == items.length || needle < f(items[max]),
-	       "needle is past last");
-} do {
+uint binaryLookup(alias f, T)(T[] items, uint needle, uint min, uint max)
+		in(items.length > 0, "items must not be empty")
+		in(needle >= f(items[min]), "needle is before first")
+		in(max == items.length || needle < f(items[max]),
+		   "needle is past last") {
 	min++;
 	while (min < max) {
 		auto i = (min + max - 1) / 2;
