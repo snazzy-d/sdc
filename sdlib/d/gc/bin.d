@@ -12,12 +12,9 @@ struct Bin {
 	import d.sync.mutex;
 	shared Mutex mutex;
 
-	import d.gc.extent;
-	Extent* current;
-
 	// XXX: We might want to consider targeting Extents
 	// on old huge pages instead of just address.
-	import d.gc.heap;
+	import d.gc.extent, d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 
 	void* alloc(shared(Arena)* arena, shared(ExtentMap)* emap,
@@ -28,22 +25,12 @@ struct Bin {
 
 		// Load eagerly as prefetching.
 		import d.gc.slab;
-		auto size = binInfos[sizeClass].itemSize;
+		auto slotSize = binInfos[sizeClass].itemSize;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		auto slab = (cast(Bin*) &this).getSlab(arena, emap, sizeClass);
-		if (slab is null) {
-			return null;
-		}
-
-		void*[1] buffer = void;
-		if (slab.batchAllocate(buffer[0 .. 1], size) == 0) {
-			return null;
-		}
-
-		return buffer[0];
+		return (cast(Bin*) &this).allocImpl(arena, emap, sizeClass, slotSize);
 	}
 
 	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {
@@ -54,10 +41,9 @@ struct Bin {
 		       "Invalid arena or sizeClass!");
 
 		import d.gc.slab;
+		auto slots = binInfos[pd.sizeClass].slots;
 		auto sg = SlabAllocGeometry(pd, ptr);
 		assert(ptr is sg.address);
-
-		auto slots = binInfos[pd.sizeClass].slots;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -66,6 +52,28 @@ struct Bin {
 	}
 
 private:
+	void* allocImpl(shared(Arena)* arena, shared(ExtentMap)* emap,
+	                ubyte sizeClass, size_t slotSize) {
+		// FIXME: in contract.
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto e = getSlab(arena, emap, sizeClass);
+		if (e is null) {
+			return null;
+		}
+
+		void*[1] buffer = void;
+		auto count = e.batchAllocate(buffer[0 .. 1], slotSize);
+		assert(count > 0);
+
+		// If the slab is full, remove it from the heap.
+		if (e.freeSlots == 0) {
+			slabs.remove(e);
+		}
+
+		return buffer[0];
+	}
+
 	bool freeImpl(Extent* e, uint index, uint slots) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
@@ -74,11 +82,6 @@ private:
 
 		auto nfree = e.freeSlots;
 		if (nfree == slots) {
-			if (e is current) {
-				current = null;
-				return true;
-			}
-
 			// If we only had one slot, we never got added to the heap.
 			if (slots > 1) {
 				slabs.remove(e);
@@ -87,7 +90,7 @@ private:
 			return true;
 		}
 
-		if (nfree == 1 && e !is current) {
+		if (nfree == 1) {
 			// Newly non empty.
 			assert(slots > 1);
 			slabs.insert(e);
@@ -96,25 +99,12 @@ private:
 		return false;
 	}
 
-	auto tryGetSlab() {
-		// FIXME: in contract.
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		// If the current slab still have free slots, go for it.
-		if (current !is null && current.freeSlots != 0) {
-			return current;
-		}
-
-		current = slabs.pop();
-		return current;
-	}
-
 	auto getSlab(shared(Arena)* arena, shared(ExtentMap)* emap,
 	             ubyte sizeClass) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto slab = tryGetSlab();
+		auto slab = slabs.top;
 		if (slab !is null) {
 			return slab;
 		}
@@ -128,15 +118,16 @@ private:
 			slab = arena.allocSlab(emap, sizeClass);
 		}
 
+		auto current = slabs.top;
 		if (slab is null) {
 			// Another thread might have been successful
 			// while we did not hold the lock.
-			return tryGetSlab();
+			return current;
 		}
 
 		// We may have allocated the slab we need when the lock was released.
-		if (current is null || current.freeSlots == 0) {
-			current = slab;
+		if (current is null) {
+			slabs.insert(slab);
 			return slab;
 		}
 
@@ -144,7 +135,7 @@ private:
 		assert(slab !is current);
 		assert(current.freeSlots > 0);
 
-		// In which case we put the free run back in the tree.
+		// In which case we release the slab we just allocated.
 		import d.gc.slab;
 		assert(slab.freeSlots == binInfos[sizeClass].slots);
 		arena.freeSlab(emap, slab);
