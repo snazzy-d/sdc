@@ -16,7 +16,13 @@ void free(void* ptr) {
 }
 
 void* calloc(size_t nmemb, size_t size) {
-	return threadCache.calloc(nmemb * size, true);
+	auto asize = nmemb * size;
+	auto ret = threadCache.alloc(asize, true);
+	if (ret !is null) {
+		memset(ret, 0, asize);
+	}
+
+	return ret;
 }
 
 void* realloc(void* ptr, size_t size) {

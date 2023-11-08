@@ -60,22 +60,6 @@ public:
 		return ptr;
 	}
 
-	void* calloc(size_t size, bool containsPointers) {
-		if (!isAllocatableSize(size)) {
-			return null;
-		}
-
-		initializeExtentMap();
-
-		auto arena = chooseArena(containsPointers);
-		void* ret = isLargeSize(size)
-			? arena.allocLarge(emap, size, true)
-			: arena.allocSmall(emap, size);
-
-		memset(ret, 0, size);
-		return ret;
-	}
-
 	void free(void* ptr) {
 		if (ptr is null) {
 			return;
@@ -444,8 +428,6 @@ unittest nonAllocatableSizes {
 	// Prohibited sizes of allocations
 	assert(threadCache.alloc(0, false) == null);
 	assert(threadCache.alloc(MaxAllocationSize + 1, false) == null);
-	assert(threadCache.calloc(0, false) == null);
-	assert(threadCache.calloc(MaxAllocationSize + 1, false) == null);
 	assert(threadCache.allocAppendable(0, false) == null);
 	assert(threadCache.allocAppendable(MaxAllocationSize + 1, false) == null);
 }
