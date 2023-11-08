@@ -572,11 +572,10 @@ public:
 		return getFromImpl(location, f, ctxs);
 	}
 
-	private Expression getFromImpl(Location location, Function f,
-	                               Expression[] ctxs) in {
-		assert(f.step >= Step.Signed);
-		assert(ctxs.length >= f.hasContext + f.hasThis);
-	} do {
+	private
+	Expression getFromImpl(Location location, Function f, Expression[] ctxs)
+			in(f.step >= Step.Signed)
+			in(ctxs.length >= f.hasContext + f.hasThis) {
 		foreach (i, ref c; ctxs) {
 			c = buildArgument(c, f.type.parameters[i]);
 		}
