@@ -84,6 +84,11 @@ public:
 		auxcount = 0;
 	}
 
+	@property
+	N* top() {
+		return root.node;
+	}
+
 	N* pop() {
 		if (empty) {
 			return null;
@@ -501,6 +506,7 @@ unittest heap {
 				return;
 			}
 
+			assert(n.node is heap.top || stuffCmp(heap.top, n.node) < 0);
 			assert(parent.isNull() || stuffCmp(parent.node, n.node) < 0);
 
 			// /!\ The root's prev is not maintained.
@@ -509,7 +515,13 @@ unittest heap {
 			check(n.child, n, n);
 		}
 
-		check(heap.root, Link(null), Link(null));
+		auto root = heap.root;
+		check(root, Link(null), Link(null));
+
+		// Check that all elements in the aux list are smaller than the root.
+		if (!root.isNull()) {
+			check(root.next, root, root);
+		}
 	}
 
 	void checkHeap() {
