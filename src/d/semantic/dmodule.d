@@ -107,9 +107,20 @@ public:
 			m.name = name;
 			m.packages = packages;
 		} else {
-			// XXX: Do proper error checking. Consider doing fixup.
-			assert(m.name == name, "Wrong module name");
-			assert(m.packages == packages, "Wrong module package");
+			// We have one; compare it to the file.
+			import source.exception;
+
+			if (m.name != name) {
+				throw new CompileException(m.declaredNameLocation,
+				                           "Module name mismatches filename.");
+			}
+
+			if (m.packages != packages) {
+				throw new CompileException(
+					m.declaredNameLocation,
+					"Module package mismatches directory hierarchy."
+				);
+			}
 		}
 
 		return m;
