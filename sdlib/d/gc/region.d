@@ -49,6 +49,7 @@ private:
 	Mutex mutex;
 
 	ulong nextEpoch;
+	uint dirtyPages = 0;
 
 	// Free regions we can allocate from.
 	ClassTree regionsByClass;
@@ -79,6 +80,14 @@ public:
 		scope(exit) mutex.unlock();
 
 		(cast(RegionAllocator*) &this).releaseImpl(ptr, pages);
+	}
+
+	@property
+	size_t dirtyPageCount() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(RegionAllocator*) &this).dirtyPages;
 	}
 
 private:
@@ -115,10 +124,18 @@ private:
 		auto newSize = r.size - allocSize;
 		if (newSize == 0) {
 			unusedRegions.insert(r);
+			dirtyPages -= r.dirtyPageCount;
 			return true;
 		}
 
-		r.at(ptr + allocSize, newSize);
+		// Remnant segment of the used region may be partially dirty:
+		auto regionDirtySize = r.dirtySize;
+		auto unusedDirtySize =
+			allocSize > regionDirtySize ? 0 : regionDirtySize - allocSize;
+		r.at(ptr + allocSize, newSize, unusedDirtySize);
+		auto reusedDirtyPages =
+			(regionDirtySize - unusedDirtySize) / HugePageSize;
+		dirtyPages -= reusedDirtyPages;
 		registerRegion(r);
 		return true;
 	}
@@ -127,7 +144,10 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto r = getOrAllocateRegion();
-		r.at(ptr, pages * HugePageSize);
+		auto size = pages * HugePageSize;
+		// Released pages are considered dirty:
+		dirtyPages += pages;
+		r.at(ptr, size, size);
 		registerRegion(r);
 	}
 
@@ -172,7 +192,8 @@ private:
 			return null;
 		}
 
-		return r.at(ptr, size);
+		// Newly allocated pages are considered clean:
+		return r.at(ptr, size, 0);
 	}
 
 	Region* getOrAllocateRegion() {
@@ -210,6 +231,7 @@ unittest acquire_release {
 	ulong expectedEpoch = 0;
 	HugePageDescriptor hpd0;
 
+	assert(regionAllocator.dirtyPageCount == 0);
 	assert(regionAllocator.acquire(&hpd0));
 	assert(hpd0.epoch == expectedEpoch++);
 
@@ -224,6 +246,7 @@ unittest acquire_release {
 		HugePageDescriptor hpd;
 		hpd.at(hpd0.address + i * HugePageSize, 0);
 		regionAllocator.release(&hpd);
+		assert(regionAllocator.dirtyPageCount == i - 4);
 	}
 
 	{
@@ -238,6 +261,7 @@ unittest acquire_release {
 		HugePageDescriptor hpd;
 		hpd.at(hpd0.address + i * HugePageSize, 0);
 		regionAllocator.release(&hpd);
+		assert(regionAllocator.dirtyPageCount == i + 508);
 	}
 
 	{
@@ -268,18 +292,23 @@ unittest extra_pages {
 	assert(hpd2.address is hpd1.address + 6 * HugePageSize);
 
 	// Release 3 huge pages. We now have 2 regions.
+	assert(regionAllocator.dirtyPageCount == 0);
 	regionAllocator.release(&hpd0);
+	assert(regionAllocator.dirtyPageCount == 1);
 	regionAllocator.release(hpd0.address + HugePageSize, 2);
+	assert(regionAllocator.dirtyPageCount == 3);
 
 	// Too big too fit.
 	HugePageDescriptor hpd3;
 	assert(regionAllocator.acquire(&hpd3, 3));
 	assert(hpd3.address is hpd2.address + 4 * HugePageSize);
+	assert(regionAllocator.dirtyPageCount == 3);
 
 	// Small enough, so we reuse freed regions.
 	HugePageDescriptor hpd4;
 	assert(regionAllocator.acquire(&hpd4, 2));
 	assert(hpd4.address is hpd0.address + 2 * HugePageSize);
+	assert(regionAllocator.dirtyPageCount == 0);
 }
 
 unittest enormous {
@@ -301,6 +330,7 @@ unittest enormous {
 struct Region {
 	void* address;
 	size_t size;
+	size_t dirtySize;
 
 	ubyte allocClass;
 	ubyte generation;
@@ -317,20 +347,23 @@ struct Region {
 
 	Links _links;
 
-	this(void* ptr, size_t size, ubyte generation = 0) {
+	this(void* ptr, size_t size, ubyte generation = 0, size_t dirtySize = 0) {
 		assert(isAligned(ptr, HugePageSize), "Invalid ptr alignment!");
 		assert(isAligned(size, HugePageSize), "Invalid size!");
+		assert(isAligned(dirtySize, HugePageSize), "Invalid dirtySize!");
+		assert(dirtySize <= size, "Dirty size exceeds size!");
 
 		address = ptr;
 		this.size = size;
 		this.generation = generation;
+		this.dirtySize = dirtySize;
 
 		allocClass = getFreeSpaceClass(hugePageCount);
 	}
 
 public:
-	Region* at(void* ptr, size_t size) {
-		this = Region(ptr, size, generation);
+	Region* at(void* ptr, size_t size, size_t dirtySize) {
+		this = Region(ptr, size, generation, dirtySize);
 		return &this;
 	}
 
@@ -347,6 +380,7 @@ public:
 	Region* clone(Region* r) {
 		address = r.address;
 		this.size = r.size;
+		this.dirtySize = r.dirtySize;
 		this.allocClass = r.allocClass;
 
 		assert(allocClass == getFreeSpaceClass(hugePageCount),
@@ -359,9 +393,17 @@ public:
 		assert(address is (r.address + r.size) || r.address is (address + size),
 		       "Regions are not adjacent!");
 
+		auto left = address > r.address ? r : &this;
+		auto right = address < r.address ? r : &this;
+
+		// Dirt is at all times contiguous within a region, and starts at the bottom.
+		// Given as purging is not yet supported, this invariant always holds.
+		assert(left.dirtySize == left.size || right.dirtySize == 0,
+		       "Merge would place dirty pages in front of clean pages !");
+
 		import d.gc.util;
 		auto a = min(address, r.address);
-		return at(a, size + r.size);
+		return at(a, size + r.size, dirtySize + r.dirtySize);
 	}
 
 	@property
@@ -382,6 +424,11 @@ public:
 	@property
 	size_t hugePageCount() const {
 		return size / HugePageSize;
+	}
+
+	@property
+	size_t dirtyPageCount() const {
+		return dirtySize / HugePageSize;
 	}
 }
 
@@ -436,4 +483,79 @@ ptrdiff_t unusedRegionCmp(Region* lhs, Region* rhs) {
 	r |= cast(size_t) rhs;
 
 	return (l > r) - (l < r);
+}
+
+unittest trackDirtyPages {
+	shared Base base;
+	scope(exit) base.clear();
+
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = &base;
+
+	// To snoop in.
+	auto ra = cast(RegionAllocator*) &regionAllocator;
+
+	HugePageDescriptor[16] hpdArray;
+	void*[16] hpdAddresses;
+
+	foreach (i; 0 .. 16) {
+		assert(regionAllocator.acquire(&hpdArray[i]));
+		hpdAddresses[i] = hpdArray[i].address;
+	}
+
+	void freeRun(HugePageDescriptor[] slice) {
+		auto oldDirties = regionAllocator.dirtyPageCount;
+		foreach (hpd; slice) {
+			regionAllocator.release(&hpd);
+		}
+
+		assert(regionAllocator.dirtyPageCount == oldDirties + slice.length);
+	}
+
+	// Verify that a region with given page count and dirt exists at address
+	void verifyUniqueRegion(void* address, uint searchPages, uint pages,
+	                        uint dirtyPages) {
+		Region rr;
+		rr.allocClass = getAllocClass(searchPages);
+		auto r = ra.regionsByClass.extractBestFit(&rr);
+		assert(r !is null);
+		ra.regionsByClass.insert(r);
+		assert(r.address == address);
+		assert(r.hugePageCount == pages);
+		assert(r.dirtyPageCount == dirtyPages);
+	}
+
+	// Initially, there are no dirty pages
+	assert(regionAllocator.dirtyPageCount == 0);
+
+	// Make some dirty regions
+	freeRun(hpdArray[0 .. 2]);
+	assert(regionAllocator.dirtyPageCount == 2);
+	verifyUniqueRegion(hpdAddresses[0], 2, 2, 2);
+	freeRun(hpdArray[4 .. 8]);
+	assert(regionAllocator.dirtyPageCount == 6);
+	verifyUniqueRegion(hpdAddresses[4], 4, 4, 4);
+	freeRun(hpdArray[10 .. 15]);
+	assert(regionAllocator.dirtyPageCount == 11);
+	verifyUniqueRegion(hpdAddresses[10], 5, 5, 5);
+
+	// Merge regions and confirm expected effect
+	freeRun(hpdArray[8 .. 10]);
+	assert(regionAllocator.dirtyPageCount == 13);
+	verifyUniqueRegion(hpdAddresses[4], 10, 11, 11);
+	freeRun(hpdArray[2 .. 4]);
+	assert(regionAllocator.dirtyPageCount == 15);
+	verifyUniqueRegion(hpdAddresses[0], 14, 15, 15);
+	freeRun(hpdArray[15 .. 16]);
+	verifyUniqueRegion(hpdAddresses[0], 1, RefillSize / HugePageSize, 16);
+
+	// Test dirt behaviour in acquire and release
+	HugePageDescriptor hpd0;
+	assert(regionAllocator.acquire(&hpd0, 5));
+	assert(hpd0.address is hpdAddresses[5]);
+	assert(regionAllocator.dirtyPageCount == 10);
+	verifyUniqueRegion(hpdAddresses[6], 1, (RefillSize / HugePageSize) - 6, 10);
+	regionAllocator.release(hpdAddresses[0], 6);
+	assert(regionAllocator.dirtyPageCount == 16);
+	verifyUniqueRegion(hpdAddresses[0], 1, RefillSize / HugePageSize, 16);
 }
