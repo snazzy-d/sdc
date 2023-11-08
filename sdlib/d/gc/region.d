@@ -123,30 +123,31 @@ private:
 		auto allocSize = totalHugePages * HugePageSize;
 		auto newSize = r.size - allocSize;
 		if (newSize == 0) {
-			unusedRegions.insert(r);
 			dirtyPages -= r.dirtyPageCount;
+			unusedRegions.insert(r);
 			return true;
 		}
 
 		// Remnant segment of the used region may be partially dirty:
-		auto regionDirtySize = r.dirtySize;
-		auto unusedDirtySize =
-			allocSize > regionDirtySize ? 0 : regionDirtySize - allocSize;
-		r.at(ptr + allocSize, newSize, unusedDirtySize);
-		auto reusedDirtyPages =
-			(regionDirtySize - unusedDirtySize) / HugePageSize;
-		dirtyPages -= reusedDirtyPages;
+		auto originalDirtySize = r.dirtySize;
+		auto recycledDirtySize = min(allocSize, originalDirtySize);
+		dirtyPages -= recycledDirtySize / HugePageSize;
+
+		auto remainingDirtySize = originalDirtySize - recycledDirtySize;
+		r.at(ptr + allocSize, newSize, remainingDirtySize);
 		registerRegion(r);
+
 		return true;
 	}
 
 	void releaseImpl(void* ptr, uint pages) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto r = getOrAllocateRegion();
-		auto size = pages * HugePageSize;
-		// Released pages are considered dirty:
+		// Released pages are considered dirty.
 		dirtyPages += pages;
+		auto size = pages * HugePageSize;
+
+		auto r = getOrAllocateRegion();
 		r.at(ptr, size, size);
 		registerRegion(r);
 	}
@@ -192,7 +193,7 @@ private:
 			return null;
 		}
 
-		// Newly allocated pages are considered clean:
+		// Newly allocated pages are considered clean.
 		return r.at(ptr, size, 0);
 	}
 
