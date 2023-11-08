@@ -68,11 +68,10 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
-		if (isLargeSize(size)) {
-			return arena.allocLarge(emap, size, true);
-		}
+		void* ret = isLargeSize(size)
+			? arena.allocLarge(emap, size, true)
+			: arena.allocSmall(emap, size);
 
-		auto ret = arena.allocSmall(emap, size);
 		memset(ret, 0, size);
 		return ret;
 	}
