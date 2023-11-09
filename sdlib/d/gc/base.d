@@ -67,9 +67,8 @@ public:
 	}
 
 	void* reserveAddressSpace(size_t size) shared {
-		// Bump the alignement to huge page size if apropriate.
-		auto alignment =
-			isAligned(size, HugePageSize) ? HugePageSize : PageSize;
+		// Bump the alignement to block size if apropriate.
+		auto alignment = isAligned(size, BlockSize) ? BlockSize : PageSize;
 
 		size = alignUp(size, alignment);
 		return reserveAddressSpace(size, alignment);
@@ -161,7 +160,7 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		block.addr = ptr;
-		block.size = HugePageSize;
+		block.size = BlockSize;
 		block.next = head;
 
 		head = block;
@@ -229,7 +228,7 @@ private:
 
 		// Allocate exponentially more space for metadata.
 		auto shift = currentGeneration++;
-		auto size = HugePageSize << shift;
+		auto size = BlockSize << shift;
 
 		import d.gc.memmap;
 		auto ptr = pages_map(null, size, size);
@@ -237,9 +236,9 @@ private:
 			return false;
 		}
 
-		enum SlotPerHugePage = HugePageSize / ExtentSize;
+		enum SlotPerBlock = BlockSize / ExtentSize;
 		nextMetadataAddr = ptr;
-		availableMetadatSlots = SlotPerHugePage << shift;
+		availableMetadatSlots = SlotPerBlock << shift;
 
 		// We expect this allocation to always succeed as we just
 		// reserved a ton of address space.

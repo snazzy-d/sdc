@@ -83,8 +83,8 @@ public:
 	void* address;
 	size_t sizeAndGen;
 
-	import d.gc.hpd;
-	HugePageDescriptor* hpd;
+	import d.gc.block;
+	BlockDescriptor* block;
 
 private:
 	// TODO: Reuse this data to do something useful,
@@ -129,7 +129,7 @@ private:
 	Metadata _metadata;
 
 	this(uint arenaIndex, void* ptr, size_t size, ubyte generation,
-	     HugePageDescriptor* hpd, ExtentClass ec) {
+	     BlockDescriptor* block, ExtentClass ec) {
 		// FIXME: in contract.
 		assert((arenaIndex & ~ArenaMask) == 0, "Invalid arena index!");
 		assert(isAligned(ptr, PageSize), "Invalid alignment!");
@@ -137,7 +137,7 @@ private:
 
 		this.address = ptr;
 		this.sizeAndGen = size | generation;
-		this.hpd = hpd;
+		this.block = block;
 
 		bits = ec.data;
 		bits |= ulong(arenaIndex) << 32;
@@ -154,14 +154,13 @@ private:
 	}
 
 public:
-	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd,
-	           ExtentClass ec) {
-		this = Extent(arenaIndex, ptr, size, generation, hpd, ec);
+	Extent* at(void* ptr, size_t size, BlockDescriptor* block, ExtentClass ec) {
+		this = Extent(arenaIndex, ptr, size, generation, block, ec);
 		return &this;
 	}
 
-	Extent* at(void* ptr, size_t size, HugePageDescriptor* hpd) {
-		return at(ptr, size, hpd, ExtentClass.large());
+	Extent* at(void* ptr, size_t size, BlockDescriptor* block) {
+		return at(ptr, size, block, ExtentClass.large());
 	}
 
 	static fromSlot(uint arenaIndex, Base.Slot slot) {
@@ -192,15 +191,15 @@ public:
 	}
 
 	bool isHuge() const {
-		return size > HugePageSize;
+		return size > BlockSize;
 	}
 
 	@property
-	uint hpdIndex() const {
-		assert(isHuge() || hpd.address is alignDown(address, HugePageSize));
-		assert(!isHuge() || isAligned(address, HugePageSize));
+	uint blockIndex() const {
+		assert(isHuge() || block.address is alignDown(address, BlockSize));
+		assert(!isHuge() || isAligned(address, BlockSize));
 
-		return ((cast(size_t) address) / PageSize) % PagesInHugePage;
+		return ((cast(size_t) address) / PageSize) % PagesInBlock;
 	}
 
 	@property

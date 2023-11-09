@@ -3,7 +3,7 @@ module d.gc.region;
 import d.gc.allocclass;
 import d.gc.base;
 import d.gc.heap;
-import d.gc.hpd;
+import d.gc.block;
 import d.gc.rbtree;
 
 import d.gc.spec;
@@ -59,18 +59,18 @@ private:
 	Heap!(Region, unusedRegionCmp) unusedRegions;
 
 public:
-	bool acquire(HugePageDescriptor* hpd, uint extraHugePages = 0) shared {
+	bool acquire(BlockDescriptor* block, uint extraBlocks = 0) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(RegionAllocator*) &this).acquireImpl(hpd, extraHugePages);
+		return (cast(RegionAllocator*) &this).acquireImpl(block, extraBlocks);
 	}
 
-	void release(HugePageDescriptor* hpd) shared {
-		// FIXME: assert the hpd is not borrowed.
-		assert(hpd.empty, "HPD is not empty!");
+	void release(BlockDescriptor* block) shared {
+		// FIXME: assert the block is not borrowed.
+		assert(block.empty, "Block is not empty!");
 
-		release(hpd.address, 1);
+		release(block.address, 1);
 	}
 
 	void release(void* ptr, uint pages) shared {
@@ -91,17 +91,17 @@ public:
 	}
 
 private:
-	bool acquireImpl(HugePageDescriptor* hpd, uint extraHugePages = 0) {
+	bool acquireImpl(BlockDescriptor* block, uint extraBlocks = 0) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto totalHugePages = extraHugePages + 1;
+		auto totalBlocks = extraBlocks + 1;
 
 		Region rr;
-		rr.allocClass = getAllocClass(totalHugePages);
+		rr.allocClass = getAllocClass(totalBlocks);
 
 		auto r = regionsByClass.extractBestFit(&rr);
 		if (r is null) {
-			r = refillAddressSpace(extraHugePages);
+			r = refillAddressSpace(extraBlocks);
 			if (r is null) {
 				return false;
 			}
@@ -109,18 +109,18 @@ private:
 			regionsByRange.remove(r);
 		}
 
-		assert(r.address !is null && isAligned(r.address, HugePageSize),
+		assert(r.address !is null && isAligned(r.address, BlockSize),
 		       "Invalid address!");
-		assert(r.size >= HugePageSize && isAligned(r.size, HugePageSize),
+		assert(r.size >= BlockSize && isAligned(r.size, BlockSize),
 		       "Invalid size!");
-		assert(r.size > extraHugePages * HugePageSize,
+		assert(r.size > extraBlocks * BlockSize,
 		       "Insuffiscient address space!");
 
 		auto ptr = r.address;
-		auto extraSize = extraHugePages * HugePageSize;
-		hpd.at(ptr + extraSize, nextEpoch++);
+		auto extraSize = extraBlocks * BlockSize;
+		block.at(ptr + extraSize, nextEpoch++);
 
-		auto allocSize = totalHugePages * HugePageSize;
+		auto allocSize = totalBlocks * BlockSize;
 		auto newSize = r.size - allocSize;
 		if (newSize == 0) {
 			dirtyPages -= r.dirtyPageCount;
@@ -131,7 +131,7 @@ private:
 		// Remnant segment of the used region may be partially dirty:
 		auto originalDirtySize = r.dirtySize;
 		auto recycledDirtySize = min(allocSize, originalDirtySize);
-		dirtyPages -= recycledDirtySize / HugePageSize;
+		dirtyPages -= recycledDirtySize / BlockSize;
 
 		auto remainingDirtySize = originalDirtySize - recycledDirtySize;
 		r.at(ptr + allocSize, newSize, remainingDirtySize);
@@ -145,7 +145,7 @@ private:
 
 		// Released pages are considered dirty.
 		dirtyPages += pages;
-		auto size = pages * HugePageSize;
+		auto size = pages * BlockSize;
 
 		auto r = getOrAllocateRegion();
 		r.at(ptr, size, size);
@@ -176,7 +176,7 @@ private:
 		regionsByRange.insert(toRegister);
 	}
 
-	Region* refillAddressSpace(uint extraHugePages) {
+	Region* refillAddressSpace(uint extraBlocks) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto r = getOrAllocateRegion();
@@ -184,10 +184,10 @@ private:
 			return null;
 		}
 
-		auto pages = alignUp(extraHugePages + 1, RefillSize / HugePageSize);
-		auto size = pages * HugePageSize;
+		auto pages = alignUp(extraBlocks + 1, RefillSize / BlockSize);
+		auto size = pages * BlockSize;
 
-		auto ptr = base.reserveAddressSpace(size, HugePageSize);
+		auto ptr = base.reserveAddressSpace(size, BlockSize);
 		if (ptr is null) {
 			unusedRegions.insert(r);
 			return null;
@@ -230,23 +230,23 @@ unittest acquire_release {
 	auto ra = cast(RegionAllocator*) &regionAllocator;
 
 	ulong expectedEpoch = 0;
-	HugePageDescriptor hpd0;
+	BlockDescriptor block0;
 
 	assert(regionAllocator.dirtyPageCount == 0);
-	assert(regionAllocator.acquire(&hpd0));
-	assert(hpd0.epoch == expectedEpoch++);
+	assert(regionAllocator.acquire(&block0));
+	assert(block0.epoch == expectedEpoch++);
 
-	foreach (i; 1 .. RefillSize / HugePageSize) {
-		HugePageDescriptor hpd;
-		assert(regionAllocator.acquire(&hpd));
-		assert(hpd.epoch == expectedEpoch++);
-		assert(hpd.address is hpd0.address + i * HugePageSize);
+	foreach (i; 1 .. RefillSize / BlockSize) {
+		BlockDescriptor block;
+		assert(regionAllocator.acquire(&block));
+		assert(block.epoch == expectedEpoch++);
+		assert(block.address is block0.address + i * BlockSize);
 	}
 
-	foreach (i; 5 .. RefillSize / HugePageSize) {
-		HugePageDescriptor hpd;
-		hpd.at(hpd0.address + i * HugePageSize, 0);
-		regionAllocator.release(&hpd);
+	foreach (i; 5 .. RefillSize / BlockSize) {
+		BlockDescriptor block;
+		block.at(block0.address + i * BlockSize, 0);
+		regionAllocator.release(&block);
 		assert(regionAllocator.dirtyPageCount == i - 4);
 	}
 
@@ -254,14 +254,14 @@ unittest acquire_release {
 		auto r = ra.regionsByClass.extractAny();
 		scope(exit) ra.regionsByClass.insert(r);
 
-		assert(r.address is hpd0.address + 5 * HugePageSize);
-		assert(r.size == RefillSize - 5 * HugePageSize);
+		assert(r.address is block0.address + 5 * BlockSize);
+		assert(r.size == RefillSize - 5 * BlockSize);
 	}
 
 	foreach (i; 0 .. 5) {
-		HugePageDescriptor hpd;
-		hpd.at(hpd0.address + i * HugePageSize, 0);
-		regionAllocator.release(&hpd);
+		BlockDescriptor block;
+		block.at(block0.address + i * BlockSize, 0);
+		regionAllocator.release(&block);
 		assert(regionAllocator.dirtyPageCount == i + 508);
 	}
 
@@ -269,7 +269,7 @@ unittest acquire_release {
 		auto r = ra.regionsByClass.extractAny();
 		scope(exit) ra.regionsByClass.insert(r);
 
-		assert(r.address is hpd0.address);
+		assert(r.address is block0.address);
 		assert(r.size == RefillSize);
 	}
 }
@@ -281,34 +281,34 @@ unittest extra_pages {
 	shared RegionAllocator regionAllocator;
 	regionAllocator.base = &base;
 
-	HugePageDescriptor hpd0;
-	assert(regionAllocator.acquire(&hpd0));
+	BlockDescriptor block0;
+	assert(regionAllocator.acquire(&block0));
 
-	HugePageDescriptor hpd1;
-	assert(regionAllocator.acquire(&hpd1, 1));
-	assert(hpd1.address is hpd0.address + 2 * HugePageSize);
+	BlockDescriptor block1;
+	assert(regionAllocator.acquire(&block1, 1));
+	assert(block1.address is block0.address + 2 * BlockSize);
 
-	HugePageDescriptor hpd2;
-	assert(regionAllocator.acquire(&hpd2, 5));
-	assert(hpd2.address is hpd1.address + 6 * HugePageSize);
+	BlockDescriptor block2;
+	assert(regionAllocator.acquire(&block2, 5));
+	assert(block2.address is block1.address + 6 * BlockSize);
 
-	// Release 3 huge pages. We now have 2 regions.
+	// Release 3 blocks. We now have 2 regions.
 	assert(regionAllocator.dirtyPageCount == 0);
-	regionAllocator.release(&hpd0);
+	regionAllocator.release(&block0);
 	assert(regionAllocator.dirtyPageCount == 1);
-	regionAllocator.release(hpd0.address + HugePageSize, 2);
+	regionAllocator.release(block0.address + BlockSize, 2);
 	assert(regionAllocator.dirtyPageCount == 3);
 
 	// Too big too fit.
-	HugePageDescriptor hpd3;
-	assert(regionAllocator.acquire(&hpd3, 3));
-	assert(hpd3.address is hpd2.address + 4 * HugePageSize);
+	BlockDescriptor block3;
+	assert(regionAllocator.acquire(&block3, 3));
+	assert(block3.address is block2.address + 4 * BlockSize);
 	assert(regionAllocator.dirtyPageCount == 3);
 
 	// Small enough, so we reuse freed regions.
-	HugePageDescriptor hpd4;
-	assert(regionAllocator.acquire(&hpd4, 2));
-	assert(hpd4.address is hpd0.address + 2 * HugePageSize);
+	BlockDescriptor block4;
+	assert(regionAllocator.acquire(&block4, 2));
+	assert(block4.address is block0.address + 2 * BlockSize);
 	assert(regionAllocator.dirtyPageCount == 0);
 }
 
@@ -319,13 +319,12 @@ unittest enormous {
 	shared RegionAllocator regionAllocator;
 	regionAllocator.base = &base;
 
-	enum HugePages = 2048;
-	enum ExtraPages = HugePages - 1;
+	enum Blocks = 2048;
+	enum ExtraBlocks = Blocks - 1;
 
-	HugePageDescriptor hpd0;
-	assert(regionAllocator.acquire(&hpd0, ExtraPages));
-	regionAllocator
-		.release(hpd0.address - ExtraPages * HugePageSize, HugePages);
+	BlockDescriptor block0;
+	assert(regionAllocator.acquire(&block0, ExtraBlocks));
+	regionAllocator.release(block0.address - ExtraBlocks * BlockSize, Blocks);
 }
 
 struct Region {
@@ -349,9 +348,9 @@ struct Region {
 	Links _links;
 
 	this(void* ptr, size_t size, ubyte generation = 0, size_t dirtySize = 0) {
-		assert(isAligned(ptr, HugePageSize), "Invalid ptr alignment!");
-		assert(isAligned(size, HugePageSize), "Invalid size!");
-		assert(isAligned(dirtySize, HugePageSize), "Invalid dirtySize!");
+		assert(isAligned(ptr, BlockSize), "Invalid ptr alignment!");
+		assert(isAligned(size, BlockSize), "Invalid size!");
+		assert(isAligned(dirtySize, BlockSize), "Invalid dirtySize!");
 		assert(dirtySize <= size, "Dirty size exceeds size!");
 
 		address = ptr;
@@ -359,7 +358,7 @@ struct Region {
 		this.generation = generation;
 		this.dirtySize = dirtySize;
 
-		allocClass = getFreeSpaceClass(hugePageCount);
+		allocClass = getFreeSpaceClass(blockCount);
 	}
 
 public:
@@ -384,7 +383,7 @@ public:
 		this.dirtySize = r.dirtySize;
 		this.allocClass = r.allocClass;
 
-		assert(allocClass == getFreeSpaceClass(hugePageCount),
+		assert(allocClass == getFreeSpaceClass(blockCount),
 		       "Invalid alloc class!");
 
 		return &this;
@@ -423,13 +422,13 @@ public:
 	}
 
 	@property
-	size_t hugePageCount() const {
-		return size / HugePageSize;
+	size_t blockCount() const {
+		return size / BlockSize;
 	}
 
 	@property
 	size_t dirtyPageCount() const {
-		return dirtySize / HugePageSize;
+		return dirtySize / BlockSize;
 	}
 }
 
@@ -448,9 +447,9 @@ unittest rangeTree {
 	RBTree!(Region, addrRangeRegionCmp, "rbRange") regionByRange;
 
 	auto base = cast(void*) 0x456789a00000;
-	auto r0 = Region(base, HugePageSize);
-	auto r1 = Region(base + HugePageSize, HugePageSize);
-	auto r2 = Region(base + 2 * HugePageSize, HugePageSize);
+	auto r0 = Region(base, BlockSize);
+	auto r1 = Region(base + BlockSize, BlockSize);
+	auto r2 = Region(base + 2 * BlockSize, BlockSize);
 
 	regionByRange.insert(&r0);
 
@@ -496,18 +495,18 @@ unittest trackDirtyPages {
 	// To snoop in.
 	auto ra = cast(RegionAllocator*) &regionAllocator;
 
-	HugePageDescriptor[16] hpdArray;
-	void*[16] hpdAddresses;
+	BlockDescriptor[16] blockArray;
+	void*[16] blockAddresses;
 
 	foreach (i; 0 .. 16) {
-		assert(regionAllocator.acquire(&hpdArray[i]));
-		hpdAddresses[i] = hpdArray[i].address;
+		assert(regionAllocator.acquire(&blockArray[i]));
+		blockAddresses[i] = blockArray[i].address;
 	}
 
-	void freeRun(HugePageDescriptor[] slice) {
+	void freeRun(BlockDescriptor[] slice) {
 		auto oldDirties = regionAllocator.dirtyPageCount;
-		foreach (hpd; slice) {
-			regionAllocator.release(&hpd);
+		foreach (block; slice) {
+			regionAllocator.release(&block);
 		}
 
 		assert(regionAllocator.dirtyPageCount == oldDirties + slice.length);
@@ -522,7 +521,7 @@ unittest trackDirtyPages {
 		assert(r !is null);
 		ra.regionsByClass.insert(r);
 		assert(r.address == address);
-		assert(r.hugePageCount == pages);
+		assert(r.blockCount == pages);
 		assert(r.dirtyPageCount == dirtyPages);
 	}
 
@@ -530,33 +529,33 @@ unittest trackDirtyPages {
 	assert(regionAllocator.dirtyPageCount == 0);
 
 	// Make some dirty regions
-	freeRun(hpdArray[0 .. 2]);
+	freeRun(blockArray[0 .. 2]);
 	assert(regionAllocator.dirtyPageCount == 2);
-	verifyUniqueRegion(hpdAddresses[0], 2, 2, 2);
-	freeRun(hpdArray[4 .. 8]);
+	verifyUniqueRegion(blockAddresses[0], 2, 2, 2);
+	freeRun(blockArray[4 .. 8]);
 	assert(regionAllocator.dirtyPageCount == 6);
-	verifyUniqueRegion(hpdAddresses[4], 4, 4, 4);
-	freeRun(hpdArray[10 .. 15]);
+	verifyUniqueRegion(blockAddresses[4], 4, 4, 4);
+	freeRun(blockArray[10 .. 15]);
 	assert(regionAllocator.dirtyPageCount == 11);
-	verifyUniqueRegion(hpdAddresses[10], 5, 5, 5);
+	verifyUniqueRegion(blockAddresses[10], 5, 5, 5);
 
 	// Merge regions and confirm expected effect
-	freeRun(hpdArray[8 .. 10]);
+	freeRun(blockArray[8 .. 10]);
 	assert(regionAllocator.dirtyPageCount == 13);
-	verifyUniqueRegion(hpdAddresses[4], 10, 11, 11);
-	freeRun(hpdArray[2 .. 4]);
+	verifyUniqueRegion(blockAddresses[4], 10, 11, 11);
+	freeRun(blockArray[2 .. 4]);
 	assert(regionAllocator.dirtyPageCount == 15);
-	verifyUniqueRegion(hpdAddresses[0], 14, 15, 15);
-	freeRun(hpdArray[15 .. 16]);
-	verifyUniqueRegion(hpdAddresses[0], 1, RefillSize / HugePageSize, 16);
+	verifyUniqueRegion(blockAddresses[0], 14, 15, 15);
+	freeRun(blockArray[15 .. 16]);
+	verifyUniqueRegion(blockAddresses[0], 1, RefillSize / BlockSize, 16);
 
 	// Test dirt behaviour in acquire and release
-	HugePageDescriptor hpd0;
-	assert(regionAllocator.acquire(&hpd0, 5));
-	assert(hpd0.address is hpdAddresses[5]);
+	BlockDescriptor block0;
+	assert(regionAllocator.acquire(&block0, 5));
+	assert(block0.address is blockAddresses[5]);
 	assert(regionAllocator.dirtyPageCount == 10);
-	verifyUniqueRegion(hpdAddresses[6], 1, (RefillSize / HugePageSize) - 6, 10);
-	regionAllocator.release(hpdAddresses[0], 6);
+	verifyUniqueRegion(blockAddresses[6], 1, (RefillSize / BlockSize) - 6, 10);
+	regionAllocator.release(blockAddresses[0], 6);
 	assert(regionAllocator.dirtyPageCount == 16);
-	verifyUniqueRegion(hpdAddresses[0], 1, RefillSize / HugePageSize, 16);
+	verifyUniqueRegion(blockAddresses[0], 1, RefillSize / BlockSize, 16);
 }

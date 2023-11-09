@@ -13,7 +13,7 @@ struct Bin {
 	shared Mutex mutex;
 
 	// XXX: We might want to consider targeting Extents
-	// on old huge pages instead of just address.
+	// on old blocks instead of just address.
 	import d.gc.extent, d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 

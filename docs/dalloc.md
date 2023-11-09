@@ -123,21 +123,20 @@ initiallized, they do not take any memory in practice unless they are used. Half
 of the arenas are for allocations that may contain pointer and the other half
 for allocations that may not.
 
-Arenas will request huge pages (2MB) from the region allocation and allocate
-ranges of 4kb pages from them. Each huge page used by the arena comes with a
-page descriptor which has a bitmap of which pages are allocated within it or
-not.
+Arenas will request blocks (2MB) from the region allocator and allocate ranges
+of 4kb pages from them. Each block used by the arena comes with a page
+descriptor which has a bitmap of which pages are allocated within it or not.
 
-The id of the CPU ocre on which the thread is currently running decides what
+The id of the CPU core on which the thread is currently running decides what
 arena to use. This ensures a low level of contention in practice, and will limit
 the number of arena used to twice the number of core on the machine.
 
 ### Large allocations
 
-All the huge page descriptors which have any slots left are kept in the serie of
+All the block descriptors which have any slots left are kept in the serie of
 pairing heaps, based on the maximum size class that can be allocated. The
 pairing heaps allows for amortized constant time insertions and deletions. This
-way, finding a huge page to allocate from can be extremely quick.
+way, finding a block to allocate from can be extremely quick.
 
 ### Small allocations
 

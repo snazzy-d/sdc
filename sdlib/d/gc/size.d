@@ -31,12 +31,12 @@ uint getPageCount(size_t size) {
 	return pages & uint.max;
 }
 
-uint getHugePageCount(size_t size) {
+uint getBlockCount(size_t size) {
 	assert(isAllocatableSize(size), "Invalid size!");
 
 	import d.gc.util;
-	auto pages = alignUp(size, HugePageSize) / HugePageSize;
-	assert(pages == pages & uint.max, "Invalid huge page count!");
+	auto pages = alignUp(size, BlockSize) / BlockSize;
+	assert(pages == pages & uint.max, "Invalid block count!");
 
 	return pages & uint.max;
 }

@@ -111,7 +111,7 @@ unittest pages_map_align {
 	size_t i = 0;
 	Alloc[32] allocs;
 	for (size_t s = PageSize; s <= 1024 * 1024 * 1024; s <<= 1) {
-		for (size_t a = PageSize; a <= s && a <= HugePageSize; a <<= 1) {
+		for (size_t a = PageSize; a <= s && a <= BlockSize; a <<= 1) {
 			i = (i + 1) % allocs.length;
 			if (allocs[i].ptr !is null) {
 				pages_unmap(allocs[i].ptr, allocs[i].length);

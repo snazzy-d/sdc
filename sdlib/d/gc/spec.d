@@ -29,12 +29,12 @@ enum LgPageSize = 12;
 enum PageSize = One << LgPageSize;
 enum PageMask = PageSize - 1;
 
-// Huge page size.
-enum LgHugePageSize = 21;
-enum HugePageSize = One << LgHugePageSize;
-enum HugePageMask = HugePageSize - 1;
+// Block size.
+enum LgBlockSize = 21;
+enum BlockSize = One << LgBlockSize;
+enum BlockMask = BlockSize - 1;
 
-enum uint PagesInHugePage = HugePageSize / PageSize;
+enum uint PagesInBlock = BlockSize / PageSize;
 
 // Virtual address space.
 enum LgAddressSpace = 48;

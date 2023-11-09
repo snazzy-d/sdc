@@ -179,7 +179,7 @@ unittest SlabAllocInfo {
 
 	auto slot = base.allocSlot();
 	auto e = Extent.fromSlot(0, slot);
-	auto block = base.reserveAddressSpace(HugePageSize);
+	auto block = base.reserveAddressSpace(BlockSize);
 	assert(block !is null);
 
 	static SlabAllocInfo simulateSmallAlloc(size_t size, uint slotIndex) {

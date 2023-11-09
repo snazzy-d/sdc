@@ -3,7 +3,7 @@ module d.gc.arena;
 import d.gc.allocclass;
 import d.gc.emap;
 import d.gc.extent;
-import d.gc.hpd;
+import d.gc.block;
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
@@ -25,14 +25,14 @@ private:
 
 	import d.gc.heap;
 	Heap!(Extent, unusedExtentCmp) unusedExtents;
-	Heap!(HugePageDescriptor, unusedHPDCmp) unusedHPDs;
+	Heap!(BlockDescriptor, unusedBlockDescriptorCmp) unusedBlockDescriptors;
 
 	ulong filter;
 
-	enum HeapCount = getAllocClass(PagesInHugePage);
+	enum HeapCount = getAllocClass(PagesInBlock);
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
-	Heap!(HugePageDescriptor, epochHPDCmp)[HeapCount] heaps;
+	Heap!(BlockDescriptor, epochBlockCmp)[HeapCount] heaps;
 
 	import d.gc.bin;
 	Bin[ClassCount.Small] bins;
@@ -177,7 +177,7 @@ public:
 		assert(pages > 0 && pages < e.pageCount, "Invalid page count!");
 
 		uint delta = e.pageCount - pages;
-		uint index = e.hpdIndex + pages;
+		uint index = e.blockIndex + pages;
 
 		emap.clear(e.address + pages * PageSize, delta);
 
@@ -192,8 +192,8 @@ public:
 		assert(!e.isHuge(), "Does not support huge!");
 		assert(pages > e.pageCount, "Invalid page count!");
 
-		auto n = e.hpdIndex;
-		if (n + pages > PagesInHugePage) {
+		auto n = e.blockIndex;
+		if (n + pages > PagesInBlock) {
 			return false;
 		}
 
@@ -259,7 +259,7 @@ package:
 
 private:
 	Extent* allocPages(uint pages, ExtentClass ec) shared {
-		assert(pages > 0 && pages <= PagesInHugePage, "Invalid page count!");
+		assert(pages > 0 && pages <= PagesInBlock, "Invalid page count!");
 		auto mask = ulong.max << getAllocClass(pages);
 
 		mutex.lock();
@@ -269,7 +269,7 @@ private:
 	}
 
 	Extent* allocPages(uint pages) shared {
-		if (unlikely(pages > PagesInHugePage)) {
+		if (unlikely(pages > PagesInBlock)) {
 			return allocHuge(pages);
 		}
 
@@ -277,10 +277,10 @@ private:
 	}
 
 	Extent* allocHuge(uint pages) shared {
-		assert(pages > PagesInHugePage, "Invalid page count!");
+		assert(pages > PagesInBlock, "Invalid page count!");
 
-		uint extraPages = (pages - 1) / PagesInHugePage;
-		pages = modUp(pages, PagesInHugePage);
+		uint extraPages = (pages - 1) / PagesInBlock;
+		pages = modUp(pages, PagesInBlock);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -291,8 +291,8 @@ private:
 	void freePages(Extent* e) shared {
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 
-		uint n = e.hpdIndex;
-		uint pages = modUp(e.pageCount, PagesInHugePage);
+		uint n = e.blockIndex;
+		uint pages = modUp(e.pageCount, PagesInBlock);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -316,21 +316,21 @@ private:
 			return null;
 		}
 
-		auto hpd = extractHPD(pages, mask);
-		if (unlikely(hpd is null)) {
+		auto block = extractBlock(pages, mask);
+		if (unlikely(block is null)) {
 			unusedExtents.insert(e);
 			return null;
 		}
 
-		auto n = hpd.reserve(pages);
-		if (!hpd.full) {
-			registerHPD(hpd);
+		auto n = block.reserve(pages);
+		if (!block.full) {
+			registerBlock(block);
 		}
 
-		auto ptr = hpd.address + n * PageSize;
+		auto ptr = block.address + n * PageSize;
 		auto size = pages * PageSize;
 
-		return e.at(ptr, size, hpd, ec);
+		return e.at(ptr, size, block, ec);
 	}
 
 	Extent* allocHugeImpl(uint pages, uint extraPages) {
@@ -341,24 +341,24 @@ private:
 			return null;
 		}
 
-		auto hpd = allocateHPD(extraPages);
-		if (unlikely(hpd is null)) {
+		auto block = allocateBlock(extraPages);
+		if (unlikely(block is null)) {
 			unusedExtents.insert(e);
 			return null;
 		}
 
-		auto n = hpd.reserve(pages);
+		auto n = block.reserve(pages);
 		assert(n == 0, "Unexpected page allocated!");
 
-		if (!hpd.full) {
-			registerHPD(hpd);
+		if (!block.full) {
+			registerBlock(block);
 		}
 
-		auto leadSize = extraPages * HugePageSize;
-		auto ptr = hpd.address - leadSize;
+		auto leadSize = extraPages * BlockSize;
+		auto ptr = block.address - leadSize;
 		auto size = leadSize + pages * PageSize;
 
-		return e.at(ptr, size, hpd);
+		return e.at(ptr, size, block);
 	}
 
 	auto getOrAllocateExtent() {
@@ -379,24 +379,23 @@ private:
 
 	void freePagesImpl(Extent* e, uint n, uint pages) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(pages > 0 && pages <= PagesInHugePage,
-		       "Invalid number of pages!");
-		assert(n <= PagesInHugePage - pages, "Invalid index!");
+		assert(pages > 0 && pages <= PagesInBlock, "Invalid number of pages!");
+		assert(n <= PagesInBlock - pages, "Invalid index!");
 
-		auto hpd = e.hpd;
-		unregisterHPD(hpd);
+		auto block = e.block;
+		unregisterBlock(block);
 
-		hpd.release(n, pages);
-		if (hpd.empty) {
-			releaseHPD(e, hpd);
+		block.release(n, pages);
+		if (block.empty) {
+			releaseBlock(e, block);
 		} else {
 			// If the extent is huge, we need to release the concerned region.
 			if (e.isHuge()) {
-				uint count = (e.size / HugePageSize) & uint.max;
+				uint count = (e.size / BlockSize) & uint.max;
 				regionAllocator.release(e.address, count);
 			}
 
-			registerHPD(hpd);
+			registerBlock(block);
 		}
 
 		unusedExtents.insert(e);
@@ -404,115 +403,114 @@ private:
 
 	void shrinkAllocImpl(Extent* e, uint index, uint pages, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(index > 0 && index <= PagesInHugePage - pages, "Invalid index!");
-		assert(pages > 0 && pages <= PagesInHugePage - index,
+		assert(index > 0 && index <= PagesInBlock - pages, "Invalid index!");
+		assert(pages > 0 && pages <= PagesInBlock - index,
 		       "Invalid number of pages!");
 		assert(delta > 0, "Invalid delta!");
 
-		auto hpd = e.hpd;
-		unregisterHPD(hpd);
+		auto block = e.block;
+		unregisterBlock(block);
 
-		e.at(e.address, pages * PageSize, hpd);
-		hpd.clear(index, delta);
+		e.at(e.address, pages * PageSize, block);
+		block.clear(index, delta);
 
-		assert(!hpd.empty);
-		registerHPD(hpd);
+		assert(!block.empty);
+		registerBlock(block);
 	}
 
 	bool growAllocImpl(Extent* e, uint index, uint pages, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(index > 0 && index <= PagesInHugePage - delta, "Invalid index!");
-		assert(pages > 0 && pages <= PagesInHugePage,
-		       "Invalid number of pages!");
+		assert(index > 0 && index <= PagesInBlock - delta, "Invalid index!");
+		assert(pages > 0 && pages <= PagesInBlock, "Invalid number of pages!");
 		assert(delta > 0, "Invalid delta!");
 
-		auto hpd = e.hpd;
-		unregisterHPD(hpd);
+		auto block = e.block;
+		unregisterBlock(block);
 
-		auto didGrow = hpd.set(index, delta);
+		auto didGrow = block.set(index, delta);
 		if (didGrow) {
-			e.at(e.address, pages * PageSize, hpd);
+			e.at(e.address, pages * PageSize, block);
 		}
 
-		if (!hpd.full) {
-			registerHPD(hpd);
+		if (!block.full) {
+			registerBlock(block);
 		}
 
 		return didGrow;
 	}
 
 	/**
-	 * HugePageDescriptor heaps management.
+	 * BlockDescriptor heaps management.
 	 */
-	HugePageDescriptor* extractHPD(uint pages, ulong mask) {
+	BlockDescriptor* extractBlock(uint pages, ulong mask) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto acfilter = filter & mask;
 		if (acfilter == 0) {
-			return allocateHPD();
+			return allocateBlock();
 		}
 
 		auto index = countTrailingZeros(acfilter);
-		auto hpd = heaps[index].pop();
+		auto block = heaps[index].pop();
 		filter &= ~(ulong(heaps[index].empty) << index);
 
-		return hpd;
+		return block;
 	}
 
-	HugePageDescriptor* allocateHPD(uint extraPages = 0) {
+	BlockDescriptor* allocateBlock(uint extraPages = 0) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto hpd = unusedHPDs.pop();
-		if (hpd is null) {
+		auto block = unusedBlockDescriptors.pop();
+		if (block is null) {
 			auto slot = base.allocSlot();
 			if (slot.address is null) {
 				return null;
 			}
 
-			hpd = HugePageDescriptor.fromSlot(slot);
+			block = BlockDescriptor.fromSlot(slot);
 		}
 
-		if (regionAllocator.acquire(hpd, extraPages)) {
-			return hpd;
+		if (regionAllocator.acquire(block, extraPages)) {
+			return block;
 		}
 
-		unusedHPDs.insert(hpd);
+		unusedBlockDescriptors.insert(block);
 		return null;
 	}
 
-	void unregisterHPD(HugePageDescriptor* hpd) {
+	void unregisterBlock(BlockDescriptor* block) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		if (hpd.full) {
+		if (block.full) {
 			return;
 		}
 
-		auto index = getFreeSpaceClass(hpd.longestFreeRange);
-		heaps[index].remove(hpd);
+		auto index = getFreeSpaceClass(block.longestFreeRange);
+		heaps[index].remove(block);
 		filter &= ~(ulong(heaps[index].empty) << index);
 	}
 
-	void registerHPD(HugePageDescriptor* hpd) {
+	void registerBlock(BlockDescriptor* block) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(!hpd.full, "HPD is full!");
-		assert(!hpd.empty, "HPD is empty!");
+		assert(!block.full, "Block is full!");
+		assert(!block.empty, "Block is empty!");
 
-		auto index = getFreeSpaceClass(hpd.longestFreeRange);
-		heaps[index].insert(hpd);
+		auto index = getFreeSpaceClass(block.longestFreeRange);
+		heaps[index].insert(block);
 		filter |= ulong(1) << index;
 	}
 
-	void releaseHPD(Extent* e, HugePageDescriptor* hpd) {
+	void releaseBlock(Extent* e, BlockDescriptor* block) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(hpd.empty, "HPD is not empty!");
-		assert(e.hpd is hpd, "Invalid HPD!");
+		assert(block.empty, "Block is not empty!");
+		assert(e.block is block, "Invalid Block!");
 
 		import d.gc.size;
-		auto pages = getHugePageCount(e.size);
-		auto ptr = alignDown(e.address, HugePageSize);
+		auto pages = getBlockCount(e.size);
+		auto ptr = alignDown(e.address, BlockSize);
 		regionAllocator.release(ptr, pages);
 
-		unusedHPDs.insert(hpd);
+		unusedBlockDescriptors.insert(block);
 	}
 }
 
@@ -627,7 +625,7 @@ unittest allocHuge {
 	regionAllocator.base = base;
 
 	arena.regionAllocator = &regionAllocator;
-	enum uint AllocSize = PagesInHugePage + 1;
+	enum uint AllocSize = PagesInBlock + 1;
 
 	// Allocate a huge extent.
 	auto e0 = arena.allocPages(AllocSize);
@@ -644,7 +642,7 @@ unittest allocHuge {
 	assert(e0.address is e0Addr);
 	assert(e0.size == AllocSize * PageSize);
 
-	// Allocate one page on the borrowed huge page.
+	// Allocate one page on the borrowed block.
 	auto e1 = arena.allocPages(1);
 	assert(e1 !is null);
 	assert(e1.size == PageSize);
@@ -656,20 +654,20 @@ unittest allocHuge {
 	// Allocating another huge extent will use a new range.
 	auto e2 = arena.allocPages(AllocSize);
 	assert(e2 !is null);
-	assert(e2.address is alignUp(e1.address, HugePageSize));
+	assert(e2.address is alignUp(e1.address, BlockSize));
 	assert(e2.size == AllocSize * PageSize);
 
 	// Allocating new small extents fill the borrowed page.
 	auto e3 = arena.allocPages(1);
 	assert(e3 !is null);
-	assert(e3.address is alignDown(e1.address, HugePageSize));
+	assert(e3.address is alignDown(e1.address, BlockSize));
 	assert(e3.size == PageSize);
 
 	// But allocating just the right size will reuse the region.
-	auto e4 = arena.allocPages(PagesInHugePage);
+	auto e4 = arena.allocPages(PagesInBlock);
 	assert(e4 !is null);
 	assert(e4.address is e0Addr);
-	assert(e4.size == PagesInHugePage * PageSize);
+	assert(e4.size == PagesInBlock * PageSize);
 
 	// Free everything.
 	arena.freePages(e1);
@@ -761,20 +759,20 @@ unittest resizeLargeShrink {
 	assert(ptr5 !is null);
 	auto pd5 = emap.lookup(ptr5);
 	assert(pd5.extent.address is ptr5);
-	assert(pd5.extent.hpd == pd4.extent.hpd);
+	assert(pd5.extent.block == pd4.extent.block);
 
-	// Allocate 128 pages, hpd full:
+	// Allocate 128 pages, block full:
 	auto ptr6 = arena.allocLarge(&emap, 128 * PageSize);
 	assert(ptr6 !is null);
 	auto pd6 = emap.lookup(ptr6);
 	assert(pd6.extent.address is ptr6);
-	assert(pd6.extent.hpd == pd5.extent.hpd);
-	assert(pd6.extent.hpd.full);
+	assert(pd6.extent.block == pd5.extent.block);
+	assert(pd6.extent.block.full);
 
 	// Shrink first alloc:
 	assert(arena.resizeLarge(&emap, pd4.extent, 96 * PageSize));
 	assert(pd4.extent.size == 96 * PageSize);
-	assert(!pd6.extent.hpd.full);
+	assert(!pd6.extent.block.full);
 
 	// Shrink second alloc:
 	assert(arena.resizeLarge(&emap, pd5.extent, 128 * PageSize));
@@ -789,7 +787,7 @@ unittest resizeLargeShrink {
 	assert(ptr7 !is null);
 	auto pd7 = emap.lookup(ptr7);
 	assert(pd7.extent.address is ptr7);
-	assert(pd7.extent.hpd == pd6.extent.hpd);
+	assert(pd7.extent.block == pd6.extent.block);
 	assert(ptr7 is ptr5 + 128 * PageSize);
 
 	// Allocate 32 pages, should go after first alloc:
@@ -797,7 +795,7 @@ unittest resizeLargeShrink {
 	assert(ptr8 !is null);
 	auto pd8 = emap.lookup(ptr8);
 	assert(pd8.extent.address is ptr8);
-	assert(pd8.extent.hpd == pd7.extent.hpd);
+	assert(pd8.extent.block == pd7.extent.block);
 	assert(ptr8 is ptr4 + 96 * PageSize);
 
 	// Allocate 64 pages, should go after third alloc:
@@ -805,11 +803,11 @@ unittest resizeLargeShrink {
 	assert(ptr9 !is null);
 	auto pd9 = emap.lookup(ptr9);
 	assert(pd9.extent.address is ptr9);
-	assert(pd9.extent.hpd == pd8.extent.hpd);
+	assert(pd9.extent.block == pd8.extent.block);
 	assert(ptr9 is ptr6 + 64 * PageSize);
 
 	// Now full again:
-	assert(pd9.extent.hpd.full);
+	assert(pd9.extent.block.full);
 }
 
 unittest resizeLargeGrow {
@@ -887,14 +885,14 @@ unittest resizeLargeGrow {
 
 	// Grow:
 	checkGrowLarge(e0, 99);
-	assert(e0.hpd.full);
+	assert(e0.block.full);
 
 	auto pd2 = emap.lookup(e2.address);
 	arena.free(&emap, pd2, e2.address);
-	assert(!e0.hpd.full);
+	assert(!e0.block.full);
 
 	checkGrowLarge(e0, 512);
-	assert(e0.hpd.full);
+	assert(e0.block.full);
 
 	auto pd0 = emap.lookup(e0.address);
 	arena.free(&emap, pd0, e0.address);
