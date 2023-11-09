@@ -69,9 +69,14 @@ int main(string[] args) {
 		auto o = chunks.write(conf);
 
 		if (inPlace) {
-			// TODO: Only write if the file changed.
-			import std.file;
-			filename.write(o);
+			auto s = base.getFullPosition(context).getSource();
+			auto content = s.getContent();
+
+			// Remove the null terminator.
+			if (o != content[0 .. $ - 1]) {
+				import std.file;
+				filename.write(o);
+			}
 		} else {
 			import std.stdio;
 			write(o);
