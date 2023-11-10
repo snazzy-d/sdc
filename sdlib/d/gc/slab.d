@@ -272,7 +272,6 @@ unittest SlabAllocInfo {
  *                                             \_ Set when finalizer is present;
  *                                                preserved when writing.
  */
-
 static assert(MaxSmallSize < 0x4000,
               "Max small alloc size doesn't fit in 14 bits!");
 
@@ -289,8 +288,8 @@ void writePackedFreeSpace(ushort* ptr, size_t x) {
 	ushort native = (x << 2 | isLarge) & ushort.max;
 	auto base = nativeToBigEndian(native);
 
-	auto smallMask = nativeToBigEndian!ushort(ushort(0xfd));
-	auto largeMask = nativeToBigEndian!ushort(ushort(0xfffd));
+	auto smallMask = nativeToBigEndian!ushort(0xfd);
+	auto largeMask = nativeToBigEndian!ushort(0xfffd);
 	auto mask = isLarge ? largeMask : smallMask;
 
 	auto current = *ptr;
@@ -301,7 +300,7 @@ void writePackedFreeSpace(ushort* ptr, size_t x) {
 }
 
 unittest packedFreeSpace {
-	enum FinalizerBit = nativeToBigEndian!ushort(ushort(0x2));
+	enum FinalizerBit = nativeToBigEndian!ushort(0x2);
 
 	ubyte[2] a;
 	auto p = cast(ushort*) a.ptr;

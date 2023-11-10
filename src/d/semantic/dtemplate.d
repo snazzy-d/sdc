@@ -106,16 +106,14 @@ struct TemplateInstancier {
 		scheduler.require(t);
 
 		TemplateArgument[] matchedArgs;
-		if (t.parameters.length > 0) {
-			matchedArgs.length = t.parameters.length;
+		matchedArgs.length = t.parameters.length;
 
-			if (!matchArguments(t, args, fargs, matchedArgs)) {
-				import source.exception;
-				throw new CompileException(location, "No match");
-			}
+		if (matchArguments(t, args, fargs, matchedArgs)) {
+			return instanciateFromResolvedArgs(location, t, matchedArgs);
 		}
 
-		return instanciateFromResolvedArgs(location, t, matchedArgs);
+		import source.exception;
+		throw new CompileException(location, "No match");
 	}
 
 private:
@@ -125,6 +123,11 @@ private:
 		assert(t.parameters.length >= args.length);
 		assert(matchedArgs.length == t.parameters.length);
 	} do {
+		if (t.parameters.length == 0) {
+			// Short circuit if there is nothing to match.
+			return true;
+		}
+
 		uint i = 0;
 		foreach (a; args) {
 			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
@@ -134,11 +137,7 @@ private:
 
 		if (fargs.length == t.ifti.length) {
 			foreach (j, a; fargs) {
-				auto m =
-					IftiTypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j]);
-				if (!m) {
-					return false;
-				}
+				IftiTypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j]);
 			}
 		}
 
