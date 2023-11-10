@@ -93,12 +93,12 @@ struct TemplateInstancier {
 			}
 		}
 
-		if (!match) {
-			import source.exception;
-			throw new CompileException(location, "No match");
+		if (match) {
+			return instanciateFromResolvedArgs(location, match, matchedArgs);
 		}
 
-		return instanciateFromResolvedArgs(location, match, matchedArgs);
+		import source.exception;
+		throw new CompileException(location, "No match");
 	}
 
 	auto instanciate(Location location, Template t, TemplateArgument[] args,
