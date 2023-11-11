@@ -46,17 +46,17 @@ public:
 	}
 
 	auto spanTo(Location end) in {
-		import std.conv;
+		import std.format;
 		assert(stop.offset <= end.stop.offset,
-		       to!string(stop.offset) ~ " > " ~ to!string(end.stop.offset));
+		       format!"%s > %s"(stop.offset, end.stop.offset));
 	} do {
 		return spanTo(end.stop);
 	}
 
 	auto spanTo(Position end) const in {
-		import std.conv;
+		import std.format;
 		assert(stop.offset <= end.offset,
-		       to!string(stop.offset) ~ " > " ~ to!string(end.offset));
+		       format!"%s > %s"(stop.offset, end.offset));
 	} do {
 		return Location(start, end);
 	}
