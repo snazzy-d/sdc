@@ -90,11 +90,7 @@ public:
 		GlobalGen(pass).define(f);
 	}
 
-	private void runLLVMPasses(Module[] modules) {
-		foreach (m; modules) {
-			pass.visit(m);
-		}
-
+	private void runLLVMPasses() {
 		import llvm.c.transforms.passManagerBuilder;
 		auto pmb = LLVMPassManagerBuilderCreate();
 		scope(exit) LLVMPassManagerBuilderDispose(pmb);
@@ -115,8 +111,16 @@ public:
 		LLVMRunPassManager(pm, pass.dmodule);
 	}
 
+	private void emitModules(Module[] modules) {
+		foreach (m; modules) {
+			pass.visit(m);
+		}
+
+		runLLVMPasses();
+	}
+
 	void emitObject(Module[] modules, string objFile) {
-		runLLVMPasses(modules);
+		emitModules(modules);
 
 		import std.string;
 		char* errorPtr;
@@ -135,7 +139,7 @@ public:
 	}
 
 	void emitAsm(Module[] modules, string filename) {
-		runLLVMPasses(modules);
+		emitModules(modules);
 
 		import std.string;
 		char* errorPtr;
@@ -154,7 +158,7 @@ public:
 	}
 
 	void emitLLVMAsm(Module[] modules, string filename) {
-		runLLVMPasses(modules);
+		emitModules(modules);
 
 		import std.string;
 		char* errorPtr;
@@ -173,7 +177,7 @@ public:
 	}
 
 	void emitLLVMBitcode(Module[] modules, string filename) {
-		runLLVMPasses(modules);
+		emitModules(modules);
 
 		import llvm.c.bitWriter;
 		import std.string;
@@ -219,6 +223,8 @@ public:
 				tests ~= Test(e, t);
 			}
 		}
+
+		runLLVMPasses();
 
 		// Now that we generated the IR, we run the unittests.
 		import d.llvm.evaluator;
