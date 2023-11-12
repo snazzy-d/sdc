@@ -294,11 +294,7 @@ struct TypeGen {
 		LLVMStructSetBody(classBody, initTypes.ptr, cast(uint) initTypes.length,
 		                  false);
 
-		import std.algorithm, std.array;
-		import d.llvm.global;
-		auto methods = c.methods.map!(m => GlobalGen(pass).declare(m)).array();
-
-		auto methodCount = cast(uint) methods.length;
+		auto methodCount = cast(uint) c.methods.length;
 		auto classInfoStruct = getClassInfoStructure();
 		auto vtblArray = LLVMArrayType(llvmPtr, methodCount);
 		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblArray];
@@ -311,7 +307,11 @@ struct TypeGen {
 			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
 			                     classInfoData.length);
 
+		import std.algorithm, std.array;
+		import d.llvm.global;
+		auto methods = c.methods.map!(m => GlobalGen(pass).declare(m)).array();
 		auto vtbl = LLVMConstArray(llvmPtr, methods.ptr, methodCount);
+
 		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
 		auto metadataGen =
 			LLVMConstNamedStruct(metadataStruct, classDataData.ptr,
