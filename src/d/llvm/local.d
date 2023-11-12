@@ -590,9 +590,6 @@ struct LocalGen {
 			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
 			                     classInfoData.length);
 
-		// FIXME: This is a good indicator that this might belong in LocalGen
-		// rather than GlobalGen, but all other aggregate are done here,
-		// so it's unclear what the overall architecure shoud look like.
 		import std.algorithm, std.array;
 		auto methods = c.methods.map!(m => declare(m)).array();
 		auto vtbl = LLVMConstArray(llvmPtr, methods.ptr, methodCount);
