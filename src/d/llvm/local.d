@@ -114,7 +114,7 @@ struct LocalGen {
 		auto lookup = isLocal ? locals : globals;
 
 		// FIXME: This is broken, but we do it all in globals for now.
-		// We have no good way to pas the nested locals down in aggregates
+		// We have no good way to pass the nested locals down in aggregates
 		// declarations as we do a round trip through globals.
 		// We could fix this by removing any require from the backend
 		// and moving local to the localData, or bubbling down part of the
