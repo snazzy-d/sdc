@@ -55,14 +55,6 @@ struct TypeGen {
 		}
 	}
 
-	LLVMValueRef getTypeInfo(A : Aggregate)(A a) {
-		if (a !in typeInfos) {
-			this.dispatch(a);
-		}
-
-		return typeInfos[a];
-	}
-
 	LLVMTypeRef visit(Type t) {
 		return t.getCanonical().accept(this);
 	}
@@ -243,7 +235,7 @@ struct TypeGen {
 		}
 
 		import std.algorithm, std.array;
-		auto parents = c.primaries.map!(p => getTypeInfo(p)).array();
+		auto parents = c.primaries.map!(p => getClassInfo(p)).array();
 		auto gen = LLVMConstArray(llvmPtr, parents.ptr, count);
 
 		import std.string;
@@ -267,32 +259,15 @@ struct TypeGen {
 		return getClassStructure(classInfoClass);
 	}
 
-	LLVMTypeRef getClassStructure(Class c) in(c.step >= Step.Signed) {
-		// We do so after generating ClassInfo in case
-		// we are generating a base of ClassInfo.
-		if (auto ct = c in typeSymbols) {
-			return *ct;
+	LLVMValueRef getClassInfo(Class c) in(c.step >= Step.Signed) {
+		if (auto ti = c in typeInfos) {
+			return *ti;
 		}
-
-		auto mangle = c.mangle.toString(context);
-		auto classBody =
-			typeSymbols[c] = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
 
 		import std.string;
+		auto mangle = c.mangle.toString(context);
 		auto metadataStruct =
 			LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__metadata"));
-		auto metadata = LLVMAddGlobal(dmodule, metadataStruct,
-		                              toStringz(mangle ~ "__vtbl"));
-
-		typeInfos[c] = metadata;
-
-		LLVMTypeRef[] initTypes = [llvmPtr];
-		foreach (f; c.fields[1 .. $]) {
-			initTypes ~= visit(f.value.type);
-		}
-
-		LLVMStructSetBody(classBody, initTypes.ptr, cast(uint) initTypes.length,
-		                  false);
 
 		auto methodCount = cast(uint) c.methods.length;
 		auto classInfoStruct = getClassInfoStructure();
@@ -301,8 +276,12 @@ struct TypeGen {
 		LLVMStructSetBody(metadataStruct, classMetadataElts.ptr,
 		                  classMetadataElts.length, false);
 
+		auto metadata = LLVMAddGlobal(dmodule, metadataStruct,
+		                              toStringz(mangle ~ "__vtbl"));
+		typeInfos[c] = metadata;
+
 		LLVMValueRef[2] classInfoData =
-			[getTypeInfo(classInfoClass), genPrimaries(c, mangle)];
+			[getClassInfo(classInfoClass), genPrimaries(c, mangle)];
 		auto classInfoGen =
 			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
 			                     classInfoData.length);
@@ -321,14 +300,31 @@ struct TypeGen {
 		LLVMSetGlobalConstant(metadata, true);
 		LLVMSetLinkage(metadata, LLVMLinkage.LinkOnceODR);
 
+		return metadata;
+	}
+
+	LLVMTypeRef getClassStructure(Class c) in(c.step >= Step.Signed) {
+		// We do so after generating ClassInfo in case
+		// we are generating a base of ClassInfo.
+		if (auto ct = c in typeSymbols) {
+			return *ct;
+		}
+
+		auto mangle = c.mangle.toString(context);
+		auto classBody =
+			typeSymbols[c] = LLVMStructCreateNamed(llvmCtx, mangle.ptr);
+
+		LLVMTypeRef[] initTypes = [llvmPtr];
+		foreach (f; c.fields[1 .. $]) {
+			initTypes ~= visit(f.value.type);
+		}
+
+		LLVMStructSetBody(classBody, initTypes.ptr, cast(uint) initTypes.length,
+		                  false);
 		return classBody;
 	}
 
 	LLVMTypeRef visit(Class c) {
-		// FIXME: This shouldn't be necessary, but we run into problems
-		// when we remove it, and fixing these would require even more
-		// spacial casing for classes, which would be a pain in the ass.
-		auto classBody = getClassStructure(c);
 		return llvmPtr;
 	}
 

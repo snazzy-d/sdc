@@ -883,7 +883,7 @@ struct ExpressionGen {
 	}
 
 	private LLVMValueRef getTypeid(Class c) {
-		return TypeGen(pass.pass).getTypeInfo(c);
+		return TypeGen(pass.pass).getClassInfo(c);
 	}
 
 	private LLVMValueRef getTypeid(Type t) {

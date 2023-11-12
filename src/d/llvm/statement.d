@@ -172,7 +172,7 @@ struct StatementGen {
 
 						import d.llvm.type;
 						LLVMValueRef[1] args =
-							[TypeGen(pass.pass).getTypeInfo(c.type)];
+							[TypeGen(pass.pass).getClassInfo(c.type)];
 
 						import d.llvm.expression;
 						auto ehForTypeid = ExpressionGen(pass)
@@ -266,7 +266,7 @@ struct StatementGen {
 			if (auto catchTable = fbody[b].catchTable) {
 				foreach (c; catchTable.catches) {
 					import d.llvm.type;
-					clauses ~= TypeGen(pass.pass).getTypeInfo(c.type);
+					clauses ~= TypeGen(pass.pass).getClassInfo(c.type);
 				}
 			}
 		}
