@@ -51,6 +51,7 @@ public:
 			return;
 		}
 
+		// FIXME: This is an abominable error message and it needs to go!
 		auto e = getError(thisExpr, thisExpr.location,
 		                  "thisExpr has not been consumed");
 
