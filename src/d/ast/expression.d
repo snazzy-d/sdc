@@ -523,6 +523,10 @@ class AstTypeidExpression : AstExpression {
 
 		this.argument = argument;
 	}
+
+	override string toString(const Context c) const {
+		return "typeid(" ~ argument.toString(c) ~ ")";
+	}
 }
 
 /**
@@ -555,6 +559,10 @@ class IdentifierTypeidExpression : AstExpression {
 		super(location);
 
 		this.argument = argument;
+	}
+
+	override string toString(const Context c) const {
+		return "typeid(" ~ argument.toString(c) ~ ")";
 	}
 }
 
