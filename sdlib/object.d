@@ -57,3 +57,24 @@ auto __sd_array_concat(T : U[], U)(T lhs, T rhs) {
 	memcpy(&ptr[lhs.length], rhs.ptr, rhs.length * U.sizeof);
 	return ptr[0 .. length];
 }
+
+private:
+
+// FIXME: This would benefit from being a template, but we are
+// currently unable to use template as runtime hooks.
+// Instead, compiler magic is used to make this template like.
+// If you call this directly, all bets are off.
+Object __sd_class_downcast(Object o, ClassInfo c) {
+	auto t = typeid(o);
+
+	auto cDepth = c.primaries.length - 1;
+	if (cDepth >= t.primaries.length) {
+		return null;
+	}
+
+	if (t.primaries[cDepth] is c) {
+		return o;
+	}
+
+	return null;
+}

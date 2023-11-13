@@ -1,4 +1,4 @@
-LIBSMD_SRC = sdlib/d/rt/eh.d sdlib/d/rt/object.d sdlib/d/rt/dwarf.d
+LIBSMD_SRC = sdlib/d/rt/eh.d sdlib/d/rt/dwarf.d
 
 LIBSDMD = lib/libsdmd.a
 

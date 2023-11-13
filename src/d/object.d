@@ -61,6 +61,10 @@ final class ObjectReference {
 		return cast(Function) os.set[0];
 	}
 
+	auto getGCalloc() {
+		return getFunction(BuiltinName!"__sd_gc_alloc");
+	}
+
 	auto getThrow() {
 		return getFunction(BuiltinName!"__sd_eh_throw");
 	}
@@ -69,8 +73,8 @@ final class ObjectReference {
 		return getFunction(BuiltinName!"__sd_eh_personality");
 	}
 
-	auto getArrayOutOfBounds() {
-		return getFunction(BuiltinName!"__sd_array_outofbounds");
+	auto getClassDowncast() {
+		return getFunction(BuiltinName!"__sd_class_downcast");
 	}
 
 	auto getAssertFail() {
@@ -81,12 +85,12 @@ final class ObjectReference {
 		return getFunction(BuiltinName!"__sd_assert_fail_msg");
 	}
 
+	auto getArrayOutOfBounds() {
+		return getFunction(BuiltinName!"__sd_array_outofbounds");
+	}
+
 	auto getArrayConcat() {
 		return cast(OverloadSet)
 			object.resolve(Location.init, BuiltinName!"__sd_array_concat");
-	}
-
-	auto getGCalloc() {
-		return getFunction(BuiltinName!"__sd_gc_alloc");
 	}
 }

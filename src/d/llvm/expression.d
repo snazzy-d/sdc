@@ -604,76 +604,16 @@ struct ExpressionGen {
 	// FIXME: This should forward to a template in object.d
 	// instead of reimplenting the logic.
 	LLVMValueRef buildDownCast(LLVMValueRef value, Class c) {
-		auto otid = loadTypeid(value);
 		auto ctid = getClassInfo(c);
 
-		if (c.isFinal) {
-			auto cmp =
-				LLVMBuildICmp(builder, LLVMIntPredicate.EQ, otid, ctid, "");
-			return LLVMBuildSelect(builder, cmp, value, llvmNull, "");
+		if (!c.isFinal) {
+			import d.llvm.runtime;
+			return RuntimeGen(pass).genClassDowncast(value, ctid);
 		}
 
-		auto classInfoStruct = getClassInfoStructure();
-		auto pType = LLVMStructGetTypeAtIndex(classInfoStruct, 1);
-		auto dType = LLVMStructGetTypeAtIndex(pType, 0);
-		auto ptrType = LLVMStructGetTypeAtIndex(pType, 1);
-
-		// If c is deeper in the hierarchy than the value,
-		// then it is impossible for the value to be of type c.
-		auto oPrimitives =
-			LLVMBuildStructGEP2(builder, classInfoStruct, otid, 1, "");
-		auto oDepthPtr =
-			LLVMBuildStructGEP2(builder, pType, oPrimitives, 0, "");
-		auto oDepth = LLVMBuildLoad2(builder, dType, oDepthPtr, "");
-
-		// This should constant fold.
-		auto cPrimitives =
-			LLVMBuildStructGEP2(builder, classInfoStruct, ctid, 1, "");
-		auto cDepthPtr =
-			LLVMBuildStructGEP2(builder, pType, cPrimitives, 0, "");
-		auto cDepth = LLVMBuildLoad2(builder, dType, cDepthPtr, "");
-		auto one = LLVMConstInt(i64, 1, false);
-		auto index = LLVMBuildSub(builder, cDepth, one, "");
-
-		auto depthCheck =
-			LLVMBuildICmp(builder, LLVMIntPredicate.UGT, oDepth, index, "");
-
-		auto depthCheckBB = LLVMGetInsertBlock(builder);
-		auto fun = LLVMGetBasicBlockParent(depthCheckBB);
-
-		auto downCastBB =
-			LLVMAppendBasicBlockInContext(llvmCtx, fun, "downcast.check");
-		auto mergeBB =
-			LLVMAppendBasicBlockInContext(llvmCtx, fun, "downcast.merge");
-
-		LLVMBuildCondBr(builder, depthCheck, downCastBB, mergeBB);
-
-		// Check if the parent of the value at c's depth is c.
-		LLVMPositionBuilderAtEnd(builder, downCastBB);
-		auto primitivesPtr =
-			LLVMBuildStructGEP2(builder, pType, oPrimitives, 1, "");
-		auto primitives = LLVMBuildLoad2(builder, ptrType, primitivesPtr, "");
-		auto parentPtr =
-			LLVMBuildInBoundsGEP2(builder, llvmPtr, primitives, &index, 1, "");
-		auto parent = LLVMBuildLoad2(builder, llvmPtr, parentPtr, "");
-		auto typeCheck =
-			LLVMBuildICmp(builder, LLVMIntPredicate.EQ, parent, ctid, "");
-		auto downcast =
-			LLVMBuildSelect(builder, typeCheck, value, llvmNull, "");
-
-		// Merge and generate Phi node.
-		LLVMBuildBr(builder, mergeBB);
-		LLVMPositionBuilderAtEnd(builder, mergeBB);
-
-		auto phiNode = LLVMBuildPhi(builder, llvmPtr, "");
-
-		LLVMValueRef[2] incomingValues = [llvmNull, downcast];
-		LLVMBasicBlockRef[2] incomingBlocks = [depthCheckBB, downCastBB];
-
-		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr,
-		                incomingValues.length);
-
-		return phiNode;
+		auto otid = loadTypeid(value);
+		auto cmp = LLVMBuildICmp(builder, LLVMIntPredicate.EQ, otid, ctid, "");
+		return LLVMBuildSelect(builder, cmp, value, llvmNull, "");
 	}
 
 	LLVMValueRef visit(CastExpression e) {

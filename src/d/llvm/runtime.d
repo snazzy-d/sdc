@@ -13,6 +13,7 @@ struct RuntimeData {
 private:
 	LLVMValueRef sdGCalloc;
 	LLVMValueRef sdThrow;
+	LLVMValueRef sdClassDowncast;
 
 	LLVMValueRef sdAssertFail;
 	LLVMValueRef sdAssertFailMsg;
@@ -59,6 +60,24 @@ struct RuntimeGen {
 	auto genThrow(LLVMValueRef e) {
 		LLVMValueRef[1] args = [e];
 		return ExpressionGen(pass).callGlobal(getThrowFunction(), args);
+	}
+
+	private auto getClassDowncast() {
+		if (runtimeData.sdClassDowncast) {
+			return runtimeData.sdClassDowncast;
+		}
+
+		// Make sure we laways define class downcast, so it can be inlined.
+		auto fun = runtimeData.sdClassDowncast =
+			define(pass.object.getClassDowncast());
+		LLVMSetLinkage(fun, LLVMLinkage.Private);
+
+		return fun;
+	}
+
+	auto genClassDowncast(LLVMValueRef o, LLVMValueRef c) {
+		LLVMValueRef[2] args = [o, c];
+		return ExpressionGen(pass).callGlobal(getClassDowncast(), args);
 	}
 
 	private auto getAssertFailFunction() {

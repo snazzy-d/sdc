@@ -162,13 +162,14 @@ enum Prefill = [
 	// Attribute
 	"property", "safe", "trusted", "system", "nogc",
 	// Runtime
-	"__sd_assert_fail",
-	"__sd_assert_fail_msg",
+	"__sd_gc_alloc",
 	"__sd_eh_throw",
 	"__sd_eh_personality",
-	"__sd_array_concat",
+	"__sd_class_downcast",
+	"__sd_assert_fail",
+	"__sd_assert_fail_msg",
 	"__sd_array_outofbounds",
-	"__sd_gc_alloc",
+	"__sd_array_concat",
 	// Generated symbols
 	"__ctx",
 	"__dg",

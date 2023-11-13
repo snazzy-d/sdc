@@ -47,6 +47,32 @@ extern(C) void __sd_eh_throw(Throwable t) {
 	exit(-1);
 }
 
+version(SDC) {} else {
+	// We need to do some dirty manipulation when not
+	// using SDC as expected layout differs.
+	alias ClassInfo = ClassInfoImpl*;
+
+	struct ClassInfoImpl {
+		void* vtbl;
+		ClassInfo[] primaries;
+	}
+
+	Object __sd_class_downcast(Object o, ClassInfo c) {
+		auto t = cast(ClassInfo) *(cast(void**) o);
+
+		auto cDepth = c.primaries.length - 1;
+		if (cDepth >= t.primaries.length) {
+			return null;
+		}
+
+		if (t.primaries[cDepth] is c) {
+			return o;
+		}
+
+		return null;
+	}
+}
+
 extern(C) _Unwind_Reason_Code __sd_eh_personality(
 	int ver,
 	_Unwind_Action actions,
@@ -144,7 +170,6 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 		p = headers.typeTable - switchval * headers.typeEncoding.getSize();
 		auto tmp = read_encoded(p, ctx, headers.typeEncoding);
 
-		import d.rt.object;
 		auto candidate = *(cast(ClassInfo*) &tmp);
 
 		// Null is a special case that always catches.
