@@ -13,12 +13,6 @@ import llvm.c.core;
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
-struct GlobalGenData {
-private:
-	Class classInfoClass;
-	LLVMValueRef[Class] classInfos;
-}
-
 struct GlobalGen {
 	private CodeGen pass;
 	alias pass this;
@@ -29,19 +23,6 @@ struct GlobalGen {
 	this(CodeGen pass, Mode mode = Mode.Lazy) {
 		this.pass = pass;
 		this.mode = mode;
-	}
-
-	// XXX: lack of multiple alias this, so we do it automanually.
-	private {
-		@property
-		ref Class classInfoClass() {
-			return pass.globalGenData.classInfoClass;
-		}
-
-		@property
-		ref LLVMValueRef[Class] classInfos() {
-			return pass.globalGenData.classInfos;
-		}
 	}
 
 	void define(Symbol s) in(s.step == Step.Processed) {
@@ -183,92 +164,7 @@ struct GlobalGen {
 		return ret;
 	}
 
-	private LLVMValueRef genPrimaries(Class c, string mangle) {
-		auto count = cast(uint) c.primaries.length;
-		auto typeSize = LLVMConstInt(i64, count, false);
-
-		if (count == 0) {
-			LLVMValueRef[2] elts = [typeSize, llvmNull];
-			return
-				LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
-		}
-
-		import std.algorithm, std.array;
-		auto parents = c.primaries.map!(p => getClassInfo(p)).array();
-		auto gen = LLVMConstArray(llvmPtr, parents.ptr, count);
-
-		import std.string;
-		auto type = LLVMArrayType(llvmPtr, count);
-		auto primaries =
-			LLVMAddGlobal(dmodule, type, toStringz(mangle ~ "__primaries"));
-		LLVMSetInitializer(primaries, gen);
-		LLVMSetGlobalConstant(primaries, true);
-		LLVMSetUnnamedAddr(primaries, true);
-		LLVMSetLinkage(primaries, LLVMLinkage.LinkOnceODR);
-
-		LLVMValueRef[2] elts = [typeSize, primaries];
-		return LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
-	}
-
-	// FIXME: This is only useful as a public method because of downcast.
-	// As downcast is moved to being implemented in the runtime rather
-	// than in the codegen, this can be made private.
-	LLVMTypeRef getClassInfoStructure() {
-		if (!classInfoClass) {
-			classInfoClass = pass.object.getClassInfo();
-		}
-
-		import d.llvm.type;
-		return TypeGen(pass).getClassStructure(classInfoClass);
-	}
-
-	LLVMValueRef getClassInfo(Class c) in(c.step >= Step.Signed) {
-		if (auto ti = c in classInfos) {
-			return *ti;
-		}
-
-		import std.string;
-		auto mangle = c.mangle.toString(context);
-		auto metadataStruct =
-			LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__metadata"));
-
-		auto methodCount = cast(uint) c.methods.length;
-		auto classInfoStruct = getClassInfoStructure();
-		auto vtblArray = LLVMArrayType(llvmPtr, methodCount);
-		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblArray];
-		LLVMStructSetBody(metadataStruct, classMetadataElts.ptr,
-		                  classMetadataElts.length, false);
-
-		auto metadata = LLVMAddGlobal(dmodule, metadataStruct,
-		                              toStringz(mangle ~ "__vtbl"));
-		classInfos[c] = metadata;
-
-		LLVMValueRef[2] classInfoData =
-			[getClassInfo(classInfoClass), genPrimaries(c, mangle)];
-		auto classInfoGen =
-			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
-			                     classInfoData.length);
-
-		import std.algorithm, std.array;
-		auto methods = c.methods.map!(m => declare(m)).array();
-		auto vtbl = LLVMConstArray(llvmPtr, methods.ptr, methodCount);
-
-		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
-		auto metadataGen =
-			LLVMConstNamedStruct(metadataStruct, classDataData.ptr,
-			                     classDataData.length);
-
-		LLVMSetInitializer(metadata, metadataGen);
-		LLVMSetGlobalConstant(metadata, true);
-		LLVMSetLinkage(metadata, LLVMLinkage.LinkOnceODR);
-
-		return metadata;
-	}
-
 	LLVMTypeRef visit(Class c) in(c.step == Step.Processed) {
-		import d.llvm.type;
-		auto ret = TypeGen(pass).visit(c);
-
 		foreach (m; c.methods) {
 			// We don't want to define inherited methods in childs.
 			if (!m.hasThis || m.type.parameters[0].getType().dclass is c) {
@@ -280,7 +176,8 @@ struct GlobalGen {
 			define(m);
 		}
 
-		return ret;
+		import d.llvm.type;
+		return TypeGen(pass).visit(c);
 	}
 
 	LLVMTypeRef visit(Union u) in(u.step == Step.Processed) {

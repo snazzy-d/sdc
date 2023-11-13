@@ -414,7 +414,7 @@ struct ExpressionGen {
 		       "Virtual dispatch can only be done on classes");
 
 		auto c = classType.dclass;
-		auto metadata = getTypeid(c);
+		auto metadata = getClassInfo(c);
 		auto mdStruct = LLVMGlobalGetValueType(metadata);
 
 		if (!c.isFinal) {
@@ -605,7 +605,7 @@ struct ExpressionGen {
 	// instead of reimplenting the logic.
 	LLVMValueRef buildDownCast(LLVMValueRef value, Class c) {
 		auto otid = loadTypeid(value);
-		auto ctid = getTypeid(c);
+		auto ctid = getClassInfo(c);
 
 		if (c.isFinal) {
 			auto cmp =
@@ -613,7 +613,7 @@ struct ExpressionGen {
 			return LLVMBuildSelect(builder, cmp, value, llvmNull, "");
 		}
 
-		auto classInfoStruct = globalGen.getClassInfoStructure();
+		auto classInfoStruct = getClassInfoStructure();
 		auto pType = LLVMStructGetTypeAtIndex(classInfoStruct, 1);
 		auto dType = LLVMStructGetTypeAtIndex(pType, 0);
 		auto ptrType = LLVMStructGetTypeAtIndex(pType, 1);
@@ -879,11 +879,7 @@ struct ExpressionGen {
 	LLVMValueRef visit(DynamicTypeidExpression e) {
 		auto arg = visit(e.argument);
 		auto c = e.argument.type.getCanonical().dclass;
-		return c.isFinal ? getTypeid(c) : loadTypeid(arg);
-	}
-
-	private LLVMValueRef getTypeid(Class c) {
-		return globalGen.getClassInfo(c);
+		return c.isFinal ? getClassInfo(c) : loadTypeid(arg);
 	}
 
 	private LLVMValueRef getTypeid(Type t) {
@@ -891,7 +887,7 @@ struct ExpressionGen {
 		assert(t.kind == TypeKind.Class, "Not implemented");
 
 		// Ensure that the thing is generated.
-		return getTypeid(t.dclass);
+		return getClassInfo(t.dclass);
 	}
 
 	LLVMValueRef visit(StaticTypeidExpression e) {
