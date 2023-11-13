@@ -142,6 +142,14 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 		return setupCleanup(ctx, actions, landingPad, exceptionObject);
 	}
 
+	// Cache the value so we don't fetch the global again and again.
+	auto e = inFlight;
+	if (e is null) {
+		import core.stdc.stdlib, core.stdc.stdio;
+		printf("NO INFLIGHT EXCEPTION\n");
+		exit(-1);
+	}
+
 	// We do not catch foreign exceptions and if we have to force unwind.
 	bool doCatch = (exceptionClass == ExceptionClass)
 		&& !(actions & _Unwind_Action.FORCE_UNWIND);
@@ -175,8 +183,7 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 
 		// null is a wildcard for catch all.
 		// XXX: We don't need to recompute all downcast every time.
-		if (candidate is null
-			    || __sd_class_downcast(inFlight, candidate) !is null) {
+		if (candidate is null || __sd_class_downcast(e, candidate) !is null) {
 			return setupCatch(ctx, actions, switchval, landingPad,
 			                  exceptionObject);
 		}
