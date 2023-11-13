@@ -551,18 +551,6 @@ struct LocalGen {
 		return LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
 	}
 
-	// FIXME: This is only useful as a public method because of downcast.
-	// As downcast is moved to being implemented in the runtime rather
-	// than in the codegen, this can be made private.
-	LLVMTypeRef getClassInfoStructure() {
-		if (!classInfoClass) {
-			classInfoClass = pass.object.getClassInfo();
-		}
-
-		import d.llvm.type;
-		return TypeGen(pass).getClassStructure(classInfoClass);
-	}
-
 	LLVMValueRef getClassInfo(Class c) in(c.step >= Step.Signed) {
 		if (auto ti = c in classInfos) {
 			return *ti;
@@ -573,7 +561,13 @@ struct LocalGen {
 		auto metadataStruct =
 			LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__metadata"));
 
-		auto classInfoStruct = getClassInfoStructure();
+		if (!classInfoClass) {
+			classInfoClass = pass.object.getClassInfo();
+		}
+
+		import d.llvm.type;
+		auto classInfoStruct = TypeGen(pass).getClassStructure(classInfoClass);
+
 		auto methodCount = cast(uint) c.methods.length;
 		auto vtblArray = LLVMArrayType(llvmPtr, methodCount);
 		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblArray];
