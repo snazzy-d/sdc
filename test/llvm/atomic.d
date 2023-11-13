@@ -1,4 +1,5 @@
 // RUN: %sdc %s -O2 -S --emit-llvm -o - | FileCheck %s
+module atomic;
 
 import d.sync.atomic;
 
