@@ -286,8 +286,8 @@ private:
 					rhs
 				);
 
-				return callOverloadSet(location, pass.object.getArrayConcat(),
-				                       [lhs, rhs]);
+				auto concat = pass.object.getArrayConcat();
+				return callTemplate(location, concat, [lhs, rhs]);
 
 			case AddAssign, SubAssign:
 			case MulAssign, PowAssign:
@@ -660,8 +660,7 @@ public:
 					}
 
 					if (auto t = cast(Template) identified) {
-						auto callee = handleIFTI(c.location, t, args);
-						return callCallable(c.location, callee, args);
+						return callTemplate(c.location, t, args);
 					}
 				}
 
@@ -806,6 +805,12 @@ public:
 						t.name.toString(pass.context) ~ " isn't callable");
 				}
 			})();
+	}
+
+	private
+	auto callTemplate(Location location, Template t, Expression[] args) {
+		auto callee = handleIFTI(location, t, args);
+		return callCallable(location, callee, args);
 	}
 
 	private Expression callOverloadSet(Location location, OverloadSet s,

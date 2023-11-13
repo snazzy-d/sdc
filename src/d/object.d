@@ -12,18 +12,24 @@ final class ObjectReference {
 		this.object = object;
 	}
 
+	private auto getSymbol(T)(Name name) {
+		return cast(T) object.resolve(Location.init, name);
+	}
+
+	private auto getTypeAlias(Name name) {
+		return getSymbol!TypeAlias(name);
+	}
+
 	auto getSizeT() {
-		return cast(TypeAlias)
-			object.resolve(Location.init, BuiltinName!"size_t");
+		return getTypeAlias(BuiltinName!"size_t");
 	}
 
 	auto getPtrDiffT() {
-		return cast(TypeAlias)
-			object.resolve(Location.init, BuiltinName!"ptrdiff_t");
+		return getTypeAlias(BuiltinName!"ptrdiff_t");
 	}
 
 	private auto getClass(Name name) {
-		return cast(Class) object.resolve(Location.init, name);
+		return getSymbol!Class(name);
 	}
 
 	auto getObject() {
@@ -50,15 +56,19 @@ final class ObjectReference {
 		return getClass(BuiltinName!"Error");
 	}
 
-	private auto getFunction(Name name) {
+	private auto getOverloadableSymbol(T)(Name name) {
 		auto s = object.resolve(Location.init, name);
-		if (auto f = cast(Function) s) {
-			return f;
+		if (auto t = cast(T) s) {
+			return t;
 		}
 
 		auto os = cast(OverloadSet) s;
 		assert(os.set.length == 1);
-		return cast(Function) os.set[0];
+		return cast(T) os.set[0];
+	}
+
+	private auto getFunction(Name name) {
+		return getOverloadableSymbol!Function(name);
 	}
 
 	auto getGCalloc() {
@@ -93,8 +103,11 @@ final class ObjectReference {
 		return getFunction(BuiltinName!"__sd_array_outofbounds");
 	}
 
+	private auto getTemplate(Name name) {
+		return getOverloadableSymbol!Template(name);
+	}
+
 	auto getArrayConcat() {
-		return cast(OverloadSet)
-			object.resolve(Location.init, BuiltinName!"__sd_array_concat");
+		return getTemplate(BuiltinName!"__sd_array_concat");
 	}
 }
