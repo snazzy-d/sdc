@@ -613,7 +613,7 @@ struct ExpressionGen {
 			return LLVMBuildSelect(builder, cmp, value, llvmNull, "");
 		}
 
-		auto classInfoStruct = TypeGen(pass.pass).getClassInfoStructure();
+		auto classInfoStruct = globalGen.getClassInfoStructure();
 		auto pType = LLVMStructGetTypeAtIndex(classInfoStruct, 1);
 		auto dType = LLVMStructGetTypeAtIndex(pType, 0);
 		auto ptrType = LLVMStructGetTypeAtIndex(pType, 1);
@@ -883,7 +883,7 @@ struct ExpressionGen {
 	}
 
 	private LLVMValueRef getTypeid(Class c) {
-		return TypeGen(pass.pass).getClassInfo(c);
+		return globalGen.getClassInfo(c);
 	}
 
 	private LLVMValueRef getTypeid(Type t) {

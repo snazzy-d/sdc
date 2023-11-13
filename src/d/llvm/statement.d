@@ -170,9 +170,7 @@ struct StatementGen {
 						auto nextUnwindBB =
 							LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 
-						import d.llvm.type;
-						LLVMValueRef[1] args =
-							[TypeGen(pass.pass).getClassInfo(c.type)];
+						LLVMValueRef[1] args = [globalGen.getClassInfo(c.type)];
 
 						import d.llvm.expression;
 						auto ehForTypeid = ExpressionGen(pass)
@@ -265,8 +263,7 @@ struct StatementGen {
 		if (terminator == Terminator.Throw && !fbody[b].value) {
 			if (auto catchTable = fbody[b].catchTable) {
 				foreach (c; catchTable.catches) {
-					import d.llvm.type;
-					clauses ~= TypeGen(pass.pass).getClassInfo(c.type);
+					clauses ~= globalGen.getClassInfo(c.type);
 				}
 			}
 		}

@@ -63,6 +63,12 @@ struct LocalGen {
 	@disable
 	this(this);
 
+	@property
+	auto globalGen() {
+		import d.llvm.global;
+		return GlobalGen(pass, mode);
+	}
+
 	void define(Symbol s) {
 		if (auto v = cast(Variable) s) {
 			define(v);
@@ -71,8 +77,7 @@ struct LocalGen {
 		} else if (auto a = cast(Aggregate) s) {
 			define(a);
 		} else {
-			import d.llvm.global;
-			GlobalGen(pass, mode).define(s);
+			globalGen.define(s);
 		}
 	}
 
@@ -393,8 +398,7 @@ struct LocalGen {
 
 	LLVMValueRef declare(Variable v) {
 		if (v.storage.isGlobal) {
-			import d.llvm.global;
-			return GlobalGen(pass, mode).declare(v);
+			return globalGen.declare(v);
 		}
 
 		// TODO: Actually just declare here :)
@@ -405,8 +409,7 @@ struct LocalGen {
 		assert(!v.isFinal);
 	} do {
 		if (v.storage.isGlobal) {
-			import d.llvm.global;
-			return GlobalGen(pass, mode).define(v);
+			return globalGen.define(v);
 		}
 
 		import d.llvm.expression;
@@ -498,7 +501,6 @@ struct LocalGen {
 			localData.embededContexts[a] = contexts;
 		}
 
-		import d.llvm.global;
-		return GlobalGen(pass, mode).define(a);
+		return globalGen.define(a);
 	}
 }

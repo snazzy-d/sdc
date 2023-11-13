@@ -16,11 +16,7 @@ alias Interface = d.ir.symbol.Interface;
 
 struct TypeGenData {
 private:
-	Class classInfoClass;
-
 	LLVMTypeRef[Aggregate] aggTypes;
-	LLVMValueRef[Aggregate] typeInfos;
-
 	LLVMTypeRef[Function] funCtxTypes;
 }
 
@@ -35,18 +31,8 @@ struct TypeGen {
 	// XXX: lack of multiple alias this, so we do it automanually.
 	private {
 		@property
-		ref Class classInfoClass() {
-			return pass.typeGenData.classInfoClass;
-		}
-
-		@property
 		ref LLVMTypeRef[Aggregate] typeSymbols() {
 			return pass.typeGenData.aggTypes;
-		}
-
-		@property
-		ref LLVMValueRef[Aggregate] typeInfos() {
-			return pass.typeGenData.typeInfos;
 		}
 
 		@property
@@ -222,85 +208,6 @@ struct TypeGen {
 		       "union with differing alignement are not supported.");
 
 		return llvmStruct;
-	}
-
-	private LLVMValueRef genPrimaries(Class c, string mangle) {
-		auto count = cast(uint) c.primaries.length;
-		auto typeSize = LLVMConstInt(i64, count, false);
-
-		if (count == 0) {
-			LLVMValueRef[2] elts = [typeSize, llvmNull];
-			return
-				LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
-		}
-
-		import std.algorithm, std.array;
-		auto parents = c.primaries.map!(p => getClassInfo(p)).array();
-		auto gen = LLVMConstArray(llvmPtr, parents.ptr, count);
-
-		import std.string;
-		auto type = LLVMArrayType(llvmPtr, count);
-		auto primaries =
-			LLVMAddGlobal(dmodule, type, toStringz(mangle ~ "__primaries"));
-		LLVMSetInitializer(primaries, gen);
-		LLVMSetGlobalConstant(primaries, true);
-		LLVMSetUnnamedAddr(primaries, true);
-		LLVMSetLinkage(primaries, LLVMLinkage.LinkOnceODR);
-
-		LLVMValueRef[2] elts = [typeSize, primaries];
-		return LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
-	}
-
-	LLVMTypeRef getClassInfoStructure() {
-		if (!classInfoClass) {
-			classInfoClass = pass.object.getClassInfo();
-		}
-
-		return getClassStructure(classInfoClass);
-	}
-
-	LLVMValueRef getClassInfo(Class c) in(c.step >= Step.Signed) {
-		if (auto ti = c in typeInfos) {
-			return *ti;
-		}
-
-		import std.string;
-		auto mangle = c.mangle.toString(context);
-		auto metadataStruct =
-			LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__metadata"));
-
-		auto methodCount = cast(uint) c.methods.length;
-		auto classInfoStruct = getClassInfoStructure();
-		auto vtblArray = LLVMArrayType(llvmPtr, methodCount);
-		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblArray];
-		LLVMStructSetBody(metadataStruct, classMetadataElts.ptr,
-		                  classMetadataElts.length, false);
-
-		auto metadata = LLVMAddGlobal(dmodule, metadataStruct,
-		                              toStringz(mangle ~ "__vtbl"));
-		typeInfos[c] = metadata;
-
-		LLVMValueRef[2] classInfoData =
-			[getClassInfo(classInfoClass), genPrimaries(c, mangle)];
-		auto classInfoGen =
-			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
-			                     classInfoData.length);
-
-		import std.algorithm, std.array;
-		import d.llvm.global;
-		auto methods = c.methods.map!(m => GlobalGen(pass).declare(m)).array();
-		auto vtbl = LLVMConstArray(llvmPtr, methods.ptr, methodCount);
-
-		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
-		auto metadataGen =
-			LLVMConstNamedStruct(metadataStruct, classDataData.ptr,
-			                     classDataData.length);
-
-		LLVMSetInitializer(metadata, metadataGen);
-		LLVMSetGlobalConstant(metadata, true);
-		LLVMSetLinkage(metadata, LLVMLinkage.LinkOnceODR);
-
-		return metadata;
 	}
 
 	LLVMTypeRef getClassStructure(Class c) in(c.step >= Step.Signed) {

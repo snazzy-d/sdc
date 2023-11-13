@@ -45,6 +45,9 @@ final class CodeGen {
 
 	LLVMTargetDataRef targetData;
 
+	import d.llvm.global;
+	GlobalGenData globalGenData;
+
 	import d.llvm.type;
 	TypeGenData typeGenData;
 
