@@ -11,6 +11,15 @@ unittest base {
 }
 
 unittest downcast {
+	Object n = null;
+	auto na = cast(A) n;
+	auto nb = cast(B) n;
+	auto nc = cast(C) n;
+
+	assert(na is null);
+	assert(nb is null);
+	assert(nc is null);
+
 	Object a = new A();
 	auto aa = cast(A) a;
 	auto ab = cast(B) a;

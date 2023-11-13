@@ -166,6 +166,7 @@ enum Prefill = [
 	"__sd_eh_throw",
 	"__sd_eh_personality",
 	"__sd_class_downcast",
+	"__sd_final_class_downcast",
 	"__sd_assert_fail",
 	"__sd_assert_fail_msg",
 	"__sd_array_outofbounds",

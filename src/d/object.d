@@ -77,6 +77,10 @@ final class ObjectReference {
 		return getFunction(BuiltinName!"__sd_class_downcast");
 	}
 
+	auto getFinalClassDowncast() {
+		return getFunction(BuiltinName!"__sd_final_class_downcast");
+	}
+
 	auto getAssertFail() {
 		return getFunction(BuiltinName!"__sd_assert_fail");
 	}

@@ -65,16 +65,23 @@ private:
 // Instead, compiler magic is used to make this template like.
 // If you call this directly, all bets are off.
 Object __sd_class_downcast(Object o, ClassInfo c) {
-	auto t = typeid(o);
-
-	auto cDepth = c.primaries.length - 1;
-	if (cDepth >= t.primaries.length) {
+	if (o is null) {
 		return null;
 	}
 
-	if (t.primaries[cDepth] is c) {
-		return o;
+	auto oPrimaries = typeid(o).primaries;
+	auto cDepth = c.primaries.length - 1;
+	if (cDepth >= oPrimaries.length || oPrimaries[cDepth] !is c) {
+		return null;
 	}
 
-	return null;
+	return o;
+}
+
+Object __sd_final_class_downcast(Object o, ClassInfo c) {
+	if (o is null || typeid(o) !is c) {
+		return null;
+	}
+
+	return o;
 }

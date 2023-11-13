@@ -61,15 +61,11 @@ version(SDC) {} else {
 		auto t = cast(ClassInfo) *(cast(void**) o);
 
 		auto cDepth = c.primaries.length - 1;
-		if (cDepth >= t.primaries.length) {
+		if (cDepth >= t.primaries.length || t.primaries[cDepth] !is c) {
 			return null;
 		}
 
-		if (t.primaries[cDepth] is c) {
-			return o;
-		}
-
-		return null;
+		return o;
 	}
 }
 

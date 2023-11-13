@@ -606,14 +606,10 @@ struct ExpressionGen {
 	LLVMValueRef buildDownCast(LLVMValueRef value, Class c) {
 		auto ctid = getClassInfo(c);
 
-		if (!c.isFinal) {
-			import d.llvm.runtime;
-			return RuntimeGen(pass).genClassDowncast(value, ctid);
-		}
-
-		auto otid = loadTypeid(value);
-		auto cmp = LLVMBuildICmp(builder, LLVMIntPredicate.EQ, otid, ctid, "");
-		return LLVMBuildSelect(builder, cmp, value, llvmNull, "");
+		import d.llvm.runtime;
+		return c.isFinal
+			? RuntimeGen(pass).genFinalClassDowncast(value, ctid)
+			: RuntimeGen(pass).genClassDowncast(value, ctid);
 	}
 
 	LLVMValueRef visit(CastExpression e) {
