@@ -72,11 +72,6 @@ private:
 	}
 
 public:
-	shared(Leaf)* get(void* address) shared {
-		Cache cache;
-		return get(cache, address);
-	}
-
 	shared(Leaf)* get(ref Cache cache, void* address) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
@@ -112,11 +107,6 @@ public:
 
 		leaf.store(value);
 		return true;
-	}
-
-	bool setRange(void* address, uint pages, T value) shared {
-		Cache cache;
-		return setRange(cache, address, pages, value);
 	}
 
 	bool setRange(ref Cache cache, void* address, uint pages, T value) shared {
@@ -157,11 +147,6 @@ public:
 		if (leaf !is null) {
 			leaf.store(T(0));
 		}
-	}
-
-	void clearRange(void* address, uint pages) shared {
-		Cache cache;
-		clearRange(cache, address, pages);
 	}
 
 	void clearRange(ref Cache cache, void* address, uint pages) shared {

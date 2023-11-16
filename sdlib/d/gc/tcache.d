@@ -11,7 +11,7 @@ ThreadCache threadCache;
 struct ThreadCache {
 private:
 	import d.gc.emap;
-	shared(ExtentMap)* emap;
+	CachedExtentMap emap;
 
 	const(void)* stackBottom;
 	const(void*)[][] roots;
@@ -343,8 +343,8 @@ private:
 
 	void initializeExtentMap() {
 		import sdc.intrinsics;
-		if (unlikely(emap is null)) {
-			emap = gExtentMap;
+		if (unlikely(emap.emap is null)) {
+			emap = CachedExtentMap(gExtentMap);
 		}
 	}
 

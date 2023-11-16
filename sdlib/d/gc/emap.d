@@ -1,14 +1,17 @@
 module d.gc.emap;
 
 import d.gc.extent;
+import d.gc.rtree;
 import d.gc.spec;
 import d.gc.util;
+
+import sdc.intrinsics;
 
 @property
 shared(ExtentMap)* gExtentMap() {
 	static shared ExtentMap emap;
 
-	if (emap.tree.base is null) {
+	if (unlikely(emap.tree.base is null)) {
 		import d.gc.base;
 		emap.tree.base = &gBase;
 	}
@@ -16,38 +19,63 @@ shared(ExtentMap)* gExtentMap() {
 	return &emap;
 }
 
+alias ExtentMapCache = RTreeCache!PageDescriptor;
+
 struct ExtentMap {
 private:
-	import d.gc.rtree;
 	RTree!PageDescriptor tree;
 
 public:
-	PageDescriptor lookup(void* address) shared {
-		auto leaf = tree.get(address);
+	PageDescriptor lookup(ref ExtentMapCache cache, void* address) shared {
+		auto leaf = tree.get(cache, address);
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
-	bool map(void* address, uint pages, PageDescriptor pd) shared {
-		return tree.setRange(address, pages, pd);
+	bool map(ref ExtentMapCache cache, void* address, uint pages,
+	         PageDescriptor pd) shared {
+		return tree.setRange(cache, address, pages, pd);
 	}
 
-	bool remap(Extent* extent, ExtentClass ec) shared {
-		return
-			map(extent.address, extent.pageCount, PageDescriptor(extent, ec));
+	void clear(ref ExtentMapCache cache, void* address, uint pages) shared {
+		tree.clearRange(cache, address, pages);
+	}
+}
+
+struct CachedExtentMap {
+private:
+	ExtentMapCache cache;
+	shared(ExtentMap)* emap;
+
+public:
+	this(shared(ExtentMap)* emap) {
+		this.emap = emap;
 	}
 
-	bool remap(Extent* extent) shared {
+	PageDescriptor lookup(void* address) {
+		return emap.lookup(cache, address);
+	}
+
+	bool map(void* address, uint pages, PageDescriptor pd) {
+		return emap.map(cache, address, pages, pd);
+	}
+
+	bool remap(Extent* extent, ExtentClass ec) {
+		auto pd = PageDescriptor(extent, ec);
+		return map(extent.address, extent.pageCount, pd);
+	}
+
+	bool remap(Extent* extent) {
 		// FIXME: in contract.
 		assert(!extent.isSlab(), "Extent is a slab!");
 		return remap(extent, ExtentClass.large());
 	}
 
-	void clear(Extent* extent) shared {
-		clear(extent.address, extent.pageCount);
+	void clear(void* address, uint pages) {
+		emap.clear(cache, address, pages);
 	}
 
-	void clear(void* address, uint pages) shared {
-		tree.clearRange(address, pages);
+	void clear(Extent* extent) {
+		clear(extent.address, extent.pageCount);
 	}
 }
 
@@ -157,8 +185,9 @@ unittest ExtentMap {
 	shared Base base;
 	scope(exit) base.clear();
 
-	static shared ExtentMap emap;
-	emap.tree.base = &base;
+	static shared ExtentMap emapStorage;
+	emapStorage.tree.base = &base;
+	auto emap = CachedExtentMap(&emapStorage);
 
 	// We have not mapped anything.
 	auto ptr = cast(void*) 0x56789abcd000;

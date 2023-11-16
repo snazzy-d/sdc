@@ -17,7 +17,7 @@ struct Bin {
 	import d.gc.extent, d.gc.heap;
 	Heap!(Extent, addrExtentCmp) slabs;
 
-	void* alloc(shared(Arena)* arena, shared(ExtentMap)* emap,
+	void* alloc(shared(Arena)* arena, ref CachedExtentMap emap,
 	            ubyte sizeClass) shared {
 		import d.gc.sizeclass;
 		assert(sizeClass < ClassCount.Small);
@@ -52,7 +52,7 @@ struct Bin {
 	}
 
 private:
-	void* allocImpl(shared(Arena)* arena, shared(ExtentMap)* emap,
+	void* allocImpl(shared(Arena)* arena, ref CachedExtentMap emap,
 	                ubyte sizeClass, size_t slotSize) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
@@ -99,7 +99,7 @@ private:
 		return false;
 	}
 
-	auto getSlab(shared(Arena)* arena, shared(ExtentMap)* emap,
+	auto getSlab(shared(Arena)* arena, ref CachedExtentMap emap,
 	             ubyte sizeClass) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
