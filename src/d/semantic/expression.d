@@ -1320,7 +1320,7 @@ public:
 	Expression visit(Mixin!AstExpression e) {
 		import d.semantic.evaluator;
 		auto str = evalString(visit(e.value));
-		auto pos = context.registerMixin(e.location, str ~ "\0");
+		auto pos = context.registerMixin(e.location, str);
 
 		import source.dlexer;
 		auto trange = lex(pos, context);

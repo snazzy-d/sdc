@@ -933,7 +933,7 @@ unittest {
 	auto context = new Context();
 
 	auto makeTestLexer(string s) {
-		auto base = context.registerMixin(Location.init, s ~ '\0');
+		auto base = context.registerMixin(Location.init, s);
 		auto lexer = lex(base, context);
 
 		lexer.match(TokenType.Begin);
