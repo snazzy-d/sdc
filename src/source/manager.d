@@ -222,6 +222,7 @@ struct SourceEntries {
 	Position registerFile(Location location, Name filename, Name directory,
 	                      string content) in(nextSourcePos.isFile()) {
 		auto base = nextSourcePos;
+		content ~= '\0';
 		nextSourcePos = nextSourcePos.getWithOffset(cast(uint) content.length);
 		sourceEntries ~=
 			SourceEntry(base, location, filename, directory, content);
@@ -231,6 +232,7 @@ struct SourceEntries {
 	Position registerMixin(Location location, string content)
 			in(nextSourcePos.isMixin()) {
 		auto base = nextSourcePos;
+		content ~= '\0';
 		nextSourcePos = nextSourcePos.getWithOffset(cast(uint) content.length);
 		sourceEntries ~= SourceEntry(base, location, content);
 		return base;
