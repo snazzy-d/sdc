@@ -104,7 +104,7 @@ public:
 		return Position(raw + offset);
 	}
 
-	Location getWithOffsets(uint start, uint stop) {
+	Location getWithOffsets(uint start, uint stop) const {
 		return Location(getWithOffset(start), getWithOffset(stop));
 	}
 
@@ -225,6 +225,15 @@ public:
 	@property
 	auto position() const {
 		return _position;
+	}
+
+	auto getWithOffset(uint offset)
+			out(result; result.isMixin() == isMixin(), "Position overflow") {
+		return position.getWithOffset(offset).getFullPosition(context);
+	}
+
+	auto getWithOffsets(uint start, uint stop) {
+		return position.getWithOffsets(start, stop).getFullLocation(context);
 	}
 
 	auto getSource() out(result; result.isMixin() == isMixin()) {

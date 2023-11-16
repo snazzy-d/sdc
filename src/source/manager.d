@@ -29,6 +29,10 @@ public:
 		return getContent()[getOffset(loc.start) .. getOffset(loc.stop)];
 	}
 
+	FullPosition getBase() {
+		return sourceManager.getBase(this).getFullPosition(context);
+	}
+
 	FullName getFileName() {
 		return sourceManager.getFileName(this).getFullName(context);
 	}
@@ -127,8 +131,12 @@ private:
 		return getSourceEntry(f).content;
 	}
 
+	Position getBase(FileID f) {
+		return getSourceEntry(f).base;
+	}
+
 	uint getOffset(FileID f) {
-		return getSourceEntry(f).base.offset;
+		return getBase(f).offset;
 	}
 
 	Name getFileName(FileID f) {
@@ -255,8 +263,8 @@ struct SourceEntries {
 
 struct SourceEntry {
 private:
-	Position base;
-	alias base this;
+	Position _base;
+	alias _base this;
 
 	uint lastLineLookup;
 	immutable(uint)[] lines;
@@ -280,6 +288,11 @@ private:
 
 public:
 	@property
+	Position base() const {
+		return _base;
+	}
+
+	@property
 	string content() const {
 		return _content;
 	}
@@ -296,14 +309,14 @@ public:
 
 private:
 	this(Position base, Location location, string content) in(base.isMixin()) {
-		this.base = base;
+		this._base = base;
 		this.location = location;
 		_content = content;
 	}
 
 	this(Position base, Location location, Name filename, Name directory,
 	     string content) in(base.isFile()) {
-		this.base = base;
+		this._base = base;
 		this.location = location;
 		_content = content;
 		_filename = filename;

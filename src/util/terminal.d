@@ -11,18 +11,23 @@ version(Windows) {
 void outputCaretDiagnostics(FullLocation location, string fixHint) {
 	import std.stdio;
 	auto source = location.getSource();
-	auto content = source.getContent();
+	auto content = source.getContent()[0 .. $ - 1];
 
-	const offset = location.getStartOffset();
-	uint start = offset;
+	auto offset = location.getStartOffset();
+	if (offset >= content.length) {
+		offset = cast(uint) content.length - 1;
+	}
 
 	// This is unexpected end of input.
-	if (start == content.length) {
-		// Find first non white char.
-		import std.ascii;
-		while (start > 0 && isWhite(content[start])) {
-			start--;
-		}
+	uint start = offset;
+	if (start >= content.length) {
+		start = cast(uint) content.length - 1;
+	}
+
+	// Find first non white char.
+	import std.ascii;
+	while (start > 0 && isWhite(content[start])) {
+		start--;
 	}
 
 	// XXX: We could probably use infos from source manager here.
@@ -58,7 +63,7 @@ void outputCaretDiagnostics(FullLocation location, string fixHint) {
 	// Extend the range up to the end of the line.
 	while (end < content.length) {
 		auto c = content[end];
-		if (c == '\0' || c == '\r' || c == '\n') {
+		if (c == '\r' || c == '\n') {
 			break;
 		}
 
@@ -84,10 +89,11 @@ void outputCaretDiagnostics(FullLocation location, string fixHint) {
 		underline[i] = '~';
 	}
 
-	assert(index == location.getStartColumn());
+	auto indexPosition = source.getBase().getWithOffset(offset);
+	assert(index == indexPosition.getColumn());
 
 	stderr.write(location.isMixin() ? "mixin" : source.getFileName().toString(),
-	             ":", location.getStartLineNumber(), ":", index, ":");
+	             ":", indexPosition.getLineNumber(), ":", index, ":");
 
 	stderr.writeColouredText(ConsoleColour.Red, " error: ");
 	stderr.writeColouredText(ConsoleColour.White, fixHint, "\n");
