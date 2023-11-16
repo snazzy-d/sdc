@@ -44,6 +44,18 @@ void outputCaretDiagnostics(FullLocation location, string fixHint) {
 		end = cast(uint) content.length;
 	}
 
+	// Trim end of line if apropriate.
+	while (end > start) {
+		end--;
+
+		auto c = content[end];
+		if (c != '\r' && c != '\n') {
+			end++;
+			break;
+		}
+	}
+
+	// Extend the range up to the end of the line.
 	while (end < content.length) {
 		auto c = content[end];
 		if (c == '\0' || c == '\r' || c == '\n') {
@@ -56,7 +68,7 @@ void outputCaretDiagnostics(FullLocation location, string fixHint) {
 	auto line = content[start .. end];
 	uint index = offset - start;
 
-	// Multi line location
+	// Multi line location.
 	if (index < line.length && index + length > line.length) {
 		length = cast(uint) line.length - index;
 	}
