@@ -11,7 +11,7 @@ version(Windows) {
 void outputCaretDiagnostics(FullLocation location, string fixHint) {
 	import std.stdio;
 	auto source = location.getSource();
-	auto content = source.getContent()[0 .. $ - 1];
+	auto content = source.getContent();
 
 	auto offset = location.getStartOffset();
 	if (offset >= content.length) {

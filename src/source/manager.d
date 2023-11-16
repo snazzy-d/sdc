@@ -22,6 +22,10 @@ public:
 	}
 
 	string getContent() {
+		return getZeroTerminatedContent()[0 .. $ - 1];
+	}
+
+	string getZeroTerminatedContent() {
 		return sourceManager.getContent(this);
 	}
 

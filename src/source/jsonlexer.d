@@ -210,11 +210,12 @@ public:
 
 auto lex(Position base, Context context) {
 	auto lexer = JsonLexer();
+	auto source = base.getFullPosition(context).getSource();
 
 	lexer.context = context;
 	lexer.base = base;
 	lexer.previous = base;
-	lexer.content = base.getFullPosition(context).getSource().getContent();
+	lexer.content = source.getZeroTerminatedContent();
 
 	auto beginLocation = Location(base, base.getWithOffset(lexer.index));
 	lexer.t = Token.getBegin(beginLocation);
