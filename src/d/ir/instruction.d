@@ -226,9 +226,7 @@ private:
 	@disable
 	this(this);
 
-	void add(Instruction i) in {
-		assert(!terminate, "block does terminate already");
-	} do {
+	void add(Instruction i) in(!terminate, "block does terminate already") {
 		instructions ~= i;
 	}
 
@@ -353,9 +351,8 @@ private:
 		expr = e;
 	}
 
-	this(Location location, Variable v) in {
-		assert(v.step == Step.Processed, "Variable is not processed");
-	} do {
+	this(Location location, Variable v)
+			in(v.step == Step.Processed, "Variable is not processed") {
 		this.location = location;
 		op = OpCode.Alloca;
 		var = v;
@@ -367,10 +364,9 @@ private:
 		return i;
 	}
 
-	this(Location location, Symbol s) in {
-		assert(s.step == Step.Processed, "Symbol is not processed");
-		assert(!cast(Variable) s, "Use alloca for variables");
-	} do {
+	this(Location location, Symbol s)
+			in(s.step == Step.Processed, "Symbol is not processed")
+			in(!cast(Variable) s, "Use alloca for variables") {
 		this.location = location;
 		op = OpCode.Declare;
 		sym = s;

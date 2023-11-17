@@ -136,10 +136,9 @@ class Function : ValueSymbol, Scope {
 	}
 
 	@property
-	Intrinsic intrinsicID(Intrinsic id) in {
-		assert(!hasThis, "Method can't be intrinsic");
-		assert(intrinsicID == Intrinsic.None, "This is already an intrinsic");
-	} do {
+	Intrinsic intrinsicID(Intrinsic id)
+			in(!hasThis, "Method can't be intrinsic")
+			in(intrinsicID == Intrinsic.None, "This is already an intrinsic") {
 		derived = id;
 		return intrinsicID;
 	}
