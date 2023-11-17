@@ -41,6 +41,9 @@ enum LgAddressSpace = 48;
 enum AddressSpace = One << LgAddressSpace;
 enum AddressMask = AddressSpace - 1;
 
+enum PagePointerMask = AddressSpace - PageSize;
+enum BlockPointerMask = AddressSpace - BlockSize;
+
 // Allocator specific config.
 enum LgExtentSize = 7;
 enum ExtentSize = One << LgExtentSize;

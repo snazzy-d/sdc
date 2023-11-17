@@ -222,10 +222,8 @@ ulong next(ulong x) {
 }
 
 bool isValidAddress(void* address) {
-	enum Mask = AddressSpace - PageSize;
-
 	auto a = cast(size_t) address;
-	return (a & Mask) == a;
+	return (a & PagePointerMask) == a;
 }
 
 unittest isValidAddress {
