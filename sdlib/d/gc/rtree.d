@@ -29,6 +29,10 @@ enum Level0Size = size_t(1) << Levels[0].bits;
 enum Level1Size = size_t(1) << Levels[1].bits;
 
 enum Level0Align = size_t(1) << Levels[0].shift;
+enum Level0Mask = Level0Size - 1;
+
+static assert((Level0Mask & BlockPointerMask) == 0,
+              "Cannot pack block pointer and level 0 key in one pointer!");
 
 struct RTree(T) {
 private:
@@ -38,21 +42,11 @@ private:
 	import d.sync.mutex;
 	Mutex initMutex;
 
-	alias Leaves = shared(Leaf[Level1Size])*;
-
-	struct Node {
-	private:
-		Atomic!size_t data;
-
-	public:
-		auto getLeaves() shared {
-			return cast(Leaves) data.load();
-		}
-	}
-
 	Node[Level0Size] nodes;
 
-public:
+	alias Cache = RTreeCache!T;
+	alias Leaves = shared(Leaf[Level1Size])*;
+
 	struct Leaf {
 	private:
 		Atomic!ulong data;
@@ -67,11 +61,27 @@ public:
 		}
 	}
 
+	struct Node {
+	private:
+		Atomic!size_t data;
+
+	public:
+		auto getLeaves() shared {
+			return cast(Leaves) data.load();
+		}
+	}
+
+public:
 	shared(Leaf)* get(void* address) shared {
+		Cache cache;
+		return get(cache, address);
+	}
+
+	shared(Leaf)* get(ref Cache cache, void* address) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 
-		auto leaves = getLeaves(address);
+		auto leaves = getLeaves(cache, address);
 		if (leaves is null) {
 			return null;
 		}
@@ -79,11 +89,11 @@ public:
 		return &(*leaves)[subKey(address, 1)];
 	}
 
-	shared(Leaf)* getOrAllocate(void* address) shared {
+	shared(Leaf)* getOrAllocate(ref Cache cache, void* address) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 
-		auto leaves = getOrAllocateLeaves(address);
+		auto leaves = getOrAllocateLeaves(cache, address);
 		if (unlikely(leaves is null)) {
 			return null;
 		}
@@ -91,11 +101,11 @@ public:
 		return &(*leaves)[subKey(address, 1)];
 	}
 
-	bool set(void* address, T value) shared {
+	bool set(ref Cache cache, void* address, T value) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 
-		auto leaf = getOrAllocate(address);
+		auto leaf = getOrAllocate(cache, address);
 		if (unlikely(leaf is null)) {
 			return false;
 		}
@@ -105,6 +115,11 @@ public:
 	}
 
 	bool setRange(void* address, uint pages, T value) shared {
+		Cache cache;
+		return setRange(cache, address, pages, value);
+	}
+
+	bool setRange(ref Cache cache, void* address, uint pages, T value) shared {
 		auto start = address;
 		auto stop = start + pages * PageSize;
 
@@ -114,7 +129,7 @@ public:
 
 		auto ptr = start;
 		while (ptr < stop) {
-			auto leaves = getOrAllocateLeaves(ptr);
+			auto leaves = getOrAllocateLeaves(cache, ptr);
 			if (unlikely(leaves is null)) {
 				return false;
 			}
@@ -134,17 +149,22 @@ public:
 		return true;
 	}
 
-	void clear(void* address) shared {
+	void clear(ref Cache cache, void* address) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 
-		auto leaf = get(address);
+		auto leaf = get(cache, address);
 		if (leaf !is null) {
 			leaf.store(T(0));
 		}
 	}
 
 	void clearRange(void* address, uint pages) shared {
+		Cache cache;
+		clearRange(cache, address, pages);
+	}
+
+	void clearRange(ref Cache cache, void* address, uint pages) shared {
 		auto start = address;
 		auto stop = address + pages * PageSize;
 
@@ -158,7 +178,7 @@ public:
 			auto nextPtr = alignUp(ptr + 1, Level0Align);
 			assert(subKey(nextPtr, 0) == subKey(ptr, 0) + 1);
 
-			auto leaves = getLeaves(ptr);
+			auto leaves = getLeaves(cache, ptr);
 			if (leaves is null) {
 				import d.gc.util;
 				ptr = nextPtr;
@@ -176,24 +196,36 @@ public:
 	}
 
 private:
-	auto getLeaves(void* address) shared {
-		return getLeavesImpl!false(address);
+	auto getLeaves(ref Cache cache, void* address) shared {
+		return getLeavesImpl!false(cache, address);
 	}
 
-	auto getOrAllocateLeaves(void* address) shared {
-		return getLeavesImpl!true(address);
+	auto getOrAllocateLeaves(ref Cache cache, void* address) shared {
+		return getLeavesImpl!true(cache, address);
 	}
 
-	auto getLeavesImpl(bool Allocates)(void* address) shared {
+	auto getLeavesImpl(bool Allocates)(ref Cache cache, void* address) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 
 		auto key0 = subKey(address, 0);
-		auto leaves = nodes[key0].getLeaves();
+		auto leaves = cache.lookup(key0);
+		if (likely(leaves !is null)) {
+			assert(leaves is nodes[key0].getLeaves(),
+			       "The cache appears to be corrupted!");
+			return leaves;
+		}
+
+		leaves = nodes[key0].getLeaves();
 		if (Allocates && unlikely(leaves is null)) {
 			leaves = allocateLeaves(address, key0);
 		}
 
+		if (unlikely(leaves is null)) {
+			return null;
+		}
+
+		cache.update(key0, leaves);
 		return leaves;
 	}
 
@@ -215,6 +247,93 @@ private:
 		leaves = cast(Leaves) base.reserveAddressSpace(typeof(*leaves).sizeof);
 		nodes[key0].data.store(cast(size_t) leaves, MemoryOrder.Relaxed);
 		return leaves;
+	}
+}
+
+struct RTreeCache(T) {
+private:
+	enum L1Size = 16;
+	enum L2Size = 8;
+
+	alias Leaves = RTree!T.Leaves;
+
+	struct CacheEntry {
+		size_t data;
+
+		this(size_t key, Leaves leaves) {
+			this(key, cast(size_t) leaves);
+		}
+
+		this(size_t key, size_t leaves) {
+			assert((key & Level0Mask) == key, "Invalid level 0 key!");
+			assert((leaves & BlockPointerMask) == leaves,
+			       "Improperly aligned Leaves!");
+
+			data = leaves | key;
+		}
+
+		@property
+		auto key() const {
+			return data & Level0Mask;
+		}
+
+		@property
+		auto leaves() const {
+			return cast(Leaves) (data & BlockPointerMask);
+		}
+	}
+
+	CacheEntry[L1Size] l1;
+	CacheEntry[L2Size] l2;
+
+	Leaves lookup(size_t key) {
+		assert((key & Level0Mask) == key, "Invalid key!");
+
+		auto slot = key % L1Size;
+		auto e = l1[slot];
+
+		if (likely(e.key == key)) {
+			return e.leaves;
+		}
+
+		// If we hit in the L2, we promote that entry to L1.
+		auto c = l2[0];
+		if (likely(c.key == key)) {
+			l2[0] = e;
+			l1[slot] = c;
+
+			return c.leaves;
+		}
+
+		// If possible, move the position in the L2 up by 1.
+		foreach (i; 1 .. L2Size) {
+			c = l2[i];
+			if (likely(c.key == key)) {
+				l2[i] = l2[i - 1];
+				l2[i - 1] = e;
+				l1[slot] = c;
+
+				return c.leaves;
+			}
+		}
+
+		return null;
+	}
+
+	void update(size_t key, Leaves leaves) {
+		assert((key & Level0Mask) == key, "Invalid key!");
+
+		auto slot = key % L1Size;
+		auto e = l1[slot];
+
+		l1[slot] = CacheEntry(key, leaves);
+		if (unlikely(e.leaves is null)) {
+			return;
+		}
+
+		// We had data in l1, push it in l2.
+		memmove(&l2[1], l2.ptr, CacheEntry.sizeof * (L2Size - 1));
+		l2[0] = e;
 	}
 }
 
@@ -295,13 +414,15 @@ unittest spawn_leaves {
 	static shared RTree!ulong rt;
 	rt.base = &base;
 
+	RTreeCache!ulong cache;
+
 	auto p = cast(void*) 0x56789abcd000;
 	assert(rt.nodes[0x159e2].getLeaves() is null);
-	assert(rt.get(p) is null);
+	assert(rt.get(cache, p) is null);
 	assert(rt.nodes[0x159e2].getLeaves() is null);
 
 	// Allocate a leaf.
-	auto leaf = rt.getOrAllocate(p);
+	auto leaf = rt.getOrAllocate(cache, p);
 	assert(rt.nodes[0x159e2].getLeaves() !is null);
 
 	// The leaf itself is null.
@@ -309,8 +430,8 @@ unittest spawn_leaves {
 	assert(leaf.load() == 0);
 
 	// Now we return that leaf.
-	assert(rt.getOrAllocate(p) is leaf);
-	assert(rt.get(p) is leaf);
+	assert(rt.getOrAllocate(cache, p) is leaf);
+	assert(rt.get(cache, p) is leaf);
 
 	// The leaf is where we epxect it to be.
 	auto leaves = rt.nodes[0x159e2].getLeaves();
@@ -325,48 +446,50 @@ unittest get_set_clear {
 	static shared RTree!ulong rt;
 	rt.base = &base;
 
+	RTreeCache!ulong cache;
+
 	// Add one page descriptor in the tree.
 	auto ptr0 = cast(void*) 0x56789abcd000;
 	auto v0 = 0x0123456789abcdef;
 
-	assert(rt.get(ptr0) is null);
-	assert(rt.set(ptr0, v0));
-	assert(rt.get(ptr0) !is null);
-	assert(rt.get(ptr0).load() == v0);
+	assert(rt.get(cache, ptr0) is null);
+	assert(rt.set(cache, ptr0, v0));
+	assert(rt.get(cache, ptr0) !is null);
+	assert(rt.get(cache, ptr0).load() == v0);
 
 	// Add a second page descriptor in the tree.
 	auto ptr1 = cast(void*) 0x789abcdef000;
 	auto v1 = 0x0123456789abcdef;
 
-	assert(rt.get(ptr1) is null);
-	assert(rt.set(ptr1, v1));
-	assert(rt.get(ptr1) !is null);
-	assert(rt.get(ptr1).load() == v1);
+	assert(rt.get(cache, ptr1) is null);
+	assert(rt.set(cache, ptr1, v1));
+	assert(rt.get(cache, ptr1) !is null);
+	assert(rt.get(cache, ptr1).load() == v1);
 
 	// This did not affect the first insertion.
-	assert(rt.get(ptr0).load() == v0);
+	assert(rt.get(cache, ptr0).load() == v0);
 
 	// However, we can rewrite existing entries.
-	assert(rt.set(ptr0, v1));
-	assert(rt.set(ptr1, v0));
+	assert(rt.set(cache, ptr0, v1));
+	assert(rt.set(cache, ptr1, v0));
 
-	assert(rt.get(ptr0).load() == v1);
-	assert(rt.get(ptr1).load() == v0);
+	assert(rt.get(cache, ptr0).load() == v1);
+	assert(rt.get(cache, ptr1).load() == v0);
 
 	// Now we can clear.
-	rt.clear(ptr0);
-	assert(rt.get(ptr0).load() == 0);
-	assert(rt.get(ptr1).load() == v0);
+	rt.clear(cache, ptr0);
+	assert(rt.get(cache, ptr0).load() == 0);
+	assert(rt.get(cache, ptr1).load() == v0);
 
-	rt.clear(ptr1);
-	assert(rt.get(ptr0).load() == 0);
-	assert(rt.get(ptr1).load() == 0);
+	rt.clear(cache, ptr1);
+	assert(rt.get(cache, ptr0).load() == 0);
+	assert(rt.get(cache, ptr1).load() == 0);
 
 	// We can also clear unmapped addresses.
 	auto ptr2 = cast(void*) 0xfedcba987000;
-	assert(rt.get(ptr2) is null);
-	rt.clear(ptr2);
-	assert(rt.get(ptr2) is null);
+	assert(rt.get(cache, ptr2) is null);
+	rt.clear(cache, ptr2);
+	assert(rt.get(cache, ptr2) is null);
 }
 
 unittest set_clear_range {
@@ -377,60 +500,198 @@ unittest set_clear_range {
 	static shared RTree!ulong rt;
 	rt.base = &base;
 
+	RTreeCache!ulong cache;
+
 	// Add one page descriptor in the tree.
 	auto ptr0 = cast(void*) 0x56789abcd000;
 	auto v0 = 0x0123456789abcdef;
 
-	assert(rt.get(ptr0) is null);
-	assert(rt.setRange(ptr0, 1, v0));
-	assert(rt.get(ptr0) !is null);
-	assert(rt.get(ptr0).load() == v0);
+	assert(rt.get(cache, ptr0) is null);
+	assert(rt.setRange(cache, ptr0, 1, v0));
+	assert(rt.get(cache, ptr0) !is null);
+	assert(rt.get(cache, ptr0).load() == v0);
 
 	// Add a second page descriptor in the tree.
 	auto ptr1 = cast(void*) 0x00003ffff000;
 	auto v1 = 0x0123456789abcdef;
 
-	assert(rt.get(ptr1) is null);
-	assert(rt.setRange(ptr1, 1234, v1));
-	assert(rt.get(ptr1) !is null);
-	assert(rt.get(ptr1).load() == v1);
+	assert(rt.get(cache, ptr1) is null);
+	assert(rt.setRange(cache, ptr1, 1234, v1));
+	assert(rt.get(cache, ptr1) !is null);
+	assert(rt.get(cache, ptr1).load() == v1);
 
 	foreach (i; 0 .. 1234) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
 
-		assert(rt.get(ptr) !is null);
-		assert(rt.get(ptr).load() == v);
+		assert(rt.get(cache, ptr) !is null);
+		assert(rt.get(cache, ptr).load() == v);
 	}
 
-	rt.clearRange(ptr1, 910);
+	rt.clearRange(cache, ptr1, 910);
 	foreach (i; 0 .. 910) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
 
-		assert(rt.get(ptr).load() == 0);
+		assert(rt.get(cache, ptr).load() == 0);
 	}
 
 	foreach (i; 910 .. 1234) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
 
-		assert(rt.get(ptr) !is null);
-		assert(rt.get(ptr).load() == v);
+		assert(rt.get(cache, ptr) !is null);
+		assert(rt.get(cache, ptr).load() == v);
 	}
 
-	rt.clearRange(ptr1, 345678);
+	rt.clearRange(cache, ptr1, 345678);
 	foreach (i; 0 .. 262145) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
 
-		assert(rt.get(ptr).load() == 0);
+		assert(rt.get(cache, ptr).load() == 0);
 	}
 
 	foreach (i; 262145 .. 345678) {
 		auto v = v1 + i;
 		auto ptr = ptr1 + i * PageSize;
 
-		assert(rt.get(ptr) is null);
+		assert(rt.get(cache, ptr) is null);
+	}
+}
+
+unittest rtree_cache {
+	import d.gc.base;
+	shared Base base;
+	scope(exit) base.clear();
+
+	static shared RTree!ulong rt;
+	rt.base = &base;
+
+	RTreeCache!ulong cache;
+
+	enum L1Size = RTreeCache!ulong.L1Size;
+	enum L2Size = RTreeCache!ulong.L2Size;
+
+	auto checkL1Cache(void* ptr, uint expectedSlot) {
+		auto key = subKey(ptr, 0);
+		auto slot = key % L1Size;
+
+		assert(slot == expectedSlot);
+		assert(cache.l1[slot].key == key);
+		assert(cache.l1[slot].leaves is rt.nodes[key].getLeaves());
+	}
+
+	auto checkL2Cache(void* ptr, uint slot) {
+		auto key = subKey(ptr, 0);
+
+		assert(cache.l2[slot].key == key);
+		assert(cache.l2[slot].leaves is rt.nodes[key].getLeaves());
+	}
+
+	// Add one page descriptor in the tree.
+	auto ptr0 = cast(void*) 0x56781abcd000;
+	auto v0 = 0x0123456789abcdef;
+
+	foreach (i; 0 .. L1Size) {
+		auto ptr = ptr0 + i * Level0Align;
+		assert(rt.set(cache, ptr, v0));
+		checkL1Cache(ptr, i);
+
+		// Nothing spills into L2.
+		foreach (j; 0 .. L2Size) {
+			assert(cache.l2[j].leaves is null);
+		}
+	}
+
+	enum RepeatOffset = L1Size * Level0Align;
+	auto ptr1 = ptr0 + RepeatOffset;
+
+	// Collisions push entries into L2.
+	foreach (i; 0 .. L1Size) {
+		auto ptr = ptr1 + i * Level0Align;
+
+		assert(rt.set(cache, ptr, v0));
+		checkL1Cache(ptr, i);
+
+		// Previous pointers are pushed onto L2.
+		import d.gc.util;
+		foreach (j; 0 .. min(i + 1, L2Size)) {
+			auto evictedPtr = ptr0 + (i - j) * Level0Align;
+			checkL2Cache(evictedPtr, j);
+		}
+
+		// No extra spills into L2.
+		foreach (j; i + 1 .. L2Size) {
+			assert(cache.l2[j].leaves is null);
+		}
+	}
+
+	auto savedL2 = cache.l2;
+	auto checkSavedL2(uint shift) {
+		foreach (i; 0 .. L2Size - shift) {
+			auto s = savedL2[i];
+			auto c = cache.l2[i + shift];
+
+			assert(s.key == c.key);
+			assert(s.leaves is c.leaves);
+		}
+	}
+
+	// Collide in slot 0 causes the colliding element to be
+	// placed in the first slot of the L2 and all other L2
+	// elements get shifted up by 1.
+	assert(rt.set(cache, ptr0, v0));
+	checkL1Cache(ptr0, 0);
+	checkL2Cache(ptr1, 0);
+	checkSavedL2(1);
+
+	// Matching the first slot in L2 causes a swap.
+	assert(rt.set(cache, ptr1, v0));
+	checkL1Cache(ptr1, 0);
+	checkL2Cache(ptr0, 0);
+	checkSavedL2(1);
+
+	// Evict elements to push ptr0 into the last slot.
+	savedL2 = cache.l2;
+	foreach (i; 1 .. L2Size) {
+		auto ptr = ptr0 + i * Level0Align;
+
+		assert(rt.set(cache, ptr, v0));
+		checkL1Cache(ptr, i);
+		checkL2Cache(ptr0, i);
+		checkSavedL2(i);
+	}
+
+	// Matching in L2 promotes the element to L1 and move the
+	// slots up by 1 for the demoted element.
+	savedL2 = cache.l2;
+	foreach (i; 1 .. L2Size) {
+		auto evictedPtr = ptr0 + (i & 0x01) * RepeatOffset;
+		auto ptr = cast(void*) ((cast(size_t) evictedPtr) ^ RepeatOffset);
+
+		assert(rt.set(cache, ptr, v0));
+		checkL1Cache(ptr, 0);
+
+		auto slot = L2Size - i - 1;
+		checkL2Cache(evictedPtr, slot);
+
+		// Elements before the slot are unaffected.
+		foreach (j; 0 .. slot) {
+			auto s = savedL2[j];
+			auto c = cache.l2[j];
+
+			assert(s.key == c.key);
+			assert(s.leaves is c.leaves);
+		}
+
+		// Elements after the slot are moved up by 1.
+		foreach (j; slot .. L2Size - 1) {
+			auto s = savedL2[j];
+			auto c = cache.l2[j + 1];
+
+			assert(s.key == c.key);
+			assert(s.leaves is c.leaves);
+		}
 	}
 }
