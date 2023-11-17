@@ -807,7 +807,7 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
-		auto base = context.registerMixin(location, str ~ '\0');
+		auto base = context.registerMixin(location, str);
 
 		import source.dlexer;
 		auto trange = lex(base, context);

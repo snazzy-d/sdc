@@ -12,8 +12,19 @@ int runMain(alias run)(string[] args) {
 	import source.context;
 	auto context = new Context();
 
+	bool dbg = false;
+
 	import std.getopt, source.exception;
 	try {
+		auto help_info = getopt(
+			// sdfmt off
+			args,
+			std.getopt.config.caseSensitive,
+			std.getopt.config.passThrough,
+			"debug", "Enable debug", &dbg,
+			// sdfmt on
+		);
+
 		return run(context, args);
 	} catch (GetOptException ex) {
 		import std.stdio;
@@ -25,11 +36,11 @@ int runMain(alias run)(string[] args) {
 		outputCaretDiagnostics(e.getFullLocation(context), e.msg);
 
 		// Rethrow in debug, so we have the stack trace.
-		debug {
+		if (dbg) {
 			throw e;
-		} else {
-			return 1;
 		}
+
+		return 1;
 	}
 
 	// This is unreachable, but dmd can't figure this out.

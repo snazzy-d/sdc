@@ -46,17 +46,17 @@ public:
 	}
 
 	auto spanTo(Location end) in {
-		import std.conv;
+		import std.format;
 		assert(stop.offset <= end.stop.offset,
-		       to!string(stop.offset) ~ " > " ~ to!string(end.stop.offset));
+		       format!"%s > %s"(stop.offset, end.stop.offset));
 	} do {
 		return spanTo(end.stop);
 	}
 
 	auto spanTo(Position end) const in {
-		import std.conv;
+		import std.format;
 		assert(stop.offset <= end.offset,
-		       to!string(stop.offset) ~ " > " ~ to!string(end.offset));
+		       format!"%s > %s"(stop.offset, end.offset));
 	} do {
 		return Location(start, end);
 	}
@@ -104,7 +104,7 @@ public:
 		return Position(raw + offset);
 	}
 
-	Location getWithOffsets(uint start, uint stop) {
+	Location getWithOffsets(uint start, uint stop) const {
 		return Location(getWithOffset(start), getWithOffset(stop));
 	}
 
@@ -225,6 +225,15 @@ public:
 	@property
 	auto position() const {
 		return _position;
+	}
+
+	auto getWithOffset(uint offset)
+			out(result; result.isMixin() == isMixin(), "Position overflow") {
+		return position.getWithOffset(offset).getFullPosition(context);
+	}
+
+	auto getWithOffsets(uint start, uint stop) {
+		return position.getWithOffsets(start, stop).getFullLocation(context);
 	}
 
 	auto getSource() out(result; result.isMixin() == isMixin()) {

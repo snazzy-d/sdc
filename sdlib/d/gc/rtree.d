@@ -38,13 +38,15 @@ private:
 	import d.sync.mutex;
 	Mutex initMutex;
 
+	alias Leaves = shared(Leaf[Level1Size])*;
+
 	struct Node {
 	private:
 		Atomic!size_t data;
 
 	public:
 		auto getLeaves() shared {
-			return cast(shared(Leaf[Level1Size])*) data.load();
+			return cast(Leaves) data.load();
 		}
 	}
 
@@ -175,35 +177,42 @@ public:
 
 private:
 	auto getLeaves(void* address) shared {
-		// FIXME: in contract.
-		assert(isValidAddress(address));
-
-		auto key0 = subKey(address, 0);
-		return nodes[key0].getLeaves();
+		return getLeavesImpl!false(address);
 	}
 
 	auto getOrAllocateLeaves(void* address) shared {
+		return getLeavesImpl!true(address);
+	}
+
+	auto getLeavesImpl(bool Allocates)(void* address) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 
 		auto key0 = subKey(address, 0);
 		auto leaves = nodes[key0].getLeaves();
-		if (leaves !is null) {
-			return leaves;
+		if (Allocates && unlikely(leaves is null)) {
+			leaves = allocateLeaves(address, key0);
 		}
+
+		return leaves;
+	}
+
+	auto allocateLeaves(void* address, size_t key0) shared {
+		// FIXME: in contract.
+		assert(isValidAddress(address));
+		assert(subKey(address, 0) == key0);
 
 		// Note: We could use a CAS loop instead of using a mutex.
 		// It's not clear if there is a real benefit.
 		initMutex.lock();
 		scope(exit) initMutex.unlock();
 
-		leaves = nodes[key0].getLeaves();
+		auto leaves = nodes[key0].getLeaves();
 		if (leaves !is null) {
 			return leaves;
 		}
 
-		leaves = cast(typeof(leaves))
-			base.reserveAddressSpace(typeof(*leaves).sizeof);
+		leaves = cast(Leaves) base.reserveAddressSpace(typeof(*leaves).sizeof);
 		nodes[key0].data.store(cast(size_t) leaves, MemoryOrder.Relaxed);
 		return leaves;
 	}
@@ -222,10 +231,8 @@ ulong next(ulong x) {
 }
 
 bool isValidAddress(void* address) {
-	enum Mask = AddressSpace - PageSize;
-
 	auto a = cast(size_t) address;
-	return (a & Mask) == a;
+	return (a & PagePointerMask) == a;
 }
 
 unittest isValidAddress {

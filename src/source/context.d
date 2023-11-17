@@ -27,7 +27,7 @@ public:
 		auto data = cast(const(ubyte)[]) read(buildPath(directory, filename));
 
 		import source.util.utf8;
-		auto content = convertToUTF8(data) ~ '\0';
+		auto content = convertToUTF8(data);
 
 		return sourceManager.registerFile(location, getName(filename),
 		                                  getName(directory), content);

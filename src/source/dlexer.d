@@ -309,11 +309,12 @@ public:
 
 auto lex(Position base, Context context) {
 	auto lexer = TokenRange();
+	auto source = base.getFullPosition(context).getSource();
 
 	lexer.context = context;
 	lexer.base = base;
 	lexer.previous = base;
-	lexer.content = base.getFullPosition(context).getSource().getContent();
+	lexer.content = source.getZeroTerminatedContent();
 
 	// Pop #!
 	auto shebang = lexer.popSheBang();
@@ -874,7 +875,7 @@ unittest {
 	auto context = new Context();
 
 	auto testlexer(string s) {
-		auto base = context.registerMixin(Location.init, s ~ '\0');
+		auto base = context.registerMixin(Location.init, s);
 		return lex(base, context);
 	}
 

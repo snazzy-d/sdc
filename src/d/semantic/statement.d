@@ -1119,7 +1119,7 @@ public:
 	}
 
 	void visit(Mixin!Statement s) {
-		auto str = evalString(buildString(s.value)) ~ '\0';
+		auto str = evalString(buildString(s.value));
 		auto base = context.registerMixin(s.location, str);
 
 		import source.dlexer;

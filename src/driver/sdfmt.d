@@ -69,11 +69,9 @@ int main(string[] args) {
 		auto o = chunks.write(conf);
 
 		if (inPlace) {
-			auto s = base.getFullPosition(context).getSource();
-			auto content = s.getContent();
-
 			// Remove the null terminator.
-			if (o != content[0 .. $ - 1]) {
+			auto s = base.getFullPosition(context).getSource();
+			if (o != s.getContent()) {
 				import std.file;
 				filename.write(o);
 			}
