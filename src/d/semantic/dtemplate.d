@@ -492,13 +492,12 @@ struct TypeMatcher(bool isIFTI) {
 
 		// We got our instance, let's match parameters.
 		foreach (i, arg; args) {
-			if (arg.tag != TemplateArgument.Tag.Symbol) {
-				assert(0, "Only symbols are implemented for now");
-			}
+			assert(arg.tag == TemplateArgument.Tag.Symbol,
+			       "Only symbols are implemented for now.");
 
-			auto p =
-				cast(TemplateParameter) arg.get!(TemplateArgument.Tag.Symbol);
-			assert(p !is null, "Expected a tepmplate argument");
+			auto sym = arg.get!(TemplateArgument.Tag.Symbol);
+			auto p = cast(TemplateParameter) sym;
+			assert(p !is null, "Expected a tepmplate parameter.");
 
 			if (!TemplateInstancier(pass)
 				    .matchArgument(p, ti.args[i], matchedArgs)) {
