@@ -41,6 +41,29 @@ public:
 	}
 }
 
+/**
+ * It might be puzzling why we would want to have a cache for the ExtentMap.
+ * After all, we are trading one lookup in the cache vs one lookup in the
+ * base level of the ExtentMap, so it's not obvious where the win is.
+ *
+ * Each entry in the cache maps to 1GB of address space, os we expect the
+ * hit rate in the cache to be close to 100% . Realistically, most applications
+ * won't use more than 16GB of address space, and for these which do, you'd
+ * still need scattered access access accross this huge address space for the
+ * hit rate to degrade, in which case the performance of this cache is unlikely
+ * to be of any significant importance.
+ *
+ * Each page that we expect to be hot in the GC is one less page that can be hot
+ * for the applciation itself. So in general, we try to avoid touching memory
+ * when we don't need to. We know the thread cache has to be hot as it is the
+ * entry point for every GC operation. Adding this cache in the thread cache
+ * ensures that we can have a close to 100% hit rate by only touching memory
+ * that has to be hot no matter what. This turns out to be a won in practice.
+ *
+ * If later on we want to support system with more than 48 bits of address
+ * space, then we will need an extent map with 3 levels, and this cache will
+ * avoid 2 lookups insteaf of 1, which is much more obvious win.
+ */
 struct CachedExtentMap {
 private:
 	ExtentMapCache cache;
