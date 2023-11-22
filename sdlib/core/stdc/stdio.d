@@ -8,3 +8,4 @@ extern(C):
 
 int printf(const char* fmt, ...);
 int puts(const char* s);
+int snprintf(char* dest, size_t size, const char* fmt, ...);
