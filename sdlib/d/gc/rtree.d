@@ -1,5 +1,6 @@
 module d.gc.rtree;
 
+import d.gc.base;
 import d.gc.spec;
 
 import d.sync.atomic;
@@ -36,13 +37,10 @@ static assert((Level0Mask & BlockPointerMask) == 0,
 
 struct RTree(T) {
 private:
-	import d.gc.base;
-	shared(Base)* base;
+	Node[Level0Size] nodes;
 
 	import d.sync.mutex;
 	Mutex initMutex;
-
-	Node[Level0Size] nodes;
 
 	alias Cache = RTreeCache!T;
 	alias Leaves = shared(Leaf[Level1Size])*;
@@ -84,11 +82,12 @@ public:
 		return &(*leaves)[subKey(address, 1)];
 	}
 
-	shared(Leaf)* getOrAllocate(ref Cache cache, void* address) shared {
+	shared(Leaf)* getOrAllocate(ref Cache cache, void* address,
+	                            ref shared Base base) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 
-		auto leaves = getOrAllocateLeaves(cache, address);
+		auto leaves = getOrAllocateLeaves(cache, address, base);
 		if (unlikely(leaves is null)) {
 			return null;
 		}
@@ -96,11 +95,12 @@ public:
 		return &(*leaves)[subKey(address, 1)];
 	}
 
-	bool set(ref Cache cache, void* address, T value) shared {
+	bool set(ref Cache cache, void* address, T value,
+	         ref shared Base base) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 
-		auto leaf = getOrAllocate(cache, address);
+		auto leaf = getOrAllocate(cache, address, base);
 		if (unlikely(leaf is null)) {
 			return false;
 		}
@@ -109,7 +109,8 @@ public:
 		return true;
 	}
 
-	bool setRange(ref Cache cache, void* address, uint pages, T value) shared {
+	bool setRange(ref Cache cache, void* address, uint pages, T value,
+	              ref shared Base base) shared {
 		auto start = address;
 		auto stop = start + pages * PageSize;
 
@@ -119,7 +120,7 @@ public:
 
 		auto ptr = start;
 		while (ptr < stop) {
-			auto leaves = getOrAllocateLeaves(cache, ptr);
+			auto leaves = getOrAllocateLeaves(cache, ptr, base);
 			if (unlikely(leaves is null)) {
 				return false;
 			}
@@ -182,14 +183,16 @@ public:
 
 private:
 	auto getLeaves(ref Cache cache, void* address) shared {
-		return getLeavesImpl!false(cache, address);
+		return getLeavesImpl!false(cache, address, null);
 	}
 
-	auto getOrAllocateLeaves(ref Cache cache, void* address) shared {
-		return getLeavesImpl!true(cache, address);
+	auto getOrAllocateLeaves(ref Cache cache, void* address,
+	                         ref shared Base base) shared {
+		return getLeavesImpl!true(cache, address, &base);
 	}
 
-	auto getLeavesImpl(bool Allocates)(ref Cache cache, void* address) shared {
+	auto getLeavesImpl(bool Allocates)(ref Cache cache, void* address,
+	                                   shared(Base)* base) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 
@@ -203,7 +206,7 @@ private:
 
 		leaves = nodes[key0].getLeaves();
 		if (Allocates && unlikely(leaves is null)) {
-			leaves = allocateLeaves(address, key0);
+			leaves = allocateLeaves(*base, address, key0);
 		}
 
 		if (unlikely(leaves is null)) {
@@ -214,7 +217,8 @@ private:
 		return leaves;
 	}
 
-	auto allocateLeaves(void* address, size_t key0) shared {
+	auto allocateLeaves(ref shared Base base, void* address,
+	                    size_t key0) shared {
 		// FIXME: in contract.
 		assert(isValidAddress(address));
 		assert(subKey(address, 0) == key0);
@@ -392,13 +396,10 @@ unittest subKey {
 }
 
 unittest spawn_leaves {
-	import d.gc.base;
 	shared Base base;
 	scope(exit) base.clear();
 
 	static shared RTree!ulong rt;
-	rt.base = &base;
-
 	RTreeCache!ulong cache;
 
 	auto p = cast(void*) 0x56789abcd000;
@@ -407,7 +408,7 @@ unittest spawn_leaves {
 	assert(rt.nodes[0x159e2].getLeaves() is null);
 
 	// Allocate a leaf.
-	auto leaf = rt.getOrAllocate(cache, p);
+	auto leaf = rt.getOrAllocate(cache, p, base);
 	assert(rt.nodes[0x159e2].getLeaves() !is null);
 
 	// The leaf itself is null.
@@ -415,7 +416,7 @@ unittest spawn_leaves {
 	assert(leaf.load() == 0);
 
 	// Now we return that leaf.
-	assert(rt.getOrAllocate(cache, p) is leaf);
+	assert(rt.getOrAllocate(cache, p, base) is leaf);
 	assert(rt.get(cache, p) is leaf);
 
 	// The leaf is where we epxect it to be.
@@ -424,13 +425,10 @@ unittest spawn_leaves {
 }
 
 unittest get_set_clear {
-	import d.gc.base;
 	shared Base base;
 	scope(exit) base.clear();
 
 	static shared RTree!ulong rt;
-	rt.base = &base;
-
 	RTreeCache!ulong cache;
 
 	// Add one page descriptor in the tree.
@@ -438,7 +436,7 @@ unittest get_set_clear {
 	auto v0 = 0x0123456789abcdef;
 
 	assert(rt.get(cache, ptr0) is null);
-	assert(rt.set(cache, ptr0, v0));
+	assert(rt.set(cache, ptr0, v0, base));
 	assert(rt.get(cache, ptr0) !is null);
 	assert(rt.get(cache, ptr0).load() == v0);
 
@@ -447,7 +445,7 @@ unittest get_set_clear {
 	auto v1 = 0x0123456789abcdef;
 
 	assert(rt.get(cache, ptr1) is null);
-	assert(rt.set(cache, ptr1, v1));
+	assert(rt.set(cache, ptr1, v1, base));
 	assert(rt.get(cache, ptr1) !is null);
 	assert(rt.get(cache, ptr1).load() == v1);
 
@@ -455,8 +453,8 @@ unittest get_set_clear {
 	assert(rt.get(cache, ptr0).load() == v0);
 
 	// However, we can rewrite existing entries.
-	assert(rt.set(cache, ptr0, v1));
-	assert(rt.set(cache, ptr1, v0));
+	assert(rt.set(cache, ptr0, v1, base));
+	assert(rt.set(cache, ptr1, v0, base));
 
 	assert(rt.get(cache, ptr0).load() == v1);
 	assert(rt.get(cache, ptr1).load() == v0);
@@ -478,13 +476,10 @@ unittest get_set_clear {
 }
 
 unittest set_clear_range {
-	import d.gc.base;
 	shared Base base;
 	scope(exit) base.clear();
 
 	static shared RTree!ulong rt;
-	rt.base = &base;
-
 	RTreeCache!ulong cache;
 
 	// Add one page descriptor in the tree.
@@ -492,7 +487,7 @@ unittest set_clear_range {
 	auto v0 = 0x0123456789abcdef;
 
 	assert(rt.get(cache, ptr0) is null);
-	assert(rt.setRange(cache, ptr0, 1, v0));
+	assert(rt.setRange(cache, ptr0, 1, v0, base));
 	assert(rt.get(cache, ptr0) !is null);
 	assert(rt.get(cache, ptr0).load() == v0);
 
@@ -501,7 +496,7 @@ unittest set_clear_range {
 	auto v1 = 0x0123456789abcdef;
 
 	assert(rt.get(cache, ptr1) is null);
-	assert(rt.setRange(cache, ptr1, 1234, v1));
+	assert(rt.setRange(cache, ptr1, 1234, v1, base));
 	assert(rt.get(cache, ptr1) !is null);
 	assert(rt.get(cache, ptr1).load() == v1);
 
@@ -546,13 +541,10 @@ unittest set_clear_range {
 }
 
 unittest rtree_cache {
-	import d.gc.base;
 	shared Base base;
 	scope(exit) base.clear();
 
 	static shared RTree!ulong rt;
-	rt.base = &base;
-
 	RTreeCache!ulong cache;
 
 	enum L1Size = RTreeCache!ulong.L1Size;
@@ -580,7 +572,7 @@ unittest rtree_cache {
 
 	foreach (i; 0 .. L1Size) {
 		auto ptr = ptr0 + i * Level0Align;
-		assert(rt.set(cache, ptr, v0));
+		assert(rt.set(cache, ptr, v0, base));
 		checkL1Cache(ptr, i);
 
 		// Nothing spills into L2.
@@ -596,7 +588,7 @@ unittest rtree_cache {
 	foreach (i; 0 .. L1Size) {
 		auto ptr = ptr1 + i * Level0Align;
 
-		assert(rt.set(cache, ptr, v0));
+		assert(rt.set(cache, ptr, v0, base));
 		checkL1Cache(ptr, i);
 
 		// Previous pointers are pushed onto L2.
@@ -626,13 +618,13 @@ unittest rtree_cache {
 	// Collide in slot 0 causes the colliding element to be
 	// placed in the first slot of the L2 and all other L2
 	// elements get shifted up by 1.
-	assert(rt.set(cache, ptr0, v0));
+	assert(rt.set(cache, ptr0, v0, base));
 	checkL1Cache(ptr0, 0);
 	checkL2Cache(ptr1, 0);
 	checkSavedL2(1);
 
 	// Matching the first slot in L2 causes a swap.
-	assert(rt.set(cache, ptr1, v0));
+	assert(rt.set(cache, ptr1, v0, base));
 	checkL1Cache(ptr1, 0);
 	checkL2Cache(ptr0, 0);
 	checkSavedL2(1);
@@ -642,7 +634,7 @@ unittest rtree_cache {
 	foreach (i; 1 .. L2Size) {
 		auto ptr = ptr0 + i * Level0Align;
 
-		assert(rt.set(cache, ptr, v0));
+		assert(rt.set(cache, ptr, v0, base));
 		checkL1Cache(ptr, i);
 		checkL2Cache(ptr0, i);
 		checkSavedL2(i);
@@ -655,7 +647,7 @@ unittest rtree_cache {
 		auto evictedPtr = ptr0 + (i & 0x01) * RepeatOffset;
 		auto ptr = cast(void*) ((cast(size_t) evictedPtr) ^ RepeatOffset);
 
-		assert(rt.set(cache, ptr, v0));
+		assert(rt.set(cache, ptr, v0, base));
 		checkL1Cache(ptr, 0);
 
 		auto slot = L2Size - i - 1;

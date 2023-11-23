@@ -292,7 +292,6 @@ public:
 	}
 
 private:
-
 	/**
 	 * Appendable's mechanics:
 	 * 
@@ -344,7 +343,8 @@ private:
 	void initializeExtentMap() {
 		import sdc.intrinsics;
 		if (unlikely(emap.emap is null)) {
-			emap = CachedExtentMap(gExtentMap);
+			import d.gc.base;
+			emap = CachedExtentMap(&gExtentMap, &gBase);
 		}
 	}
 

@@ -128,7 +128,7 @@ private:
 			return true;
 		}
 
-		// Remnant segment of the used region may be partially dirty:
+		// Remnant segment of the used region may be partially dirty.
 		auto originalDirtySize = r.dirtySize;
 		auto recycledDirtySize = min(allocSize, originalDirtySize);
 		dirtyBlocks -= recycledDirtySize / BlockSize;

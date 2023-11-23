@@ -1,5 +1,6 @@
 module d.gc.emap;
 
+import d.gc.base;
 import d.gc.extent;
 import d.gc.rtree;
 import d.gc.spec;
@@ -7,17 +8,7 @@ import d.gc.util;
 
 import sdc.intrinsics;
 
-@property
-shared(ExtentMap)* gExtentMap() {
-	static shared ExtentMap emap;
-
-	if (unlikely(emap.tree.base is null)) {
-		import d.gc.base;
-		emap.tree.base = &gBase;
-	}
-
-	return &emap;
-}
+shared ExtentMap gExtentMap;
 
 alias ExtentMapCache = RTreeCache!PageDescriptor;
 
@@ -31,9 +22,9 @@ public:
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
-	bool map(ref ExtentMapCache cache, void* address, uint pages,
-	         PageDescriptor pd) shared {
-		return tree.setRange(cache, address, pages, pd);
+	bool map(ref shared Base base, ref ExtentMapCache cache, void* address,
+	         uint pages, PageDescriptor pd) shared {
+		return tree.setRange(cache, address, pages, pd, base);
 	}
 
 	void clear(ref ExtentMapCache cache, void* address, uint pages) shared {
@@ -68,10 +59,12 @@ struct CachedExtentMap {
 private:
 	ExtentMapCache cache;
 	shared(ExtentMap)* emap;
+	shared(Base)* base;
 
 public:
-	this(shared(ExtentMap)* emap) {
+	this(shared(ExtentMap)* emap, shared(Base)* base) {
 		this.emap = emap;
+		this.base = base;
 	}
 
 	PageDescriptor lookup(void* address) {
@@ -79,7 +72,7 @@ public:
 	}
 
 	bool map(void* address, uint pages, PageDescriptor pd) {
-		return emap.map(cache, address, pages, pd);
+		return emap.map(*base, cache, address, pages, pd);
 	}
 
 	bool remap(Extent* extent, ExtentClass ec) {
@@ -204,13 +197,11 @@ public:
 }
 
 unittest ExtentMap {
-	import d.gc.base;
 	shared Base base;
 	scope(exit) base.clear();
 
 	static shared ExtentMap emapStorage;
-	emapStorage.tree.base = &base;
-	auto emap = CachedExtentMap(&emapStorage);
+	auto emap = CachedExtentMap(&emapStorage, &base);
 
 	// We have not mapped anything.
 	auto ptr = cast(void*) 0x56789abcd000;

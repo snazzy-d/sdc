@@ -523,8 +523,7 @@ unittest allocLarge {
 
 	import d.gc.emap;
 	static shared ExtentMap emapStorage;
-	emapStorage.tree.base = base;
-	auto emap = CachedExtentMap(&emapStorage);
+	auto emap = CachedExtentMap(&emapStorage, base);
 
 	import d.gc.region;
 	shared RegionAllocator regionAllocator;
@@ -686,8 +685,7 @@ unittest resizeLargeShrink {
 
 	import d.gc.emap;
 	static shared ExtentMap emapStorage;
-	emapStorage.tree.base = base;
-	auto emap = CachedExtentMap(&emapStorage);
+	auto emap = CachedExtentMap(&emapStorage, base);
 
 	import d.gc.region;
 	shared RegionAllocator regionAllocator;
@@ -821,8 +819,7 @@ unittest resizeLargeGrow {
 
 	import d.gc.emap;
 	static shared ExtentMap emapStorage;
-	emapStorage.tree.base = base;
-	auto emap = CachedExtentMap(&emapStorage);
+	auto emap = CachedExtentMap(&emapStorage, base);
 
 	import d.gc.region;
 	shared RegionAllocator regionAllocator;
