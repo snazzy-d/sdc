@@ -49,7 +49,7 @@ private:
 	Mutex mutex;
 
 	ulong nextEpoch;
-	uint dirtyPages = 0;
+	uint dirtyBlocks = 0;
 
 	// Free regions we can allocate from.
 	ClassTree regionsByClass;
@@ -73,21 +73,21 @@ public:
 		release(block.address, 1);
 	}
 
-	void release(void* ptr, uint pages) shared {
-		assert(pages > 0, "Invalid number of pages!");
+	void release(void* ptr, uint blocks) shared {
+		assert(blocks > 0, "Invalid number of blocks!");
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(RegionAllocator*) &this).releaseImpl(ptr, pages);
+		(cast(RegionAllocator*) &this).releaseImpl(ptr, blocks);
 	}
 
 	@property
-	size_t dirtyPageCount() shared {
+	size_t dirtyBlockCount() shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(RegionAllocator*) &this).dirtyPages;
+		return (cast(RegionAllocator*) &this).dirtyBlocks;
 	}
 
 private:
@@ -123,7 +123,7 @@ private:
 		auto allocSize = totalBlocks * BlockSize;
 		auto newSize = r.size - allocSize;
 		if (newSize == 0) {
-			dirtyPages -= r.dirtyPageCount;
+			dirtyBlocks -= r.dirtyBlockCount;
 			unusedRegions.insert(r);
 			return true;
 		}
@@ -131,7 +131,7 @@ private:
 		// Remnant segment of the used region may be partially dirty:
 		auto originalDirtySize = r.dirtySize;
 		auto recycledDirtySize = min(allocSize, originalDirtySize);
-		dirtyPages -= recycledDirtySize / BlockSize;
+		dirtyBlocks -= recycledDirtySize / BlockSize;
 
 		auto remainingDirtySize = originalDirtySize - recycledDirtySize;
 		r.at(ptr + allocSize, newSize, remainingDirtySize);
@@ -140,12 +140,12 @@ private:
 		return true;
 	}
 
-	void releaseImpl(void* ptr, uint pages) {
+	void releaseImpl(void* ptr, uint blocks) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		// Released pages are considered dirty.
-		dirtyPages += pages;
-		auto size = pages * BlockSize;
+		// Released blocks are considered dirty.
+		dirtyBlocks += blocks;
+		auto size = blocks * BlockSize;
 
 		auto r = getOrAllocateRegion();
 		r.at(ptr, size, size);
@@ -184,8 +184,8 @@ private:
 			return null;
 		}
 
-		auto pages = alignUp(extraBlocks + 1, RefillSize / BlockSize);
-		auto size = pages * BlockSize;
+		auto blocks = alignUp(extraBlocks + 1, RefillSize / BlockSize);
+		auto size = blocks * BlockSize;
 
 		auto ptr = base.reserveAddressSpace(size, BlockSize);
 		if (ptr is null) {
@@ -193,7 +193,7 @@ private:
 			return null;
 		}
 
-		// Newly allocated pages are considered clean.
+		// Newly allocated blocks are considered clean.
 		return r.at(ptr, size, 0);
 	}
 
@@ -232,7 +232,7 @@ unittest acquire_release {
 	ulong expectedEpoch = 0;
 	BlockDescriptor block0;
 
-	assert(regionAllocator.dirtyPageCount == 0);
+	assert(regionAllocator.dirtyBlockCount == 0);
 	assert(regionAllocator.acquire(&block0));
 	assert(block0.epoch == expectedEpoch++);
 
@@ -247,7 +247,7 @@ unittest acquire_release {
 		BlockDescriptor block;
 		block.at(block0.address + i * BlockSize, 0);
 		regionAllocator.release(&block);
-		assert(regionAllocator.dirtyPageCount == i - 4);
+		assert(regionAllocator.dirtyBlockCount == i - 4);
 	}
 
 	{
@@ -262,7 +262,7 @@ unittest acquire_release {
 		BlockDescriptor block;
 		block.at(block0.address + i * BlockSize, 0);
 		regionAllocator.release(&block);
-		assert(regionAllocator.dirtyPageCount == i + 508);
+		assert(regionAllocator.dirtyBlockCount == i + 508);
 	}
 
 	{
@@ -274,7 +274,7 @@ unittest acquire_release {
 	}
 }
 
-unittest extra_pages {
+unittest extra_blocks {
 	shared Base base;
 	scope(exit) base.clear();
 
@@ -293,23 +293,23 @@ unittest extra_pages {
 	assert(block2.address is block1.address + 6 * BlockSize);
 
 	// Release 3 blocks. We now have 2 regions.
-	assert(regionAllocator.dirtyPageCount == 0);
+	assert(regionAllocator.dirtyBlockCount == 0);
 	regionAllocator.release(&block0);
-	assert(regionAllocator.dirtyPageCount == 1);
+	assert(regionAllocator.dirtyBlockCount == 1);
 	regionAllocator.release(block0.address + BlockSize, 2);
-	assert(regionAllocator.dirtyPageCount == 3);
+	assert(regionAllocator.dirtyBlockCount == 3);
 
 	// Too big too fit.
 	BlockDescriptor block3;
 	assert(regionAllocator.acquire(&block3, 3));
 	assert(block3.address is block2.address + 4 * BlockSize);
-	assert(regionAllocator.dirtyPageCount == 3);
+	assert(regionAllocator.dirtyBlockCount == 3);
 
 	// Small enough, so we reuse freed regions.
 	BlockDescriptor block4;
 	assert(regionAllocator.acquire(&block4, 2));
 	assert(block4.address is block0.address + 2 * BlockSize);
-	assert(regionAllocator.dirtyPageCount == 0);
+	assert(regionAllocator.dirtyBlockCount == 0);
 }
 
 unittest enormous {
@@ -399,7 +399,7 @@ public:
 		// Dirt is at all times contiguous within a region, and starts at the bottom.
 		// Given as purging is not yet supported, this invariant always holds.
 		assert(left.dirtySize == left.size || right.dirtySize == 0,
-		       "Merge would place dirty pages in front of clean pages !");
+		       "Merge would place dirty blocks in front of clean blocks!");
 
 		import d.gc.util;
 		auto a = min(address, r.address);
@@ -427,7 +427,7 @@ public:
 	}
 
 	@property
-	size_t dirtyPageCount() const {
+	size_t dirtyBlockCount() const {
 		return dirtySize / BlockSize;
 	}
 }
@@ -485,7 +485,7 @@ ptrdiff_t unusedRegionCmp(Region* lhs, Region* rhs) {
 	return (l > r) - (l < r);
 }
 
-unittest trackDirtyPages {
+unittest trackDirtyBlocks {
 	shared Base base;
 	scope(exit) base.clear();
 
@@ -504,58 +504,58 @@ unittest trackDirtyPages {
 	}
 
 	void freeRun(BlockDescriptor[] slice) {
-		auto oldDirties = regionAllocator.dirtyPageCount;
+		auto oldDirties = regionAllocator.dirtyBlockCount;
 		foreach (block; slice) {
 			regionAllocator.release(&block);
 		}
 
-		assert(regionAllocator.dirtyPageCount == oldDirties + slice.length);
+		assert(regionAllocator.dirtyBlockCount == oldDirties + slice.length);
 	}
 
-	// Verify that a region with given page count and dirt exists at address
-	void verifyUniqueRegion(void* address, uint searchPages, uint pages,
-	                        uint dirtyPages) {
+	// Verify that a region with given block count and dirt exists at address.
+	void verifyUniqueRegion(void* address, uint searchBlocks, uint blocks,
+	                        uint dirtyBlocks) {
 		Region rr;
-		rr.allocClass = getAllocClass(searchPages);
+		rr.allocClass = getAllocClass(searchBlocks);
 		auto r = ra.regionsByClass.extractBestFit(&rr);
 		assert(r !is null);
 		ra.regionsByClass.insert(r);
 		assert(r.address == address);
-		assert(r.blockCount == pages);
-		assert(r.dirtyPageCount == dirtyPages);
+		assert(r.blockCount == blocks);
+		assert(r.dirtyBlockCount == dirtyBlocks);
 	}
 
-	// Initially, there are no dirty pages
-	assert(regionAllocator.dirtyPageCount == 0);
+	// Initially, there are no dirty blocks.
+	assert(regionAllocator.dirtyBlockCount == 0);
 
-	// Make some dirty regions
+	// Make some dirty regions.
 	freeRun(blockArray[0 .. 2]);
-	assert(regionAllocator.dirtyPageCount == 2);
+	assert(regionAllocator.dirtyBlockCount == 2);
 	verifyUniqueRegion(blockAddresses[0], 2, 2, 2);
 	freeRun(blockArray[4 .. 8]);
-	assert(regionAllocator.dirtyPageCount == 6);
+	assert(regionAllocator.dirtyBlockCount == 6);
 	verifyUniqueRegion(blockAddresses[4], 4, 4, 4);
 	freeRun(blockArray[10 .. 15]);
-	assert(regionAllocator.dirtyPageCount == 11);
+	assert(regionAllocator.dirtyBlockCount == 11);
 	verifyUniqueRegion(blockAddresses[10], 5, 5, 5);
 
-	// Merge regions and confirm expected effect
+	// Merge regions and confirm expected effect.
 	freeRun(blockArray[8 .. 10]);
-	assert(regionAllocator.dirtyPageCount == 13);
+	assert(regionAllocator.dirtyBlockCount == 13);
 	verifyUniqueRegion(blockAddresses[4], 10, 11, 11);
 	freeRun(blockArray[2 .. 4]);
-	assert(regionAllocator.dirtyPageCount == 15);
+	assert(regionAllocator.dirtyBlockCount == 15);
 	verifyUniqueRegion(blockAddresses[0], 14, 15, 15);
 	freeRun(blockArray[15 .. 16]);
 	verifyUniqueRegion(blockAddresses[0], 1, RefillSize / BlockSize, 16);
 
-	// Test dirt behaviour in acquire and release
+	// Test dirt behaviour in acquire and release.
 	BlockDescriptor block0;
 	assert(regionAllocator.acquire(&block0, 5));
 	assert(block0.address is blockAddresses[5]);
-	assert(regionAllocator.dirtyPageCount == 10);
+	assert(regionAllocator.dirtyBlockCount == 10);
 	verifyUniqueRegion(blockAddresses[6], 1, (RefillSize / BlockSize) - 6, 10);
 	regionAllocator.release(blockAddresses[0], 6);
-	assert(regionAllocator.dirtyPageCount == 16);
+	assert(regionAllocator.dirtyBlockCount == 16);
 	verifyUniqueRegion(blockAddresses[0], 1, RefillSize / BlockSize, 16);
 }
