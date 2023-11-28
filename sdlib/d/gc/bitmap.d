@@ -148,6 +148,49 @@ public:
 		return (i + 2) * NimbleSize - clz - 1;
 	}
 
+	void copyRangeFrom(Bitmap source, uint sourcePosition, uint destPosition,
+	                   uint length) {
+		assert(
+			sourcePosition + length <= source.rawContent.length * NimbleSize);
+		assert(destPosition + length <= N);
+
+		while (length > 0) {
+			auto srcOffset = sourcePosition % NimbleSize;
+			auto srcIndex = sourcePosition / NimbleSize;
+			auto destOffset = destPosition % NimbleSize;
+			auto destIndex = destPosition / NimbleSize;
+
+			if (length >= NimbleSize && srcOffset == 0 && destOffset == 0) {
+				auto fullWords = length / NimbleSize;
+				memcpy(bits.ptr + destIndex, source.rawContent.ptr + srcIndex,
+				       fullWords * ulong.sizeof);
+				auto bitsCopied = fullWords * NimbleSize;
+				sourcePosition += bitsCopied;
+				destPosition += bitsCopied;
+				length -= bitsCopied;
+				continue;
+			}
+
+			auto unalignedBits =
+				min(min(NimbleSize - srcOffset, NimbleSize - destOffset),
+				    length);
+
+			ulong srcWord = source.rawContent[srcIndex] >> srcOffset;
+			if (srcOffset + unalignedBits > NimbleSize) {
+				srcWord |=
+					source.rawContent[srcIndex + 1] << (NimbleSize - srcOffset);
+			}
+
+			ulong mask = ((1UL << unalignedBits) - 1) << destOffset;
+			bits[destIndex] = (bits[destIndex] & ~mask)
+				| ((srcWord & ((1UL << unalignedBits) - 1)) << destOffset);
+
+			sourcePosition += unalignedBits;
+			destPosition += unalignedBits;
+			length -= unalignedBits;
+		}
+	}
+
 	bool nextFreeRange(uint start, ref uint index, ref uint length) const {
 		// FIXME: in contract.
 		assert(start < N);
@@ -623,4 +666,39 @@ unittest countBits {
 		assert(bmp.countBits(i, 99) == 49 + (i % 2));
 		assert(bmp.countBits(i, 128) == 64);
 	}
+}
+
+unittest copyRangeFrom {
+	Bitmap!256 bmpA;
+	Bitmap!256 bmpB;
+
+	bmpB.bits = [0xBADC0FFEE0DDF00D, 0xBAD0DDF00DC0FFEE, ulong.max, ulong.max];
+
+	void checkBitmap(ulong a, ulong b, ulong c, ulong d) {
+		assert(bmpA.bits[0] == a);
+		assert(bmpA.bits[1] == b);
+		assert(bmpA.bits[2] == c);
+		assert(bmpA.bits[3] == d);
+	}
+
+	checkBitmap(0, 0, 0, 0);
+
+	bmpA.copyRangeFrom(bmpB, 0, 0, 1);
+	checkBitmap(1, 0, 0, 0);
+
+	bmpA.copyRangeFrom(bmpB, 1, 1, 1);
+	checkBitmap(1, 0, 0, 0);
+
+	bmpA.copyRangeFrom(bmpB, 1, 0, 1);
+	checkBitmap(0, 0, 0, 0);
+
+	bmpA.copyRangeFrom(bmpB, 0, 0, 256);
+	checkBitmap(0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max, ulong.max);
+
+	bmpA.copyRangeFrom(bmpB, 71, 33, 101);
+	checkBitmap(0xc03703fee0ddf00d, 0xfffffffffeeb4377, ulong.max, ulong.max);
+
+	bmpA.copyRangeFrom(bmpB, 5, 200, 56);
+	checkBitmap(0xc03703fee0ddf00d, 0xfffffffffeeb4377, ulong.max,
+	            0xd6e07ff706ef80ff);
 }
