@@ -258,6 +258,45 @@ public:
 		setBits(bits[i], ulong.max >> shift);
 	}
 
+	void setRangeFrom(const ref Bitmap source, uint index, uint length) {
+		// FIXME: in contracts.
+		assert(index < N);
+		assert(length > 0 && length <= N);
+		assert(index + length <= N);
+
+		static setBits(ref ulong n, ulong value, ulong mask) {
+			n &= ~mask;
+			n |= value & mask;
+		}
+
+		auto i = index / NimbleSize;
+		auto offset = index % NimbleSize;
+
+		if (length <= NimbleSize - offset) {
+			// The whole copy fits within one nimble.
+			auto shift = NimbleSize - length;
+			auto mask = (ulong.max >> shift) << offset;
+			setBits(bits[i], source.bits[i], mask);
+			return;
+		}
+
+		setBits(bits[i], source.bits[i], ulong.max << offset);
+
+		i++;
+		length += offset;
+		length -= NimbleSize;
+
+		while (length > NimbleSize) {
+			setBits(bits[i], source.bits[i], ulong.max);
+			i++;
+			length -= NimbleSize;
+		}
+
+		assert(1 <= length && length <= NimbleSize);
+		auto shift = NimbleSize - length;
+		setBits(bits[i], source.bits[i], ulong.max >> shift);
+	}
+
 	uint countBits(uint index, uint length) const {
 		// FIXME: in contracts.
 		assert(index < N);
@@ -623,4 +662,80 @@ unittest countBits {
 		assert(bmp.countBits(i, 99) == 49 + (i % 2));
 		assert(bmp.countBits(i, 128) == 64);
 	}
+}
+
+unittest setRangeFrom {
+	Bitmap!256 bmpA;
+	Bitmap!256 bmpB;
+
+	bmpB.bits = [0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max, ulong.max];
+
+	void checkBitmap(ref const Bitmap!256 bmp, ulong a, ulong b, ulong c,
+	                 ulong d) {
+		assert(bmp.bits[0] == a);
+		assert(bmp.bits[1] == b);
+		assert(bmp.bits[2] == c);
+		assert(bmp.bits[3] == d);
+	}
+
+	checkBitmap(bmpA, 0, 0, 0, 0);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRangeFrom(bmpB, 0, 1);
+	checkBitmap(bmpA, 1, 0, 0, 0);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRangeFrom(bmpB, 56, 8);
+	checkBitmap(bmpA, 0xba00000000000001, 0, 0, 0);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRangeFrom(bmpB, 52, 4);
+	checkBitmap(bmpA, 0xbad0000000000001, 0, 0, 0);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRangeFrom(bmpB, 0, 64);
+	checkBitmap(bmpA, 0xbadc0ffee0ddf00d, 0, 0, 0);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRangeFrom(bmpB, 224, 32);
+	checkBitmap(bmpA, 0xbadc0ffee0ddf00d, 0, 0, 0xffffffff00000000);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRangeFrom(bmpB, 192, 64);
+	checkBitmap(bmpA, 0xbadc0ffee0ddf00d, 0, 0, ulong.max);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRangeFrom(bmpB, 116, 30);
+	checkBitmap(bmpA, 0xbadc0ffee0ddf00d, 0xbad0000000000000, 0x3ffff,
+	            ulong.max);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRangeFrom(bmpB, 64, 128);
+	checkBitmap(bmpA, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.bits = [0, 0, 0, 0];
+	checkBitmap(bmpA, 0, 0, 0, 0);
+
+	bmpA.setRangeFrom(bmpB, 16, 224);
+	checkBitmap(bmpA, 0xbadc0ffee0dd0000, 0xbad0ddf00dc0ffee, ulong.max,
+	            0x0000ffffffffffff);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRangeFrom(bmpB, 0, 256);
+	checkBitmap(bmpA, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
 }
