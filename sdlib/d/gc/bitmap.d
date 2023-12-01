@@ -14,7 +14,7 @@ private:
 
 public:
 	@property
-	ref ulong[NimbleCount] rawContent() {
+	ref ulong[NimbleCount] rawContent() const {
 		return bits;
 	}
 
@@ -236,7 +236,7 @@ public:
 		auto offset = index % NimbleSize;
 
 		if (length <= NimbleSize - offset) {
-			// The whole count fit within one nimble.
+			// The whole range fits within one nimble.
 			auto shift = NimbleSize - length;
 			auto mask = (ulong.max >> shift) << offset;
 			setBits(bits[i], mask);
@@ -254,8 +254,8 @@ public:
 		}
 
 		assert(1 <= length && length <= NimbleSize);
-		auto shift = (NimbleSize - length) % NimbleSize;
-		setBits(bits[i++], ulong.max >> shift);
+		auto shift = NimbleSize - length;
+		setBits(bits[i], ulong.max >> shift);
 	}
 
 	uint countBits(uint index, uint length) const {
@@ -272,7 +272,7 @@ public:
 		auto offset = index % NimbleSize;
 
 		if (length <= NimbleSize - offset) {
-			// The whole count fit within one nimble.
+			// The whole count fits within one nimble.
 			auto shift = NimbleSize - length;
 			auto mask = (ulong.max >> shift) << offset;
 			return popCount(bits[i] & mask);
@@ -290,7 +290,7 @@ public:
 		}
 
 		assert(1 <= length && length <= NimbleSize);
-		auto shift = (NimbleSize - length) % NimbleSize;
+		auto shift = NimbleSize - length;
 		mask = ulong.max >> shift;
 		count += popCount(bits[i] & mask);
 
