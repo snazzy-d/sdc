@@ -210,14 +210,8 @@ private:
 			return null;
 		}
 
-		static assert(ExtentSize / Region.sizeof == 2,
-		              "Unexpected Region size!");
-
-		auto r0 = Region.fromSlot(slot, 0);
-		auto r1 = Region.fromSlot(slot, 1);
-
-		unusedRegions.insert(r1);
-		return r0;
+		static assert(Region.sizeof <= ExtentSize, "Unexpected Region size!");
+		return Region.fromSlot(slot);
 	}
 }
 
@@ -349,6 +343,9 @@ struct Region {
 
 	Links _links;
 
+	import d.gc.bitmap;
+	Bitmap!512 dirtyBlocks;
+
 	this(void* ptr, size_t size, ubyte generation = 0, size_t dirtySize = 0) {
 		assert(isAligned(ptr, BlockSize), "Invalid ptr alignment!");
 		assert(isAligned(size, BlockSize), "Invalid size!");
@@ -369,12 +366,11 @@ public:
 		return &this;
 	}
 
-	static fromSlot(Base.Slot slot, uint i) {
+	static fromSlot(Base.Slot slot) {
 		// FIXME: in contract
 		assert(slot.address !is null, "Slot is empty!");
-		assert(i < ExtentSize / Region.sizeof, "Invalid index!");
 
-		auto r = (cast(Region*) slot.address) + i;
+		auto r = (cast(Region*) slot.address);
 		*r = Region(null, 0, slot.generation);
 		return r;
 	}
@@ -384,6 +380,7 @@ public:
 		this.size = r.size;
 		this.dirtySize = r.dirtySize;
 		this.allocClass = r.allocClass;
+		this.dirtyBlocks = r.dirtyBlocks;
 
 		assert(allocClass == getFreeSpaceClass(blockCount),
 		       "Invalid alloc class!");
