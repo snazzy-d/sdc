@@ -15,12 +15,17 @@ import source.parserutil;
 /**
  * Parse Expression
  */
-AstExpression parseExpression(ParseMode mode = ParseMode.Greedy)(
+AstExpression parseExpression(ParseMode Mode = ParseMode.Greedy)(
 	ref TokenRange trange
 ) {
-	auto lhs = trange.parsePrefixExpression!mode();
-	return trange.parseAstBinaryExpression!(TokenType.Comma, AstBinaryOp.Comma,
-	                                        parseAssignExpression)(lhs);
+	auto lhs = trange.parsePrefixExpression!Mode();
+	if (Mode != ParseMode.Greedy) {
+		return trange.parseAssignExpression(lhs);
+	} else {
+		return trange
+			.parseAstBinaryExpression!(TokenType.Comma, AstBinaryOp.Comma,
+			                           parseAssignExpression)(lhs);
+	}
 }
 
 /**
@@ -378,7 +383,7 @@ AstExpression parseMulExpression(ref TokenRange trange, AstExpression lhs) {
  * Unary prefixes
  */
 private AstExpression parsePrefixExpression(
-	ParseMode mode = ParseMode.Greedy,
+	ParseMode Mode = ParseMode.Greedy,
 )(ref TokenRange trange) {
 	AstExpression result;
 
@@ -448,7 +453,7 @@ private AstExpression parsePrefixExpression(
 
 		default:
 			result = trange.parsePrimaryExpression();
-			result = trange.parsePostfixExpression!mode(result);
+			result = trange.parsePostfixExpression!Mode(result);
 	}
 
 	// Ensure we do not screwed up.
@@ -641,7 +646,7 @@ AstExpression parsePrimaryExpression(ref TokenRange trange) {
 /**
  * Parse postfix ++, --, (...), [...], .identifier
  */
-AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange,
+AstExpression parsePostfixExpression(ParseMode Mode)(ref TokenRange trange,
                                                      AstExpression e) {
 	auto location = e.location;
 
@@ -701,7 +706,7 @@ AstExpression parsePostfixExpression(ParseMode mode)(ref TokenRange trange,
 				// properly even without this break.
 				break;
 
-			static if (mode == ParseMode.Greedy) {
+			static if (Mode == ParseMode.Greedy) {
 				case Dot:
 					trange.popFront();
 
