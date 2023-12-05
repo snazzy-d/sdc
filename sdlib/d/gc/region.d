@@ -153,7 +153,7 @@ private:
 		auto size = blocks * BlockSize;
 
 		auto r = getOrAllocateRegion();
-		r.at(ptr, size, size);
+		r.atDirty(ptr, size);
 		registerRegion(r);
 	}
 
@@ -200,7 +200,7 @@ private:
 		}
 
 		// Newly allocated blocks are considered clean.
-		return r.at(ptr, size, 0);
+		return r.atClean(ptr, size);
 	}
 
 	Region* getOrAllocateRegion() {
@@ -366,7 +366,28 @@ struct Region {
 
 public:
 	Region* at(void* ptr, size_t size, size_t dirtySize) {
+		auto oldDirtyBlocks = dirtyBlocks;
+		scope(success) dirtyBlocks = oldDirtyBlocks;
+
 		this = Region(ptr, size, generation, dirtySize);
+		return &this;
+	}
+
+	Region* atClean(void* ptr, size_t size) {
+		at(ptr, size, 0);
+		dirtyBlocks.clear();
+		return &this;
+	}
+
+	Region* atDirty(void* ptr, size_t size) {
+		at(ptr, size, size);
+
+		// Make the region dirty.
+		// FIXME: We use max to ensures we don't trip an assert
+		// when the region is larger than 1GB.
+		dirtyBlocks
+			.setRollingRange(startOffset, min(blockCount, RefillBlockCount));
+
 		return &this;
 	}
 
@@ -377,23 +398,6 @@ public:
 		auto r = (cast(Region*) slot.address);
 		*r = Region(null, 0, slot.generation);
 		return r;
-	}
-
-	Region* merge(Region* r) {
-		assert(address is (r.address + r.size) || r.address is (address + size),
-		       "Regions are not adjacent!");
-
-		auto left = address < r.address ? &this : r;
-		auto right = address < r.address ? r : &this;
-
-		// Dirt is at all times contiguous within a region, and starts at the bottom.
-		// Given as purging is not yet supported, this invariant always holds.
-		assert(left.dirtySize == left.size || right.dirtySize == 0,
-		       "Merge would place dirty blocks in front of clean blocks!");
-
-		import d.gc.util;
-		auto a = min(address, r.address);
-		return at(a, size + r.size, dirtySize + r.dirtySize);
 	}
 
 	@property
@@ -412,13 +416,45 @@ public:
 	}
 
 	@property
-	size_t blockCount() const {
-		return size / BlockSize;
+	uint blockCount() const {
+		return (size / BlockSize) & uint.max;
 	}
 
 	@property
-	size_t dirtyBlockCount() const {
-		return dirtySize / BlockSize;
+	uint dirtyBlockCount() const {
+		return (dirtySize / BlockSize) & uint.max;
+	}
+
+	@property
+	uint startOffset() const {
+		auto blockIndex = (cast(size_t) address) / BlockSize;
+		return blockIndex % RefillBlockCount;
+	}
+
+	bool contains(const void* ptr) const {
+		return address <= ptr && ptr < address + size;
+	}
+
+	Region* merge(Region* r) {
+		assert(address is (r.address + r.size) || r.address is (address + size),
+		       "Regions are not adjacent!");
+
+		auto left = address < r.address ? &this : r;
+		auto right = address < r.address ? r : &this;
+
+		// Dirt is at all times contiguous within a region, and starts at the bottom.
+		// Given as purging is not yet supported, this invariant always holds.
+		assert(left.dirtySize == left.size || right.dirtySize == 0,
+		       "Merge would place dirty blocks in front of clean blocks!");
+
+		// Copy the dirty bits.
+		// FIXME: We use max to ensures we don't trip an assert
+		// when the region is larger than 1GB.
+		dirtyBlocks.setRollingRangeFrom(r.dirtyBlocks, r.startOffset,
+		                                min(r.blockCount, RefillBlockCount));
+
+		auto a = min(address, r.address);
+		return at(a, size + r.size, dirtySize + r.dirtySize);
 	}
 }
 
@@ -493,13 +529,21 @@ unittest trackDirtyBlocks {
 		blockAddresses[i] = blockArray[i].address;
 	}
 
-	void freeRun(BlockDescriptor[] slice) {
-		auto oldDirties = regionAllocator.dirtyBlockCount;
-		foreach (block; slice) {
-			regionAllocator.release(&block);
-		}
+	void freeRun(BlockDescriptor[] blocks) {
+		auto expectedDirtyBlocks = regionAllocator.dirtyBlockCount;
 
-		assert(regionAllocator.dirtyBlockCount == oldDirties + slice.length);
+		foreach (b; blocks) {
+			regionAllocator.release(&b);
+
+			expectedDirtyBlocks++;
+			assert(regionAllocator.dirtyBlockCount == expectedDirtyBlocks);
+
+			Region rr;
+			rr.at(b.address, BlockSize, 0);
+			auto r = ra.regionsByRange.find(&rr);
+			assert(r.contains(b.address));
+			assert(r.dirtyBlocks.valueAt(rr.startOffset));
+		}
 	}
 
 	// Verify that a region with given block count and dirt exists at address.
@@ -512,6 +556,9 @@ unittest trackDirtyBlocks {
 		assert(r.address == address);
 		assert(r.blockCount == blocks);
 		assert(r.dirtyBlockCount == dirtyBlocks);
+		assert(
+			r.dirtyBlocks.rollingCountBits(r.startOffset, blocks) == dirtyBlocks
+		);
 	}
 
 	// Initially, there are no dirty blocks.
