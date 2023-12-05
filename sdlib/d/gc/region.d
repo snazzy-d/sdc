@@ -9,6 +9,8 @@ import d.gc.rbtree;
 import d.gc.spec;
 import d.gc.util;
 
+import sdc.intrinsics;
+
 alias ClassTree = RBTree!(Region, classAddrRegionCmp, "rbClass");
 alias RangeTree = RBTree!(Region, addrRangeRegionCmp, "rbRange");
 
@@ -23,7 +25,7 @@ enum RefillSize = 1024 * 1024 * 1024;
 shared(RegionAllocator)* gDataRegionAllocator() {
 	static shared RegionAllocator regionAllocator;
 
-	if (regionAllocator.base is null) {
+	if (unlikely(regionAllocator.base is null)) {
 		regionAllocator.base = &gBase;
 	}
 
@@ -34,7 +36,7 @@ shared(RegionAllocator)* gDataRegionAllocator() {
 shared(RegionAllocator)* gPointerRegionAllocator() {
 	static shared RegionAllocator regionAllocator;
 
-	if (regionAllocator.base is null) {
+	if (unlikely(regionAllocator.base is null)) {
 		regionAllocator.base = &gBase;
 	}
 
