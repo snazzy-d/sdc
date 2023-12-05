@@ -211,21 +211,29 @@ public:
 	}
 
 	void setRange(uint index, uint length) {
-		setRangeValue!true(index, length);
+		setRangeValue!(true, false)(index, length);
+	}
+
+	void setRollingRange(uint index, uint length) {
+		setRangeValue!(true, true)(index, length);
 	}
 
 	void clearRange(uint index, uint length) {
-		setRangeValue!false(index, length);
+		setRangeValue!(false, false)(index, length);
 	}
 
-	void setRangeValue(bool V)(uint index, uint length) {
+	void clearRollingRange(uint index, uint length) {
+		setRangeValue!(false, true)(index, length);
+	}
+
+	void setRangeValue(bool Value, bool IsRolling)(uint index, uint length) {
 		// FIXME: in contracts.
 		assert(index < N);
 		assert(length > 0 && length <= N);
-		assert(index + length <= N);
+		assert(IsRolling || index + length <= N);
 
 		static setBits(ref ulong n, ulong mask) {
-			if (V) {
+			if (Value) {
 				n |= mask;
 			} else {
 				n &= ~mask;
@@ -243,13 +251,23 @@ public:
 			return;
 		}
 
-		setBits(bits[i++], ulong.max << offset);
+		setBits(bits[i], ulong.max << offset);
 
+		static next(ref uint i) {
+			i++;
+
+			if (IsRolling) {
+				i %= NimbleCount;
+			}
+		}
+
+		next(i);
 		length += offset;
 		length -= NimbleSize;
 
 		while (length > NimbleSize) {
-			setBits(bits[i++], ulong.max);
+			setBits(bits[i], ulong.max);
+			next(i);
 			length -= NimbleSize;
 		}
 
@@ -259,10 +277,19 @@ public:
 	}
 
 	void setRangeFrom(const ref Bitmap source, uint index, uint length) {
+		setRangeFromImpl!false(source, index, length);
+	}
+
+	void setRollingRangeFrom(const ref Bitmap source, uint index, uint length) {
+		setRangeFromImpl!true(source, index, length);
+	}
+
+	void setRangeFromImpl(bool IsRolling)(const ref Bitmap source, uint index,
+	                                      uint length) {
 		// FIXME: in contracts.
 		assert(index < N);
 		assert(length > 0 && length <= N);
-		assert(index + length <= N);
+		assert(IsRolling || index + length <= N);
 
 		static setBits(ref ulong n, ulong value, ulong mask) {
 			n &= ~mask;
@@ -282,13 +309,21 @@ public:
 
 		setBits(bits[i], source.bits[i], ulong.max << offset);
 
-		i++;
+		static next(ref uint i) {
+			i++;
+
+			if (IsRolling) {
+				i %= NimbleCount;
+			}
+		}
+
+		next(i);
 		length += offset;
 		length -= NimbleSize;
 
 		while (length > NimbleSize) {
 			setBits(bits[i], source.bits[i], ulong.max);
-			i++;
+			next(i);
 			length -= NimbleSize;
 		}
 
@@ -631,37 +666,50 @@ unittest setRange {
 	checkBitmap(0, 0, 0, 0);
 }
 
-unittest countBits {
+unittest setRollingRange {
 	Bitmap!256 bmp;
-	foreach (i; 0 .. 128) {
-		assert(bmp.countBits(i, 0) == 0);
-		assert(bmp.countBits(i, 19) == 0);
-		assert(bmp.countBits(i, 48) == 0);
-		assert(bmp.countBits(i, 64) == 0);
-		assert(bmp.countBits(i, 99) == 0);
-		assert(bmp.countBits(i, 128) == 0);
+
+	void checkBitmap(ulong a, ulong b, ulong c, ulong d) {
+		assert(bmp.bits[0] == a);
+		assert(bmp.bits[1] == b);
+		assert(bmp.bits[2] == c);
+		assert(bmp.bits[3] == d);
 	}
 
-	bmp.bits = [-1, -1, -1, -1];
-	foreach (i; 0 .. 128) {
-		assert(bmp.countBits(i, 0) == 0);
-		assert(bmp.countBits(i, 19) == 19);
-		assert(bmp.countBits(i, 48) == 48);
-		assert(bmp.countBits(i, 64) == 64);
-		assert(bmp.countBits(i, 99) == 99);
-		assert(bmp.countBits(i, 128) == 128);
-	}
+	checkBitmap(0, 0, 0, 0);
 
-	bmp.bits = [0xaaaaaaaaaaaaaaaa, 0xaaaaaaaaaaaaaaaa, 0xaaaaaaaaaaaaaaaa,
-	            0xaaaaaaaaaaaaaaaa];
-	foreach (i; 0 .. 128) {
-		assert(bmp.countBits(i, 0) == 0);
-		assert(bmp.countBits(i, 19) == 9 + (i % 2));
-		assert(bmp.countBits(i, 48) == 24);
-		assert(bmp.countBits(i, 64) == 32);
-		assert(bmp.countBits(i, 99) == 49 + (i % 2));
-		assert(bmp.countBits(i, 128) == 64);
-	}
+	bmp.setRollingRange(3, 3);
+	checkBitmap(0x38, 0, 0, 0);
+
+	bmp.setRollingRange(60, 10);
+	checkBitmap(0xf000000000000038, 0x3f, 0, 0);
+
+	bmp.setRollingRange(150, 128);
+	checkBitmap(0xf0000000003fffff, 0x3f, 0xffffffffffc00000,
+	            0xffffffffffffffff);
+
+	bmp.clearRollingRange(200, 70);
+	checkBitmap(0xf0000000003fc000, 0x3f, 0xffffffffffc00000,
+	            0x00000000000000ff);
+
+	bmp.setRollingRange(123, 256);
+	checkBitmap(~0, ~0, ~0, ~0);
+
+	bmp.clearRollingRange(3, 3);
+	checkBitmap(~0x38, ~0, ~0, ~0);
+
+	bmp.clearRollingRange(60, 10);
+	checkBitmap(0x0fffffffffffffc7, ~0x3f, ~0, ~0);
+
+	bmp.clearRollingRange(150, 128);
+	checkBitmap(0x0fffffffffc00000, 0xffffffffffffffc0, 0x00000000003fffff, 0);
+
+	bmp.setRollingRange(200, 70);
+	checkBitmap(0x0fffffffffc03fff, 0xffffffffffffffc0, 0x00000000003fffff,
+	            0xffffffffffffff00);
+
+	bmp.clearRollingRange(13, 256);
+	checkBitmap(0, 0, 0, 0);
 }
 
 unittest setRangeFrom {
@@ -738,4 +786,87 @@ unittest setRangeFrom {
 	            ulong.max);
 	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
 	            ulong.max);
+}
+
+unittest setRollingRangeFrom {
+	Bitmap!256 bmpA;
+	Bitmap!256 bmpB;
+
+	bmpB.bits = [0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max, ulong.max];
+
+	void checkBitmap(ref const Bitmap!256 bmp, ulong a, ulong b, ulong c,
+	                 ulong d) {
+		assert(bmp.bits[0] == a);
+		assert(bmp.bits[1] == b);
+		assert(bmp.bits[2] == c);
+		assert(bmp.bits[3] == d);
+	}
+
+	checkBitmap(bmpA, 0, 0, 0, 0);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRollingRangeFrom(bmpB, 0, 1);
+	checkBitmap(bmpA, 1, 0, 0, 0);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRollingRangeFrom(bmpB, 245, 53);
+	checkBitmap(bmpA, 0x000003fee0ddf00d, 0, 0, 0xffe0000000000000);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRollingRangeFrom(bmpB, 72, 256);
+	checkBitmap(bmpA, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.bits = [0, 0, 0, 0];
+	checkBitmap(bmpA, 0, 0, 0, 0);
+
+	bmpA.setRollingRangeFrom(bmpB, 176, 224);
+	checkBitmap(bmpA, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee,
+	            0xffff00000000ffff, ulong.max);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+
+	bmpA.setRollingRangeFrom(bmpB, 182, 256);
+	checkBitmap(bmpA, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+	checkBitmap(bmpB, 0xbadc0ffee0ddf00d, 0xbad0ddf00dc0ffee, ulong.max,
+	            ulong.max);
+}
+
+unittest countBits {
+	Bitmap!256 bmp;
+	foreach (i; 0 .. 128) {
+		assert(bmp.countBits(i, 0) == 0);
+		assert(bmp.countBits(i, 19) == 0);
+		assert(bmp.countBits(i, 48) == 0);
+		assert(bmp.countBits(i, 64) == 0);
+		assert(bmp.countBits(i, 99) == 0);
+		assert(bmp.countBits(i, 128) == 0);
+	}
+
+	bmp.bits = [-1, -1, -1, -1];
+	foreach (i; 0 .. 128) {
+		assert(bmp.countBits(i, 0) == 0);
+		assert(bmp.countBits(i, 19) == 19);
+		assert(bmp.countBits(i, 48) == 48);
+		assert(bmp.countBits(i, 64) == 64);
+		assert(bmp.countBits(i, 99) == 99);
+		assert(bmp.countBits(i, 128) == 128);
+	}
+
+	bmp.bits = [0xaaaaaaaaaaaaaaaa, 0xaaaaaaaaaaaaaaaa, 0xaaaaaaaaaaaaaaaa,
+	            0xaaaaaaaaaaaaaaaa];
+	foreach (i; 0 .. 128) {
+		assert(bmp.countBits(i, 0) == 0);
+		assert(bmp.countBits(i, 19) == 9 + (i % 2));
+		assert(bmp.countBits(i, 48) == 24);
+		assert(bmp.countBits(i, 64) == 32);
+		assert(bmp.countBits(i, 99) == 49 + (i % 2));
+		assert(bmp.countBits(i, 128) == 64);
+	}
 }
