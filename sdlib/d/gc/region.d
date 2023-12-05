@@ -164,9 +164,15 @@ private:
 				break;
 			}
 
-			r.merge(adjacent);
 			regionsByClass.remove(adjacent);
-			unusedRegions.insert(adjacent);
+
+			// Make sure we keep using the best region.
+			bool needSwap = unusedRegionCmp(r, adjacent) < 0;
+			auto m = needSwap ? r : adjacent;
+			r = needSwap ? adjacent : r;
+
+			r.merge(m);
+			unusedRegions.insert(m);
 		}
 
 		regionsByClass.insert(r);
@@ -374,7 +380,7 @@ public:
 		assert(address is (r.address + r.size) || r.address is (address + size),
 		       "Regions are not adjacent!");
 
-		auto left = address > r.address ? r : &this;
+		auto left = address < r.address ? &this : r;
 		auto right = address < r.address ? r : &this;
 
 		// Dirt is at all times contiguous within a region, and starts at the bottom.
