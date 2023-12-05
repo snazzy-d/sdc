@@ -504,9 +504,8 @@ unittest trackDirtyBlocks {
 	                        uint dirtyBlocks) {
 		Region rr;
 		rr.allocClass = getAllocClass(searchBlocks);
-		auto r = ra.regionsByClass.extractBestFit(&rr);
+		auto r = ra.regionsByClass.bestfit(&rr);
 		assert(r !is null);
-		ra.regionsByClass.insert(r);
 		assert(r.address == address);
 		assert(r.blockCount == blocks);
 		assert(r.dirtyBlockCount == dirtyBlocks);
