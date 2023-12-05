@@ -20,6 +20,9 @@ alias PHNode = heap.Node!Region;
 
 // Reserve memory in blocks of 1GB.
 enum RefillSize = 1024 * 1024 * 1024;
+enum uint RefillBlockCount = RefillSize / BlockSize;
+
+static assert(RefillBlockCount == 512);
 
 @property
 shared(RegionAllocator)* gDataRegionAllocator() {
@@ -187,7 +190,7 @@ private:
 			return null;
 		}
 
-		auto blocks = alignUp(extraBlocks + 1, RefillSize / BlockSize);
+		auto blocks = alignUp(extraBlocks + 1, RefillBlockCount);
 		auto size = blocks * BlockSize;
 
 		auto ptr = base.reserveAddressSpace(size, BlockSize);
@@ -233,14 +236,14 @@ unittest acquire_release {
 	assert(regionAllocator.acquire(&block0));
 	assert(block0.epoch == expectedEpoch++);
 
-	foreach (i; 1 .. RefillSize / BlockSize) {
+	foreach (i; 1 .. RefillBlockCount) {
 		BlockDescriptor block;
 		assert(regionAllocator.acquire(&block));
 		assert(block.epoch == expectedEpoch++);
 		assert(block.address is block0.address + i * BlockSize);
 	}
 
-	foreach (i; 5 .. RefillSize / BlockSize) {
+	foreach (i; 5 .. RefillBlockCount) {
 		BlockDescriptor block;
 		block.at(block0.address + i * BlockSize, 0);
 		regionAllocator.release(&block);
@@ -345,7 +348,7 @@ struct Region {
 	Links _links;
 
 	import d.gc.bitmap;
-	Bitmap!512 dirtyBlocks;
+	Bitmap!RefillBlockCount dirtyBlocks;
 
 	this(void* ptr, size_t size, ubyte generation = 0, size_t dirtySize = 0) {
 		assert(isAligned(ptr, BlockSize), "Invalid ptr alignment!");
@@ -533,15 +536,15 @@ unittest trackDirtyBlocks {
 	assert(regionAllocator.dirtyBlockCount == 15);
 	verifyUniqueRegion(blockAddresses[0], 14, 15, 15);
 	freeRun(blockArray[15 .. 16]);
-	verifyUniqueRegion(blockAddresses[0], 1, RefillSize / BlockSize, 16);
+	verifyUniqueRegion(blockAddresses[0], 1, RefillBlockCount, 16);
 
 	// Test dirt behaviour in acquire and release.
 	BlockDescriptor block0;
 	assert(regionAllocator.acquire(&block0, 5));
 	assert(block0.address is blockAddresses[5]);
 	assert(regionAllocator.dirtyBlockCount == 10);
-	verifyUniqueRegion(blockAddresses[6], 1, (RefillSize / BlockSize) - 6, 10);
+	verifyUniqueRegion(blockAddresses[6], 1, RefillBlockCount - 6, 10);
 	regionAllocator.release(blockAddresses[0], 6);
 	assert(regionAllocator.dirtyBlockCount == 16);
-	verifyUniqueRegion(blockAddresses[0], 1, RefillSize / BlockSize, 16);
+	verifyUniqueRegion(blockAddresses[0], 1, RefillBlockCount, 16);
 }
