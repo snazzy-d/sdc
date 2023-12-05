@@ -154,13 +154,12 @@ private:
 		registerRegion(r);
 	}
 
-	void registerRegion(Region* toRegister) {
-		Region r = *toRegister;
-		unusedRegions.insert(toRegister);
+	void registerRegion(Region* r) {
+		assert(r !is null, "Region is null!");
 
 		// First, merge adjacent ranges.
 		while (true) {
-			auto adjacent = regionsByRange.extract(&r);
+			auto adjacent = regionsByRange.extract(r);
 			if (adjacent is null) {
 				break;
 			}
@@ -170,12 +169,8 @@ private:
 			unusedRegions.insert(adjacent);
 		}
 
-		toRegister = unusedRegions.pop();
-
-		assert(toRegister !is null);
-		toRegister.clone(&r);
-		regionsByClass.insert(toRegister);
-		regionsByRange.insert(toRegister);
+		regionsByClass.insert(r);
+		regionsByRange.insert(r);
 	}
 
 	Region* refillAddressSpace(uint extraBlocks) {
@@ -373,19 +368,6 @@ public:
 		auto r = (cast(Region*) slot.address);
 		*r = Region(null, 0, slot.generation);
 		return r;
-	}
-
-	Region* clone(Region* r) {
-		address = r.address;
-		this.size = r.size;
-		this.dirtySize = r.dirtySize;
-		this.allocClass = r.allocClass;
-		this.dirtyBlocks = r.dirtyBlocks;
-
-		assert(allocClass == getFreeSpaceClass(blockCount),
-		       "Invalid alloc class!");
-
-		return &this;
 	}
 
 	Region* merge(Region* r) {
