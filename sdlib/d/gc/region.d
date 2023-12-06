@@ -434,21 +434,21 @@ ptrdiff_t addrRangeRegionCmp(Region* lhs, Region* rhs) {
 
 unittest rangeTree {
 	import d.gc.rbtree;
-	RBTree!(Region, addrRangeRegionCmp, "rbRange") regionByRange;
+	RBTree!(Region, addrRangeRegionCmp, "rbRange") regionsByRange;
 
 	auto base = cast(void*) 0x456789a00000;
 	auto r0 = Region(base, BlockSize);
 	auto r1 = Region(base + BlockSize, BlockSize);
 	auto r2 = Region(base + 2 * BlockSize, BlockSize);
 
-	regionByRange.insert(&r0);
+	regionsByRange.insert(&r0);
 
-	assert(regionByRange.extract(&r2) is null);
-	regionByRange.insert(&r2);
+	assert(regionsByRange.extract(&r2) is null);
+	regionsByRange.insert(&r2);
 
-	assert(regionByRange.extract(&r1) is &r0);
-	assert(regionByRange.extract(&r1) is &r2);
-	assert(regionByRange.extract(&r1) is null);
+	assert(regionsByRange.extract(&r1) is &r0);
+	assert(regionsByRange.extract(&r1) is &r2);
+	assert(regionsByRange.extract(&r1) is null);
 }
 
 ptrdiff_t classAddrRegionCmp(Region* lhs, Region* rhs) {
