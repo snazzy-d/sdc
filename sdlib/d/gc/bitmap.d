@@ -251,8 +251,6 @@ public:
 			return;
 		}
 
-		setBits(bits[i], ulong.max << offset);
-
 		static next(ref uint i) {
 			i++;
 
@@ -261,6 +259,7 @@ public:
 			}
 		}
 
+		setBits(bits[i], ulong.max << offset);
 		next(i);
 		length += offset;
 		length -= NimbleSize;
@@ -307,8 +306,6 @@ public:
 			return;
 		}
 
-		setBits(bits[i], source.bits[i], ulong.max << offset);
-
 		static next(ref uint i) {
 			i++;
 
@@ -317,6 +314,7 @@ public:
 			}
 		}
 
+		setBits(bits[i], source.bits[i], ulong.max << offset);
 		next(i);
 		length += offset;
 		length -= NimbleSize;
@@ -333,10 +331,18 @@ public:
 	}
 
 	uint countBits(uint index, uint length) const {
+		return countBitsImpl!false(index, length);
+	}
+
+	uint rollingCountBits(uint index, uint length) const {
+		return countBitsImpl!true(index, length);
+	}
+
+	uint countBitsImpl(bool IsRolling)(uint index, uint length) const {
 		// FIXME: in contracts.
 		assert(index < N);
 		assert(length <= N);
-		assert(index + length <= N);
+		assert(IsRolling || index + length <= N);
 
 		if (length == 0) {
 			return 0;
@@ -352,14 +358,24 @@ public:
 			return popCount(bits[i] & mask);
 		}
 
-		auto mask = ulong.max << offset;
-		uint count = popCount(bits[i++] & mask);
+		static next(ref uint i) {
+			i++;
 
+			if (IsRolling) {
+				i %= NimbleCount;
+			}
+		}
+
+		auto mask = ulong.max << offset;
+		uint count = popCount(bits[i] & mask);
+
+		next(i);
 		length += offset;
 		length -= NimbleSize;
 
 		while (length > NimbleSize) {
-			count += popCount(bits[i++]);
+			count += popCount(bits[i]);
+			next(i);
 			length -= NimbleSize;
 		}
 
@@ -868,5 +884,50 @@ unittest countBits {
 		assert(bmp.countBits(i, 64) == 32);
 		assert(bmp.countBits(i, 99) == 49 + (i % 2));
 		assert(bmp.countBits(i, 128) == 64);
+	}
+}
+
+unittest rollingCountBits {
+	Bitmap!256 bmp;
+	foreach (i; 0 .. 256) {
+		assert(bmp.rollingCountBits(i, 0) == 0);
+		assert(bmp.rollingCountBits(i, 19) == 0);
+		assert(bmp.rollingCountBits(i, 48) == 0);
+		assert(bmp.rollingCountBits(i, 64) == 0);
+		assert(bmp.rollingCountBits(i, 99) == 0);
+		assert(bmp.rollingCountBits(i, 128) == 0);
+		assert(bmp.rollingCountBits(i, 137) == 0);
+		assert(bmp.rollingCountBits(i, 192) == 0);
+		assert(bmp.rollingCountBits(i, 255) == 0);
+		assert(bmp.rollingCountBits(i, 256) == 0);
+	}
+
+	bmp.bits = [-1, -1, -1, -1];
+	foreach (i; 0 .. 256) {
+		assert(bmp.rollingCountBits(i, 0) == 0);
+		assert(bmp.rollingCountBits(i, 19) == 19);
+		assert(bmp.rollingCountBits(i, 48) == 48);
+		assert(bmp.rollingCountBits(i, 64) == 64);
+		assert(bmp.rollingCountBits(i, 99) == 99);
+		assert(bmp.rollingCountBits(i, 128) == 128);
+		assert(bmp.rollingCountBits(i, 137) == 137);
+		assert(bmp.rollingCountBits(i, 192) == 192);
+		assert(bmp.rollingCountBits(i, 255) == 255);
+		assert(bmp.rollingCountBits(i, 256) == 256);
+	}
+
+	bmp.bits = [0xaaaaaaaaaaaaaaaa, 0xaaaaaaaaaaaaaaaa, 0xaaaaaaaaaaaaaaaa,
+	            0xaaaaaaaaaaaaaaaa];
+	foreach (i; 0 .. 256) {
+		assert(bmp.rollingCountBits(i, 0) == 0);
+		assert(bmp.rollingCountBits(i, 19) == 9 + (i % 2));
+		assert(bmp.rollingCountBits(i, 48) == 24);
+		assert(bmp.rollingCountBits(i, 64) == 32);
+		assert(bmp.rollingCountBits(i, 99) == 49 + (i % 2));
+		assert(bmp.rollingCountBits(i, 128) == 64);
+		assert(bmp.rollingCountBits(i, 137) == 68 + (i % 2));
+		assert(bmp.rollingCountBits(i, 192) == 96);
+		assert(bmp.rollingCountBits(i, 255) == 127 + (i % 2));
+		assert(bmp.rollingCountBits(i, 256) == 128);
 	}
 }
