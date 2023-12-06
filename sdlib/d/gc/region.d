@@ -133,13 +133,14 @@ private:
 			return true;
 		}
 
-		// Remnant segment of the used region may be partially dirty.
-		auto originalDirtySize = r.dirtySize;
-		auto recycledDirtySize = min(allocSize, originalDirtySize);
-		dirtyBlocks -= recycledDirtySize / BlockSize;
+		// If we do not use the whole region, we need to keep track
+		// of dirty blocks accurately.
+		auto acquiredDirtyBlocks =
+			r.countDirtyBlocksInSubRegion(0, totalBlocks);
+		dirtyBlocks -= acquiredDirtyBlocks;
 
-		auto remainingDirtySize = originalDirtySize - recycledDirtySize;
-		r.at(ptr + allocSize, newSize, remainingDirtySize);
+		auto remainingDirtyBlocks = r.dirtyBlockCount - acquiredDirtyBlocks;
+		r.at(ptr + allocSize, newSize, remainingDirtyBlocks * BlockSize);
 		registerRegion(r);
 
 		return true;
@@ -435,6 +436,14 @@ public:
 		return address <= ptr && ptr < address + size;
 	}
 
+	uint countDirtyBlocksInSubRegion(uint start, uint length) {
+		assert(start <= blockCount);
+		assert(start + length <= blockCount);
+
+		start = (start + startOffset) % RefillBlockCount;
+		return dirtyBlocks.rollingCountBits(start, length);
+	}
+
 	Region* merge(Region* r) {
 		assert(address is (r.address + r.size) || r.address is (address + size),
 		       "Regions are not adjacent!");
@@ -556,9 +565,7 @@ unittest trackDirtyBlocks {
 		assert(r.address == address);
 		assert(r.blockCount == blocks);
 		assert(r.dirtyBlockCount == dirtyBlocks);
-		assert(
-			r.dirtyBlocks.rollingCountBits(r.startOffset, blocks) == dirtyBlocks
-		);
+		assert(r.countDirtyBlocksInSubRegion(0, blocks) == dirtyBlocks);
 	}
 
 	// Initially, there are no dirty blocks.
