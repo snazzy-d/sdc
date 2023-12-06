@@ -133,13 +133,10 @@ private:
 			return true;
 		}
 
-		// Remnant segment of the used region may be partially dirty.
-		auto originalDirtySize = r.dirtySize;
-		auto recycledDirtySize = min(allocSize, originalDirtySize);
-		dirtyBlocks -= recycledDirtySize / BlockSize;
-
-		auto remainingDirtySize = originalDirtySize - recycledDirtySize;
-		r.at(ptr + allocSize, newSize, remainingDirtySize);
+		// Partition the used region and track the recycled dirt:
+		size_t recycledDirtyBlocks;
+		r.atPartition(ptr, allocSize, recycledDirtyBlocks);
+		dirtyBlocks -= recycledDirtyBlocks;
 		registerRegion(r);
 
 		return true;
@@ -391,6 +388,26 @@ public:
 		return &this;
 	}
 
+	Region* atPartition(void* ptr, size_t partitionSize,
+	                    ref size_t recycledDirtyBlocks) {
+		assert(partitionSize <= size, "partitionSize exceeds size!");
+
+		auto partitionBlocks = cast(uint) (partitionSize / BlockSize);
+
+		// Track the recycled dirt on the left side of the partition.
+		// FIXME: We use max to ensures we don't trip an assert
+		// when the region is larger than 1GB.
+		recycledDirtyBlocks = dirtyBlocks
+			.rollingCountBits(startOffset,
+			                  min(partitionBlocks, RefillBlockCount));
+		auto recycledDirtySize = recycledDirtyBlocks * BlockSize;
+
+		at(ptr + partitionSize, size - partitionSize,
+		   dirtySize - recycledDirtySize);
+
+		return &this;
+	}
+
 	static fromSlot(Base.Slot slot) {
 		// FIXME: in contract
 		assert(slot.address !is null, "Slot is empty!");
@@ -438,14 +455,6 @@ public:
 	Region* merge(Region* r) {
 		assert(address is (r.address + r.size) || r.address is (address + size),
 		       "Regions are not adjacent!");
-
-		auto left = address < r.address ? &this : r;
-		auto right = address < r.address ? r : &this;
-
-		// Dirt is at all times contiguous within a region, and starts at the bottom.
-		// Given as purging is not yet supported, this invariant always holds.
-		assert(left.dirtySize == left.size || right.dirtySize == 0,
-		       "Merge would place dirty blocks in front of clean blocks!");
 
 		// Copy the dirty bits.
 		// FIXME: We use max to ensures we don't trip an assert
