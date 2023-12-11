@@ -159,7 +159,7 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		block.addr = ptr;
-		block.size = BlockSize;
+		block.size = size;
 		block.next = head;
 
 		head = block;
@@ -197,16 +197,15 @@ private:
 
 		// Allocate exponentially more space for metadata.
 		auto shift = currentGeneration++;
-		auto size = BlockSize << shift;
+		auto size = PageSize << shift;
 
 		import d.gc.memmap;
-		auto ptr = pages_map(null, size, BlockSize);
+		auto ptr = pages_map(null, size, PageSize);
 		if (ptr is null) {
 			return false;
 		}
 
-		enum SlotPerBlock = BlockSize / ExtentSize;
-		availableMetadatSlots = SlotPerBlock << shift;
+		availableMetadatSlots = size / ExtentSize;
 		nextSlot = Slot(ptr, currentGeneration);
 
 		// We expect this allocation to always succeed as we just
@@ -291,20 +290,33 @@ unittest base {
 	auto b0 = base.allocBlock();
 	auto b1 = base.allocBlock();
 	assert(b0 + 1 is b1);
-	assert(base.availableMetadatSlots == 16383);
+	assert(base.availableMetadatSlots == 31);
 
 	// We get the same block recycled.
 	base.freeBlock(b0);
 	base.freeBlock(b1);
 	assert(base.allocBlock() is b1);
 	assert(base.allocBlock() is b0);
-	assert(base.availableMetadatSlots == 16383);
+	assert(base.availableMetadatSlots == 31);
 
 	// Now allocate slots.
 	auto s0 = base.allocSlot();
 	auto s1 = base.allocSlot();
-	assert(s0.address is alignUp(b0 + 1, ExtentSize));
+	assert(s0.address is alignUp(b0, ExtentSize));
 	assert(s0.address + ExtentSize is s1.address);
 	assert(s0.generation == s1.generation);
-	assert(base.availableMetadatSlots == 16381);
+	assert(base.availableMetadatSlots == 29);
+
+	auto prev = s1;
+	foreach (i; 0 .. 29) {
+		auto current = base.allocSlot();
+		assert(prev.address + ExtentSize is current.address);
+		assert(prev.generation == current.generation);
+
+		prev = current;
+	}
+
+	auto n = base.allocSlot();
+	assert(prev.generation + 1 == n.generation);
+	assert(base.availableMetadatSlots == 63);
 }
