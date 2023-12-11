@@ -27,11 +27,10 @@ private:
 	Heap!(Extent, unusedExtentCmp) unusedExtents;
 	Heap!(BlockDescriptor, unusedBlockDescriptorCmp) unusedBlockDescriptors;
 
-	ulong filter;
-
 	enum HeapCount = getAllocClass(PagesInBlock);
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
+	ulong filter;
 	Heap!(BlockDescriptor, epochBlockCmp)[HeapCount] heaps;
 
 	import d.gc.bin;

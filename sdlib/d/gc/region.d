@@ -384,7 +384,7 @@ public:
 		at(ptr, size, size);
 
 		// Make the region dirty.
-		// FIXME: We use max to ensures we don't trip an assert
+		// FIXME: We use min to ensures we don't trip an assert
 		// when the region is larger than 1GB.
 		dirtyBlocks
 			.setRollingRange(startOffset, min(blockCount, RefillBlockCount));
@@ -457,7 +457,7 @@ public:
 		       "Merge would place dirty blocks in front of clean blocks!");
 
 		// Copy the dirty bits.
-		// FIXME: We use max to ensures we don't trip an assert
+		// FIXME: We use min to ensures we don't trip an assert
 		// when the region is larger than 1GB.
 		dirtyBlocks.setRollingRangeFrom(r.dirtyBlocks, r.startOffset,
 		                                min(r.blockCount, RefillBlockCount));
