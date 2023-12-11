@@ -101,7 +101,7 @@ private:
 			return Slot(null, 0);
 		}
 
-		assert(availableMetadatSlots > 0, "No Metadata slot available!");
+		assert(hasFreeSlot(), "No Metadata slot available!");
 
 		scope(success) {
 			auto nextAddress = nextSlot.address + ExtentSize;
@@ -168,38 +168,8 @@ private:
 	auto getOrAllocateBlock() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto block = getBlockInFrelist();
-		if (block !is null) {
-			return block;
-		}
-
-		if (!refillSlots()) {
-			return null;
-		}
-
-		block = getBlockInFrelist();
-		if (block !is null) {
-			return block;
-		}
-
-		assert(blockFreeList is null, "There are blocks in the freelist!");
-
-		enum BlockPerExtent = ExtentSize / alignUp(Block.sizeof, Quantum);
-		static assert(BlockPerExtent == 5, "For documentation purposes.");
-
-		auto slot = allocSlotImpl();
-		auto ret = cast(Block*) slot.address;
-
-		foreach (i; 2 .. BlockPerExtent) {
-			ret[i - 1].next = &ret[i];
-			ret[i].next = null;
-		}
-
-		if (BlockPerExtent > 1) {
-			blockFreeList = &ret[1];
-		}
-
-		return ret;
+		refillBlocks();
+		return getBlockInFrelist();
 	}
 
 	Block* getBlockInFrelist() {
@@ -214,10 +184,14 @@ private:
 		return ret;
 	}
 
+	bool hasFreeSlot() {
+		return availableMetadatSlots > 0;
+	}
+
 	bool refillSlots() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		if (availableMetadatSlots > 0) {
+		if (hasFreeSlot()) {
 			return true;
 		}
 
@@ -241,6 +215,49 @@ private:
 		assert(block !is null, "Failed to allocate a block!");
 
 		registerBlock(block, ptr, size);
+		return true;
+	}
+
+	bool refillBlocks() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		if (blockFreeList !is null) {
+			return true;
+		}
+
+		// We may have free slots left but no metatdata space.
+		if (hasFreeSlot()) {
+			goto Refill;
+		}
+
+		// Because refilling metadata space may allocate blocks
+		// and we are about to use some metadata space, we want
+		// to double check the free list.
+		if (!refillSlots()) {
+			return false;
+		}
+
+		if (blockFreeList !is null) {
+			return true;
+		}
+
+	Refill:
+		assert(blockFreeList is null, "There are blocks in the freelist!");
+
+		enum BlockPerExtent = ExtentSize / alignUp(Block.sizeof, Quantum);
+		static assert(BlockPerExtent == 5, "For documentation purposes.");
+
+		auto slot = allocSlotImpl();
+
+		auto buf = cast(Block*) slot.address;
+		assert(buf !is null, "Failed to allocate block!");
+
+		foreach (i; 1 .. BlockPerExtent) {
+			buf[i - 1].next = &buf[i];
+			buf[i].next = null;
+		}
+
+		blockFreeList = buf;
 		return true;
 	}
 }
