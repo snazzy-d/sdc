@@ -97,7 +97,7 @@ private:
 	Slot allocSlotImpl() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		if (!refillMetadataSpace()) {
+		if (!refillSlots()) {
 			return Slot(null, 0);
 		}
 
@@ -174,7 +174,7 @@ private:
 			return block;
 		}
 
-		if (!refillMetadataSpace()) {
+		if (!refillSlots()) {
 			return null;
 		}
 
@@ -215,7 +215,7 @@ private:
 		return ret;
 	}
 
-	bool refillMetadataSpace() {
+	bool refillSlots() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		if (availableMetadatSlots > 0) {
