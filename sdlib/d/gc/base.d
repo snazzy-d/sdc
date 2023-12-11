@@ -200,7 +200,7 @@ private:
 		auto size = BlockSize << shift;
 
 		import d.gc.memmap;
-		auto ptr = pages_map(null, size, size);
+		auto ptr = pages_map(null, size, BlockSize);
 		if (ptr is null) {
 			return false;
 		}
