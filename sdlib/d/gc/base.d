@@ -19,8 +19,8 @@ private:
 	ubyte currentGeneration;
 
 	// The slice of memory we have to allocate from.
-	void* nextMetadataAddr;
 	size_t availableMetadatSlots;
+	Slot nextSlot;
 
 	// Linked list of all the blocks.
 	Block* head;
@@ -102,15 +102,14 @@ private:
 		}
 
 		assert(availableMetadatSlots > 0, "No Metadata slot available!");
-		assert(isAligned(nextMetadataAddr, ExtentAlign),
-		       "Invalid nextMetadataAddr alignment!");
 
 		scope(success) {
-			nextMetadataAddr += ExtentSize;
+			auto nextAddress = nextSlot.address + ExtentSize;
 			availableMetadatSlots -= 1;
+			nextSlot = Slot(nextAddress, nextSlot.generation);
 		}
 
-		return Slot(nextMetadataAddr, currentGeneration);
+		return nextSlot;
 	}
 
 	void* reserveAddressSpaceImpl(size_t size, size_t alignment) {
@@ -233,8 +232,8 @@ private:
 		}
 
 		enum SlotPerBlock = BlockSize / ExtentSize;
-		nextMetadataAddr = ptr;
 		availableMetadatSlots = SlotPerBlock << shift;
+		nextSlot = Slot(ptr, currentGeneration);
 
 		// We expect this allocation to always succeed as we just
 		// reserved a ton of address space.
