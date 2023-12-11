@@ -287,10 +287,10 @@ unittest base {
 	shared Base base;
 	scope(exit) base.clear();
 
-	// We can allocate blocks from mdbase.
+	// We can allocate blocks from base.
 	auto b0 = base.allocBlock();
 	auto b1 = base.allocBlock();
-	assert(b0 !is b1);
+	assert(b0 + 1 is b1);
 	assert(base.availableMetadatSlots == 16383);
 
 	// We get the same block recycled.
@@ -303,7 +303,8 @@ unittest base {
 	// Now allocate slots.
 	auto s0 = base.allocSlot();
 	auto s1 = base.allocSlot();
-	assert(s0.address !is s1.address);
+	assert(s0.address is alignUp(b0 + 1, ExtentSize));
+	assert(s0.address + ExtentSize is s1.address);
 	assert(s0.generation == s1.generation);
 	assert(base.availableMetadatSlots == 16381);
 }
