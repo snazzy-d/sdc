@@ -183,17 +183,13 @@ private:
 			return block;
 		}
 
-		assert(availableMetadatSlots > 0, "No Metadata slot available!");
-		assert(isAligned(nextMetadataAddr, ExtentAlign),
-		       "Invalid nextMetadataAddr alignment!");
 		assert(blockFreeList is null, "There are blocks in the freelist!");
 
 		enum BlockPerExtent = ExtentSize / alignUp(Block.sizeof, Quantum);
 		static assert(BlockPerExtent == 5, "For documentation purposes.");
 
-		auto ret = cast(Block*) nextMetadataAddr;
-		nextMetadataAddr += ExtentSize;
-		availableMetadatSlots -= 1;
+		auto slot = allocSlotImpl();
+		auto ret = cast(Block*) slot.address;
 
 		foreach (i; 2 .. BlockPerExtent) {
 			ret[i - 1].next = &ret[i];
