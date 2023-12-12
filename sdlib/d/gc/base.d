@@ -5,6 +5,40 @@ import d.gc.util;
 
 shared Base gBase;
 
+struct GenerationPointer {
+private:
+	static assert(LgAddressSpace <= 48, "Address space too large!");
+	ulong data;
+
+	this(ulong data) {
+		this.data = data;
+	}
+
+	this(void* ptr, ubyte generation) {
+		data = cast(size_t) ptr;
+		data |= ulong(generation) << 56;
+	}
+
+public:
+	static getNull() {
+		return GenerationPointer(0);
+	}
+
+	@property
+	void* address() {
+		return cast(void*) (data & AddressMask);
+	}
+
+	@property
+	ubyte generation() {
+		return data >> 56;
+	}
+
+	auto add(ulong offset) {
+		return GenerationPointer(data + offset);
+	}
+}
+
 /**
  * Bump the pointer style allocator.
  *
@@ -17,7 +51,7 @@ private:
 	Mutex mutex;
 
 	// The slice of memory we have to allocate slots from.
-	Slot nextSlot;
+	GenerationPointer nextSlot;
 
 	// The slice of memory we allocate metadata from.
 	void* nextMetadataPage;
@@ -38,37 +72,14 @@ public:
 		(cast(Base*) &this).clearImpl();
 	}
 
-	static assert(LgAddressSpace <= 48, "Address space too large!");
-
-	struct Slot {
-	private:
-		ulong data;
-
-		this(void* ptr, ubyte generation) {
-			data = cast(size_t) ptr;
-			data |= ulong(generation) << 56;
-		}
-
-	public:
-		@property
-		void* address() {
-			return cast(void*) (data & AddressMask);
-		}
-
-		@property
-		ubyte generation() {
-			return data >> 56;
-		}
-	}
-
-	Slot allocSlot() shared {
+	GenerationPointer allocSlot() shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
 		return (cast(Base*) &this).allocSlotImpl();
 	}
 
-	Slot allocMetadataPage() shared {
+	GenerationPointer allocMetadataPage() shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
@@ -103,7 +114,7 @@ private:
 		blockFreeList = null;
 	}
 
-	Slot allocSlotImpl() {
+	auto allocSlotImpl() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		if (hasFreeSlot()) {
@@ -113,7 +124,7 @@ private:
 		// Eagerly try to refill, because it may allocate a slot
 		// and we want to catch this rather than void a whole page.
 		if (!refillMetadataSpace()) {
-			return Slot(null, 0);
+			return GenerationPointer.getNull();
 		}
 
 		// We may have allocated a slot to store block informations,
@@ -124,23 +135,19 @@ private:
 
 		nextSlot = allocMetadataPageImpl();
 		if (nextSlot.address is null) {
-			return Slot(null, 0);
+			return GenerationPointer.getNull();
 		}
 
 	Success:
-		scope(success) {
-			auto nextAddress = nextSlot.address + ExtentSize;
-			nextSlot = Slot(nextAddress, nextSlot.generation);
-		}
-
+		scope(success) nextSlot = nextSlot.add(ExtentSize);
 		return nextSlot;
 	}
 
-	Slot allocMetadataPageImpl() {
+	auto allocMetadataPageImpl() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		if (!refillMetadataSpace()) {
-			return Slot(null, 0);
+			return GenerationPointer.getNull();
 		}
 
 		assert(availableMetadataPages > 0, "No Metadata page available!");
@@ -152,7 +159,7 @@ private:
 			availableMetadataPages--;
 		}
 
-		return Slot(nextMetadataPage, currentGeneration);
+		return GenerationPointer(nextMetadataPage, currentGeneration);
 	}
 
 	void* reserveAddressSpaceImpl(size_t size, size_t alignment) {
@@ -381,8 +388,8 @@ unittest count_blocks {
 		return (v % BlockSize) / ExtentSize;
 	}
 
-	static size_t indexInBlock(Base.Slot s) {
-		return indexInBlock(s.address);
+	static size_t indexInBlock(GenerationPointer ptr) {
+		return indexInBlock(ptr.address);
 	}
 
 	// Almost fill in a block of metadata.

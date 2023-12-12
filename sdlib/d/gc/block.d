@@ -40,7 +40,7 @@ public:
 		return &this;
 	}
 
-	static fromSlot(Base.Slot slot) {
+	static fromSlot(GenerationPointer slot) {
 		// FIXME: in contract
 		assert(slot.address !is null, "Slot is empty!");
 

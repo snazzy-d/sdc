@@ -163,7 +163,7 @@ public:
 		return at(ptr, size, block, ExtentClass.large());
 	}
 
-	static fromSlot(uint arenaIndex, Base.Slot slot) {
+	static fromSlot(uint arenaIndex, GenerationPointer slot) {
 		// FIXME: in contract
 		assert((arenaIndex & ~ArenaMask) == 0, "Invalid arena index!");
 		assert(slot.address !is null, "Slot is empty!");
