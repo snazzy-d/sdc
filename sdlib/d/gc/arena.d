@@ -410,7 +410,7 @@ private:
 		unregisterBlock(block);
 
 		e.at(e.address, pages * PageSize, block);
-		block.clear(index, delta);
+		block.release(index, delta);
 
 		assert(!block.empty);
 		registerBlock(block);
