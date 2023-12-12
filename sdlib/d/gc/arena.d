@@ -425,7 +425,7 @@ private:
 		auto block = e.block;
 		unregisterBlock(block);
 
-		auto didGrow = block.set(index, delta);
+		auto didGrow = block.reserveAt(index, delta);
 		if (didGrow) {
 			e.at(e.address, pages * PageSize, block);
 		}

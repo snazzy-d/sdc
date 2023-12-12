@@ -123,7 +123,7 @@ public:
 		return bestIndex;
 	}
 
-	bool set(uint index, uint pages) {
+	bool reserveAt(uint index, uint pages) {
 		assert(pages > 0 && pages <= PagesInBlock, "Invalid number of pages!");
 		assert(index <= PagesInBlock - pages, "Invalid index!");
 
@@ -333,11 +333,11 @@ unittest blockDescriptorGrowAllocations {
 	checkRangeState(64, PagesInBlock - 64);
 
 	// Grow it by 32 pages:
-	assert(block.set(64, 32));
+	assert(block.reserveAt(64, 32));
 	checkRangeState(96, PagesInBlock - 96);
 
 	// Grow it by another 32 pages:
-	assert(block.set(96, 32));
+	assert(block.reserveAt(96, 32));
 	checkRangeState(128, PagesInBlock - 128);
 
 	// Second allocation:
@@ -345,14 +345,14 @@ unittest blockDescriptorGrowAllocations {
 	checkRangeState(384, PagesInBlock - 384);
 
 	// Try to grow the first allocation, but cannot, there is no space:
-	assert(!block.set(128, 1));
+	assert(!block.reserveAt(128, 1));
 
 	// Third allocation:
 	assert(block.reserve(128) == 384);
 	checkRangeState(512, 0);
 
 	// Try to grow the second allocation, but cannot, there is no space:
-	assert(!block.set(384, 1));
+	assert(!block.reserveAt(384, 1));
 
 	// Release first allocation:
 	block.release(0, 128);
@@ -364,7 +364,7 @@ unittest blockDescriptorGrowAllocations {
 
 	// There are now two equally 'longest length' free ranges.
 	// Grow the second allocation to see that lfr is recomputed properly:
-	assert(block.set(384, 1));
+	assert(block.reserveAt(384, 1));
 	checkRangeState(257, 128);
 
 	// Make an allocation in the lfr, new lfr is after the second alloc:
@@ -390,7 +390,7 @@ unittest blockDescriptorGrowAllocations {
 	checkRangeState(512, 0);
 
 	// Try expanding the first one, but there is no space:
-	assert(!block.set(256, 1));
+	assert(!block.reserveAt(256, 1));
 
 	// Release the first allocation:
 	block.release(0, 256);
@@ -401,9 +401,9 @@ unittest blockDescriptorGrowAllocations {
 	checkRangeState(506, PagesInBlock - 506);
 
 	// Try to grow the above by 7, but cannot, this is one page too many:
-	assert(!block.set(250, 7));
+	assert(!block.reserveAt(250, 7));
 
 	// Grow by 6 works, and fills block:
-	assert(block.set(250, 6));
+	assert(block.reserveAt(250, 6));
 	checkRangeState(512, 0);
 }
