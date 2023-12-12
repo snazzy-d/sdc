@@ -458,15 +458,17 @@ private:
 	BlockDescriptor* allocateBlock(uint extraPages = 0) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto block = unusedBlockDescriptors.pop();
-		if (block is null) {
-			auto slot = base.allocSlot();
-			if (slot.address is null) {
+		if (unusedBlockDescriptors.empty) {
+			auto page = base.allocMetadataPage();
+			if (page.address is null) {
 				return null;
 			}
 
-			block = BlockDescriptor.fromSlot(slot);
+			unusedBlockDescriptors = BlockDescriptor.fromPage(page);
 		}
+
+		auto block = unusedBlockDescriptors.pop();
+		assert(block !is null);
 
 		if (regionAllocator.acquire(block, extraPages)) {
 			return block;

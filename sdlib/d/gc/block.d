@@ -41,16 +41,30 @@ public:
 		return &this;
 	}
 
-	static fromSlot(GenerationPointer slot) {
+	static fromPage(GenerationPointer page) {
 		// FIXME: in contract
-		assert(slot.address !is null, "Slot is empty!");
+		assert(page.address !is null, "Invalid page!");
+		assert(isAligned(page.address, PageSize), "Invalid page!");
 
-		static assert(BlockDescriptor.sizeof <= ExtentSize,
-		              "Unexpected BlockDescriptor size!");
+		enum BlockDescriptorSize = alignUp(BlockDescriptor.sizeof, CacheLine);
+		enum Count = PageSize / BlockDescriptorSize;
+		static assert(Count == 32, "Unexpected BlockDescriptor size!");
 
-		auto block = cast(BlockDescriptor*) slot.address;
-		*block = BlockDescriptor(null, 0, slot.generation);
-		return block;
+		UnusedBlockHeap ret;
+		foreach (i; 0 .. Count) {
+			/**
+			 * We create the elements starting from the last so that
+			 * they are inserted in the heap from worst to best.
+			 * This ensures the heap is a de facto linked list.
+			 * */
+			auto slot = page.add((Count - 1 - i) * BlockDescriptorSize);
+			auto block = cast(BlockDescriptor*) slot.address;
+
+			*block = BlockDescriptor(null, 0, slot.generation);
+			ret.insert(block);
+		}
+
+		return ret;
 	}
 
 	@property

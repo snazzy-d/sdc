@@ -96,9 +96,8 @@ public:
 
 		mergeAux();
 
-		auto ret = root.node;
-		root = mergeChildren(root);
-		return ret;
+		scope(success) root = mergeChildren(root);
+		return root.node;
 	}
 
 	void insert(N* n) {
