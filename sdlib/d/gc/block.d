@@ -145,10 +145,7 @@ public:
 		uint length;
 		while (current < PagesInBlock
 			       && allocatedPages.nextFreeRange(current, current, length)) {
-			if (length > longestLength) {
-				longestLength = length;
-			}
-
+			longestLength = max(longestLength, length);
 			current += length;
 		}
 
