@@ -206,7 +206,7 @@ ptrdiff_t unusedBlockDescriptorCmp(BlockDescriptor* lhs, BlockDescriptor* rhs) {
 	return (l > r) - (l < r);
 }
 
-unittest blockDescriptor {
+unittest reserve_release {
 	BlockDescriptor block;
 
 	void checkRangeState(uint nused, uint ndirty, uint lfr) {
@@ -283,7 +283,7 @@ unittest blockDescriptor {
 	checkRangeState(PagesInBlock - 28, 512, 20);
 }
 
-unittest blockDescriptorClear {
+unittest clear {
 	BlockDescriptor block;
 
 	void checkRangeState(uint nused, uint ndirty, uint lfr) {
@@ -330,7 +330,7 @@ unittest blockDescriptorClear {
 	checkRangeState(0, 512, PagesInBlock);
 }
 
-unittest blockDescriptorGrowAllocations {
+unittest reserveAt {
 	BlockDescriptor block;
 
 	void checkRangeState(uint nused, uint ndirty, uint lfr) {
