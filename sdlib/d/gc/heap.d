@@ -199,6 +199,25 @@ public:
 		return aux.isNull() ? root.node : aux.node;
 	}
 
+	void combine(Heap other) {
+		if (other.root.isNull()) {
+			return;
+		}
+
+		if (root.isNull()) {
+			this = other;
+		}
+
+		assert(root.node !is other.root.node);
+		auto cmp = compare(root.node, other.root.node) <= 0;
+		auto h0 = cmp ? this : other;
+		auto h1 = cmp ? other : this;
+
+		h1.mergeAux();
+		addChild(h0.root, h1.root);
+		this = h0;
+	}
+
 private:
 	void mergeAux() {
 		auxcount = 0;
@@ -614,4 +633,18 @@ unittest heap {
 	}
 
 	assert(heap.empty);
+
+	// Check combine.
+	Heap!(Stuff, stuffCmp) other;
+
+	foreach (i; 0 .. stuffs.length / 2) {
+		auto n0 = &stuffs[2 * i];
+		auto n1 = &stuffs[2 * i + 1];
+
+		heap.insert(n0);
+		other.insert(n1);
+	}
+
+	heap.combine(other);
+	checkHeap();
 }
