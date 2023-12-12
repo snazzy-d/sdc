@@ -108,8 +108,7 @@ public:
 			current = index + length;
 		}
 
-		assert(bestIndex < PagesInBlock);
-		allocatedPages.setRange(bestIndex, pages);
+		registerAllocation(bestIndex, pages);
 
 		// If we allocated from the longest range,
 		// compute the new longest free range.
@@ -117,23 +116,21 @@ public:
 			longestLength = max(longestLength - pages, secondLongestLength);
 		}
 
-		usedCount += pages;
 		longestFreeRange = longestLength;
-
 		return bestIndex;
 	}
 
 	bool reserveAt(uint index, uint pages) {
-		assert(pages > 0 && pages <= PagesInBlock, "Invalid number of pages!");
-		assert(index <= PagesInBlock - pages, "Invalid index!");
+		assert(index < PagesInBlock, "Invalid index!");
+		assert(pages > 0 && index + pages <= PagesInBlock,
+		       "Invalid number of pages!");
 
 		auto freeLength = allocatedPages.findSet(index) - index;
 		if (freeLength < pages) {
 			return false;
 		}
 
-		allocatedPages.setRange(index, pages);
-		usedCount += pages;
+		registerAllocation(index, pages);
 
 		// If not allocated from the longest free range, we're done:
 		if (freeLength != longestFreeRange) {
@@ -145,16 +142,26 @@ public:
 		uint current = 0;
 		uint length;
 		while (current < PagesInBlock
-			       && allocatedPages.nextFreeRange(current, index, length)) {
+			       && allocatedPages.nextFreeRange(current, current, length)) {
 			if (length > longestLength) {
 				longestLength = length;
 			}
 
-			current = index + length;
+			current += length;
 		}
 
 		longestFreeRange = longestLength;
 		return true;
+	}
+
+	void registerAllocation(uint index, uint pages) {
+		assert(index < PagesInBlock, "Invalid index!");
+		assert(pages > 0 && index + pages <= PagesInBlock,
+		       "Invalid number of pages!");
+
+		// Mark the pages as allocated.
+		usedCount += pages;
+		allocatedPages.setRange(index, pages);
 	}
 
 	void release(uint index, uint pages) {
