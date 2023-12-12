@@ -1,6 +1,7 @@
 module d.gc.block;
 
 import d.gc.base;
+import d.gc.heap;
 import d.gc.spec;
 import d.gc.util;
 
@@ -163,12 +164,16 @@ public:
 	}
 }
 
+alias EpochBlockHeap = Heap!(BlockDescriptor, epochBlockCmp);
+
 ptrdiff_t epochBlockCmp(BlockDescriptor* lhs, BlockDescriptor* rhs) {
 	auto lg = lhs.epoch;
 	auto rg = rhs.epoch;
 
 	return (lg > rg) - (lg < rg);
 }
+
+alias UnusedBlockHeap = Heap!(BlockDescriptor, unusedBlockDescriptorCmp);
 
 ptrdiff_t unusedBlockDescriptorCmp(BlockDescriptor* lhs, BlockDescriptor* rhs) {
 	static assert(LgAddressSpace <= 56, "Address space too large!");

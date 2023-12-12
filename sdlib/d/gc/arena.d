@@ -23,15 +23,14 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	import d.gc.heap;
-	Heap!(Extent, unusedExtentCmp) unusedExtents;
-	Heap!(BlockDescriptor, unusedBlockDescriptorCmp) unusedBlockDescriptors;
+	UnusedExtentHeap unusedExtents;
+	UnusedBlockHeap unusedBlockDescriptors;
 
 	enum HeapCount = getAllocClass(PagesInBlock);
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
 	ulong filter;
-	Heap!(BlockDescriptor, epochBlockCmp)[HeapCount] heaps;
+	EpochBlockHeap[HeapCount] heaps;
 
 	import d.gc.bin;
 	Bin[ClassCount.Small] bins;

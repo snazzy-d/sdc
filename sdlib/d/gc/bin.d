@@ -14,8 +14,8 @@ struct Bin {
 
 	// XXX: We might want to consider targeting Extents
 	// on old blocks instead of just address.
-	import d.gc.extent, d.gc.heap;
-	Heap!(Extent, addrExtentCmp) slabs;
+	import d.gc.extent;
+	AddrExtentHeap slabs;
 
 	void* alloc(shared(Arena)* arena, ref CachedExtentMap emap,
 	            ubyte sizeClass) shared {

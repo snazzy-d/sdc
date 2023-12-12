@@ -417,6 +417,8 @@ unittest finalizers {
 static assert(Extent.sizeof == ExtentSize, "Unexpected Extent size!");
 static assert(Extent.sizeof == ExtentAlign, "Unexpected Extent alignment!");
 
+alias AddrExtentHeap = Heap!(Extent, addrExtentCmp);
+
 ptrdiff_t addrExtentCmp(Extent* lhs, Extent* rhs) {
 	auto l = cast(size_t) lhs.address;
 	auto r = cast(size_t) rhs.address;
@@ -433,6 +435,8 @@ ptrdiff_t addrRangeExtentCmp(Extent* lhs, Extent* rhs) {
 	// We need to compare that way to avoid integer overflow.
 	return (l >= rend) - (l < rstart);
 }
+
+alias UnusedExtentHeap = Heap!(Extent, unusedExtentCmp);
 
 ptrdiff_t unusedExtentCmp(Extent* lhs, Extent* rhs) {
 	static assert(LgAddressSpace <= 56, "Address space too large!");
