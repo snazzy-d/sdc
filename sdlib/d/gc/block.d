@@ -24,10 +24,12 @@ private:
 	uint longestFreeRange = PagesInBlock;
 
 	uint usedCount;
+	uint dirtyCount;
 	ubyte generation;
 
 	import d.gc.bitmap;
 	Bitmap!PagesInBlock allocatedPages;
+	Bitmap!PagesInBlock dirtyPages;
 
 	this(void* address, ulong epoch, ubyte generation = 0) {
 		this.address = address;
@@ -48,7 +50,7 @@ public:
 
 		enum BlockDescriptorSize = alignUp(BlockDescriptor.sizeof, CacheLine);
 		enum Count = PageSize / BlockDescriptorSize;
-		static assert(Count == 32, "Unexpected BlockDescriptor size!");
+		static assert(Count == 21, "Unexpected BlockDescriptor size!");
 
 		UnusedBlockHeap ret;
 		foreach (i; 0 .. Count) {
@@ -162,6 +164,11 @@ public:
 		// Mark the pages as allocated.
 		usedCount += pages;
 		allocatedPages.setRange(index, pages);
+
+		// Mark the pages as dirty.
+		dirtyCount -= dirtyPages.countBits(index, pages);
+		dirtyCount += pages;
+		dirtyPages.setRange(index, pages);
 	}
 
 	void release(uint index, uint pages) {
