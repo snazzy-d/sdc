@@ -2,8 +2,12 @@ module d.gc.block;
 
 import d.gc.base;
 import d.gc.heap;
+import d.gc.ring;
 import d.gc.spec;
 import d.gc.util;
+
+alias PHNode = heap.Node!BlockDescriptor;
+alias RNode = ring.Node!BlockDescriptor;
 
 /**
  * Each BlockDescriptor manages a 2MB system's huge page.
@@ -17,8 +21,12 @@ struct BlockDescriptor {
 private:
 	void* address;
 
-	import d.gc.heap;
-	Node!BlockDescriptor phnode;
+	union Links {
+		PHNode phnode;
+		RNode rnode;
+	}
+
+	Links _links;
 
 	uint longestFreeRange = PagesInBlock;
 	uint allocScore = PagesInBlock;
@@ -81,6 +89,16 @@ public:
 	@property
 	uint allocCount() const {
 		return PagesInBlock - allocScore;
+	}
+
+	@property
+	ref PHNode phnode() {
+		return _links.phnode;
+	}
+
+	@property
+	ref RNode rnode() {
+		return _links.rnode;
 	}
 
 	uint reserve(uint pages) {

@@ -26,6 +26,9 @@ private:
 	ulong filter;
 	PriorityBlockHeap[HeapCount] heaps;
 
+	import d.gc.ring;
+	Ring!BlockDescriptor fullBlocks;
+
 	UnusedExtentHeap unusedExtents;
 	UnusedBlockHeap unusedBlockDescriptors;
 
@@ -321,9 +324,7 @@ private:
 		}
 
 		auto n = block.reserve(pages);
-		if (!block.full) {
-			registerBlock(block);
-		}
+		registerBlock(block);
 
 		auto ptr = block.address + n * PageSize;
 		auto size = pages * PageSize;
@@ -346,11 +347,9 @@ private:
 		}
 
 		auto n = block.reserve(pages);
-		assert(n == 0, "Unexpected page allocated!");
+		registerBlock(block);
 
-		if (!block.full) {
-			registerBlock(block);
-		}
+		assert(n == 0, "Unexpected page allocated!");
 
 		auto leadSize = extraPages * BlockSize;
 		auto ptr = block.address - leadSize;
@@ -430,10 +429,7 @@ private:
 			e.at(e.address, pages * PageSize, block);
 		}
 
-		if (!block.full) {
-			registerBlock(block);
-		}
-
+		registerBlock(block);
 		return didGrow;
 	}
 
@@ -452,6 +448,7 @@ private:
 		auto block = heaps[index].pop();
 		filter &= ~(ulong(heaps[index].empty) << index);
 
+		assert(block !is null);
 		return block;
 	}
 
@@ -482,6 +479,7 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		if (block.full) {
+			fullBlocks.remove(block);
 			return;
 		}
 
@@ -492,8 +490,12 @@ private:
 
 	void registerBlock(BlockDescriptor* block) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(!block.full, "Block is full!");
 		assert(!block.empty, "Block is empty!");
+
+		if (block.full) {
+			fullBlocks.insert(block);
+			return;
+		}
 
 		auto index = getFreeSpaceClass(block.longestFreeRange);
 		heaps[index].insert(block);
