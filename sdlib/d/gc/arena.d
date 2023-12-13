@@ -14,17 +14,11 @@ struct Arena {
 private:
 	ulong bits;
 
-	import d.gc.base;
-	Base base;
-
-	import d.gc.region;
-	shared(RegionAllocator)* regionAllocator;
+	import d.gc.bin;
+	Bin[ClassCount.Small] bins;
 
 	import d.sync.mutex;
 	Mutex mutex;
-
-	UnusedExtentHeap unusedExtents;
-	UnusedBlockHeap unusedBlockDescriptors;
 
 	enum HeapCount = getAllocClass(PagesInBlock);
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
@@ -32,8 +26,14 @@ private:
 	ulong filter;
 	PriorityBlockHeap[HeapCount] heaps;
 
-	import d.gc.bin;
-	Bin[ClassCount.Small] bins;
+	UnusedExtentHeap unusedExtents;
+	UnusedBlockHeap unusedBlockDescriptors;
+
+	import d.gc.base;
+	Base base;
+
+	import d.gc.region;
+	shared(RegionAllocator)* regionAllocator;
 
 	enum InitializedBit = 1UL << 63;
 
