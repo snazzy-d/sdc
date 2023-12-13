@@ -53,7 +53,6 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	ulong nextEpoch;
 	uint dirtyBlockCount;
 
 	// Free regions we can allocate from.
@@ -132,7 +131,7 @@ private:
 
 		auto ptr = r.address;
 		auto extraSize = extraBlocks * BlockSize;
-		block.at(ptr + extraSize, nextEpoch++);
+		block.at(ptr + extraSize);
 
 		auto allocSize = totalBlocks * BlockSize;
 		auto newSize = r.size - allocSize;
@@ -243,12 +242,10 @@ unittest acquire_release {
 	// To snoop in.
 	auto ra = cast(RegionAllocator*) &regionAllocator;
 
-	ulong expectedEpoch = 0;
 	BlockDescriptor block0;
 
 	assert(ra.dirtyBlockCount == 0);
 	assert(regionAllocator.acquire(&block0));
-	assert(block0.epoch == expectedEpoch++);
 
 	// Check we compute the proper range.
 	auto r = regionAllocator.computeAddressRange();
@@ -260,14 +257,13 @@ unittest acquire_release {
 	foreach (i; 1 .. RefillBlockCount) {
 		BlockDescriptor block;
 		assert(regionAllocator.acquire(&block));
-		assert(block.epoch == expectedEpoch++);
 		assert(block.address is block0.address + i * BlockSize);
 		assert(r.contains(block.address));
 	}
 
 	foreach (i; 5 .. RefillBlockCount) {
 		BlockDescriptor block;
-		block.at(block0.address + i * BlockSize, 0);
+		block.at(block0.address + i * BlockSize);
 		regionAllocator.release(&block);
 		assert(ra.dirtyBlockCount == i - 4);
 	}
@@ -282,7 +278,7 @@ unittest acquire_release {
 
 	foreach (i; 0 .. 5) {
 		BlockDescriptor block;
-		block.at(block0.address + i * BlockSize, 0);
+		block.at(block0.address + i * BlockSize);
 		regionAllocator.release(&block);
 		assert(ra.dirtyBlockCount == i + 508);
 	}

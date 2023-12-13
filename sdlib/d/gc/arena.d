@@ -30,7 +30,7 @@ private:
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
 	ulong filter;
-	EpochBlockHeap[HeapCount] heaps;
+	PriorityBlockHeap[HeapCount] heaps;
 
 	import d.gc.bin;
 	Bin[ClassCount.Small] bins;
@@ -410,7 +410,7 @@ private:
 		unregisterBlock(block);
 
 		e.at(e.address, pages * PageSize, block);
-		block.release(index, delta);
+		block.clear(index, delta);
 
 		assert(!block.empty);
 		registerBlock(block);
@@ -425,7 +425,7 @@ private:
 		auto block = e.block;
 		unregisterBlock(block);
 
-		auto didGrow = block.reserveAt(index, delta);
+		auto didGrow = block.growAt(index, delta);
 		if (didGrow) {
 			e.at(e.address, pages * PageSize, block);
 		}
