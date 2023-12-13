@@ -54,7 +54,7 @@ private:
 	Mutex mutex;
 
 	ulong nextEpoch;
-	uint dirtyBlocks = 0;
+	uint dirtyBlockCount;
 
 	// Free regions we can allocate from.
 	ClassTree regionsByClass;
@@ -85,14 +85,6 @@ public:
 		scope(exit) mutex.unlock();
 
 		(cast(RegionAllocator*) &this).releaseImpl(ptr, blocks);
-	}
-
-	@property
-	size_t dirtyBlockCount() shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		return (cast(RegionAllocator*) &this).dirtyBlocks;
 	}
 
 private:
@@ -128,7 +120,7 @@ private:
 		auto allocSize = totalBlocks * BlockSize;
 		auto newSize = r.size - allocSize;
 		if (newSize == 0) {
-			dirtyBlocks -= r.dirtyBlockCount;
+			dirtyBlockCount -= r.dirtyBlockCount;
 			unusedRegions.insert(r);
 			return true;
 		}
@@ -137,7 +129,7 @@ private:
 		// of dirty blocks accurately.
 		auto acquiredDirtyBlocks =
 			r.countDirtyBlocksInSubRegion(0, totalBlocks);
-		dirtyBlocks -= acquiredDirtyBlocks;
+		dirtyBlockCount -= acquiredDirtyBlocks;
 
 		auto remainingDirtyBlocks = r.dirtyBlockCount - acquiredDirtyBlocks;
 		r.at(ptr + allocSize, newSize, remainingDirtyBlocks * BlockSize);
@@ -150,7 +142,7 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		// Released blocks are considered dirty.
-		dirtyBlocks += blocks;
+		dirtyBlockCount += blocks;
 		auto size = blocks * BlockSize;
 
 		auto r = getOrAllocateRegion();
@@ -233,7 +225,7 @@ unittest acquire_release {
 	ulong expectedEpoch = 0;
 	BlockDescriptor block0;
 
-	assert(regionAllocator.dirtyBlockCount == 0);
+	assert(ra.dirtyBlockCount == 0);
 	assert(regionAllocator.acquire(&block0));
 	assert(block0.epoch == expectedEpoch++);
 
@@ -248,7 +240,7 @@ unittest acquire_release {
 		BlockDescriptor block;
 		block.at(block0.address + i * BlockSize, 0);
 		regionAllocator.release(&block);
-		assert(regionAllocator.dirtyBlockCount == i - 4);
+		assert(ra.dirtyBlockCount == i - 4);
 	}
 
 	{
@@ -263,7 +255,7 @@ unittest acquire_release {
 		BlockDescriptor block;
 		block.at(block0.address + i * BlockSize, 0);
 		regionAllocator.release(&block);
-		assert(regionAllocator.dirtyBlockCount == i + 508);
+		assert(ra.dirtyBlockCount == i + 508);
 	}
 
 	{
