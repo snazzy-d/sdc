@@ -1,6 +1,7 @@
 module d.gc.extent;
 
 import d.gc.base;
+import d.gc.bitmap;
 import d.gc.heap;
 import d.gc.rbtree;
 import d.gc.sizeclass;
@@ -97,8 +98,6 @@ private:
 	}
 
 	Links _links;
-
-	import d.gc.bitmap;
 
 	struct SlabMetadata {
 		ubyte[32] pad;
@@ -321,6 +320,9 @@ public:
 		slabData.clearBit(index);
 	}
 
+	/**
+	 * Metadata features for slabs.
+	 */
 	@property
 	ref Bitmap!512 slabData() {
 		// FIXME: in contract.
@@ -328,10 +330,6 @@ public:
 
 		return _metadata.slabData.slabData;
 	}
-
-	/**
-	 * Metadata features for slabs.
-	 */
 
 	@property
 	ref shared(Bitmap!256) slabMetadataFlags() {
