@@ -124,18 +124,14 @@ private:
 
 		assert(r.address !is null && isAligned(r.address, BlockSize),
 		       "Invalid address!");
-		assert(r.size >= BlockSize && isAligned(r.size, BlockSize),
-		       "Invalid size!");
-		assert(r.size > extraBlocks * BlockSize,
-		       "Insuffiscient address space!");
+		assert(r.blockCount > extraBlocks, "Insuffiscient address space!");
 
 		auto ptr = r.address;
 		auto extraSize = extraBlocks * BlockSize;
 		block.at(ptr + extraSize);
 
-		auto allocSize = totalBlocks * BlockSize;
-		auto newSize = r.size - allocSize;
-		if (newSize == 0) {
+		auto newBlockCount = r.blockCount - totalBlocks;
+		if (newBlockCount == 0) {
 			dirtyBlockCount -= r.dirtyBlockCount;
 			unusedRegions.insert(r);
 			return true;
@@ -148,7 +144,8 @@ private:
 		dirtyBlockCount -= acquiredDirtyBlocks;
 
 		auto remainingDirtyBlocks = r.dirtyBlockCount - acquiredDirtyBlocks;
-		r.at(ptr + allocSize, newSize, remainingDirtyBlocks * BlockSize);
+		auto allocSize = totalBlocks * BlockSize;
+		r.at(ptr + allocSize, newBlockCount, remainingDirtyBlocks);
 		registerRegion(r);
 
 		return true;
@@ -159,10 +156,9 @@ private:
 
 		// Released blocks are considered dirty.
 		dirtyBlockCount += blocks;
-		auto size = blocks * BlockSize;
 
 		auto r = getOrAllocateRegion();
-		r.atDirty(ptr, size);
+		r.atDirty(ptr, blocks);
 		registerRegion(r);
 	}
 
@@ -213,7 +209,8 @@ private:
 		maxAddress = max(maxAddress, v + blocks * BlockSize);
 
 		// Newly allocated blocks are considered clean.
-		return r.atClean(ptr, size);
+		assert(blocks <= uint.max, "blocks does not fit in 32 bits!");
+		return r.atClean(ptr, blocks & uint.max);
 	}
 
 	Region* getOrAllocateRegion() {
@@ -356,8 +353,8 @@ unittest enormous {
 
 struct Region {
 	void* address;
-	size_t size;
-	size_t dirtySize;
+	uint blockCount;
+	uint dirtyBlockCount;
 
 	ubyte allocClass;
 	ubyte generation;
@@ -377,37 +374,37 @@ struct Region {
 	import d.gc.bitmap;
 	Bitmap!RefillBlockCount dirtyBlocks;
 
-	this(void* ptr, size_t size, ubyte generation = 0, size_t dirtySize = 0) {
+	this(void* ptr, uint blockCount, ubyte generation = 0,
+	     uint dirtyBlockCount = 0) {
 		assert(isAligned(ptr, BlockSize), "Invalid ptr alignment!");
-		assert(isAligned(size, BlockSize), "Invalid size!");
-		assert(isAligned(dirtySize, BlockSize), "Invalid dirtySize!");
-		assert(dirtySize <= size, "Dirty size exceeds size!");
+		assert(dirtyBlockCount <= blockCount,
+		       "Dirty block count exceeds block count!");
 
 		address = ptr;
-		this.size = size;
+		this.blockCount = blockCount;
 		this.generation = generation;
-		this.dirtySize = dirtySize;
+		this.dirtyBlockCount = dirtyBlockCount;
 
 		allocClass = getFreeSpaceClass(blockCount);
 	}
 
 public:
-	Region* at(void* ptr, size_t size, size_t dirtySize) {
+	Region* at(void* ptr, uint blockCount, uint dirtyBlockCount) {
 		auto oldDirtyBlocks = dirtyBlocks;
 		scope(success) dirtyBlocks = oldDirtyBlocks;
 
-		this = Region(ptr, size, generation, dirtySize);
+		this = Region(ptr, blockCount, generation, dirtyBlockCount);
 		return &this;
 	}
 
-	Region* atClean(void* ptr, size_t size) {
-		at(ptr, size, 0);
+	Region* atClean(void* ptr, uint blockCount) {
+		at(ptr, blockCount, 0);
 		dirtyBlocks.clear();
 		return &this;
 	}
 
-	Region* atDirty(void* ptr, size_t size) {
-		at(ptr, size, size);
+	Region* atDirty(void* ptr, uint blockCount) {
+		at(ptr, blockCount, blockCount);
 
 		// Make the region dirty.
 		// FIXME: We use min to ensures we don't trip an assert
@@ -443,13 +440,8 @@ public:
 	}
 
 	@property
-	uint blockCount() const {
-		return (size / BlockSize) & uint.max;
-	}
-
-	@property
-	uint dirtyBlockCount() const {
-		return (dirtySize / BlockSize) & uint.max;
+	size_t size() const {
+		return blockCount * BlockSize;
 	}
 
 	@property
@@ -479,8 +471,11 @@ public:
 
 		// Dirt is at all times contiguous within a region, and starts at the bottom.
 		// Given as purging is not yet supported, this invariant always holds.
-		assert(left.dirtySize == left.size || right.dirtySize == 0,
-		       "Merge would place dirty blocks in front of clean blocks!");
+		assert(
+			left.dirtyBlockCount == left.blockCount
+				|| right.dirtyBlockCount == 0,
+			"Merge would place dirty blocks in front of clean blocks!"
+		);
 
 		// Copy the dirty bits.
 		// FIXME: We use min to ensures we don't trip an assert
@@ -489,7 +484,8 @@ public:
 		                                min(r.blockCount, RefillBlockCount));
 
 		auto a = min(address, r.address);
-		return at(a, size + r.size, dirtySize + r.dirtySize);
+		return at(a, blockCount + r.blockCount,
+		          dirtyBlockCount + r.dirtyBlockCount);
 	}
 }
 
@@ -508,9 +504,9 @@ unittest rangeTree {
 	RBTree!(Region, addrRangeRegionCmp, "rbRange") regionsByRange;
 
 	auto base = cast(void*) 0x456789a00000;
-	auto r0 = Region(base, BlockSize);
-	auto r1 = Region(base + BlockSize, BlockSize);
-	auto r2 = Region(base + 2 * BlockSize, BlockSize);
+	auto r0 = Region(base, 1);
+	auto r1 = Region(base + BlockSize, 1);
+	auto r2 = Region(base + 2 * BlockSize, 1);
 
 	regionsByRange.insert(&r0);
 
@@ -574,7 +570,7 @@ unittest trackDirtyBlocks {
 			assert(regionAllocator.dirtyBlockCount == expectedDirtyBlocks);
 
 			Region rr;
-			rr.at(b.address, BlockSize, 0);
+			rr.at(b.address, 1, 0);
 			auto r = ra.regionsByRange.find(&rr);
 			assert(r.contains(b.address));
 			assert(r.dirtyBlocks.valueAt(rr.startOffset));
