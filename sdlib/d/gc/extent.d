@@ -3,15 +3,9 @@ module d.gc.extent;
 import d.gc.base;
 import d.gc.bitmap;
 import d.gc.heap;
-import d.gc.rbtree;
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
-
-alias ExtentTree = RBTree!(Extent, addrRangeExtentCmp);
-
-alias PHNode = heap.Node!Extent;
-alias RBNode = rbtree.Node!Extent;
 
 struct ExtentClass {
 	ubyte data;
@@ -92,12 +86,7 @@ private:
 	// like garbage collection :P
 	void* _pad;
 
-	union Links {
-		PHNode phnode;
-		RBNode rbnode;
-	}
-
-	Links _links;
+	Node!Extent _phnode;
 
 	struct SlabMetadata {
 		ubyte[32] pad;
@@ -207,13 +196,8 @@ public:
 	}
 
 	@property
-	ref PHNode phnode() {
-		return _links.phnode;
-	}
-
-	@property
-	ref RBNode rbnode() {
-		return _links.rbnode;
+	ref Node!Extent phnode() {
+		return _phnode;
 	}
 
 	bool contains(void* ptr) const {
