@@ -63,6 +63,9 @@ private:
 	// Unused region objects.
 	Heap!(Region, unusedRegionCmp) unusedRegions;
 
+	ulong minAddress = AddressSpace;
+	ulong maxAddress = 0;
+
 public:
 	bool acquire(BlockDescriptor* block, uint extraBlocks = 0) shared {
 		mutex.lock();
@@ -87,7 +90,21 @@ public:
 		(cast(RegionAllocator*) &this).releaseImpl(ptr, blocks);
 	}
 
+	auto computeAddressRange() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(RegionAllocator*) &this).computeAddressRangeImpl();
+	}
+
 private:
+	auto computeAddressRangeImpl() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		import d.gc.range;
+		return AddressRange(cast(void*) minAddress, cast(void*) maxAddress);
+	}
+
 	bool acquireImpl(BlockDescriptor* block, uint extraBlocks = 0) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
@@ -192,6 +209,10 @@ private:
 			return null;
 		}
 
+		auto v = cast(size_t) ptr;
+		minAddress = min(minAddress, v);
+		maxAddress = max(maxAddress, v + blocks * BlockSize);
+
 		// Newly allocated blocks are considered clean.
 		return r.atClean(ptr, size);
 	}
@@ -229,11 +250,19 @@ unittest acquire_release {
 	assert(regionAllocator.acquire(&block0));
 	assert(block0.epoch == expectedEpoch++);
 
+	// Check we compute the proper range.
+	auto r = regionAllocator.computeAddressRange();
+	assert(!r.contains(block0.address - 1));
+	assert(r.contains(block0.address));
+	assert(r.contains(block0.address + RefillBlockCount * BlockSize - 1));
+	assert(!r.contains(block0.address + RefillBlockCount * BlockSize));
+
 	foreach (i; 1 .. RefillBlockCount) {
 		BlockDescriptor block;
 		assert(regionAllocator.acquire(&block));
 		assert(block.epoch == expectedEpoch++);
 		assert(block.address is block0.address + i * BlockSize);
+		assert(r.contains(block.address));
 	}
 
 	foreach (i; 5 .. RefillBlockCount) {
@@ -317,6 +346,15 @@ unittest enormous {
 
 	BlockDescriptor block0;
 	assert(regionAllocator.acquire(&block0, ExtraBlocks));
+
+	// Check we compute the proper range.
+	auto r = regionAllocator.computeAddressRange();
+	assert(!r.contains(block0.address - ExtraBlocks * BlockSize - 1));
+	assert(r.contains(block0.address - ExtraBlocks * BlockSize));
+	assert(r.contains(block0.address));
+	assert(r.contains(block0.address + BlockSize - 1));
+	assert(!r.contains(block0.address + BlockSize));
+
 	regionAllocator.release(block0.address - ExtraBlocks * BlockSize, Blocks);
 }
 
