@@ -19,7 +19,51 @@ alias RNode = ring.Node!BlockDescriptor;
  */
 struct BlockDescriptor {
 private:
-	void* address;
+	/**
+	 * This is a bitfield containing the following elements:
+	 *  - f: The longest free range.
+	 *  - s: The allocation score.
+	 *  - a: The address of the block itself.
+	 * 
+	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
+	 * ......ff ffffffff ......ss ssssssss .....aaa aaaaaaaa aaaaaaaa aaaaaaaa
+	 * 
+	 * We want that bitfield to be usable as a discriminant to prioritize
+	 * from which block we want to allocate.
+	 * 
+	 *  1. Reduce fragmentation.
+	 *     We therefore try to select the block with the shortest free range
+	 *     possible, so we avoid unecesserly breaking large free ranges.
+	 * 
+	 *  2. Use block which already host many allocations.
+	 *     We do so in order to maximize our chances to be able to free blocks.
+	 * 
+	 *     This tends to work better in practice than counting the number
+	 *     of allocated pages or other metrics. For details, please see the
+	 *     Temeraire paper: https://research.google/pubs/pub50370/
+	 * 
+	 *     The intuition is that the more allocations live on a block,
+	 *     the more likely it is that one of them is going to be long lived.
+	 * 
+	 *  3. Everything else being equal, we default to lowest address.
+	 */
+	ulong bits = ulong(PagesInBlock) << LongestFreeRangeIndex
+		| ulong(PagesInBlock) << AllocScoreIndex;
+
+	// Verify our assumptions.
+	enum SignifiantAddressBits = LgAddressSpace - LgBlockSize;
+	static assert(SignifiantAddressBits <= 32,
+	              "Unable to pack address in bits!");
+
+	// Useful constants for bit manipulationss.
+	enum LongestFreeRangeIndex = 48;
+	enum LongestFreeRangeSize = 10;
+	enum LongestFreeRangeMask = (1 << LongestFreeRangeSize) - 1;
+
+	enum AllocScoreIndex = 32;
+	enum AllocScoreSize = 10;
+	enum AllocScoreUnit = 1UL << AllocScoreIndex;
+	enum AllocScoreMask = (1 << AllocScoreSize) - 1;
 
 	union Links {
 		PHNode phnode;
@@ -27,9 +71,6 @@ private:
 	}
 
 	Links _links;
-
-	uint longestFreeRange = PagesInBlock;
-	uint allocScore = PagesInBlock;
 
 	uint usedCount;
 	uint dirtyCount;
@@ -40,7 +81,9 @@ private:
 	Bitmap!PagesInBlock dirtyPages;
 
 	this(void* address, ubyte generation = 0) {
-		this.address = address;
+		assert(isAligned(address, BlockSize), "Invalid address!");
+
+		this.bits |= (cast(size_t) address) >> LgBlockSize;
 		this.generation = generation;
 	}
 
@@ -65,7 +108,7 @@ public:
 			 * We create the elements starting from the last so that
 			 * they are inserted in the heap from worst to best.
 			 * This ensures the heap is a de facto linked list.
-			 * */
+			 */
 			auto slot = page.add((Count - 1 - i) * BlockDescriptorSize);
 			auto block = cast(BlockDescriptor*) slot.address;
 
@@ -77,6 +120,30 @@ public:
 	}
 
 	@property
+	void* address() const {
+		return cast(void*) ((bits & uint.max) << LgBlockSize);
+	}
+
+	@property
+	uint longestFreeRange() const {
+		return (bits >> LongestFreeRangeIndex) & LongestFreeRangeMask;
+	}
+
+	void updateLongestFreeRange(uint lfr) {
+		assert(lfr <= PagesInBlock, "Invalid lfr!");
+
+		enum ShiftedMask = ulong(LongestFreeRangeMask) << LongestFreeRangeIndex;
+		bits &= ~ShiftedMask;
+		bits |= ulong(lfr) << LongestFreeRangeIndex;
+	}
+
+	@property
+	uint allocCount() const {
+		uint allocScore = (bits >> AllocScoreIndex) & AllocScoreMask;
+		return PagesInBlock - allocScore;
+	}
+
+	@property
 	bool empty() const {
 		return usedCount == 0;
 	}
@@ -84,11 +151,6 @@ public:
 	@property
 	bool full() const {
 		return usedCount >= PagesInBlock;
-	}
-
-	@property
-	uint allocCount() const {
-		return PagesInBlock - allocScore;
 	}
 
 	@property
@@ -132,16 +194,16 @@ public:
 			current = index + length;
 		}
 
-		allocScore--;
+		bits -= AllocScoreUnit;
 		registerAllocation(bestIndex, pages);
 
 		// If we allocated from the longest range,
 		// compute the new longest free range.
 		if (bestLength == longestLength) {
 			longestLength = max(longestLength - pages, secondLongestLength);
+			updateLongestFreeRange(longestLength);
 		}
 
-		longestFreeRange = longestLength;
 		return bestIndex;
 	}
 
@@ -172,7 +234,7 @@ public:
 			current += length;
 		}
 
-		longestFreeRange = longestLength;
+		updateLongestFreeRange(longestLength);
 		return true;
 	}
 
@@ -199,60 +261,38 @@ public:
 		       "Clearing unallocated pages!");
 
 		allocatedPages.clearRange(index, pages);
+		usedCount -= pages;
+
 		auto start = allocatedPages.findSetBackward(index) + 1;
 		auto stop = allocatedPages.findSet(index + pages - 1);
 
-		usedCount -= pages;
-		longestFreeRange = max(longestFreeRange, stop - start);
+		auto clearedLongestFreeRange = stop - start;
+		if (clearedLongestFreeRange > longestFreeRange) {
+			updateLongestFreeRange(clearedLongestFreeRange);
+		}
 	}
 
 	void release(uint index, uint pages) {
 		clear(index, pages);
-		allocScore++;
+		bits += AllocScoreUnit;
 	}
 }
 
 alias PriorityBlockHeap = Heap!(BlockDescriptor, priorityBlockCmp);
 
 ptrdiff_t priorityBlockCmp(BlockDescriptor* lhs, BlockDescriptor* rhs) {
-	/**
-	 * Our first priority is to reduce fragmentation.
-	 * We therefore try to select the block with the shortest
-	 * free range possible, so we avoid unecesserly breaking
-	 * large free ranges.
-	 */
-	auto l = ulong(lhs.longestFreeRange) << 48;
-	auto r = ulong(rhs.longestFreeRange) << 48;
-
-	/**
-	 * Our second priority is the number of allocation in the block.
-	 * We do so in order to maximize our chances to be able to free blocks.
-	 * 
-	 * This tends to work better in practice than counting the number
-	 * of allocated pages or other metrics. For details, please see the
-	 * Temeraire paper: https://research.google/pubs/pub50370/
-	 * 
-	 * The intuition is that the more allocation live on a block,
-	 * the more likely one of them is goign to be long lived.
-	 */
-	l |= ulong(lhs.allocScore) << 32;
-	r |= ulong(rhs.allocScore) << 32;
-
-	// We must shift the address itself so it doesn't collide.
-	// Block alignement is > 16 bits so it's all zeros.
-	static assert(LgBlockSize > 16, "Blocks too small!");
-	l |= (cast(size_t) lhs) >> 16;
-	r |= (cast(size_t) rhs) >> 16;
-
+	auto l = lhs.bits;
+	auto r = rhs.bits;
 	return (l > r) - (l < r);
 }
 
 unittest priority {
 	static makeBlock(uint lfr, uint nalloc) {
 		BlockDescriptor block;
-		block.longestFreeRange = lfr;
-		block.allocScore = PagesInBlock - nalloc;
+		block.updateLongestFreeRange(lfr);
+		block.bits -= nalloc * BlockDescriptor.AllocScoreUnit;
 
+		assert(block.longestFreeRange == lfr);
 		assert(block.allocCount == nalloc);
 		return block;
 	}
