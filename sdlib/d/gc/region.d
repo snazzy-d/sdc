@@ -4,6 +4,7 @@ import d.gc.allocclass;
 import d.gc.base;
 import d.gc.heap;
 import d.gc.block;
+import d.gc.range;
 import d.gc.rbtree;
 
 import d.gc.spec;
@@ -100,8 +101,7 @@ private:
 	auto computeAddressRangeImpl() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		import d.gc.range;
-		return AddressRange(cast(void*) minAddress, cast(void*) maxAddress);
+		return makeRange(cast(void*) minAddress, cast(void*) maxAddress);
 	}
 
 	bool acquireImpl(BlockDescriptor* block, uint extraBlocks = 0) {

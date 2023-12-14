@@ -49,6 +49,7 @@ void* __sd_gc_realloc(void* ptr, size_t size) {
 }
 
 void __sd_gc_set_stack_bottom(const void* bottom) {
+	import d.gc.range;
 	threadCache.stackBottom = makeRange(bottom[0 .. 0]).ptr;
 }
 

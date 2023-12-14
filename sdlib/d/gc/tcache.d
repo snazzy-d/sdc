@@ -232,6 +232,7 @@ public:
 			realloc(ptr, (roots.length + 1) * void*[].sizeof, true);
 
 		// Using .ptr to bypass bound checking.
+		import d.gc.range;
 		roots.ptr[roots.length] = makeRange(range);
 
 		// Update the range.
@@ -258,6 +259,7 @@ public:
 		auto framePointer = readFramePointer();
 		auto length = stackBottom - framePointer;
 
+		import d.gc.range;
 		auto range = makeRange(framePointer[0 .. length]);
 		return scan(range);
 	}
@@ -372,56 +374,6 @@ version(OSX) {
 	alias __sd_gc_push_registers = _sd_gc_push_registers;
 } else {
 	bool __sd_gc_push_registers(bool delegate());
-}
-
-/**
- * This function get a void[] range and chnage it into a
- * const(void*)[] one, reducing to alignement boundaries.
- */
-const(void*)[] makeRange(const void[] range) {
-	auto begin = alignUp(range.ptr, PointerSize);
-	auto end = alignDown(range.ptr + range.length, PointerSize);
-
-	auto ibegin = cast(size_t) begin;
-	auto iend = cast(size_t) end;
-	if (ibegin > iend) {
-		return [];
-	}
-
-	auto ptr = cast(void**) begin;
-	auto length = (iend - ibegin) / PointerSize;
-
-	return ptr[0 .. length];
-}
-
-unittest makeRange {
-	static checkRange(const void[] range, size_t start, size_t stop) {
-		auto r = makeRange(range);
-		assert(r.ptr is cast(const void**) start);
-		assert(r.ptr + r.length is cast(const void**) stop);
-	}
-
-	void* ptr;
-	void[] range = ptr[0 .. 5];
-
-	checkRange(ptr[0 .. 0], 0, 0);
-	checkRange(ptr[0 .. 1], 0, 0);
-	checkRange(ptr[0 .. 2], 0, 0);
-	checkRange(ptr[0 .. 3], 0, 0);
-	checkRange(ptr[0 .. 4], 0, 0);
-	checkRange(ptr[0 .. 5], 0, 0);
-	checkRange(ptr[0 .. 6], 0, 0);
-	checkRange(ptr[0 .. 7], 0, 0);
-	checkRange(ptr[0 .. 8], 0, 8);
-
-	checkRange(ptr[1 .. 1], 0, 0);
-	checkRange(ptr[1 .. 2], 0, 0);
-	checkRange(ptr[1 .. 3], 0, 0);
-	checkRange(ptr[1 .. 4], 0, 0);
-	checkRange(ptr[1 .. 5], 0, 0);
-	checkRange(ptr[1 .. 6], 0, 0);
-	checkRange(ptr[1 .. 7], 0, 0);
-	checkRange(ptr[1 .. 8], 8, 8);
 }
 
 unittest nonAllocatableSizes {
