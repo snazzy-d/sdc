@@ -144,11 +144,6 @@ extern(C) _Unwind_Reason_Code __sd_eh_personality(
 
 	// Cache the value so we don't fetch the global again and again.
 	auto e = inFlight;
-	if (e is null) {
-		import core.stdc.stdlib, core.stdc.stdio;
-		printf("NO INFLIGHT EXCEPTION\n");
-		exit(-1);
-	}
 
 	// We do not catch foreign exceptions and if we have to force unwind.
 	bool doCatch = (exceptionClass == ExceptionClass)
