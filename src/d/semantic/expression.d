@@ -606,7 +606,7 @@ public:
 
 	Expression visit(AstCallExpression c) {
 		import std.algorithm, std.array;
-		auto args = c.args.map!(a => visit(a)).array();
+		auto args = c.arguments.map!(a => visit(a)).array();
 
 		// FIXME: Have a ThisCallExpression.
 		auto te = cast(ThisExpression) c.callee;
@@ -646,7 +646,7 @@ public:
 
 	Expression visit(IdentifierCallExpression c) {
 		import std.algorithm, std.array;
-		auto args = c.args.map!(a => visit(a)).array();
+		auto args = c.arguments.map!(a => visit(a)).array();
 
 		// XXX: Why are doing this here ?
 		// Shouldn't this be done in the identifier module ?
@@ -692,7 +692,7 @@ public:
 		auto t = TypeVisitor(pass).visit(e.type);
 
 		import std.algorithm, std.array;
-		auto args = e.args.map!(a => visit(a)).array();
+		auto args = e.arguments.map!(a => visit(a)).array();
 
 		return callType(e.location, e.location, t, args);
 	}

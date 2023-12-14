@@ -258,18 +258,18 @@ class AstCastExpression : AstExpression {
  */
 class AstCallExpression : AstExpression {
 	AstExpression callee;
-	AstExpression[] args;
+	AstExpression[] arguments;
 
-	this(Location location, AstExpression callee, AstExpression[] args) {
+	this(Location location, AstExpression callee, AstExpression[] arguments) {
 		super(location);
 
 		this.callee = callee;
-		this.args = args;
+		this.arguments = arguments;
 	}
 
 	override string toString(const Context c) const {
 		import std.algorithm, std.range;
-		auto aa = args.map!(a => a.toString(c)).join(", ");
+		auto aa = arguments.map!(a => a.toString(c)).join(", ");
 		return callee.toString(c) ~ "(" ~ aa ~ ")";
 	}
 }
@@ -279,18 +279,18 @@ class AstCallExpression : AstExpression {
  */
 class IdentifierCallExpression : AstExpression {
 	Identifier callee;
-	AstExpression[] args;
+	AstExpression[] arguments;
 
-	this(Location location, Identifier callee, AstExpression[] args) {
+	this(Location location, Identifier callee, AstExpression[] arguments) {
 		super(location);
 
 		this.callee = callee;
-		this.args = args;
+		this.arguments = arguments;
 	}
 
 	override string toString(const Context c) const {
 		import std.algorithm, std.range;
-		auto aa = args.map!(a => a.toString(c)).join(", ");
+		auto aa = arguments.map!(a => a.toString(c)).join(", ");
 		return callee.toString(c) ~ "(" ~ aa ~ ")";
 	}
 }
@@ -300,18 +300,18 @@ class IdentifierCallExpression : AstExpression {
  */
 class TypeCallExpression : AstExpression {
 	AstType type;
-	AstExpression[] args;
+	AstExpression[] arguments;
 
-	this(Location location, AstType type, AstExpression[] args) {
+	this(Location location, AstType type, AstExpression[] arguments) {
 		super(location);
 
 		this.type = type;
-		this.args = args;
+		this.arguments = arguments;
 	}
 
 	override string toString(const Context c) const {
 		import std.algorithm, std.range;
-		auto aa = args.map!(a => a.toString(c)).join(", ");
+		auto aa = arguments.map!(a => a.toString(c)).join(", ");
 		return type.toString(c) ~ "(" ~ aa ~ ")";
 	}
 }
