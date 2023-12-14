@@ -20,7 +20,7 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	enum HeapCount = getAllocClass(PagesInBlock);
+	enum HeapCount = getAllocClass(PagesInBlock - 1);
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
 	ulong filter;
