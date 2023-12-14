@@ -253,7 +253,7 @@ unittest locking {
 
 		auto x = *(cast(Delegate*) &dg);
 
-		import d.rt.thread;
+		import core.stdc.pthread;
 		pthread_t tid;
 		auto r = pthread_create(&tid, null, x.fun, x.ctx);
 		assert(r == 0, "Failed to create thread!");
@@ -300,7 +300,7 @@ unittest locking {
 
 	void* ret;
 
-	import d.rt.thread;
+	import core.stdc.pthread;
 	pthread_join(t1, &ret);
 	pthread_join(t2, &ret);
 
@@ -345,7 +345,7 @@ unittest fairness {
 
 		auto x = *(cast(Delegate*) &dg);
 
-		import d.rt.thread;
+		import core.stdc.pthread;
 		pthread_t tid;
 		auto r = pthread_create(&tid, null, x.fun, x.ctx);
 		assert(r == 0, "Failed to create thread!");
@@ -379,7 +379,7 @@ unittest fairness {
 	keepGoing.store(true);
 	mutex.lock();
 
-	import d.rt.thread;
+	import core.stdc.pthread;
 	pthread_t[ThreadCount] ts;
 	foreach (i; 0 .. ThreadCount) {
 		ts[i] = run(i);
