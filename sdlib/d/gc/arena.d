@@ -483,7 +483,7 @@ private:
 			return;
 		}
 
-		auto index = getFreeSpaceClass(block.longestFreeRange);
+		auto index = block.freeRangeClass;
 		heaps[index].remove(block);
 		filter &= ~(ulong(heaps[index].empty) << index);
 	}
@@ -497,7 +497,7 @@ private:
 			return;
 		}
 
-		auto index = getFreeSpaceClass(block.longestFreeRange);
+		auto index = block.freeRangeClass;
 		heaps[index].insert(block);
 		filter |= ulong(1) << index;
 	}

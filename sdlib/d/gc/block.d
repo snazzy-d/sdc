@@ -1,5 +1,6 @@
 module d.gc.block;
 
+import d.gc.allocclass;
 import d.gc.base;
 import d.gc.heap;
 import d.gc.ring;
@@ -22,11 +23,12 @@ private:
 	/**
 	 * This is a bitfield containing the following elements:
 	 *  - f: The longest free range.
+	 *  - c: The allocation class associated with the longest free range.
 	 *  - s: The allocation score.
 	 *  - a: The address of the block itself.
 	 * 
 	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
-	 * ......ff ffffffff ......ss ssssssss .....aaa aaaaaaaa aaaaaaaa aaaaaaaa
+	 * .fffffff fffccccc ......ss ssssssss .....aaa aaaaaaaa aaaaaaaa aaaaaaaa
 	 * 
 	 * We want that bitfield to be usable as a discriminant to prioritize
 	 * from which block we want to allocate.
@@ -55,10 +57,18 @@ private:
 	static assert(SignifiantAddressBits <= 32,
 	              "Unable to pack address in bits!");
 
-	// Useful constants for bit manipulationss.
-	enum LongestFreeRangeIndex = 48;
+	enum MaxFreeRangeClass = getFreeSpaceClass(PagesInBlock);
+	static assert(MaxFreeRangeClass <= FreeRangeClassMask,
+	              "Unable to pack the free range class!");
+
+	// Useful constants for bit manipulations.
+	enum LongestFreeRangeIndex = 53;
 	enum LongestFreeRangeSize = 10;
 	enum LongestFreeRangeMask = (1 << LongestFreeRangeSize) - 1;
+
+	enum FreeRangeClassIndex = 48;
+	enum FreeRangeClassSize = 5;
+	enum FreeRangeClassMask = (1 << FreeRangeClassSize) - 1;
 
 	enum AllocScoreIndex = 32;
 	enum AllocScoreSize = 10;
@@ -129,11 +139,20 @@ public:
 		return (bits >> LongestFreeRangeIndex) & LongestFreeRangeMask;
 	}
 
+	@property
+	ubyte freeRangeClass() const {
+		return (bits >> FreeRangeClassIndex) & FreeRangeClassMask;
+	}
+
 	void updateLongestFreeRange(uint lfr) {
 		assert(lfr <= PagesInBlock, "Invalid lfr!");
 
-		enum ShiftedMask = ulong(LongestFreeRangeMask) << LongestFreeRangeIndex;
+		enum ShiftedMask = ulong(LongestFreeRangeMask) << LongestFreeRangeIndex
+			| ulong(FreeRangeClassMask) << FreeRangeClassIndex;
 		bits &= ~ShiftedMask;
+
+		auto c = getFreeSpaceClass(lfr) & FreeRangeClassMask;
+		bits |= ulong(c) << FreeRangeClassIndex;
 		bits |= ulong(lfr) << LongestFreeRangeIndex;
 	}
 
