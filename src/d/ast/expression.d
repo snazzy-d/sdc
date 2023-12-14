@@ -354,6 +354,13 @@ class AstSliceExpression : AstExpression {
 		this.first = first;
 		this.second = second;
 	}
+
+	override string toString(const Context c) const {
+		import std.algorithm, std.range;
+		auto fa = first.map!(a => a.toString(c)).join(", ");
+		auto sa = second.map!(a => a.toString(c)).join(", ");
+		return sliced.toString(c) ~ "[" ~ fa ~ " .. " ~ sa ~ "]";
+	}
 }
 
 /**
