@@ -34,10 +34,10 @@ export -f process_file
 
 if [ $# -ge 1 ] && [ "$1" == "--no-parallel" ] ; then
 	echo "Using non-parallel batch processing mode"
-    for fn in $FILES; do process_file $fn; done
+	for fn in $FILES; do process_file $fn; done
 
 elif command -v parallel &> /dev/null; then
-    parallel process_file ::: "$FILES"
+	parallel process_file ::: "$FILES"
 
 else
 	echo -e "Error:\tCannot locate 'parallel'."
