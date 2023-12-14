@@ -32,8 +32,15 @@ process_file() {
 }
 export -f process_file
 
-if command -v parallel &> /dev/null; then
-    parallel process_file ::: "$FILES"
-else
+if [ $# -ge 1 ] && [ "$1" == "--no-parallel" ] ; then
+	echo "Using non-parallel batch processing mode"
     for fn in $FILES; do process_file $fn; done
+
+elif command -v parallel &> /dev/null; then
+    parallel process_file ::: "$FILES"
+
+else
+	echo -e "Error:\tCannot locate 'parallel'."
+	echo -e "      \tPass --no-parallel to fall back to slow batch processing instead."
+	echo -e "      \t\t${0} --no-parallel"
 fi
