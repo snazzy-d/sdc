@@ -18,6 +18,15 @@ version(OSX) {
 		Fixed = 0x10,
 		Anon = 0x1000,
 	}
+
+	enum Advise {
+		Normal = 0x00,
+		Random = 0x01,
+		Sequential = 0x02,
+		WillNeed = 0x03,
+		DontNeed = 0x04,
+		Free = 0x05,
+	}
 }
 
 version(FreeBSD) {
@@ -26,6 +35,15 @@ version(FreeBSD) {
 		Private = 0x02,
 		Fixed = 0x10,
 		Anon = 0x1000,
+	}
+
+	enum Advise {
+		Normal = 0x00,
+		Random = 0x01,
+		Sequential = 0x02,
+		WillNeed = 0x03,
+		DontNeed = 0x04,
+		Free = 0x05,
 	}
 }
 
@@ -36,9 +54,19 @@ version(linux) {
 		Fixed = 0x10,
 		Anon = 0x20,
 	}
+
+	enum Advise {
+		Normal = 0x00,
+		Random = 0x01,
+		Sequential = 0x02,
+		WillNeed = 0x03,
+		DontNeed = 0x04,
+		Free = 0x08,
+	}
 }
 
 extern(C):
 void* mmap(void* addr, size_t length, int prot, int flags, int fd,
            off_t offset);
 int munmap(void* addr, size_t length);
+int madvise(void* addr, size_t length, int advice);
