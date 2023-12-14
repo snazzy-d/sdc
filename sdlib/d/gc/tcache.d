@@ -13,7 +13,6 @@ private:
 	import d.gc.emap;
 	CachedExtentMap emap;
 
-	const(void)* stackBottom;
 	const(void*)[][] roots;
 
 public:
@@ -243,8 +242,9 @@ public:
 		// TODO: The set need a range interface or some other way to iterrate.
 		// FIXME: Prepare the GC so it has bitfields for all extent classes.
 
-		// Scan the roots !
-		__sd_gc_push_registers(scanStack);
+		// TODO: Call into rt.thread to scan stack/statics.
+
+		// Scan the roots.
 		foreach (range; roots) {
 			scan(range);
 		}
@@ -252,16 +252,6 @@ public:
 		// TODO: Go on and on until all worklists are empty.
 
 		// TODO: Collect.
-	}
-
-	bool scanStack() {
-		import sdc.intrinsics;
-		auto framePointer = readFramePointer();
-		auto length = stackBottom - framePointer;
-
-		import d.gc.range;
-		auto range = makeRange(framePointer[0 .. length]);
-		return scan(range);
 	}
 
 	bool scan(const(void*)[] range) {
@@ -366,15 +356,6 @@ private:
 }
 
 private:
-
-extern(C):
-version(OSX) {
-	// For some reason OSX's symbol get a _ prepended.
-	bool _sd_gc_push_registers(bool delegate());
-	alias __sd_gc_push_registers = _sd_gc_push_registers;
-} else {
-	bool __sd_gc_push_registers(bool delegate());
-}
 
 unittest nonAllocatableSizes {
 	// Prohibited sizes of allocations

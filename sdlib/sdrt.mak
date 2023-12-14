@@ -1,4 +1,5 @@
 LIBSDRT_D_SRC = $(wildcard sdlib/d/*.d)
+LIBSDRT_DMD_SRC = $(wildcard sdlib/dmd/*.d)
 LIBSDRT_GC_SRC = $(wildcard sdlib/d/gc/*.d)
 LIBSDRT_RT_SRC = $(wildcard sdlib/d/rt/*.d)
 LIBSDRT_STDC_SRC = $(wildcard sdlib/core/stdc/*.d)
@@ -17,7 +18,7 @@ LIBSDRT_X64_OBJ = $(LIBSDRT_X64_SRC:sdlib/sys/x64/%.asm=obj/x64/%.o)
 
 LIBSDRT_DEPS = obj/object.o obj/sdlib/d.o obj/sdlib/gc.o obj/sdlib/rt.o \
 	obj/sdlib/stdc.o obj/sdlib/sync.o $(LIBSDRT_X64_OBJ)
-LIBDALLOC_DEPS = obj/object.o obj/sdlib/gc.o obj/sdlib/rt.o obj/sdlib/sync.o $(LIBSDRT_X64_OBJ)
+LIBDMDALLOC_DEPS = obj/object.o obj/sdlib/gc.o obj/sdlib/rt.o obj/sdlib/sync.o obj/sdlib/dmd.o
 
 ifeq ($(PLATFORM),Linux)
 	LIBSDRT_DEPS += obj/sdlib/linux.o
@@ -28,7 +29,7 @@ ifeq ($(PLATFORM),Darwin)
 endif
 
 LIBSDRT = lib/libsdrt.a
-LIBDALLOC = lib/libdalloc.a
+LIBDMDALLOC = lib/libdmdalloc.a
 
 SDFLAGS ?=
 LIBSDRT_IMPORTS = -Isdlib
@@ -61,6 +62,10 @@ obj/sdlib/linux.o: $(LIBSDRT_LINUX_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/sdlib
 	$(SDC) -c -o $@ $(LIBSDRT_LINUX_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
 
+obj/sdlib/dmd.o: $(LIBSDRT_DMD_SRC) $(SDLIB_DEPS)
+	@mkdir -p obj/sdlib
+	$(SDC) -c -o $@ $(LIBSDRT_DMD_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
 obj/osx/%.o: sdlib/sys/osx/%.c $(LIBSDRT_OSX_SRC_C) $(SDLIB_DEPS)
 	@mkdir -p obj/osx
 	clang -c -o $@ $<
@@ -77,7 +82,7 @@ $(LIBSDRT): $(LIBSDRT_DEPS)
 	@mkdir -p lib
 	ar rcs "$@" $^
 
-$(LIBDALLOC): $(LIBDALLOC_DEPS)
+$(LIBDMDALLOC): $(LIBDMDALLOC_DEPS)
 	@mkdir -p lib
 	ar rcs "$@" $^
 

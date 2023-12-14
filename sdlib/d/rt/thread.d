@@ -1,11 +1,35 @@
 module d.rt.thread;
 
 extern(C) void __sd_thread_init() {
-	__sd_gc_set_stack_bottom(getStackBottom());
 	registerTlsSegments();
 }
 
+alias ScanFn = bool delegate(const(void*)[] range);
+extern(C) void __sd_thread_scan(ScanFn scan) {
+	auto ts = ThreadScanner(scan);
+
+	import d.rt.stack;
+	__sd_gc_push_registers(ts.scanStack);
+}
+
 private:
+
+struct ThreadScanner {
+	ScanFn scan;
+
+	this(ScanFn scan) {
+		this.scan = scan;
+	}
+
+	bool scanStack() {
+		import sdc.intrinsics;
+		auto top = readFramePointer();
+		auto bottom = getStackBottom();
+
+		import d.gc.range;
+		return scan(makeRange(top, bottom));
+	}
+}
 
 version(linux) {
 	void* getStackBottom() {
@@ -47,9 +71,6 @@ version(linux) {
 			return 0;
 		}
 
-		// Force materialization. (work around a bug, evil sayers may say)
-		ElfW!"Phdr" dummy;
-
 		auto segmentCount = info.dlpi_phnum;
 		foreach (i; 0 .. segmentCount) {
 			auto segment = info.dlpi_phdr[i];
@@ -59,6 +80,7 @@ version(linux) {
 				continue;
 			}
 
+			import d.gc.capi;
 			__sd_gc_add_roots(tlsStart[0 .. segment.p_memsz]);
 		}
 
@@ -128,6 +150,3 @@ version(FreeBSD) {
 	int pthread_attr_getstack(pthread_attr_t*, void**, size_t*);
 	int pthread_attr_destroy(pthread_attr_t*);
 }
-
-void __sd_gc_set_stack_bottom(const void* bottom);
-void __sd_gc_add_roots(const void[] range);

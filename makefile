@@ -44,7 +44,7 @@ include src/sdc.mak
 include src/sdfmt.mak
 include test/unit.mak
 
-all: $(ALL_EXECUTABLES) $(LIBSDRT) $(LIBDALLOC) $(PHOBOS)
+all: $(ALL_EXECUTABLES) $(LIBSDRT) $(LIBDMDALLOC) $(PHOBOS)
 
 check: all
 
