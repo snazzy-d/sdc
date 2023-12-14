@@ -329,6 +329,12 @@ class AstIndexExpression : AstExpression {
 		this.indexed = indexed;
 		this.arguments = arguments;
 	}
+
+	override string toString(const Context c) const {
+		import std.algorithm, std.range;
+		auto aa = arguments.map!(a => a.toString(c)).join(", ");
+		return indexed.toString(c) ~ "[" ~ aa ~ "]";
+	}
 }
 
 /**
