@@ -1,8 +1,7 @@
 module util.fastcast;
 
-U fastCast(U, T)(T t) if (is(T == class) && is(U == class) && is(U : T)) in {
-	assert(cast(U) t);
-} do {
+U fastCast(U, T)(T t) if (is(T == class) && is(U == class) && is(U : T))
+		in(cast(U) t) {
 	return *(cast(U*) &t);
 }
 
