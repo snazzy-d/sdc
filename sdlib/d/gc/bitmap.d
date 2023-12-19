@@ -163,6 +163,21 @@ public:
 		return true;
 	}
 
+	bool nextSetRange(uint start, ref uint index, ref uint length) const {
+		// FIXME: in contract.
+		assert(start < N);
+
+		auto i = findSet(start);
+		if (i >= N) {
+			return false;
+		}
+
+		auto j = findClear(i);
+		index = i;
+		length = j - i;
+		return true;
+	}
+
 	void setBit(uint index) {
 		setBitValue!true(index);
 	}
@@ -549,6 +564,35 @@ unittest nextFreeRange {
 	// The last one return false because
 	// there is no remaining free range.
 	assert(!bmp.nextFreeRange(index + length, index, length));
+}
+
+unittest nextSetRange {
+	Bitmap!256 bmp;
+	bmp.bits = [0x0fffffffffffffc7, 0x00ffffffffffffc0, 0x00000003ffc00000,
+	            0xff00000000000000];
+
+	uint index;
+	uint length;
+
+	assert(bmp.nextSetRange(0, index, length));
+	assert(index == 0);
+	assert(length == 3);
+
+	assert(bmp.nextSetRange(index + length, index, length));
+	assert(index == 6);
+	assert(length == 54);
+
+	assert(bmp.nextSetRange(index + length, index, length));
+	assert(index == 70);
+	assert(length == 50);
+
+	assert(bmp.nextSetRange(index + length, index, length));
+	assert(index == 150);
+	assert(length == 12);
+
+	assert(bmp.nextSetRange(index + length, index, length));
+	assert(index == 248);
+	assert(length == 8);
 }
 
 unittest setBit {
