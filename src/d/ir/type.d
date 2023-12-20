@@ -350,28 +350,31 @@ public:
 			return s;
 		}
 
+		import std.format;
 		final switch (qualifier) with (TypeQualifier) {
 			case Mutable:
 				return s;
 
 			case Inout:
-				return "inout(" ~ s ~ ")";
+				return format!"inout(%s)"(s);
 
 			case Const:
-				return "const(" ~ s ~ ")";
+				return format!"const(%s)"(s);
 
 			case Shared:
-				return "shared(" ~ s ~ ")";
+				return format!"shared(%s)"(s);
 
 			case ConstShared:
 				assert(0, "const shared isn't supported");
 
 			case Immutable:
-				return "immutable(" ~ s ~ ")";
+				return format!"immutable(%s)"(s);
 		}
 	}
 
 	string toUnqualString(const Context c) const {
+		import std.format;
+
 		final switch (kind) with (TypeKind) {
 			case Builtin:
 				import d.common.builtintype : toString;
@@ -399,43 +402,49 @@ public:
 				return "__ctx";
 
 			case Pointer:
-				return element.toString(c, qualifier) ~ "*";
+				return format!"%s*"(element.toString(c, qualifier));
 
 			case Slice:
-				return element.toString(c, qualifier) ~ "[]";
+				return format!"%s[]"(element.toString(c, qualifier));
 
 			case Array:
-				import std.conv;
-				return element.toString(c, qualifier) ~ "[" ~ to!string(size)
-					~ "]";
+				return format!"%s[%s]"(element.toString(c, qualifier), size);
 
 			case Sequence:
-				import std.algorithm, std.range;
-				// XXX: need to use this because of identifier hijacking in the import.
-				return "(" ~ this.sequence.map!(e => e.toString(c, qualifier))
-				                 .join(", ") ~ ")";
+				import std.algorithm;
+				return format!"(%-(%s, %))"(
+					this.sequence.map!(e => e.toString(c, qualifier)));
 
 			case Function:
 				auto f = asFunctionType();
 
 				auto linkage = "";
 				if (f.linkage != Linkage.D) {
-					import std.conv;
-					linkage = "extern(" ~ f.linkage.to!string() ~ ") ";
+					linkage = format!"extern(%s) "(f.linkage);
 				}
 
 				auto ret = f.returnType.toString(c);
-				auto base = f.contexts.length ? " delegate(" : " function(";
-				import std.algorithm, std.range;
-				auto args = f.parameters.map!(p => p.toString(c)).join(", ");
-				return linkage ~ ret ~ base ~ args
-					~ (f.isVariadic ? ", ...)" : ")");
+				auto base = "function";
+				auto ctx = "";
+
+				if (f.contexts.length > 0) {
+					base = "delegate";
+
+					import std.algorithm;
+					ctx = format!" <{%-(%s, %)}>"(
+						f.contexts.map!(p => p.toString(c)));
+				}
+
+				import std.format, std.algorithm;
+				return format!"%s%s %s(%-(%s, %)%s)%s"(
+					linkage, ret, base, f.parameters.map!(p => p.toString(c)),
+					f.isVariadic ? ", ..." : "", ctx);
 
 			case Pattern:
 				return pattern.toString(c);
 
 			case Error:
-				return "__error__(" ~ error.toString(c) ~ ")";
+				return format!"__error__(%s)"(error.toString(c));
 		}
 	}
 
@@ -798,8 +807,9 @@ public:
 
 			case TypeBracketValue:
 				auto p = getTypeValuePair();
-				return p.type.toString(c) ~ '[' ~ p.value.name.toString(c)
-					~ ']';
+
+				import std.format;
+				return format!"%s[%s]"(p.type, p.value.name.toString(c));
 
 			case TypeBracketType:
 				assert(0, "Not implemented");
