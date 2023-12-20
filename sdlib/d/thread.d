@@ -1,4 +1,4 @@
-module d.rt.thread;
+module d.thread;
 
 import core.stdc.pthread;
 

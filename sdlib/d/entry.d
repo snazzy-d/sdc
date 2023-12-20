@@ -1,8 +1,10 @@
 module d.entry;
 
 extern(C):
+int _Dmain();
 
 int main() {
+	import d.thread;
 	__sd_thread_init();
 
 	try {
@@ -11,7 +13,3 @@ int main() {
 		return 1;
 	}
 }
-
-int _Dmain();
-
-void __sd_thread_init();

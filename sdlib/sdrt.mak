@@ -3,7 +3,8 @@ LIBSDRT_DMD_SRC = $(wildcard sdlib/dmd/*.d)
 LIBSDRT_GC_SRC = $(wildcard sdlib/d/gc/*.d)
 LIBSDRT_RT_SRC = $(wildcard sdlib/d/rt/*.d)
 LIBSDRT_STDC_SRC = $(wildcard sdlib/core/stdc/*.d)
-LIBSDRT_SYNC_SRC = $(wildcard sdlib/d/sync/*.d) $(wildcard sdlib/d/sync/futex/*.d)
+LIBSDRT_SYNC_SRC = $(wildcard sdlib/d/sync/*.d) \
+	$(wildcard sdlib/d/sync/futex/*.d)
 
 LIBSDRT_LINUX_SRC = $(wildcard sdlib/sys/linux/*.d)
 
@@ -18,7 +19,8 @@ LIBSDRT_X64_OBJ = $(LIBSDRT_X64_SRC:sdlib/sys/x64/%.asm=obj/x64/%.o)
 
 LIBSDRT_DEPS = obj/object.o obj/sdlib/d.o obj/sdlib/gc.o obj/sdlib/rt.o \
 	obj/sdlib/stdc.o obj/sdlib/sync.o $(LIBSDRT_X64_OBJ)
-LIBDMDALLOC_DEPS = obj/object.o obj/sdlib/gc.o obj/sdlib/rt.o obj/sdlib/sync.o obj/sdlib/dmd.o
+LIBDMDALLOC_DEPS = obj/object.o obj/sdlib/gc.o obj/sdlib/rt.o \
+	obj/sdlib/sync.o obj/sdlib/dmd.o
 
 ifeq ($(PLATFORM),Linux)
 	LIBSDRT_DEPS += obj/sdlib/linux.o
