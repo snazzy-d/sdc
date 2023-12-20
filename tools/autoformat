@@ -2,12 +2,12 @@
 
 set -euo pipefail
 
-NO_PARALLEL=false
+USE_PARALLEL=true
 
 while getopts ":s" opt; do
     case "${opt}" in
         s)
-            NO_PARALLEL=true
+            USE_PARALLEL=false
             ;;
 		\?)
 			echo "Unknown argument" >&2
@@ -18,6 +18,13 @@ while getopts ":s" opt; do
 			exit 1
     esac
 done
+
+if [ "$USE_PARALLEL" = true ] && ! command -v parallel &> /dev/null; then
+	echo -e "Error:\tCannot locate 'parallel'."
+	echo -e "      \tPass -s to fall back to slow batch processing instead."
+	echo -e "      \t\t${0} -s"
+	exit 1
+fi
 
 SCRIPTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$SCRIPTDIR"
@@ -49,15 +56,9 @@ process_file() {
 }
 export -f process_file
 
-if [[ "$NO_PARALLEL" = true ]] ; then
+if [ "$USE_PARALLEL" = true ]; then
+	parallel process_file ::: "$FILES"
+else
 	echo "Using non-parallel batch processing mode."
 	for fn in $FILES; do process_file "$fn"; done
-
-elif command -v parallel &> /dev/null; then
-	parallel process_file ::: "$FILES"
-
-else
-	echo -e "Error:\tCannot locate 'parallel'."
-	echo -e "      \tPass -s to fall back to slow batch processing instead."
-	echo -e "      \t\t${0} -s"
 fi
