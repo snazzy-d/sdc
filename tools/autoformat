@@ -51,7 +51,7 @@ export -f process_file
 
 if [[ "$NO_PARALLEL" = true ]] ; then
 	echo "Using non-parallel batch processing mode."
-	for fn in $FILES; do process_file $fn; done
+	for fn in $FILES; do process_file "$fn"; done
 
 elif command -v parallel &> /dev/null; then
 	parallel process_file ::: "$FILES"
