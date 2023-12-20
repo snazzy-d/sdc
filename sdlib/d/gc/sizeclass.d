@@ -100,6 +100,26 @@ unittest sizeClassSupportsMetadata {
 	}
 }
 
+// Determine whether given size class supports inline marking.
+bool sizeClassSupportsInlineMarking(uint sizeClass) {
+	auto magic = (sizeClass & 0x0a) != 0;
+	return sizeClass & magic || sizeClass > 10;
+}
+
+unittest sizeClassSupportsInlineMarking {
+	auto bins = getBinInfos();
+
+	// Small size classes support inline marking if and only if have <= 128 slab slots:
+	foreach (sc; 0 .. ClassCount.Small) {
+		assert(sizeClassSupportsInlineMarking(sc) == (bins[sc].slots <= 128));
+	}
+
+	// All large size classes support inline marking:
+	foreach (sc; ClassCount.Small .. ClassCount.Total) {
+		assert(sizeClassSupportsInlineMarking(sc));
+	}
+}
+
 size_t getAllocSize(size_t size) {
 	if (size <= MaxTinySize) {
 		return alignUp(size, Quantum);
