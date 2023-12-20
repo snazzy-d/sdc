@@ -2,6 +2,23 @@
 
 set -euo pipefail
 
+NO_PARALLEL=false
+
+while getopts ":s" opt; do
+    case "${opt}" in
+        s)
+            NO_PARALLEL=true
+            ;;
+		\?)
+			echo "Unknown argument" >&2
+			exit 1
+			;;
+		*)
+			echo "An unhandled getopts error occured."
+			exit 1
+    esac
+done
+
 SCRIPTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$SCRIPTDIR"
 
@@ -32,8 +49,8 @@ process_file() {
 }
 export -f process_file
 
-if [ $# -ge 1 ] && [ "$1" == "--no-parallel" ] ; then
-	echo "Using non-parallel batch processing mode"
+if [[ "$NO_PARALLEL" = true ]] ; then
+	echo "Using non-parallel batch processing mode."
 	for fn in $FILES; do process_file $fn; done
 
 elif command -v parallel &> /dev/null; then
@@ -41,6 +58,6 @@ elif command -v parallel &> /dev/null; then
 
 else
 	echo -e "Error:\tCannot locate 'parallel'."
-	echo -e "      \tPass --no-parallel to fall back to slow batch processing instead."
-	echo -e "      \t\t${0} --no-parallel"
+	echo -e "      \tPass -s to fall back to slow batch processing instead."
+	echo -e "      \t\t${0} -s"
 fi
