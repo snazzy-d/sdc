@@ -19,7 +19,7 @@ while getopts ":s" opt; do
     esac
 done
 
-if [ "$USE_PARALLEL" = true ] && ! command -v parallel &> /dev/null; then
+if [ "$USE_PARALLEL" = true ] && ! command -v parallel &>/dev/null; then
 	echo -e "Error:\tCannot locate 'parallel'."
 	echo -e "      \tPass -s to fall back to slow batch processing instead."
 	echo -e "      \t\t${0} -s"
