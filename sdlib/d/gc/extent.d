@@ -409,15 +409,6 @@ ptrdiff_t addrExtentCmp(Extent* lhs, Extent* rhs) {
 	return (l > r) - (l < r);
 }
 
-ptrdiff_t addrRangeExtentCmp(Extent* lhs, Extent* rhs) {
-	auto l = cast(size_t) lhs.address;
-	auto rstart = cast(size_t) rhs.address;
-	auto rend = rstart + rhs.size;
-
-	// We need to compare that way to avoid integer overflow.
-	return (l >= rend) - (l < rstart);
-}
-
 alias UnusedExtentHeap = Heap!(Extent, unusedExtentCmp);
 
 ptrdiff_t unusedExtentCmp(Extent* lhs, Extent* rhs) {
