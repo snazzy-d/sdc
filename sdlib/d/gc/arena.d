@@ -151,10 +151,9 @@ public:
 		assert(e !is null, "Extent is null!");
 		assert(e.isLarge(), "Expected a large extent!");
 		assert(e.arenaIndex == index, "Invalid arena index!");
-		assert(isLargeSize(size));
 
-		// Huge is not supported:
-		if (e.isHuge()) {
+		// The resize must fit in a block.
+		if (MaxSmallSize >= size || size > BlockSize || e.size >= BlockSize) {
 			return false;
 		}
 
