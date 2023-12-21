@@ -328,9 +328,7 @@ private:
 		registerBlock(block);
 
 		auto ptr = block.address + n * PageSize;
-		auto size = pages * PageSize;
-
-		return e.at(ptr, size, block, ec);
+		return e.at(ptr, pages, block, ec);
 	}
 
 	Extent* allocHugeImpl(uint pages, uint extraBlocks) {
@@ -355,9 +353,9 @@ private:
 
 		auto leadSize = extraBlocks * BlockSize;
 		auto ptr = block.address - leadSize;
-		auto size = leadSize + pages * PageSize;
+		auto npages = pages + extraBlocks * PagesInBlock;
 
-		return e.at(ptr, size, block);
+		return e.at(ptr, npages, block);
 	}
 
 	auto getOrAllocateExtent() {
@@ -410,7 +408,7 @@ private:
 		auto block = e.block;
 		unregisterBlock(block);
 
-		e.at(e.address, pages * PageSize, block);
+		e.at(e.address, pages, block);
 		block.clear(index, delta);
 
 		assert(!block.empty);
@@ -428,7 +426,7 @@ private:
 
 		auto didGrow = block.growAt(index, delta);
 		if (didGrow) {
-			e.at(e.address, pages * PageSize, block);
+			e.at(e.address, pages, block);
 		}
 
 		registerBlock(block);

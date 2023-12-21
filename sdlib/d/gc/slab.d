@@ -185,7 +185,7 @@ unittest SlabAllocInfo {
 
 	static SlabAllocInfo simulateSmallAlloc(size_t size, uint slotIndex) {
 		auto ec = ExtentClass.slab(getSizeClass(size));
-		e.at(block, PageSize, null, ec);
+		e.at(block, 1, null, ec);
 
 		void*[512] buffer = void;
 		e.batchAllocate(buffer[0 .. 512], size);

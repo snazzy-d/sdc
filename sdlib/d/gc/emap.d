@@ -209,7 +209,7 @@ unittest ExtentMap {
 
 	auto slot = base.allocSlot();
 	auto e = Extent.fromSlot(0, slot);
-	e.at(ptr, 5 * PageSize, null);
+	e.at(ptr, 5, null);
 
 	// Map a range.
 	emap.remap(e);
@@ -230,7 +230,7 @@ unittest ExtentMap {
 	}
 
 	auto ec = ExtentClass.slab(0);
-	e.at(ptr, 5 * PageSize, null, ec);
+	e.at(ptr, 5, null, ec);
 	emap.remap(e, ec);
 	pd = PageDescriptor(e, ec);
 
@@ -242,12 +242,12 @@ unittest ExtentMap {
 	emap.clear(e);
 
 	// Shrink a range.
-	e.at(ptr, 5 * PageSize, null, ec);
+	e.at(ptr, 5, null, ec);
 	emap.remap(e, ec);
 	pd = PageDescriptor(e, ec);
 
 	emap.clear(e.address + 3 * PageSize, 2);
-	e.at(ptr, 3 * PageSize, null, ec);
+	e.at(ptr, 3, null, ec);
 
 	for (auto p = ptr; p < e.address + 3 * PageSize; p += PageSize) {
 		assert(emap.lookup(p).data == pd.data);

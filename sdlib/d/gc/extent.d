@@ -76,7 +76,8 @@ private:
 
 public:
 	void* address;
-	size_t sizeAndGen;
+	uint _npages;
+	ubyte generation;
 
 	import d.gc.block;
 	BlockDescriptor* block;
@@ -116,15 +117,15 @@ private:
 
 	Metadata _metadata;
 
-	this(uint arenaIndex, void* ptr, size_t size, ubyte generation,
+	this(uint arenaIndex, void* ptr, uint npages, ubyte generation,
 	     BlockDescriptor* block, ExtentClass ec) {
 		// FIXME: in contract.
 		assert((arenaIndex & ~ArenaMask) == 0, "Invalid arena index!");
 		assert(isAligned(ptr, PageSize), "Invalid alignment!");
-		assert(isAligned(size, PageSize), "Invalid size!");
 
 		this.address = ptr;
-		this.sizeAndGen = size | generation;
+		this._npages = npages;
+		this.generation = generation;
 		this.block = block;
 
 		bits = ec.data;
@@ -142,13 +143,13 @@ private:
 	}
 
 public:
-	Extent* at(void* ptr, size_t size, BlockDescriptor* block, ExtentClass ec) {
-		this = Extent(arenaIndex, ptr, size, generation, block, ec);
+	Extent* at(void* ptr, uint npages, BlockDescriptor* block, ExtentClass ec) {
+		this = Extent(arenaIndex, ptr, npages, generation, block, ec);
 		return &this;
 	}
 
-	Extent* at(void* ptr, size_t size, BlockDescriptor* block) {
-		return at(ptr, size, block, ExtentClass.large());
+	Extent* at(void* ptr, uint npages, BlockDescriptor* block) {
+		return at(ptr, npages, block, ExtentClass.large());
 	}
 
 	static fromSlot(uint arenaIndex, GenerationPointer slot) {
@@ -160,22 +161,19 @@ public:
 
 		auto e = cast(Extent*) slot.address;
 		e.bits = ulong(arenaIndex) << 32;
-		e.sizeAndGen = slot.generation;
+		e.generation = slot.generation;
 
 		return e;
 	}
 
 	@property
 	size_t size() const {
-		return sizeAndGen & ~PageMask;
+		return npages * PageSize;
 	}
 
 	@property
 	uint npages() const {
-		auto pc = sizeAndGen / PageSize;
-
-		assert(pc == pc & uint.max, "Invalid page count!");
-		return pc & uint.max;
+		return _npages;
 	}
 
 	bool isHuge() const {
@@ -189,11 +187,6 @@ public:
 		assert(!isHuge() || isAligned(address, BlockSize));
 
 		return ((cast(size_t) address) / PageSize) % PagesInBlock;
-	}
-
-	@property
-	ubyte generation() const {
-		return sizeAndGen & 0xff;
 	}
 
 	@property
@@ -426,11 +419,12 @@ ptrdiff_t unusedExtentCmp(Extent* lhs, Extent* rhs) {
 
 unittest contains {
 	auto base = cast(void*) 0x56789abcd000;
-	enum Size = 13 * PageSize;
+	enum Pages = 13;
+	enum Size = Pages * PageSize;
 
 	Extent e;
 	e.address = base;
-	e.sizeAndGen = Size;
+	e._npages = Pages;
 
 	assert(!e.contains(base - 1));
 	assert(!e.contains(base + Size));
@@ -442,7 +436,7 @@ unittest contains {
 
 unittest allocfree {
 	Extent e;
-	e.at(null, PageSize, null, ExtentClass.slab(0));
+	e.at(null, 1, null, ExtentClass.slab(0));
 
 	static checkAllocate(ref Extent e, uint index) {
 		void*[1] buffer;
@@ -485,7 +479,7 @@ unittest allocfree {
 
 unittest batchAllocate {
 	Extent e;
-	e.at(null, PageSize, null, ExtentClass.slab(0));
+	e.at(null, 1, null, ExtentClass.slab(0));
 
 	void*[1024] buffer;
 	assert(e.batchAllocate(buffer[0 .. 1024], PointerSize) == 512);
