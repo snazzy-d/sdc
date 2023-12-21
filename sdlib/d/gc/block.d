@@ -10,6 +10,8 @@ import d.gc.util;
 alias PHNode = heap.Node!BlockDescriptor;
 alias RNode = ring.Node!BlockDescriptor;
 
+alias AllBlockRing = Ring!(BlockDescriptor, "allrnode");
+
 /**
  * Each BlockDescriptor manages a 2MB system's huge page.
  *
@@ -81,6 +83,8 @@ private:
 	}
 
 	Links _links;
+
+	AllBlockRing.Node allrnode;
 
 	uint usedCount;
 	uint dirtyCount;

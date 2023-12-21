@@ -20,6 +20,8 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
+	UnusedExtentHeap unusedExtents;
+
 	enum HeapCount = getAllocClass(PagesInBlock - 1);
 	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
 
@@ -29,8 +31,8 @@ private:
 	import d.gc.ring;
 	Ring!BlockDescriptor fullBlocks;
 
-	UnusedExtentHeap unusedExtents;
 	UnusedBlockHeap unusedBlockDescriptors;
+	AllBlockRing allBlocks;
 
 	import d.gc.base;
 	Base base;
@@ -468,6 +470,7 @@ private:
 		assert(block !is null);
 
 		if (regionAllocator.acquire(block, extraPages)) {
+			allBlocks.insert(block);
 			return block;
 		}
 
@@ -506,6 +509,9 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(block.empty, "Block is not empty!");
 		assert(e.block is block, "Invalid Block!");
+
+		// We do not manage this block anymore.
+		allBlocks.remove(block);
 
 		import d.gc.size;
 		auto pages = getBlockCount(e.size);
