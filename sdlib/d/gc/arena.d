@@ -117,6 +117,7 @@ public:
 	 */
 	void* allocSmall(ref CachedExtentMap emap, size_t size) shared {
 		// TODO: in contracts
+		import d.gc.size;
 		assert(isSmallSize(size));
 
 		auto sizeClass = getSizeClass(size);
@@ -153,11 +154,11 @@ public:
 		assert(e.arenaIndex == index, "Invalid arena index!");
 
 		// The resize must fit in a block.
+		import d.gc.size;
 		if (MaxSmallSize >= size || size > BlockSize || e.size >= BlockSize) {
 			return false;
 		}
 
-		import d.gc.size;
 		uint pages = getPageCount(size);
 		uint currentPageCount = e.pageCount;
 

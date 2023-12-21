@@ -2,6 +2,7 @@ module d.gc.slab;
 
 import d.gc.emap;
 import d.gc.extent;
+import d.gc.size;
 import d.gc.spec;
 import d.gc.util;
 

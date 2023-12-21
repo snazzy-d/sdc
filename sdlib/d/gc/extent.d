@@ -179,6 +179,7 @@ public:
 	}
 
 	bool isHuge() const {
+		import d.gc.size;
 		return size >= MaxLargeSize;
 	}
 

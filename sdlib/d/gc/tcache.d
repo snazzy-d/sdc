@@ -496,6 +496,7 @@ unittest extendLarge {
 		assert(ptr !is null);
 
 		// We make sure we can't reisze the allocation by allocating a dead zone after it.
+		import d.gc.size;
 		auto deadzone = threadCache.alloc(MaxSmallSize + 1, false);
 		if (deadzone !is alignUp(ptr + size, PageSize)) {
 			threadCache.free(deadzone);

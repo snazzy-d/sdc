@@ -42,8 +42,6 @@ enum ClassCount {
 }
 
 enum MaxTinySize = ClassCount.Tiny * Quantum;
-enum MaxSmallSize = getSizeFromClass(ClassCount.Small - 1);
-enum MaxLargeSize = getSizeFromClass(ClassCount.Large - 1);
 
 // Determine whether given size class is considered 'small' (slab-allocatable).
 bool isSmallSizeClass(uint sizeClass) {
@@ -56,21 +54,6 @@ bool isLargeSizeClass(uint sizeClass) {
 
 bool isHugeSizeClass(uint sizeClass) {
 	return sizeClass >= ClassCount.Large;
-}
-
-// Determine whether given size may fit into a 'small' (slab-allocatable) size class.
-bool isSmallSize(size_t size) {
-	return (size > 0) && (size <= MaxSmallSize);
-}
-
-// Determine whether given size may fit into a 'large' size class.
-bool isLargeSize(size_t size) {
-	return (size > MaxSmallSize) && (size <= MaxLargeSize);
-}
-
-bool isHugeSize(size_t size) {
-	import d.gc.size;
-	return (size > MaxLargeSize) && (size <= MaxAllocationSize);
 }
 
 unittest sizeClassPredicates {
@@ -95,68 +78,6 @@ unittest sizeClassPredicates {
 		assert(!isLargeSizeClass(s));
 		assert(isHugeSizeClass(s));
 	}
-}
-
-unittest sizePredicates {
-	assert(MaxSmallSize == 14336, "Unexpected max small size!");
-	assert(MaxLargeSize == 1835008, "Unexpected max large size!");
-
-	assert(!isSmallSize(0));
-	assert(!isLargeSize(0));
-	assert(!isHugeSize(0));
-
-	void checkSmall(size_t size) {
-		assert(isSmallSize(size));
-		assert(!isLargeSize(size));
-		assert(!isHugeSize(size));
-
-		auto sc = getSizeClass(size);
-		assert(isSmallSizeClass(sc));
-		assert(!isLargeSizeClass(sc));
-		assert(!isHugeSizeClass(sc));
-	}
-
-	void checkLarge(size_t size) {
-		assert(!isSmallSize(size));
-		assert(isLargeSize(size));
-		assert(!isHugeSize(size));
-
-		auto sc = getSizeClass(size);
-		assert(!isSmallSizeClass(sc));
-		assert(isLargeSizeClass(sc));
-		assert(!isHugeSizeClass(sc));
-	}
-
-	void checkHuge(size_t size) {
-		assert(!isSmallSize(size));
-		assert(!isLargeSize(size));
-		assert(isHugeSize(size));
-
-		auto sc = getSizeClass(size);
-		assert(!isSmallSizeClass(sc));
-		assert(!isLargeSizeClass(sc));
-		assert(isHugeSizeClass(sc));
-	}
-
-	foreach (s; 1 .. MaxSmallSize) {
-		checkSmall(s);
-	}
-
-	// MaxSmallSize is the largest small size.
-	checkSmall(MaxSmallSize);
-
-	// MaxSmallSize + 1 is no longer small.
-	checkLarge(MaxSmallSize + 1);
-
-	// MaxLargeSize is the largest large size.
-	checkLarge(MaxLargeSize);
-
-	// MaxLargeSize + 1 is no longer large.
-	checkHuge(MaxLargeSize + 1);
-
-	// MaxAllocationSize is obviously huge.
-	import d.gc.size;
-	checkHuge(MaxAllocationSize);
 }
 
 // Determine whether given size class supports metadata.
