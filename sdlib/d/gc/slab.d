@@ -30,7 +30,7 @@ struct SlabAllocInfo {
 private:
 	SlabAllocGeometry sg;
 	Extent* e;
-	bool _supportsMetadata = false;
+	uint nslots;
 	bool _hasMetadata = false;
 
 public:
@@ -39,13 +39,13 @@ public:
 
 		e = pd.extent;
 		sg = SlabAllocGeometry(pd, ptr);
-		_supportsMetadata = sizeClassSupportsMetadata(pd.sizeClass);
+		nslots = binInfos[pd.sizeClass].nslots;
 		_hasMetadata = supportsMetadata && e.hasMetadata(sg.index);
 	}
 
 	@property
 	auto supportsMetadata() {
-		return _supportsMetadata;
+		return nslots <= 256;
 	}
 
 	@property
@@ -199,6 +199,7 @@ unittest SlabAllocInfo {
 	foreach (size; [1, 6, 8, 20, 24, 35, 40, 50, 56]) {
 		auto sc = getSizeClass(size);
 		assert(!sizeClassSupportsMetadata(sc));
+		assert(!binInfos[sc].supportsMetadata);
 
 		foreach (slotIndex; 0 .. binInfos[sc].nslots + 1) {
 			auto si = simulateSmallAlloc(size, slotIndex);
@@ -221,6 +222,7 @@ unittest SlabAllocInfo {
 	) {
 		auto sc = getSizeClass(size);
 		assert(sizeClassSupportsMetadata(sc));
+		assert(binInfos[sc].supportsMetadata);
 
 		foreach (slotIndex; 0 .. binInfos[sc].nslots + 1) {
 			auto si = simulateSmallAlloc(size, slotIndex);
@@ -371,7 +373,32 @@ struct BinInfo {
 
 		return cast(uint) ((offset * mul) >> shift);
 	}
+
+	@property
+	bool dense() const {
+		// We use the number of items as a proxy to estimate the density
+		// of the span. Dense spans are assumed to be long lived.
+		return nslots > 16;
+	}
+
+	@property
+	bool supportsMetadata() const {
+		return nslots <= 256;
+	}
+
+	@property
+	bool supportsInlineMarking() const {
+		return nslots <= 128;
+	}
 }
 
 import d.gc.sizeclass;
 immutable BinInfo[ClassCount.Small] binInfos = getBinInfos();
+
+unittest bininfos {
+	foreach (uint sc, bin; binInfos) {
+		assert(bin.supportsMetadata == sizeClassSupportsMetadata(sc));
+		assert(bin.supportsInlineMarking == sizeClassSupportsInlineMarking(sc));
+		assert(bin.supportsInlineMarking == sizeClassSupportsInlineMarking(sc));
+	}
+}
