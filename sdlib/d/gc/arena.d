@@ -4,6 +4,7 @@ import d.gc.allocclass;
 import d.gc.emap;
 import d.gc.extent;
 import d.gc.block;
+import d.gc.size;
 import d.gc.sizeclass;
 import d.gc.spec;
 import d.gc.util;
@@ -117,7 +118,6 @@ public:
 	 */
 	void* allocSmall(ref CachedExtentMap emap, size_t size) shared {
 		// TODO: in contracts
-		import d.gc.size;
 		assert(isSmallSize(size));
 
 		auto sizeClass = getSizeClass(size);
@@ -130,7 +130,6 @@ public:
 	void* allocLarge(ref CachedExtentMap emap, size_t size,
 	                 bool zero = false) shared {
 		// TODO: in contracts
-		import d.gc.size;
 		assert(isAllocatableSize(size));
 
 		auto pages = getPageCount(size);
@@ -154,7 +153,6 @@ public:
 		assert(e.arenaIndex == index, "Invalid arena index!");
 
 		// The resize must fit in a block.
-		import d.gc.size;
 		if (MaxSmallSize >= size || size > BlockSize || e.size >= BlockSize) {
 			return false;
 		}
@@ -262,7 +260,8 @@ package:
 
 private:
 	Extent* allocPages(uint pages, ExtentClass ec) shared {
-		assert(pages > 0 && pages <= PagesInBlock, "Invalid page count!");
+		assert(pages > 0 && pages <= MaxPagesInLargeAlloc,
+		       "Invalid page count!");
 		auto mask = ulong.max << getAllocClass(pages);
 
 		mutex.lock();
@@ -272,7 +271,7 @@ private:
 	}
 
 	Extent* allocPages(uint pages) shared {
-		if (unlikely(pages > PagesInBlock)) {
+		if (unlikely(pages > MaxPagesInLargeAlloc)) {
 			return allocHuge(pages);
 		}
 
@@ -280,15 +279,15 @@ private:
 	}
 
 	Extent* allocHuge(uint pages) shared {
-		assert(pages > PagesInBlock, "Invalid page count!");
+		assert(pages > MaxPagesInLargeAlloc, "Invalid page count!");
 
-		uint extraPages = (pages - 1) / PagesInBlock;
+		uint extraBlocks = (pages - 1) / PagesInBlock;
 		pages = modUp(pages, PagesInBlock);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Arena*) &this).allocHugeImpl(pages, extraPages);
+		return (cast(Arena*) &this).allocHugeImpl(pages, extraBlocks);
 	}
 
 	void freePages(Extent* e) shared {
@@ -334,15 +333,16 @@ private:
 		return e.at(ptr, size, block, ec);
 	}
 
-	Extent* allocHugeImpl(uint pages, uint extraPages) {
+	Extent* allocHugeImpl(uint pages, uint extraBlocks) {
 		assert(mutex.isHeld(), "Mutex not held!");
+		assert(pages <= PagesInBlock, "Invalid page count!");
 
 		auto e = getOrAllocateExtent();
 		if (unlikely(e is null)) {
 			return null;
 		}
 
-		auto block = allocateBlock(extraPages);
+		auto block = allocateBlock(extraBlocks);
 		if (unlikely(block is null)) {
 			unusedExtents.insert(e);
 			return null;
@@ -353,7 +353,7 @@ private:
 
 		assert(n == 0, "Unexpected page allocated!");
 
-		auto leadSize = extraPages * BlockSize;
+		auto leadSize = extraBlocks * BlockSize;
 		auto ptr = block.address - leadSize;
 		auto size = leadSize + pages * PageSize;
 
@@ -454,7 +454,7 @@ private:
 		return block;
 	}
 
-	BlockDescriptor* allocateBlock(uint extraPages = 0) {
+	BlockDescriptor* allocateBlock(uint extraBlocks = 0) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		if (unusedBlockDescriptors.empty) {
@@ -469,7 +469,7 @@ private:
 		auto block = unusedBlockDescriptors.pop();
 		assert(block !is null);
 
-		if (regionAllocator.acquire(block, extraPages)) {
+		if (regionAllocator.acquire(block, extraBlocks)) {
 			allBlocks.insert(block);
 			return block;
 		}
@@ -513,7 +513,6 @@ private:
 		// We do not manage this block anymore.
 		allBlocks.remove(block);
 
-		import d.gc.size;
 		auto pages = getBlockCount(e.size);
 		auto ptr = alignDown(e.address, BlockSize);
 		regionAllocator.release(ptr, pages);
@@ -619,6 +618,14 @@ unittest allocPages {
 	arena.freePages(e1);
 	arena.freePages(e2);
 	arena.freePages(e3);
+
+	// Check a wide range of sizes.
+	foreach (pages; 1 .. 2 * PagesInBlock) {
+		auto e = arena.allocPages(pages);
+		assert(e !is null);
+		assert(e.size == pages * PageSize);
+		arena.freePages(e);
+	}
 }
 
 unittest allocHuge {

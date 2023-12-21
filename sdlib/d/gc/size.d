@@ -25,6 +25,8 @@ unittest isAllocatableSize {
 enum MaxSmallSize = getSizeFromClass(ClassCount.Small - 1);
 enum MaxLargeSize = getSizeFromClass(ClassCount.Large - 1);
 
+enum MaxPagesInLargeAlloc = getPageCount(MaxLargeSize);
+
 // Determine whether given size may fit into a 'small' (slab-allocatable) size class.
 bool isSmallSize(size_t size) {
 	return (size > 0) && (size <= MaxSmallSize);
