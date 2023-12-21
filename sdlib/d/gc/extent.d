@@ -66,28 +66,37 @@ private:
 	/**
 	 * This is a bitfield containing the following elements:
 	 *  - n: The number of free slots.
+	 *  - p: The address of the memory managed by Extent.
 	 *  - a: The arena index.
-	 *  - e: The extent class.
 	 * 
 	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
-	 * nnnnnnnn nnnnnnnn ....aaaa aaaaaaaa ........ ........ ........ ..eeeeee
+	 * nnnnnnnn nnnnnnnn pppppppp pppppppp pppppppp pppppppp ppppaaaa aaaaaaaa
 	 */
 	ulong bits;
 
+	// Verify our assumptions.
+	static assert(LgAddressSpace <= 48, "Address space too large!");
+	static assert(LgPageSize >= 12, "Not enough space in low bits!");
+
+	// Useful constants for bit manipulations.
+	enum FreeSlotsIndex = 48;
+	enum FreeSlotsUnit = 1UL << FreeSlotsIndex;
+
 public:
-	void* address;
 	uint _npages;
+	ExtentClass extentClass;
 	ubyte generation;
 
 	import d.gc.block;
 	BlockDescriptor* block;
 
 private:
+	Node!Extent _phnode;
+
 	// TODO: Reuse this data to do something useful,
 	// like garbage collection :P
-	void* _pad;
-
-	Node!Extent _phnode;
+	void* _pad0;
+	void* _pad1;
 
 	struct SlabMetadata {
 		ubyte[32] pad;
@@ -118,22 +127,21 @@ private:
 	Metadata _metadata;
 
 	this(uint arenaIndex, void* ptr, uint npages, ubyte generation,
-	     BlockDescriptor* block, ExtentClass ec) {
+	     BlockDescriptor* block, ExtentClass extentClass) {
 		// FIXME: in contract.
 		assert((arenaIndex & ~ArenaMask) == 0, "Invalid arena index!");
 		assert(isAligned(ptr, PageSize), "Invalid alignment!");
 
-		this.address = ptr;
+		this.bits = arenaIndex | cast(size_t) ptr;
+
 		this._npages = npages;
+		this.extentClass = extentClass;
 		this.generation = generation;
 		this.block = block;
 
-		bits = ec.data;
-		bits |= ulong(arenaIndex) << 32;
-
-		if (ec.isSlab()) {
+		if (extentClass.isSlab()) {
 			import d.gc.slab;
-			bits |= ulong(binInfos[ec.sizeClass].nslots) << 48;
+			bits |= ulong(binInfos[sizeClass].nslots) << FreeSlotsIndex;
 
 			slabData.clear();
 		} else {
@@ -143,8 +151,9 @@ private:
 	}
 
 public:
-	Extent* at(void* ptr, uint npages, BlockDescriptor* block, ExtentClass ec) {
-		this = Extent(arenaIndex, ptr, npages, generation, block, ec);
+	Extent* at(void* ptr, uint npages, BlockDescriptor* block,
+	           ExtentClass extentClass) {
+		this = Extent(arenaIndex, ptr, npages, generation, block, extentClass);
 		return &this;
 	}
 
@@ -160,10 +169,15 @@ public:
 		       "Invalid slot alignement!");
 
 		auto e = cast(Extent*) slot.address;
-		e.bits = ulong(arenaIndex) << 32;
+		e.bits = arenaIndex;
 		e.generation = slot.generation;
 
 		return e;
+	}
+
+	@property
+	void* address() const {
+		return cast(void*) (bits & PagePointerMask);
 	}
 
 	@property
@@ -203,7 +217,7 @@ public:
 	 */
 	@property
 	uint arenaIndex() const {
-		return (bits >> 32) & ArenaMask;
+		return bits & ArenaMask;
 	}
 
 	@property
@@ -214,20 +228,13 @@ public:
 	/**
 	 * Slab features.
 	 */
-	@property
-	auto extentClass() const {
-		return ExtentClass(bits & ExtentClass.Mask);
-	}
-
 	bool isSlab() const {
-		auto ec = extentClass;
-		return ec.isSlab();
+		return extentClass.isSlab();
 	}
 
 	@property
 	ubyte sizeClass() const {
-		auto ec = extentClass;
-		return ec.sizeClass;
+		return extentClass.sizeClass;
 	}
 
 	@property
@@ -244,7 +251,7 @@ public:
 		assert(isSlab(), "nfree accessed on non slab!");
 
 		enum Mask = (1 << 10) - 1;
-		return (bits >> 48) & Mask;
+		return (bits >> FreeSlotsIndex) & Mask;
 	}
 
 	uint batchAllocate(void*[] buffer, size_t slotSize) {
@@ -285,7 +292,7 @@ public:
 			total += nCount;
 		}
 
-		scope(success) bits -= ulong(count) << 48;
+		scope(success) bits -= count * FreeSlotsUnit;
 		return count;
 	}
 
@@ -294,7 +301,7 @@ public:
 		assert(isSlab(), "free accessed on non slab!");
 		assert(slabData.valueAt(index), "Slot is already free!");
 
-		bits += (1UL << 48);
+		bits += FreeSlotsUnit;
 		slabData.clearBit(index);
 	}
 
@@ -393,14 +400,74 @@ unittest finalizers {
 static assert(Extent.sizeof == ExtentSize, "Unexpected Extent size!");
 static assert(Extent.sizeof == ExtentAlign, "Unexpected Extent alignment!");
 
-alias AddrExtentHeap = Heap!(Extent, addrExtentCmp);
+alias PriorityExtentHeap = Heap!(Extent, priorityExtentCmp);
 
-ptrdiff_t addrExtentCmp(Extent* lhs, Extent* rhs) {
-	auto l = cast(size_t) lhs.address;
-	auto r = cast(size_t) rhs.address;
+ptrdiff_t priorityExtentCmp(Extent* lhs, Extent* rhs) {
+	auto l = lhs.bits;
+	auto r = rhs.bits;
 
-	// We need to compare that way to avoid integer overflow.
 	return (l > r) - (l < r);
+}
+
+unittest priority {
+	static makeExtent(void* address, uint nalloc) {
+		Extent e;
+		e.at(address, 1, null, ExtentClass.slab(0));
+		e.bits -= nalloc * Extent.FreeSlotsUnit;
+
+		assert(e.address is address);
+		assert(e.nfree == (512 - nalloc));
+		return e;
+	}
+
+	PriorityExtentHeap heap;
+	assert(heap.top is null);
+
+	auto minPtr = cast(void*) PageSize;
+	auto midPtr = cast(void*) BlockSize;
+	auto maxPtr = cast(void*) (AddressSpace - PageSize);
+
+	// Lowest priority slab possible.
+	auto e0 = makeExtent(maxPtr, 0);
+	heap.insert(&e0);
+	assert(heap.top is &e0);
+
+	// Lower address is better.
+	auto e1 = makeExtent(null, 0);
+	heap.insert(&e1);
+	assert(heap.top is &e1);
+
+	// But more allocations is even better!
+	auto e2 = makeExtent(maxPtr, 500);
+	heap.insert(&e2);
+	assert(heap.top is &e2);
+
+	// Lower address remains a tie breaker.
+	auto e3 = makeExtent(null, 500);
+	heap.insert(&e3);
+	assert(heap.top is &e3);
+
+	// Try inserting a few blocks out of order.
+	auto e4 = makeExtent(midPtr + PageSize, 500);
+	auto e5 = makeExtent(maxPtr - PageSize, 250);
+	auto e6 = makeExtent(midPtr, 250);
+	auto e7 = makeExtent(midPtr, 400);
+	heap.insert(&e4);
+	heap.insert(&e5);
+	heap.insert(&e6);
+	heap.insert(&e7);
+
+	// Pop all the blocks and check they come out in
+	// the expected order.
+	assert(heap.pop() is &e3);
+	assert(heap.pop() is &e4);
+	assert(heap.pop() is &e2);
+	assert(heap.pop() is &e7);
+	assert(heap.pop() is &e6);
+	assert(heap.pop() is &e5);
+	assert(heap.pop() is &e1);
+	assert(heap.pop() is &e0);
+	assert(heap.pop() is null);
 }
 
 alias UnusedExtentHeap = Heap!(Extent, unusedExtentCmp);
@@ -423,8 +490,7 @@ unittest contains {
 	enum Size = Pages * PageSize;
 
 	Extent e;
-	e.address = base;
-	e._npages = Pages;
+	e.at(base, Pages, null);
 
 	assert(!e.contains(base - 1));
 	assert(!e.contains(base + Size));
