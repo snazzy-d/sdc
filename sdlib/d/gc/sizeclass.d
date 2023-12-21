@@ -277,7 +277,7 @@ auto getSmallClassCount() {
 	uint count = 0;
 
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
-		if (grp < LgPageSize + 2) {
+		if (delta < LgPageSize) {
 			count++;
 		}
 	});
