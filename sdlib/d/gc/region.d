@@ -110,7 +110,7 @@ private:
 		auto totalBlocks = extraBlocks + 1;
 
 		Region rr;
-		rr.allocClass = getAllocClass(totalBlocks);
+		rr.setAllocClass(getAllocClass(totalBlocks));
 
 		auto r = regionsByClass.extractBestFit(&rr);
 		if (r is null) {
@@ -352,12 +352,28 @@ unittest enormous {
 }
 
 struct Region {
-	void* address;
+	/**
+	 * This is a bitfield containing the following elements:
+	 *  - c: The alloc class.
+	 *  - a: The address (BlockSize-aligned)
+	 *  - g: The generation.
+	 * 
+	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
+	 * cccccccc aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa aaa..... ........ gggggggg
+	 */
+	ulong bits;
+
+	// Useful constants for bit manipulations.
+	enum SignificantAddressMask = AddressMask & BlockPointerMask;
+	enum AllocClassIndex = 56;
+
+	// Verify our assumptions.
+	static assert(LgAddressSpace <= AllocClassIndex,
+	              "Address space too large!");
+	static assert(LgBlockSize >= 8, "Not enough space in low bits!");
+
 	uint blockCount;
 	uint dirtyBlockCount;
-
-	ubyte allocClass;
-	ubyte generation;
 
 	struct UsedLinks {
 		ClassNode rbClass;
@@ -380,12 +396,12 @@ struct Region {
 		assert(dirtyBlockCount <= blockCount,
 		       "Dirty block count exceeds block count!");
 
-		address = ptr;
-		this.blockCount = blockCount;
-		this.generation = generation;
-		this.dirtyBlockCount = dirtyBlockCount;
+		bits = cast(ulong) ptr;
+		bits |= ulong(getFreeSpaceClass(blockCount)) << AllocClassIndex;
+		bits |= generation;
 
-		allocClass = getFreeSpaceClass(blockCount);
+		this.blockCount = blockCount;
+		this.dirtyBlockCount = dirtyBlockCount;
 	}
 
 public:
@@ -422,6 +438,27 @@ public:
 		auto r = (cast(Region*) slot.address);
 		*r = Region(null, 0, slot.generation);
 		return r;
+	}
+
+	@property
+	void* address() const {
+		return cast(void*) (bits & SignificantAddressMask);
+	}
+
+	@property
+	ubyte allocClass() {
+		return bits >> AllocClassIndex;
+	}
+
+	void setAllocClass(ubyte c) {
+		enum Mask = (size_t(1) << AllocClassIndex) - 1;
+		bits &= Mask;
+		bits |= ulong(c) << AllocClassIndex;
+	}
+
+	@property
+	ubyte generation() {
+		return bits & ubyte.max;
 	}
 
 	@property
@@ -519,13 +556,8 @@ unittest rangeTree {
 }
 
 ptrdiff_t classAddrRegionCmp(Region* lhs, Region* rhs) {
-	static assert(LgAddressSpace <= 56, "Address space too large!");
-
-	auto l = ulong(lhs.allocClass) << 56;
-	auto r = ulong(rhs.allocClass) << 56;
-
-	l |= cast(size_t) lhs.address;
-	r |= cast(size_t) rhs.address;
+	auto l = lhs.bits;
+	auto r = rhs.bits;
 
 	return (l > r) - (l < r);
 }
@@ -581,7 +613,7 @@ unittest trackDirtyBlocks {
 	void verifyUniqueRegion(void* address, uint searchBlocks, uint blocks,
 	                        uint dirtyBlocks) {
 		Region rr;
-		rr.allocClass = getAllocClass(searchBlocks);
+		rr.setAllocClass(getAllocClass(searchBlocks));
 		auto r = ra.regionsByClass.bestfit(&rr);
 		assert(r !is null);
 		assert(r.address == address);
