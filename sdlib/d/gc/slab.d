@@ -30,7 +30,7 @@ struct SlabAllocInfo {
 private:
 	SlabAllocGeometry sg;
 	Extent* e;
-	bool _allowsMetadata = false;
+	bool _supportsMetadata = false;
 	bool _hasMetadata = false;
 
 public:
@@ -39,13 +39,13 @@ public:
 
 		e = pd.extent;
 		sg = SlabAllocGeometry(pd, ptr);
-		_allowsMetadata = sizeClassSupportsMetadata(pd.sizeClass);
-		_hasMetadata = _allowsMetadata && e.hasMetadata(sg.index);
+		_supportsMetadata = sizeClassSupportsMetadata(pd.sizeClass);
+		_hasMetadata = supportsMetadata && e.hasMetadata(sg.index);
 	}
 
 	@property
-	auto allowsMetadata() {
-		return _allowsMetadata;
+	auto supportsMetadata() {
+		return _supportsMetadata;
 	}
 
 	@property
@@ -69,7 +69,7 @@ public:
 	}
 
 	bool setUsedCapacity(size_t size) {
-		if (!_allowsMetadata || (size > slotCapacity)) {
+		if (!supportsMetadata || size > slotCapacity) {
 			return false;
 		}
 
@@ -89,7 +89,7 @@ public:
 	void initializeMetadata(Finalizer initialFinalizer,
 	                        size_t initialUsedCapacity) {
 		assert(isLittleEndian(), "Currently does not work on big-endian!");
-		assert(_allowsMetadata, "size class not supports slab metadata!");
+		assert(supportsMetadata, "size class not supports slab metadata!");
 
 		bool hasFinalizer = initialFinalizer !is null;
 		assert(
@@ -125,7 +125,7 @@ private:
 	}
 
 	void setFreeSpace(size_t size) {
-		assert(_allowsMetadata, "size class not supports slab metadata!");
+		assert(supportsMetadata, "size class not supports slab metadata!");
 		assert(size <= sg.size, "size exceeds alloc size!");
 
 		if (size == 0) {
@@ -198,10 +198,12 @@ unittest SlabAllocInfo {
 	// When metadata is not supported by the size class:
 	foreach (size; [1, 6, 8, 20, 24, 35, 40, 50, 56]) {
 		auto sc = getSizeClass(size);
-		foreach (slotIndex; 0 .. binInfos[sc].slots + 1) {
+		assert(!sizeClassSupportsMetadata(sc));
+
+		foreach (slotIndex; 0 .. binInfos[sc].nslots + 1) {
 			auto si = simulateSmallAlloc(size, slotIndex);
 			assert(si.slotCapacity == getAllocSize(size));
-			assert(!si.allowsMetadata);
+			assert(!si.supportsMetadata);
 			assert(!si.hasMetadata);
 			assert(si.freeSpace == 0);
 			assert(!si.setUsedCapacity(0));
@@ -218,9 +220,11 @@ unittest SlabAllocInfo {
 		[15, 16, 300, 320, 1000, 1024, MaxSmallSize - 1, MaxSmallSize]
 	) {
 		auto sc = getSizeClass(size);
-		foreach (slotIndex; 0 .. binInfos[sc].slots + 1) {
+		assert(sizeClassSupportsMetadata(sc));
+
+		foreach (slotIndex; 0 .. binInfos[sc].nslots + 1) {
 			auto si = simulateSmallAlloc(size, slotIndex);
-			assert(si.allowsMetadata);
+			assert(si.supportsMetadata);
 			auto slotCapacity = si.slotCapacity;
 			assert(slotCapacity == getAllocSize(size));
 			si.setUsedCapacity(size);
@@ -335,14 +339,14 @@ unittest packedFreeSpace {
 
 struct BinInfo {
 	ushort itemSize;
-	ushort slots;
+	ushort nslots;
 	ubyte needPages;
 	ubyte shift;
 	ushort mul;
 
-	this(ushort itemSize, ubyte shift, ubyte needPages, ushort slots) {
+	this(ushort itemSize, ubyte shift, ubyte needPages, ushort nslots) {
 		this.itemSize = itemSize;
-		this.slots = slots;
+		this.nslots = nslots;
 		this.needPages = needPages;
 		this.shift = (shift + 17) & 0xff;
 

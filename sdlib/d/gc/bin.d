@@ -41,14 +41,14 @@ struct Bin {
 		       "Invalid arena or sizeClass!");
 
 		import d.gc.slab;
-		auto slots = binInfos[pd.sizeClass].slots;
+		auto nslots = binInfos[pd.sizeClass].nslots;
 		auto sg = SlabAllocGeometry(pd, ptr);
 		assert(ptr is sg.address);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Bin*) &this).freeImpl(pd.extent, sg.index, slots);
+		return (cast(Bin*) &this).freeImpl(pd.extent, sg.index, nslots);
 	}
 
 private:
@@ -67,23 +67,23 @@ private:
 		assert(count > 0);
 
 		// If the slab is full, remove it from the heap.
-		if (e.freeSlots == 0) {
+		if (e.nfree == 0) {
 			slabs.remove(e);
 		}
 
 		return buffer[0];
 	}
 
-	bool freeImpl(Extent* e, uint index, uint slots) {
+	bool freeImpl(Extent* e, uint index, uint nslots) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		e.free(index);
 
-		auto nfree = e.freeSlots;
-		if (nfree == slots) {
+		auto nfree = e.nfree;
+		if (nfree == nslots) {
 			// If we only had one slot, we never got added to the heap.
-			if (slots > 1) {
+			if (nslots > 1) {
 				slabs.remove(e);
 			}
 
@@ -92,7 +92,7 @@ private:
 
 		if (nfree == 1) {
 			// Newly non empty.
-			assert(slots > 1);
+			assert(nslots > 1);
 			slabs.insert(e);
 		}
 
@@ -133,11 +133,11 @@ private:
 
 		// If we have, then free the run we just allocated.
 		assert(slab !is current);
-		assert(current.freeSlots > 0);
+		assert(current.nfree > 0);
 
 		// In which case we release the slab we just allocated.
 		import d.gc.slab;
-		assert(slab.freeSlots == binInfos[sizeClass].slots);
+		assert(slab.nfree == binInfos[sizeClass].nslots);
 		arena.freeSlab(emap, slab);
 
 		// And use the metadata run.

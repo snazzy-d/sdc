@@ -87,9 +87,10 @@ bool sizeClassSupportsMetadata(uint sizeClass) {
 
 unittest sizeClassSupportsMetadata {
 	auto bins = getBinInfos();
-	// Small size classes support metadata if and only if have <= 256 slab slots:
+
+	// Small size classes support metadata if and only if have <= 256 slab slots.
 	foreach (sc; 0 .. ClassCount.Small) {
-		assert(sizeClassSupportsMetadata(sc) == (bins[sc].slots <= 256));
+		assert(sizeClassSupportsMetadata(sc) == (bins[sc].nslots <= 256));
 	}
 
 	// All large size classes support metadata:
@@ -107,9 +108,9 @@ bool sizeClassSupportsInlineMarking(uint sizeClass) {
 unittest sizeClassSupportsInlineMarking {
 	auto bins = getBinInfos();
 
-	// Small size classes support inline marking if and only if have <= 128 slab slots:
+	// Small size classes support inline marking if and only if have <= 128 slab slots.
 	foreach (sc; 0 .. ClassCount.Small) {
-		assert(sizeClassSupportsInlineMarking(sc) == (bins[sc].slots <= 128));
+		assert(sizeClassSupportsInlineMarking(sc) == (bins[sc].nslots <= 128));
 	}
 
 	// All large size classes support inline marking:
@@ -351,7 +352,7 @@ void main() {
 	foreach (i; 0 .. ClassCount.Small) {
 		auto b = bins[i];
 		printf("id: %d\tsize: %hd\tneedPages: %hhd\tslots: %hd\n", i,
-		       b.itemSize, b.needPages, b.slots);
+		       b.itemSize, b.needPages, b.nslots);
 	}
 
 	printf("allocs:\n");

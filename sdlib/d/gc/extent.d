@@ -132,7 +132,7 @@ private:
 
 		if (ec.isSlab()) {
 			import d.gc.slab;
-			bits |= ulong(binInfos[ec.sizeClass].slots) << 48;
+			bits |= ulong(binInfos[ec.sizeClass].nslots) << 48;
 
 			slabData.clear();
 		} else {
@@ -238,17 +238,17 @@ public:
 	}
 
 	@property
-	uint slotCount() const {
-		assert(isSlab(), "slotCount accessed on non slab!");
+	uint nslots() const {
+		assert(isSlab(), "nslots accessed on non slab!");
 
 		import d.gc.slab;
-		return binInfos[sizeClass].slots;
+		return binInfos[sizeClass].nslots;
 	}
 
 	@property
-	uint freeSlots() const {
+	uint nfree() const {
 		// FIXME: in contract.
-		assert(isSlab(), "freeSlots accessed on non slab!");
+		assert(isSlab(), "nfree accessed on non slab!");
 
 		enum Mask = (1 << 10) - 1;
 		return (bits >> 48) & Mask;
@@ -257,10 +257,10 @@ public:
 	uint batchAllocate(void*[] buffer, size_t slotSize) {
 		// FIXME: in contract.
 		assert(isSlab(), "allocate accessed on non slab!");
-		assert(freeSlots > 0, "Slab is full!");
+		assert(nfree > 0, "Slab is full!");
 
 		void** insert = buffer.ptr;
-		uint count = min(buffer.length, freeSlots) & uint.max;
+		uint count = min(buffer.length, nfree) & uint.max;
 
 		uint total = 0;
 		uint n = -1;
@@ -329,7 +329,7 @@ public:
 		assert(isSlab(), "hasMetadata accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
-		assert(index < slotCount, "index is out of range!");
+		assert(index < nslots, "index is out of range!");
 
 		return slabMetadataFlags.valueAtAtomic(index);
 	}
@@ -338,7 +338,7 @@ public:
 		assert(isSlab(), "hasMetadata accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
-		assert(index < slotCount, "index is out of range!");
+		assert(index < nslots, "index is out of range!");
 
 		slabMetadataFlags.setBitAtomic(index);
 	}
@@ -347,7 +347,7 @@ public:
 		assert(isSlab(), "hasMetadata accessed on non slab!");
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
-		assert(index < slotCount, "index is out of range!");
+		assert(index < nslots, "index is out of range!");
 
 		slabMetadataFlags.clearBitAtomic(index);
 	}
@@ -456,31 +456,31 @@ unittest allocfree {
 
 	assert(e.isSlab());
 	assert(e.sizeClass == 0);
-	assert(e.freeSlots == 512);
+	assert(e.nfree == 512);
 
 	checkAllocate(e, 0);
-	assert(e.freeSlots == 511);
+	assert(e.nfree == 511);
 
 	checkAllocate(e, 1);
-	assert(e.freeSlots == 510);
+	assert(e.nfree == 510);
 
 	checkAllocate(e, 2);
-	assert(e.freeSlots == 509);
+	assert(e.nfree == 509);
 
 	e.free(1);
-	assert(e.freeSlots == 510);
+	assert(e.nfree == 510);
 
 	checkAllocate(e, 1);
-	assert(e.freeSlots == 509);
+	assert(e.nfree == 509);
 
 	checkAllocate(e, 3);
-	assert(e.freeSlots == 508);
+	assert(e.nfree == 508);
 
 	e.free(0);
 	e.free(3);
 	e.free(2);
 	e.free(1);
-	assert(e.freeSlots == 512);
+	assert(e.nfree == 512);
 }
 
 unittest batchAllocate {
@@ -489,7 +489,7 @@ unittest batchAllocate {
 
 	void*[1024] buffer;
 	assert(e.batchAllocate(buffer[0 .. 1024], PointerSize) == 512);
-	assert(e.freeSlots == 0);
+	assert(e.nfree == 0);
 
 	foreach (i; 0 .. 512) {
 		assert(i * PointerSize == cast(size_t) buffer[i]);
@@ -500,9 +500,9 @@ unittest batchAllocate {
 		e.free(2 * i);
 	}
 
-	assert(e.freeSlots == 256);
+	assert(e.nfree == 256);
 	assert(e.batchAllocate(buffer[512 .. 1024], PointerSize) == 256);
-	assert(e.freeSlots == 0);
+	assert(e.nfree == 0);
 
 	foreach (i; 0 .. 256) {
 		assert(2 * i * PointerSize == cast(size_t) buffer[512 + i]);
@@ -514,9 +514,9 @@ unittest batchAllocate {
 		e.free(511 - i);
 	}
 
-	assert(e.freeSlots == 510);
+	assert(e.nfree == 510);
 	assert(e.batchAllocate(buffer[0 .. 500], PointerSize) == 500);
-	assert(e.freeSlots == 10);
+	assert(e.nfree == 10);
 
 	foreach (i; 0 .. 255) {
 		assert(i * PointerSize == cast(size_t) buffer[i]);

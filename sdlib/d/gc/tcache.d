@@ -117,7 +117,7 @@ public:
 			auto oldSizeClass = pd.sizeClass;
 			if (samePointerness && newSizeClass == oldSizeClass) {
 				auto si = SlabAllocInfo(pd, ptr);
-				if (!si.allowsMetadata || si.setUsedCapacity(size)) {
+				if (!si.supportsMetadata || si.setUsedCapacity(size)) {
 					return ptr;
 				}
 			}
