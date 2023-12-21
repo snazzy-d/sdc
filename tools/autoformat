@@ -2,6 +2,30 @@
 
 set -euo pipefail
 
+USE_PARALLEL=true
+
+while getopts ":s" opt; do
+    case "${opt}" in
+        s)
+            USE_PARALLEL=false
+            ;;
+		\?)
+			echo "Unknown argument" >&2
+			exit 1
+			;;
+		*)
+			echo "An unhandled getopts error occured."
+			exit 1
+    esac
+done
+
+if [ "$USE_PARALLEL" = true ] && ! command -v parallel &>/dev/null; then
+	echo -e "Error:\tCannot locate 'parallel'."
+	echo -e "      \tPass -s to fall back to slow batch processing instead."
+	echo -e "      \t\t${0} -s"
+	exit 1
+fi
+
 SCRIPTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "$SCRIPTDIR"
 
@@ -30,6 +54,11 @@ process_file() {
 		printf "%u/%u\r" $(( ++COUNTER )) "$TOTAL"
 	fi
 }
-
 export -f process_file
-parallel process_file ::: "$FILES"
+
+if [ "$USE_PARALLEL" = true ]; then
+	parallel process_file ::: "$FILES"
+else
+	echo "Using non-parallel batch processing mode."
+	for fn in $FILES; do process_file "$fn"; done
+fi
