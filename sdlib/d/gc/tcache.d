@@ -142,7 +142,7 @@ public:
 			return null;
 		}
 
-		if (isLargeSize(size)) {
+		if (!isSmallSize(size)) {
 			auto npd = getPageDescriptor(newPtr);
 			npd.extent.setUsedCapacity(size);
 		}

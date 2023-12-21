@@ -129,9 +129,9 @@ public:
 	void* allocLarge(ref CachedExtentMap emap, size_t size,
 	                 bool zero = false) shared {
 		// TODO: in contracts
-		assert(isLargeSize(size));
-
 		import d.gc.size;
+		assert(isAllocatableSize(size));
+
 		auto pages = getPageCount(size);
 		auto e = allocPages(pages);
 		if (unlikely(e is null)) {

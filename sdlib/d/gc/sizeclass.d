@@ -36,16 +36,26 @@ import d.gc.util;
 enum ClassCount {
 	Tiny = getTinyClassCount(),
 	Small = getSmallClassCount(),
+	Large = getLargeClassCount(),
 	Total = getTotalClassCount(),
 	Lookup = getLookupClassCount(),
 }
 
 enum MaxTinySize = ClassCount.Tiny * Quantum;
 enum MaxSmallSize = getSizeFromClass(ClassCount.Small - 1);
+enum MaxLargeSize = getSizeFromClass(ClassCount.Large - 1);
 
 // Determine whether given size class is considered 'small' (slab-allocatable).
 bool isSmallSizeClass(uint sizeClass) {
 	return sizeClass < ClassCount.Small;
+}
+
+bool isLargeSizeClass(uint sizeClass) {
+	return sizeClass >= ClassCount.Small && sizeClass < ClassCount.Large;
+}
+
+bool isHugeSizeClass(uint sizeClass) {
+	return sizeClass >= ClassCount.Large;
 }
 
 // Determine whether given size may fit into a 'small' (slab-allocatable) size class.
@@ -55,31 +65,98 @@ bool isSmallSize(size_t size) {
 
 // Determine whether given size may fit into a 'large' size class.
 bool isLargeSize(size_t size) {
+	return (size > MaxSmallSize) && (size <= MaxLargeSize);
+}
+
+bool isHugeSize(size_t size) {
 	import d.gc.size;
-	return (size > MaxSmallSize) && (size <= MaxAllocationSize);
+	return (size > MaxLargeSize) && (size <= MaxAllocationSize);
 }
 
 unittest sizeClassPredicates {
-	foreach (s; 0 .. 38) {
+	assert(ClassCount.Small == 39, "Unexpected small class count!");
+	assert(ClassCount.Large == 67, "Unexpected large class count!");
+	assert(ClassCount.Total == 239, "Unexpected total class count!");
+
+	foreach (s; 0 .. ClassCount.Small) {
 		assert(isSmallSizeClass(s));
+		assert(!isLargeSizeClass(s));
+		assert(!isHugeSizeClass(s));
 	}
 
-	foreach (s; 39 .. ClassCount.Total) {
+	foreach (s; ClassCount.Small .. ClassCount.Large) {
 		assert(!isSmallSizeClass(s));
+		assert(isLargeSizeClass(s));
+		assert(!isHugeSizeClass(s));
 	}
+
+	foreach (s; ClassCount.Large .. ClassCount.Total) {
+		assert(!isSmallSizeClass(s));
+		assert(!isLargeSizeClass(s));
+		assert(isHugeSizeClass(s));
+	}
+}
+
+unittest sizePredicates {
+	assert(MaxSmallSize == 14336, "Unexpected max small size!");
+	assert(MaxLargeSize == 1835008, "Unexpected max large size!");
 
 	assert(!isSmallSize(0));
 	assert(!isLargeSize(0));
+	assert(!isHugeSize(0));
 
-	foreach (n; 1 .. 14336) {
-		assert(isSmallSize(n));
-		assert(!isLargeSize(n));
-		assert(isSmallSizeClass(getSizeClass(n)));
+	void checkSmall(size_t size) {
+		assert(isSmallSize(size));
+		assert(!isLargeSize(size));
+		assert(!isHugeSize(size));
+
+		auto sc = getSizeClass(size);
+		assert(isSmallSizeClass(sc));
+		assert(!isLargeSizeClass(sc));
+		assert(!isHugeSizeClass(sc));
 	}
 
-	assert(!isSmallSize(14337));
-	assert(isLargeSize(14337));
-	assert(!isSmallSizeClass(getSizeClass(14337)));
+	void checkLarge(size_t size) {
+		assert(!isSmallSize(size));
+		assert(isLargeSize(size));
+		assert(!isHugeSize(size));
+
+		auto sc = getSizeClass(size);
+		assert(!isSmallSizeClass(sc));
+		assert(isLargeSizeClass(sc));
+		assert(!isHugeSizeClass(sc));
+	}
+
+	void checkHuge(size_t size) {
+		assert(!isSmallSize(size));
+		assert(!isLargeSize(size));
+		assert(isHugeSize(size));
+
+		auto sc = getSizeClass(size);
+		assert(!isSmallSizeClass(sc));
+		assert(!isLargeSizeClass(sc));
+		assert(isHugeSizeClass(sc));
+	}
+
+	foreach (s; 1 .. MaxSmallSize) {
+		checkSmall(s);
+	}
+
+	// MaxSmallSize is the largest small size.
+	checkSmall(MaxSmallSize);
+
+	// MaxSmallSize + 1 is no longer small.
+	checkLarge(MaxSmallSize + 1);
+
+	// MaxLargeSize is the largest large size.
+	checkLarge(MaxLargeSize);
+
+	// MaxLargeSize + 1 is no longer large.
+	checkHuge(MaxLargeSize + 1);
+
+	// MaxAllocationSize is obviously huge.
+	import d.gc.size;
+	checkHuge(MaxAllocationSize);
 }
 
 // Determine whether given size class supports metadata.
@@ -278,6 +355,18 @@ auto getSmallClassCount() {
 
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
 		if (delta < LgPageSize) {
+			count++;
+		}
+	});
+
+	return count;
+}
+
+auto getLargeClassCount() {
+	uint count = 0;
+
+	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
+		if (grp < LgBlockSize) {
 			count++;
 		}
 	});

@@ -179,7 +179,7 @@ public:
 	}
 
 	bool isHuge() const {
-		return size > BlockSize;
+		return size >= MaxLargeSize;
 	}
 
 	@property
