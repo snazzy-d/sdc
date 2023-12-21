@@ -65,9 +65,9 @@ struct Extent {
 private:
 	/**
 	 * This is a bitfield containing the following elements:
-	 *  - e: The extent class.
-	 *  - a: The arena index.
 	 *  - n: The number of free slots.
+	 *  - a: The arena index.
+	 *  - e: The extent class.
 	 * 
 	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
 	 * nnnnnnnn nnnnnnnn ....aaaa aaaaaaaa ........ ........ ........ ..eeeeee
@@ -171,7 +171,7 @@ public:
 	}
 
 	@property
-	uint pageCount() const {
+	uint npages() const {
 		auto pc = sizeAndGen / PageSize;
 
 		assert(pc == pc & uint.max, "Invalid page count!");

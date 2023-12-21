@@ -342,14 +342,14 @@ unittest packedFreeSpace {
 struct BinInfo {
 	ushort itemSize;
 	ushort nslots;
-	ubyte needPages;
+	ubyte npages;
 	ubyte shift;
 	ushort mul;
 
-	this(ushort itemSize, ubyte shift, ubyte needPages, ushort nslots) {
+	this(ushort itemSize, ubyte shift, ubyte npages, ushort nslots) {
 		this.itemSize = itemSize;
 		this.nslots = nslots;
-		this.needPages = needPages;
+		this.npages = npages;
 		this.shift = (shift + 17) & 0xff;
 
 		// XXX: out contract
@@ -369,7 +369,7 @@ struct BinInfo {
 
 	uint computeIndex(size_t offset) const {
 		// FIXME: in contract.
-		assert(offset < needPages * PageSize, "Offset out of bounds!");
+		assert(offset < npages * PageSize, "Offset out of bounds!");
 
 		return cast(uint) ((offset * mul) >> shift);
 	}

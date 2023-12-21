@@ -77,7 +77,7 @@ public:
 
 	bool remap(Extent* extent, ExtentClass ec) {
 		auto pd = PageDescriptor(extent, ec);
-		return map(extent.address, extent.pageCount, pd);
+		return map(extent.address, extent.npages, pd);
 	}
 
 	bool remap(Extent* extent) {
@@ -91,7 +91,7 @@ public:
 	}
 
 	void clear(Extent* extent) {
-		clear(extent.address, extent.pageCount);
+		clear(extent.address, extent.npages);
 	}
 }
 

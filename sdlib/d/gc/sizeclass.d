@@ -234,13 +234,13 @@ auto getBinInfos() {
 			shift = (delta + tag - 2) & 0xff;
 		}
 
-		auto needPages = npLookup[(itemSize >> shift) % 4];
+		auto npages = npLookup[(itemSize >> shift) % 4];
 
-		uint p = needPages;
+		uint p = npages;
 		ushort slots = ((p << LgPageSize) / s) & ushort.max;
 
 		assert(isSmallSizeClass(id));
-		bins[id] = BinInfo(itemSize, shift, needPages, slots);
+		bins[id] = BinInfo(itemSize, shift, npages, slots);
 	});
 
 	return bins;
@@ -349,8 +349,8 @@ void main() {
 	printf("bins:\n");
 	foreach (i; 0 .. ClassCount.Small) {
 		auto b = bins[i];
-		printf("id: %d\tsize: %hd\tneedPages: %hhd\tslots: %hd\n", i,
-		       b.itemSize, b.needPages, b.nslots);
+		printf("id: %d\tsize: %hd\tnpages: %hhd\tslots: %hd\n", i, b.itemSize,
+		       b.npages, b.nslots);
 	}
 
 	printf("allocs:\n");

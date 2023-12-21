@@ -158,7 +158,7 @@ public:
 		}
 
 		uint pages = getPageCount(size);
-		uint currentPageCount = e.pageCount;
+		uint currentPageCount = e.npages;
 
 		if (pages == currentPageCount) {
 			return true;
@@ -175,9 +175,9 @@ public:
 	void shrinkLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
 		assert(e.isLarge(), "Expected a large extent!");
 		assert(!e.isHuge(), "Does not support huge!");
-		assert(pages > 0 && pages < e.pageCount, "Invalid page count!");
+		assert(pages > 0 && pages < e.npages, "Invalid page count!");
 
-		uint delta = e.pageCount - pages;
+		uint delta = e.npages - pages;
 		uint index = e.blockIndex + pages;
 
 		emap.clear(e.address + pages * PageSize, delta);
@@ -191,14 +191,14 @@ public:
 	bool growLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
 		assert(e.isLarge(), "Expected a large extent!");
 		assert(!e.isHuge(), "Does not support huge!");
-		assert(pages > e.pageCount, "Invalid page count!");
+		assert(pages > e.npages, "Invalid page count!");
 
 		auto n = e.blockIndex;
 		if (n + pages > PagesInBlock) {
 			return false;
 		}
 
-		uint currentPages = e.pageCount;
+		uint currentPages = e.npages;
 		uint index = n + currentPages;
 		uint delta = pages - currentPages;
 
@@ -234,7 +234,7 @@ public:
 package:
 	Extent* allocSlab(ref CachedExtentMap emap, ubyte sizeClass) shared {
 		import d.gc.slab;
-		auto neededPages = binInfos[sizeClass].needPages;
+		auto neededPages = binInfos[sizeClass].npages;
 
 		auto ec = ExtentClass.slab(sizeClass);
 		auto e = allocPages(neededPages, ec);
@@ -294,7 +294,7 @@ private:
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 
 		uint n = e.blockIndex;
-		uint pages = modUp(e.pageCount, PagesInBlock);
+		uint pages = modUp(e.npages, PagesInBlock);
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -542,14 +542,14 @@ unittest allocLarge {
 	assert(ptr0 !is null);
 	auto pd0 = emap.lookup(ptr0);
 	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.pageCount == 4);
+	assert(pd0.extent.npages == 4);
 
 	auto ptr1 = arena.allocLarge(emap, 12 * PageSize);
 	assert(ptr1 !is null);
 	assert(ptr1 is ptr0 + 4 * PageSize);
 	auto pd1 = emap.lookup(ptr1);
 	assert(pd1.extent.address is ptr1);
-	assert(pd1.extent.pageCount == 12);
+	assert(pd1.extent.npages == 12);
 
 	arena.free(emap, pd0, ptr0);
 	auto pdf = emap.lookup(ptr0);
@@ -561,7 +561,7 @@ unittest allocLarge {
 	assert(ptr2 is ptr1 + 12 * PageSize);
 	auto pd2 = emap.lookup(ptr2);
 	assert(pd2.extent.address is ptr2);
-	assert(pd2.extent.pageCount == 5);
+	assert(pd2.extent.npages == 5);
 
 	// But do reuse that free slot if there isn't.
 	auto ptr3 = arena.allocLarge(emap, 4 * PageSize);
@@ -569,7 +569,7 @@ unittest allocLarge {
 	assert(ptr3 is ptr0);
 	auto pd3 = emap.lookup(ptr3);
 	assert(pd3.extent.address is ptr3);
-	assert(pd3.extent.pageCount == 4);
+	assert(pd3.extent.npages == 4);
 
 	// Free everything.
 	arena.free(emap, pd1, ptr1);
@@ -596,7 +596,7 @@ unittest allocPages {
 
 	auto e1 = arena.allocPages(2);
 	assert(e1 !is null);
-	assert(e1.pageCount == 2);
+	assert(e1.npages == 2);
 	assert(e1.address is e0.address + e0.size);
 
 	auto e0Addr = e0.address;
@@ -605,7 +605,7 @@ unittest allocPages {
 	// Do not reuse the free slot is there is no room.
 	auto e2 = arena.allocPages(3);
 	assert(e2 !is null);
-	assert(e2.pageCount == 3);
+	assert(e2.npages == 3);
 	assert(e2.address is e1.address + e1.size);
 
 	// But do reuse that free slot if there isn't.
@@ -623,7 +623,7 @@ unittest allocPages {
 	foreach (pages; 1 .. 2 * PagesInBlock) {
 		auto e = arena.allocPages(pages);
 		assert(e !is null);
-		assert(e.pageCount == pages);
+		assert(e.npages == pages);
 		arena.freePages(e);
 	}
 }
@@ -645,7 +645,7 @@ unittest allocHuge {
 	// Allocate a huge extent.
 	auto e0 = arena.allocPages(AllocSize);
 	assert(e0 !is null);
-	assert(e0.pageCount == AllocSize);
+	assert(e0.npages == AllocSize);
 
 	// Free the huge extent.
 	auto e0Addr = e0.address;
@@ -655,7 +655,7 @@ unittest allocHuge {
 	e0 = arena.allocPages(AllocSize);
 	assert(e0 !is null);
 	assert(e0.address is e0Addr);
-	assert(e0.pageCount == AllocSize);
+	assert(e0.npages == AllocSize);
 
 	// Allocate one page on the borrowed block.
 	auto e1 = arena.allocPages(1);
@@ -670,7 +670,7 @@ unittest allocHuge {
 	auto e2 = arena.allocPages(AllocSize);
 	assert(e2 !is null);
 	assert(e2.address is alignUp(e1.address, BlockSize));
-	assert(e2.pageCount == AllocSize);
+	assert(e2.npages == AllocSize);
 
 	// Allocating new small extents fill the borrowed page.
 	auto e3 = arena.allocPages(1);
@@ -682,7 +682,7 @@ unittest allocHuge {
 	auto e4 = arena.allocPages(PagesInBlock);
 	assert(e4 !is null);
 	assert(e4.address is e0Addr);
-	assert(e4.pageCount == PagesInBlock);
+	assert(e4.npages == PagesInBlock);
 
 	// Free everything.
 	arena.freePages(e1);
@@ -713,7 +713,7 @@ unittest resizeLargeShrink {
 	assert(ptr0 !is null);
 	auto pd0 = emap.lookup(ptr0);
 	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.pageCount == 35);
+	assert(pd0.extent.npages == 35);
 	auto pd0x = emap.lookup(ptr0);
 	assert(pd0x.extent.address is ptr0);
 
@@ -723,7 +723,7 @@ unittest resizeLargeShrink {
 	assert(ptr1 is ptr0 + 35 * PageSize);
 	auto pd1 = emap.lookup(ptr1);
 	assert(pd1.extent.address is ptr1);
-	assert(pd1.extent.pageCount == 20);
+	assert(pd1.extent.npages == 20);
 
 	// Growing by zero is allowed:
 	assert(arena.resizeLarge(emap, pd0.extent, 35 * PageSize));
@@ -731,7 +731,7 @@ unittest resizeLargeShrink {
 	// Shrink no. 0 down to 10 pages:
 	assert(arena.resizeLarge(emap, pd0.extent, 10 * PageSize));
 	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.pageCount == 10);
+	assert(pd0.extent.npages == 10);
 	auto pd0xx = emap.lookup(ptr0);
 	assert(pd0xx.extent.address is ptr0);
 
@@ -786,16 +786,16 @@ unittest resizeLargeShrink {
 
 	// Shrink first alloc:
 	assert(arena.resizeLarge(emap, pd4.extent, 96 * PageSize));
-	assert(pd4.extent.pageCount == 96);
+	assert(pd4.extent.npages == 96);
 	assert(!pd6.extent.block.full);
 
 	// Shrink second alloc:
 	assert(arena.resizeLarge(emap, pd5.extent, 128 * PageSize));
-	assert(pd5.extent.pageCount == 128);
+	assert(pd5.extent.npages == 128);
 
 	// Shrink third alloc:
 	assert(arena.resizeLarge(emap, pd6.extent, 64 * PageSize));
-	assert(pd6.extent.pageCount == 64);
+	assert(pd6.extent.npages == 64);
 
 	// Allocate 128 pages, should go after second alloc:
 	auto ptr7 = arena.allocLarge(emap, 128 * PageSize);
@@ -849,13 +849,13 @@ unittest resizeLargeGrow {
 		auto e = pd.extent;
 		assert(e !is null);
 		assert(e.address is ptr);
-		assert(e.pageCount == pages);
+		assert(e.npages == pages);
 		return e;
 	}
 
 	void checkGrowLarge(Extent* e, uint pages) {
 		assert(arena.resizeLarge(emap, e, pages * PageSize));
-		assert(e.pageCount == pages);
+		assert(e.npages == pages);
 
 		// Confirm that the page after the end of the extent is not included in the map:
 		auto pdAfter = emap.lookup(e.address + e.size);
