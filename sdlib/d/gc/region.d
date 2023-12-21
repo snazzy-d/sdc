@@ -359,18 +359,16 @@ struct Region {
 	 *  - g: The generation.
 	 * 
 	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
-	 * cccccccc aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa aaa..... ........ gggggggg
+	 * cccccccc ........ aaaaaaaa aaaaaaaa aaaaaaaa aaa..... ........ gggggggg
 	 */
 	ulong bits;
 
-	// Useful constants for bit manipulations.
-	enum SignificantAddressMask = AddressMask & BlockPointerMask;
-	enum AllocClassIndex = 56;
-
 	// Verify our assumptions.
-	static assert(LgAddressSpace <= AllocClassIndex,
-	              "Address space too large!");
+	static assert(LgAddressSpace <= 56, "Address space too large!");
 	static assert(LgBlockSize >= 8, "Not enough space in low bits!");
+
+	// Useful constants for bit manipulations.
+	enum AllocClassIndex = 56;
 
 	uint blockCount;
 	uint dirtyBlockCount;
@@ -396,9 +394,8 @@ struct Region {
 		assert(dirtyBlockCount <= blockCount,
 		       "Dirty block count exceeds block count!");
 
-		bits = cast(ulong) ptr;
+		bits = generation | cast(size_t) ptr;
 		bits |= ulong(getFreeSpaceClass(blockCount)) << AllocClassIndex;
-		bits |= generation;
 
 		this.blockCount = blockCount;
 		this.dirtyBlockCount = dirtyBlockCount;
@@ -442,7 +439,7 @@ public:
 
 	@property
 	void* address() const {
-		return cast(void*) (bits & SignificantAddressMask);
+		return cast(void*) (bits & BlockPointerMask);
 	}
 
 	@property
