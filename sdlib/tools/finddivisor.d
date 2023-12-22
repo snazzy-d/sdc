@@ -1,4 +1,4 @@
-module d.gc.finddivisor;
+module tools.finddivisor;
 
 /**
  * This module is only an utility in order to find the

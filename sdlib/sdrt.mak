@@ -88,6 +88,29 @@ $(LIBDMDALLOC): $(LIBDMDALLOC_DEPS)
 	@mkdir -p lib
 	ar rcs "$@" $^
 
+# Phobos
+PHOBOS_SRC = $(wildcard sdlib/std/*.d)
+PHOBOS_OBJ = $(PHOBOS_SRC:sdlib/std/%.d=obj/phobos/%.o)
+
+PHOBOS = lib/libphobos.a
+
+obj/phobos/%.o: sdlib/std/%.d $(PHOBOS_SRC) $(SDLIB_DEPS)
+	@mkdir -p obj/phobos
+	$(SDC) -c -o $@ $< $(SDFLAGS)
+
+$(PHOBOS): $(PHOBOS_OBJ)
+	@mkdir -p lib obj/phobos
+	ar rcs "$@" $^
+
+# Tools
+TOOLS_SRC = $(wildcard sdlib/tools/*.d)
+ALL_TOOLS = $(TOOLS_SRC:sdlib/tools/%.d=bin/tools/%)
+
+bin/tools/%: sdlib/tools/%.d $(SDC) $(LIBSDRT) $(PHOBOS)
+	@mkdir -p bin/tools
+	$(SDC) -o "$@" $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+
+# Tests
 CHECK_LIBSDRT_GC = $(LIBSDRT_GC_SRC:sdlib/d/gc/%.d=check-sdlib-gc-%)
 CHECK_LIBSDRT_RT = $(LIBSDRT_RT_SRC:sdlib/d/rt/%.d=check-sdlib-rt-%)
 CHECK_LIBSDRT_STDC = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=check-sdlib-stdc-%)

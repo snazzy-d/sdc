@@ -43,7 +43,6 @@ bin/sdconfig:
 SDLIB_DEPS = $(SDC) bin/sdconfig
 
 include sdlib/sdrt.mak
-include sdlib/phobos.mak
 
 check-sdc: $(SDC) bin/sdconfig $(LIBSDRT) $(PHOBOS)
 	test/runner/runner.d
