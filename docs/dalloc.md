@@ -33,7 +33,7 @@ see a lot of internal fragmentation - space within allocations which is unused -
 but, on other hand, if we have too many, we will often be unable to reuse gaps
 in between allocations, creating external fragmentation.
 
-Dallok uses size classes of the form `[4, 5, 6, 7] * 2^n` which provides 2 bits
+Dalloc uses size classes of the form `[4, 5, 6, 7] * 2^n` which provides 2 bits
 of precision. This strategy is similar to the one used by jemalloc, as it turns
 out to be a good tradeof in practice.
 
