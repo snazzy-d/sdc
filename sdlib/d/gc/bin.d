@@ -2,6 +2,7 @@ module d.gc.bin;
 
 import d.gc.arena;
 import d.gc.emap;
+import d.gc.page;
 import d.gc.spec;
 
 /**
@@ -17,11 +18,12 @@ struct Bin {
 	import d.gc.extent;
 	PriorityExtentHeap slabs;
 
-	void* alloc(shared(Arena)* arena, ref CachedExtentMap emap,
+	void* alloc(shared(PageFiller)* filler, ref CachedExtentMap emap,
 	            ubyte sizeClass) shared {
 		import d.gc.sizeclass;
 		assert(sizeClass < ClassCount.Small);
-		assert(&arena.bins[sizeClass] == &this, "Invalid arena or sizeClass!");
+		assert(&filler.arena.bins[sizeClass] == &this,
+		       "Invalid arena or sizeClass!");
 
 		// Load eagerly as prefetching.
 		import d.gc.slab;
@@ -30,15 +32,13 @@ struct Bin {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Bin*) &this).allocImpl(arena, emap, sizeClass, slotSize);
+		return (cast(Bin*) &this).allocImpl(filler, emap, sizeClass, slotSize);
 	}
 
-	bool free(shared(Arena)* arena, void* ptr, PageDescriptor pd) shared {
+	bool free(void* ptr, PageDescriptor pd) shared {
 		assert(pd.extent !is null, "Extent is null!");
 		assert(pd.isSlab(), "Expected a slab!");
 		assert(pd.extent.contains(ptr), "ptr not in slab!");
-		assert(&arena.bins[pd.sizeClass] == &this,
-		       "Invalid arena or sizeClass!");
 
 		import d.gc.slab;
 		auto nslots = binInfos[pd.sizeClass].nslots;
@@ -52,12 +52,12 @@ struct Bin {
 	}
 
 private:
-	void* allocImpl(shared(Arena)* arena, ref CachedExtentMap emap,
+	void* allocImpl(shared(PageFiller)* filler, ref CachedExtentMap emap,
 	                ubyte sizeClass, size_t slotSize) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto e = getSlab(arena, emap, sizeClass);
+		auto e = getSlab(filler, emap, sizeClass);
 		if (e is null) {
 			return null;
 		}
@@ -99,7 +99,7 @@ private:
 		return false;
 	}
 
-	auto getSlab(shared(Arena)* arena, ref CachedExtentMap emap,
+	auto getSlab(shared(PageFiller)* filler, ref CachedExtentMap emap,
 	             ubyte sizeClass) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
@@ -115,7 +115,7 @@ private:
 			scope(exit) mutex.lock();
 
 			// We don't have a suitable slab, so allocate one.
-			slab = arena.allocSlab(emap, sizeClass);
+			slab = filler.allocSlab(emap, sizeClass);
 		}
 
 		auto current = slabs.top;
@@ -138,7 +138,7 @@ private:
 		// In which case we release the slab we just allocated.
 		import d.gc.slab;
 		assert(slab.nfree == binInfos[sizeClass].nslots);
-		arena.freeSlab(emap, slab);
+		filler.freeSlab(emap, slab);
 
 		// And use the metadata run.
 		return current;

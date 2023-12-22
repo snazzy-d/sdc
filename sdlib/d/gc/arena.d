@@ -18,28 +18,11 @@ private:
 	import d.gc.bin;
 	Bin[ClassCount.Small] bins;
 
-	import d.sync.mutex;
-	Mutex mutex;
-
-	UnusedExtentHeap unusedExtents;
-
-	enum HeapCount = getAllocClass(PagesInBlock - 1);
-	static assert(HeapCount <= 32, "Too many heaps to fit in the filter!");
-
-	uint filter;
-	PriorityBlockHeap[HeapCount] heaps;
-
-	import d.gc.ring;
-	Ring!BlockDescriptor fullBlocks;
-
-	UnusedBlockHeap unusedBlockDescriptors;
-	AllBlockRing allBlocks;
+	import d.gc.page;
+	PageFiller filler;
 
 	import d.gc.base;
 	Base base;
-
-	import d.gc.region;
-	shared(RegionAllocator)* regionAllocator;
 
 	enum InitializedBit = 1UL << 63;
 
@@ -88,6 +71,7 @@ public:
 			return a;
 		}
 
+		import d.sync.mutex;
 		static shared Mutex initMutex;
 		initMutex.lock();
 		scope(exit) initMutex.unlock();
@@ -98,7 +82,7 @@ public:
 		}
 
 		import d.gc.region;
-		a.regionAllocator =
+		a.filler.regionAllocator =
 			(index & 0x01) ? gPointerRegionAllocator : gDataRegionAllocator;
 
 		// Mark as initialized and return.
@@ -121,7 +105,7 @@ public:
 		assert(isSmallSize(size));
 
 		auto sizeClass = getSizeClass(size);
-		return bins[sizeClass].alloc(&this, emap, sizeClass);
+		return bins[sizeClass].alloc(&filler, emap, sizeClass);
 	}
 
 	/**
@@ -133,18 +117,7 @@ public:
 		assert(isAllocatableSize(size));
 
 		auto pages = getPageCount(size);
-		auto e = allocPages(pages);
-		if (unlikely(e is null)) {
-			return null;
-		}
-
-		if (likely(emap.remap(e))) {
-			return e.address;
-		}
-
-		// We failed to map the extent, unwind!
-		freePages(e);
-		return null;
+		return filler.allocLarge(emap, pages, zero);
 	}
 
 	bool resizeLarge(ref CachedExtentMap emap, Extent* e, size_t size) shared {
@@ -152,69 +125,13 @@ public:
 		assert(e.isLarge(), "Expected a large extent!");
 		assert(e.arenaIndex == index, "Invalid arena index!");
 
-		// The resize must fit in a block.
-		if (MaxSmallSize >= size || size > BlockSize || e.size >= BlockSize) {
+		if (size <= MaxSmallSize) {
+			// This would create a small allocation.
 			return false;
 		}
 
 		uint pages = getPageCount(size);
-		uint currentPageCount = e.npages;
-
-		if (pages == currentPageCount) {
-			return true;
-		}
-
-		if (pages > currentPageCount) {
-			return growLarge(emap, e, pages);
-		}
-
-		shrinkLarge(emap, e, pages);
-		return true;
-	}
-
-	void shrinkLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
-		assert(e.isLarge(), "Expected a large extent!");
-		assert(!e.isHuge(), "Does not support huge!");
-		assert(pages > 0 && pages < e.npages, "Invalid page count!");
-
-		uint delta = e.npages - pages;
-		uint index = e.blockIndex + pages;
-
-		emap.clear(e.address + pages * PageSize, delta);
-
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		(cast(Arena*) &this).shrinkAllocImpl(e, index, pages, delta);
-	}
-
-	bool growLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
-		assert(e.isLarge(), "Expected a large extent!");
-		assert(!e.isHuge(), "Does not support huge!");
-		assert(pages > e.npages, "Invalid page count!");
-
-		auto n = e.blockIndex;
-		if (n + pages > PagesInBlock) {
-			return false;
-		}
-
-		uint currentPages = e.npages;
-		uint index = n + currentPages;
-		uint delta = pages - currentPages;
-
-		if (!growAlloc(e, index, pages, delta)) {
-			return false;
-		}
-
-		auto pd = PageDescriptor(e, ExtentClass.large());
-		auto endPtr = e.address + currentPages * PageSize;
-		if (likely(emap.map(endPtr, delta, pd.next(currentPages)))) {
-			return true;
-		}
-
-		// We failed to map the new pages, unwind!
-		shrinkLarge(emap, e, currentPages);
-		return false;
+		return filler.resizeLarge(emap, e, pages);
 	}
 
 	/**
@@ -225,297 +142,10 @@ public:
 		assert(pd.extent.contains(ptr), "Invalid ptr!");
 		assert(pd.extent.arenaIndex == index, "Invalid arena index!");
 
-		if (unlikely(!pd.isSlab()) || bins[pd.sizeClass].free(&this, ptr, pd)) {
+		if (unlikely(!pd.isSlab()) || bins[pd.sizeClass].free(ptr, pd)) {
 			emap.clear(pd.extent);
-			freePages(pd.extent);
+			filler.freePages(pd.extent);
 		}
-	}
-
-package:
-	Extent* allocSlab(ref CachedExtentMap emap, ubyte sizeClass) shared {
-		import d.gc.slab;
-		auto neededPages = binInfos[sizeClass].npages;
-
-		auto ec = ExtentClass.slab(sizeClass);
-		auto e = allocPages(neededPages, ec);
-		if (unlikely(e is null)) {
-			return null;
-		}
-
-		if (likely(emap.remap(e, ec))) {
-			return e;
-		}
-
-		// We failed to map the extent, unwind!
-		freePages(e);
-		return null;
-	}
-
-	void freeSlab(ref CachedExtentMap emap, Extent* e) shared {
-		assert(e.isSlab(), "Expected a slab!");
-
-		emap.clear(e);
-		freePages(e);
-	}
-
-private:
-	Extent* allocPages(uint pages, ExtentClass ec) shared {
-		assert(pages > 0 && pages <= MaxPagesInLargeAlloc,
-		       "Invalid page count!");
-		auto mask = ulong.max << getAllocClass(pages);
-
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		return (cast(Arena*) &this).allocPagesImpl(pages, mask, ec);
-	}
-
-	Extent* allocPages(uint pages) shared {
-		if (unlikely(pages > MaxPagesInLargeAlloc)) {
-			return allocHuge(pages);
-		}
-
-		return allocPages(pages, ExtentClass.large());
-	}
-
-	Extent* allocHuge(uint pages) shared {
-		assert(pages > MaxPagesInLargeAlloc, "Invalid page count!");
-
-		uint extraBlocks = (pages - 1) / PagesInBlock;
-		pages = modUp(pages, PagesInBlock);
-
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		return (cast(Arena*) &this).allocHugeImpl(pages, extraBlocks);
-	}
-
-	void freePages(Extent* e) shared {
-		assert(isAligned(e.address, PageSize), "Invalid extent address!");
-
-		uint n = e.blockIndex;
-		uint pages = modUp(e.npages, PagesInBlock);
-
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		(cast(Arena*) &this).freePagesImpl(e, n, pages);
-	}
-
-	bool growAlloc(Extent* e, uint index, uint pages, uint delta) shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		return (cast(Arena*) &this).growAllocImpl(e, index, pages, delta);
-	}
-
-private:
-	Extent* allocPagesImpl(uint pages, ulong mask, ExtentClass ec) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		auto e = getOrAllocateExtent();
-		if (unlikely(e is null)) {
-			return null;
-		}
-
-		auto block = extractBlock(pages, mask);
-		if (unlikely(block is null)) {
-			unusedExtents.insert(e);
-			return null;
-		}
-
-		auto n = block.reserve(pages);
-		registerBlock(block);
-
-		auto ptr = block.address + n * PageSize;
-		return e.at(ptr, pages, block, ec);
-	}
-
-	Extent* allocHugeImpl(uint pages, uint extraBlocks) {
-		assert(mutex.isHeld(), "Mutex not held!");
-		assert(pages <= PagesInBlock, "Invalid page count!");
-
-		auto e = getOrAllocateExtent();
-		if (unlikely(e is null)) {
-			return null;
-		}
-
-		auto block = allocateBlock(extraBlocks);
-		if (unlikely(block is null)) {
-			unusedExtents.insert(e);
-			return null;
-		}
-
-		auto n = block.reserve(pages);
-		registerBlock(block);
-
-		assert(n == 0, "Unexpected page allocated!");
-
-		auto leadSize = extraBlocks * BlockSize;
-		auto ptr = block.address - leadSize;
-		auto npages = pages + extraBlocks * PagesInBlock;
-
-		return e.at(ptr, npages, block);
-	}
-
-	auto getOrAllocateExtent() {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		auto e = unusedExtents.pop();
-		if (e !is null) {
-			return e;
-		}
-
-		auto slot = base.allocSlot();
-		if (slot.address is null) {
-			return null;
-		}
-
-		return Extent.fromSlot(bits & ArenaMask, slot);
-	}
-
-	void freePagesImpl(Extent* e, uint n, uint pages) {
-		assert(mutex.isHeld(), "Mutex not held!");
-		assert(pages > 0 && pages <= PagesInBlock, "Invalid number of pages!");
-		assert(n <= PagesInBlock - pages, "Invalid index!");
-
-		auto block = e.block;
-		unregisterBlock(block);
-
-		block.release(n, pages);
-		if (block.empty) {
-			releaseBlock(e, block);
-		} else {
-			// If the extent is huge, we need to release the concerned region.
-			if (e.isHuge()) {
-				uint count = (e.size / BlockSize) & uint.max;
-				regionAllocator.release(e.address, count);
-			}
-
-			registerBlock(block);
-		}
-
-		unusedExtents.insert(e);
-	}
-
-	void shrinkAllocImpl(Extent* e, uint index, uint pages, uint delta) {
-		assert(mutex.isHeld(), "Mutex not held!");
-		assert(index > 0 && index <= PagesInBlock - pages, "Invalid index!");
-		assert(pages > 0 && pages <= PagesInBlock - index,
-		       "Invalid number of pages!");
-		assert(delta > 0, "Invalid delta!");
-
-		auto block = e.block;
-		unregisterBlock(block);
-
-		e.at(e.address, pages, block);
-		block.clear(index, delta);
-
-		assert(!block.empty);
-		registerBlock(block);
-	}
-
-	bool growAllocImpl(Extent* e, uint index, uint pages, uint delta) {
-		assert(mutex.isHeld(), "Mutex not held!");
-		assert(index > 0 && index <= PagesInBlock - delta, "Invalid index!");
-		assert(pages > 0 && pages <= PagesInBlock, "Invalid number of pages!");
-		assert(delta > 0, "Invalid delta!");
-
-		auto block = e.block;
-		unregisterBlock(block);
-
-		auto didGrow = block.growAt(index, delta);
-		if (didGrow) {
-			e.at(e.address, pages, block);
-		}
-
-		registerBlock(block);
-		return didGrow;
-	}
-
-	/**
-	 * BlockDescriptor heaps management.
-	 */
-	BlockDescriptor* extractBlock(uint pages, ulong mask) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		auto acfilter = filter & mask;
-		if (acfilter == 0) {
-			return allocateBlock();
-		}
-
-		auto index = countTrailingZeros(acfilter);
-		auto block = heaps[index].pop();
-		filter &= ~(ulong(heaps[index].empty) << index);
-
-		assert(block !is null);
-		return block;
-	}
-
-	BlockDescriptor* allocateBlock(uint extraBlocks = 0) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		if (unusedBlockDescriptors.empty) {
-			auto page = base.allocMetadataPage();
-			if (page.address is null) {
-				return null;
-			}
-
-			unusedBlockDescriptors = BlockDescriptor.fromPage(page);
-		}
-
-		auto block = unusedBlockDescriptors.pop();
-		assert(block !is null);
-
-		if (regionAllocator.acquire(block, extraBlocks)) {
-			allBlocks.insert(block);
-			return block;
-		}
-
-		unusedBlockDescriptors.insert(block);
-		return null;
-	}
-
-	void unregisterBlock(BlockDescriptor* block) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		if (block.full) {
-			fullBlocks.remove(block);
-			return;
-		}
-
-		auto index = block.freeRangeClass;
-		heaps[index].remove(block);
-		filter &= ~(ulong(heaps[index].empty) << index);
-	}
-
-	void registerBlock(BlockDescriptor* block) {
-		assert(mutex.isHeld(), "Mutex not held!");
-		assert(!block.empty, "Block is empty!");
-
-		if (block.full) {
-			fullBlocks.insert(block);
-			return;
-		}
-
-		auto index = block.freeRangeClass;
-		heaps[index].insert(block);
-		filter |= ulong(1) << index;
-	}
-
-	void releaseBlock(Extent* e, BlockDescriptor* block) {
-		assert(mutex.isHeld(), "Mutex not held!");
-		assert(block.empty, "Block is not empty!");
-		assert(e.block is block, "Invalid Block!");
-
-		// We do not manage this block anymore.
-		allBlocks.remove(block);
-
-		auto pages = getBlockCount(e.size);
-		auto ptr = alignDown(e.address, BlockSize);
-		regionAllocator.release(ptr, pages);
-
-		unusedBlockDescriptors.insert(block);
 	}
 }
 
@@ -534,7 +164,7 @@ unittest allocLarge {
 	shared RegionAllocator regionAllocator;
 	regionAllocator.base = base;
 
-	arena.regionAllocator = &regionAllocator;
+	arena.filler.regionAllocator = &regionAllocator;
 
 	auto ptr0 = arena.allocLarge(emap, 4 * PageSize);
 	assert(ptr0 !is null);
@@ -575,120 +205,6 @@ unittest allocLarge {
 	arena.free(emap, pd3, ptr3);
 }
 
-unittest allocPages {
-	import d.gc.arena;
-	shared Arena arena;
-
-	auto base = &arena.base;
-	scope(exit) arena.base.clear();
-
-	import d.gc.region;
-	shared RegionAllocator regionAllocator;
-	regionAllocator.base = base;
-
-	arena.regionAllocator = &regionAllocator;
-
-	auto e0 = arena.allocPages(1);
-	assert(e0 !is null);
-	assert(e0.size == PageSize);
-
-	auto e1 = arena.allocPages(2);
-	assert(e1 !is null);
-	assert(e1.npages == 2);
-	assert(e1.address is e0.address + e0.size);
-
-	auto e0Addr = e0.address;
-	arena.freePages(e0);
-
-	// Do not reuse the free slot is there is no room.
-	auto e2 = arena.allocPages(3);
-	assert(e2 !is null);
-	assert(e2.npages == 3);
-	assert(e2.address is e1.address + e1.size);
-
-	// But do reuse that free slot if there isn't.
-	auto e3 = arena.allocPages(1);
-	assert(e3 !is null);
-	assert(e3.size == PageSize);
-	assert(e3.address is e0Addr);
-
-	// Free everything.
-	arena.freePages(e1);
-	arena.freePages(e2);
-	arena.freePages(e3);
-
-	// Check a wide range of sizes.
-	foreach (pages; 1 .. 2 * PagesInBlock) {
-		auto e = arena.allocPages(pages);
-		assert(e !is null);
-		assert(e.npages == pages);
-		arena.freePages(e);
-	}
-}
-
-unittest allocHuge {
-	import d.gc.arena;
-	shared Arena arena;
-
-	auto base = &arena.base;
-	scope(exit) arena.base.clear();
-
-	import d.gc.region;
-	shared RegionAllocator regionAllocator;
-	regionAllocator.base = base;
-
-	arena.regionAllocator = &regionAllocator;
-	enum uint AllocSize = PagesInBlock + 1;
-
-	// Allocate a huge extent.
-	auto e0 = arena.allocPages(AllocSize);
-	assert(e0 !is null);
-	assert(e0.npages == AllocSize);
-
-	// Free the huge extent.
-	auto e0Addr = e0.address;
-	arena.freePages(e0);
-
-	// Reallocating the same run will yield the same memory back.
-	e0 = arena.allocPages(AllocSize);
-	assert(e0 !is null);
-	assert(e0.address is e0Addr);
-	assert(e0.npages == AllocSize);
-
-	// Allocate one page on the borrowed block.
-	auto e1 = arena.allocPages(1);
-	assert(e1 !is null);
-	assert(e1.size == PageSize);
-	assert(e1.address is e0.address + e0.size);
-
-	// Now, freeing the huge extent will leave a page behind.
-	arena.freePages(e0);
-
-	// Allocating another huge extent will use a new range.
-	auto e2 = arena.allocPages(AllocSize);
-	assert(e2 !is null);
-	assert(e2.address is alignUp(e1.address, BlockSize));
-	assert(e2.npages == AllocSize);
-
-	// Allocating new small extents fill the borrowed page.
-	auto e3 = arena.allocPages(1);
-	assert(e3 !is null);
-	assert(e3.address is alignDown(e1.address, BlockSize));
-	assert(e3.size == PageSize);
-
-	// But allocating just the right size will reuse the region.
-	auto e4 = arena.allocPages(PagesInBlock);
-	assert(e4 !is null);
-	assert(e4.address is e0Addr);
-	assert(e4.npages == PagesInBlock);
-
-	// Free everything.
-	arena.freePages(e1);
-	arena.freePages(e2);
-	arena.freePages(e3);
-	arena.freePages(e4);
-}
-
 unittest resizeLargeShrink {
 	import d.gc.arena;
 	shared Arena arena;
@@ -704,7 +220,7 @@ unittest resizeLargeShrink {
 	shared RegionAllocator regionAllocator;
 	regionAllocator.base = base;
 
-	arena.regionAllocator = &regionAllocator;
+	arena.filler.regionAllocator = &regionAllocator;
 
 	// Allocation 0: 35 pages:
 	auto ptr0 = arena.allocLarge(emap, 35 * PageSize);
@@ -838,7 +354,7 @@ unittest resizeLargeGrow {
 	shared RegionAllocator regionAllocator;
 	regionAllocator.base = base;
 
-	arena.regionAllocator = &regionAllocator;
+	arena.filler.regionAllocator = &regionAllocator;
 
 	Extent* makeAllocLarge(uint pages) {
 		auto ptr = arena.allocLarge(emap, pages * PageSize);
