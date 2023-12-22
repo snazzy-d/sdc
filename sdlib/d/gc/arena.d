@@ -24,9 +24,9 @@ private:
 	UnusedExtentHeap unusedExtents;
 
 	enum HeapCount = getAllocClass(PagesInBlock - 1);
-	static assert(HeapCount <= 64, "Too many heaps to fit in the filter!");
+	static assert(HeapCount <= 32, "Too many heaps to fit in the filter!");
 
-	ulong filter;
+	uint filter;
 	PriorityBlockHeap[HeapCount] heaps;
 
 	import d.gc.ring;
