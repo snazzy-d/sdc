@@ -76,7 +76,7 @@ private:
 
 	// Verify our assumptions.
 	static assert(LgAddressSpace <= 48, "Address space too large!");
-	static assert(LgPageSize >= 12, "Not enough space in low bits!");
+	static assert(LgPageSize >= LgArenaCount, "Not enough space in low bits!");
 
 	// Useful constants for bit manipulations.
 	enum FreeSlotsIndex = 48;
