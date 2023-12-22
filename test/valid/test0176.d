@@ -107,14 +107,13 @@ void main() {
 	// Large realloc
 	r0 = __sd_gc_realloc(r1, 34 * 4096);
 	r1 = __sd_gc_realloc(r0, 55 * 4096);
-	assert(r0 !is r1);
+	assert(r0 is r1);
 
 	r1 = __sd_gc_realloc(r1, 34 * 4096);
-
-	// assert(r1 !is r0);
+	assert(r1 is r0);
 
 	r1 = __sd_gc_realloc(r1, 35 * 4096);
-	// assert(r1 !is r0);
+	assert(r1 is r0);
 
 	// Huge realloc
 	r0 = __sd_gc_realloc(r1, 34 * 1024 * 1024);

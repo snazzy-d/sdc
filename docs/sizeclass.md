@@ -22,6 +22,10 @@ compute. In order to speed things up, we compute the division via
 `(index * multiplier) >> shift` with carefully chosen multipliers and shifts
 values. These values were found using the `bin/tools/finddivisor` utility.
 
+Slabs are segregated between dense and sparse ones. Dense slabs are considered
+unlikely to be freed due the numerous number of elements they contain, as it is
+unlikely they get all freed at the same time.
+
 For each small size class, the properties of the slab can be found in the table
 bellow:
 

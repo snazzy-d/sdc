@@ -11,8 +11,6 @@ import d.gc.util;
 
 import sdc.intrinsics;
 
-alias FilterType = uint;
-
 struct PageFiller {
 private:
 	@property
@@ -27,18 +25,37 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
+	/**
+	 * We separate dense from sparse allocations.
+	 * 
+	 * Dense allocations are slabs which contains a lot of elements.
+	 * In practice, these slabs tends to be long lived, because it
+	 * is unlikely that all of their slots get freed at the same time.
+	 * In additon, all slabs that require spacial care, such as slabs
+	 * that cannot do inline marking, are dense, so segeregating them
+	 * allows to iterrate over all of them effisciently.
+	 * 
+	 * The second set of heaps is used for sparse allocations.
+	 * Sparse allocation are slabs with few elements, and large
+	 * allocations.
+	 */
 	enum HeapCount = getAllocClass(PagesInBlock - 1);
 	static assert(HeapCount <= 32, "Too many heaps to fit in the filter!");
 
-	FilterType filter;
-	PriorityBlockHeap[HeapCount] heaps;
+	uint denseFilter;
+	uint sparseFilter;
+
+	PriorityBlockHeap[8] denseHeaps;
+	PriorityBlockHeap[HeapCount] sparseHeaps;
+
+	AllBlockRing denseBlocks;
+	AllBlockRing sparseBlocks;
 
 	import d.gc.ring;
 	Ring!BlockDescriptor fullBlocks;
 
 	UnusedExtentHeap unusedExtents;
 	UnusedBlockHeap unusedBlockDescriptors;
-	AllBlockRing allBlocks;
 
 	import d.gc.base;
 	Base base;
@@ -135,7 +152,7 @@ public:
 		       "Invalid page count!");
 		assert(allocClass == getAllocClass(pages), "Invalid allocClass!");
 
-		auto mask = FilterType.max << allocClass;
+		auto mask = uint.max << allocClass;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -172,7 +189,7 @@ private:
 	/**
 	 * Allocate and free pages, private implementation.
 	 */
-	Extent* allocRunImpl(uint pages, FilterType mask, ExtentClass ec) {
+	Extent* allocRunImpl(uint pages, uint mask, ExtentClass ec) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto e = getOrAllocateExtent();
@@ -180,7 +197,7 @@ private:
 			return null;
 		}
 
-		auto block = extractBlock(pages, mask);
+		auto block = extractBlock(pages, mask, ec.dense);
 		if (unlikely(block is null)) {
 			unusedExtents.insert(e);
 			return null;
@@ -202,7 +219,7 @@ private:
 			return null;
 		}
 
-		auto block = acquireBlock(extraBlocks);
+		auto block = acquireBlock(false, extraBlocks);
 		if (unlikely(block is null)) {
 			unusedExtents.insert(e);
 			return null;
@@ -340,20 +357,41 @@ private:
 	/**
 	 * BlockDescriptor heaps management.
 	 */
-	BlockDescriptor* extractBlock(uint pages, FilterType mask) {
+	auto getFilterPtr(bool dense) {
+		return dense ? &denseFilter : &sparseFilter;
+	}
+
+	auto getHeaps(bool dense) {
+		return dense ? denseHeaps.ptr : sparseHeaps.ptr;
+	}
+
+	BlockDescriptor* extractBlock(uint pages, uint mask, bool dense) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto acfilter = filter & mask;
+		auto filter = getFilterPtr(dense);
+		auto acfilter = *filter & mask;
 		if (acfilter == 0) {
-			return acquireBlock();
+			return acquireBlock(dense);
 		}
 
 		auto index = countTrailingZeros(acfilter);
+		auto heaps = getHeaps(dense);
+
 		auto block = heaps[index].pop();
-		filter &= ~(FilterType(heaps[index].empty) << index);
+		*filter &= ~(uint(heaps[index].empty) << index);
 
 		assert(block !is null);
+		assert(block.dense == dense);
 		return block;
+	}
+
+	static uint cappedIndex(BlockDescriptor* block) {
+		auto index = block.freeRangeClass;
+		if (block.sparse) {
+			return index;
+		}
+
+		return min!uint(index, 7);
 	}
 
 	void unregisterBlock(BlockDescriptor* block) {
@@ -364,9 +402,12 @@ private:
 			return;
 		}
 
-		auto index = block.freeRangeClass;
+		auto index = cappedIndex(block);
+		auto filter = getFilterPtr(block.dense);
+		auto heaps = getHeaps(block.dense);
+
 		heaps[index].remove(block);
-		filter &= ~(ulong(heaps[index].empty) << index);
+		*filter &= ~(ulong(heaps[index].empty) << index);
 	}
 
 	void registerBlock(BlockDescriptor* block) {
@@ -378,13 +419,21 @@ private:
 			return;
 		}
 
-		auto index = block.freeRangeClass;
+		auto index = cappedIndex(block);
+		auto filter = getFilterPtr(block.dense);
+		auto heaps = getHeaps(block.dense);
+
 		heaps[index].insert(block);
-		filter |= FilterType(1) << index;
+		*filter |= 1 << index;
 	}
 
-	BlockDescriptor* acquireBlock(uint extraBlocks = 0) {
+	auto getAllBlocks(bool dense) {
+		return dense ? &denseBlocks : &sparseBlocks;
+	}
+
+	BlockDescriptor* acquireBlock(bool dense, uint extraBlocks = 0) {
 		assert(mutex.isHeld(), "Mutex not held!");
+		assert(!dense || extraBlocks == 0, "Huge allocations cannot be dense!");
 
 		if (unusedBlockDescriptors.empty) {
 			auto page = base.allocMetadataPage();
@@ -403,8 +452,8 @@ private:
 		auto block = unusedBlockDescriptors.pop();
 		assert(block !is null);
 
-		block.at(address, false);
-		allBlocks.insert(block);
+		block.at(address, dense);
+		getAllBlocks(dense).insert(block);
 		return block;
 	}
 
@@ -414,7 +463,7 @@ private:
 		assert(e.block is block, "Invalid Block!");
 
 		// We do not manage this block anymore.
-		allBlocks.remove(block);
+		getAllBlocks(block.dense).remove(block);
 
 		auto pages = getBlockCount(e.size);
 		auto ptr = alignDown(e.address, BlockSize);
