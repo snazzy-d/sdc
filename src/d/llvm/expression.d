@@ -848,10 +848,9 @@ struct AddressOfGen {
 		return ExpressionGen(pass).visit(e);
 	}
 
-	LLVMValueRef visit(VariableExpression e) in {
-		assert(e.var.storage != Storage.Enum, "enum have no address.");
-		assert(!e.var.isFinal, "finals have no address.");
-	} do {
+	LLVMValueRef visit(VariableExpression e)
+			in(e.var.storage != Storage.Enum, "enum have no address.")
+			in(!e.var.isFinal, "finals have no address.") {
 		return declare(e.var);
 	}
 

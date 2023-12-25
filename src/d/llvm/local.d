@@ -217,13 +217,11 @@ struct LocalGen {
 		return true;
 	}
 
-	private void genBody(Function f, LLVMValueRef fun) in {
-		assert(LLVMCountBasicBlocks(fun) == 0,
-		       f.mangle.toString(context) ~ " body is already defined");
-
-		assert(f.step == Step.Processed, "f is not processed");
-		assert(f.fbody || f.intrinsicID, "f must have a body");
-	} do {
+	private void genBody(Function f, LLVMValueRef fun)
+			in(LLVMCountBasicBlocks(fun) == 0,
+			   f.mangle.toString(context) ~ " body is already defined")
+			in(f.step == Step.Processed, "f is not processed")
+			in(f.fbody || f.intrinsicID, "f must have a body") {
 		scope(failure) f.dump(context);
 
 		// Alloca and instruction block.
@@ -425,9 +423,7 @@ struct LocalGen {
 		return locals.get(v, define(v));
 	}
 
-	LLVMValueRef define(Variable v) in {
-		assert(!v.isFinal);
-	} do {
+	LLVMValueRef define(Variable v) in(!v.isFinal) {
 		if (v.storage.isGlobal) {
 			return globalGen.define(v);
 		}

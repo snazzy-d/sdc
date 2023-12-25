@@ -49,11 +49,9 @@ struct GlobalGen {
 		return LocalGen(pass).define(f);
 	}
 
-	LLVMValueRef declare(Variable v) in {
-		assert(v.storage.isGlobal, "locals not supported");
-		assert(!v.isFinal);
-		assert(!v.isRef);
-	} do {
+	LLVMValueRef declare(Variable v)
+			in(v.storage.isGlobal, "locals not supported") in(!v.isFinal)
+			in(!v.isRef) {
 		auto var = globals.get(v, {
 			if (v.storage == Storage.Enum) {
 				import d.llvm.constant;
@@ -78,11 +76,9 @@ struct GlobalGen {
 		return var;
 	}
 
-	LLVMValueRef define(Variable v) in {
-		assert(v.storage.isGlobal, "locals not supported");
-		assert(!v.isFinal);
-		assert(!v.isRef);
-	} do {
+	LLVMValueRef define(Variable v)
+			in(v.storage.isGlobal, "locals not supported") in(!v.isFinal)
+			in(!v.isRef) {
 		auto var = declare(v);
 		if (!v.value || v.storage == Storage.Enum) {
 			return var;
@@ -100,12 +96,10 @@ struct GlobalGen {
 		return var;
 	}
 
-	bool maybeDefine(Variable v, LLVMValueRef var) in {
-		assert(v.storage.isGlobal, "locals not supported");
-		assert(v.storage != Storage.Enum, "enum do not have a storage");
-		assert(!v.isFinal);
-		assert(!v.isRef);
-	} do {
+	bool maybeDefine(Variable v, LLVMValueRef var)
+			in(v.storage.isGlobal, "locals not supported")
+			in(v.storage != Storage.Enum, "enum do not have a storage")
+			in(!v.isFinal) in(!v.isRef) {
 		if (LLVMGetInitializer(var)) {
 			return false;
 		}
@@ -118,10 +112,9 @@ struct GlobalGen {
 		return true;
 	}
 
-	private LLVMValueRef createVariableStorage(Variable v) in {
-		assert(v.storage.isGlobal, "locals not supported");
-		assert(v.storage != Storage.Enum, "enum do not have a storage");
-	} do {
+	private LLVMValueRef createVariableStorage(Variable v)
+			in(v.storage.isGlobal, "locals not supported")
+			in(v.storage != Storage.Enum, "enum do not have a storage") {
 		auto qualifier = v.type.qualifier;
 
 		import d.llvm.type;
