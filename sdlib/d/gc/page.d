@@ -55,7 +55,7 @@ public:
 		auto neededPages = binInfos[sizeClass].npages;
 
 		auto ec = ExtentClass.slab(sizeClass);
-		auto e = allocRun(neededPages, ec);
+		auto e = allocRun(neededPages, neededPages - 1, ec);
 		if (unlikely(e is null)) {
 			return null;
 		}
@@ -126,13 +126,16 @@ public:
 			return allocHuge(pages);
 		}
 
-		return allocRun(pages, ExtentClass.large());
+		auto allocClass = getAllocClass(pages);
+		return allocRun(pages, allocClass, ExtentClass.large());
 	}
 
-	Extent* allocRun(uint pages, ExtentClass ec) shared {
+	Extent* allocRun(uint pages, uint allocClass, ExtentClass ec) shared {
 		assert(pages > 0 && pages <= MaxPagesInLargeAlloc,
 		       "Invalid page count!");
-		auto mask = FilterType.max << getAllocClass(pages);
+		assert(allocClass == getAllocClass(pages), "Invalid allocClass!");
+
+		auto mask = FilterType.max << allocClass;
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
