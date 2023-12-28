@@ -42,23 +42,34 @@ struct ExtentClass {
 		assert(isSlab(), "Non slab do not have a size class!");
 		return (data - 1) & ubyte.max;
 	}
+
+	@property
+	bool dense() const {
+		enum Sieve = 1 << 0 | 1 << 16 | 1 << 20 | 1 << 22;
+		auto match = Sieve & (1 << data);
+		return !match && data < 24;
+	}
+
+	@property
+	bool sparse() const {
+		return !dense;
+	}
 }
 
 unittest ExtentClass {
 	auto l = ExtentClass.large();
 	assert(!l.isSlab());
+	assert(!l.dense);
+	assert(l.sparse);
 
-	auto s0 = ExtentClass.slab(0);
-	assert(s0.isSlab());
-	assert(s0.sizeClass == 0);
+	foreach (ubyte sc; 0 .. ClassCount.Small) {
+		auto s = ExtentClass.slab(sc);
+		assert(s.isSlab());
+		assert(s.sizeClass == sc);
 
-	auto s9 = ExtentClass.slab(9);
-	assert(s9.isSlab());
-	assert(s9.sizeClass == 9);
-
-	auto smax = ExtentClass.slab(ClassCount.Small - 1);
-	assert(smax.isSlab());
-	assert(smax.sizeClass == ClassCount.Small - 1);
+		assert(s.dense == sizeClassIsDense(sc));
+		assert(s.sparse == sizeClassIsSparse(sc));
+	}
 }
 
 struct Extent {
