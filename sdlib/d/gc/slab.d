@@ -382,6 +382,11 @@ struct BinInfo {
 	}
 
 	@property
+	bool sparse() const {
+		return !dense;
+	}
+
+	@property
 	bool supportsMetadata() const {
 		return nslots <= 256;
 	}
@@ -395,10 +400,11 @@ struct BinInfo {
 import d.gc.sizeclass;
 immutable BinInfo[ClassCount.Small] binInfos = getBinInfos();
 
-unittest bininfos {
+unittest binInfos {
 	foreach (uint sc, bin; binInfos) {
 		assert(bin.supportsMetadata == sizeClassSupportsMetadata(sc));
 		assert(bin.supportsInlineMarking == sizeClassSupportsInlineMarking(sc));
-		assert(bin.supportsInlineMarking == sizeClassSupportsInlineMarking(sc));
+		assert(bin.dense == sizeClassIsDense(sc));
+		assert(bin.sparse == sizeClassIsSparse(sc));
 	}
 }

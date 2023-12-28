@@ -91,7 +91,7 @@ unittest sizeClassSupportsMetadata {
 		assert(sizeClassSupportsMetadata(sc) == bins[sc].supportsMetadata);
 	}
 
-	// All large size classes support metadata:
+	// All large size classes support metadata.
 	foreach (sc; ClassCount.Small .. ClassCount.Total) {
 		assert(sizeClassSupportsMetadata(sc));
 	}
@@ -111,9 +111,33 @@ unittest sizeClassSupportsInlineMarking {
 		);
 	}
 
-	// All large size classes support inline marking:
+	// All large size classes support inline marking.
 	foreach (sc; ClassCount.Small .. ClassCount.Total) {
 		assert(sizeClassSupportsInlineMarking(sc));
+	}
+}
+
+bool sizeClassIsDense(uint sizeClass) {
+	enum Sieve = 1 << 15 | 1 << 19 | 1 << 21;
+	auto match = Sieve & (1 << sizeClass);
+	return !match && sizeClass < 23;
+}
+
+bool sizeClassIsSparse(uint sizeClass) {
+	return !sizeClassIsDense(sizeClass);
+}
+
+unittest sizeClassIsDense {
+	auto bins = getBinInfos();
+	foreach (sc; 0 .. ClassCount.Small) {
+		assert(sizeClassIsDense(sc) == bins[sc].dense);
+		assert(sizeClassIsSparse(sc) == bins[sc].sparse);
+	}
+
+	// All large size classes are sparse.
+	foreach (sc; ClassCount.Small .. ClassCount.Total) {
+		assert(!sizeClassIsDense(sc));
+		assert(sizeClassIsSparse(sc));
 	}
 }
 
