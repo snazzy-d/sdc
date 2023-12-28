@@ -401,7 +401,7 @@ private:
 
 		auto index = block.freeRangeClass;
 		heaps[index].insert(block);
-		filter |= ulong(1) << index;
+		filter |= FilterType(1) << index;
 	}
 
 	void releaseBlock(Extent* e, BlockDescriptor* block) {
