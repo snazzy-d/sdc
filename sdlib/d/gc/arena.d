@@ -1,13 +1,10 @@
 module d.gc.arena;
 
-import d.gc.allocclass;
 import d.gc.emap;
 import d.gc.extent;
-import d.gc.block;
 import d.gc.size;
 import d.gc.sizeclass;
 import d.gc.spec;
-import d.gc.util;
 
 import sdc.intrinsics;
 
@@ -45,6 +42,7 @@ private:
 		assert((index & ~ArenaMask) == 0, "Invalid index!");
 
 		// FIXME: align on cache lines.
+		import d.gc.util;
 		enum ArenaSize = alignUp(Arena.sizeof, CacheLine);
 		static shared ulong[ArenaSize / ulong.sizeof][ArenaCount] arenaStore;
 
