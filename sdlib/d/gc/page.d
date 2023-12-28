@@ -199,7 +199,7 @@ private:
 			return null;
 		}
 
-		auto block = allocateBlock(extraBlocks);
+		auto block = acquireBlock(extraBlocks);
 		if (unlikely(block is null)) {
 			unusedExtents.insert(e);
 			return null;
@@ -342,7 +342,7 @@ private:
 
 		auto acfilter = filter & mask;
 		if (acfilter == 0) {
-			return allocateBlock();
+			return acquireBlock();
 		}
 
 		auto index = countTrailingZeros(acfilter);
@@ -351,30 +351,6 @@ private:
 
 		assert(block !is null);
 		return block;
-	}
-
-	BlockDescriptor* allocateBlock(uint extraBlocks = 0) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		if (unusedBlockDescriptors.empty) {
-			auto page = base.allocMetadataPage();
-			if (page.address is null) {
-				return null;
-			}
-
-			unusedBlockDescriptors = BlockDescriptor.fromPage(page);
-		}
-
-		auto block = unusedBlockDescriptors.pop();
-		assert(block !is null);
-
-		if (regionAllocator.acquire(block, extraBlocks)) {
-			allBlocks.insert(block);
-			return block;
-		}
-
-		unusedBlockDescriptors.insert(block);
-		return null;
 	}
 
 	void unregisterBlock(BlockDescriptor* block) {
@@ -402,6 +378,30 @@ private:
 		auto index = block.freeRangeClass;
 		heaps[index].insert(block);
 		filter |= FilterType(1) << index;
+	}
+
+	BlockDescriptor* acquireBlock(uint extraBlocks = 0) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		if (unusedBlockDescriptors.empty) {
+			auto page = base.allocMetadataPage();
+			if (page.address is null) {
+				return null;
+			}
+
+			unusedBlockDescriptors = BlockDescriptor.fromPage(page);
+		}
+
+		auto block = unusedBlockDescriptors.pop();
+		assert(block !is null);
+
+		if (regionAllocator.acquire(block, extraBlocks)) {
+			allBlocks.insert(block);
+			return block;
+		}
+
+		unusedBlockDescriptors.insert(block);
+		return null;
 	}
 
 	void releaseBlock(Extent* e, BlockDescriptor* block) {
