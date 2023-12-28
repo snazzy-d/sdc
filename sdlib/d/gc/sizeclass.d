@@ -117,27 +117,27 @@ unittest sizeClassSupportsInlineMarking {
 	}
 }
 
-bool sizeClassIsDense(uint sizeClass) {
+bool isDenseSizeClass(uint sizeClass) {
 	enum Sieve = 1 << 15 | 1 << 19 | 1 << 21;
 	auto match = Sieve & (1 << sizeClass);
 	return !match && sizeClass < 23;
 }
 
-bool sizeClassIsSparse(uint sizeClass) {
-	return !sizeClassIsDense(sizeClass);
+bool isSparseSizeClass(uint sizeClass) {
+	return !isDenseSizeClass(sizeClass);
 }
 
-unittest sizeClassIsDense {
+unittest isDenseSizeClass {
 	auto bins = getBinInfos();
 	foreach (sc; 0 .. ClassCount.Small) {
-		assert(sizeClassIsDense(sc) == bins[sc].dense);
-		assert(sizeClassIsSparse(sc) == bins[sc].sparse);
+		assert(isDenseSizeClass(sc) == bins[sc].dense);
+		assert(isSparseSizeClass(sc) == bins[sc].sparse);
 	}
 
 	// All large size classes are sparse.
 	foreach (sc; ClassCount.Small .. ClassCount.Total) {
-		assert(!sizeClassIsDense(sc));
-		assert(sizeClassIsSparse(sc));
+		assert(!isDenseSizeClass(sc));
+		assert(isSparseSizeClass(sc));
 	}
 }
 

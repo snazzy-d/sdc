@@ -404,7 +404,7 @@ unittest binInfos {
 	foreach (uint sc, bin; binInfos) {
 		assert(bin.supportsMetadata == sizeClassSupportsMetadata(sc));
 		assert(bin.supportsInlineMarking == sizeClassSupportsInlineMarking(sc));
-		assert(bin.dense == sizeClassIsDense(sc));
-		assert(bin.sparse == sizeClassIsSparse(sc));
+		assert(bin.dense == isDenseSizeClass(sc));
+		assert(bin.sparse == isSparseSizeClass(sc));
 	}
 }

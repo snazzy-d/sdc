@@ -67,8 +67,8 @@ unittest ExtentClass {
 		assert(s.isSlab());
 		assert(s.sizeClass == sc);
 
-		assert(s.dense == sizeClassIsDense(sc));
-		assert(s.sparse == sizeClassIsSparse(sc));
+		assert(s.dense == isDenseSizeClass(sc));
+		assert(s.sparse == isSparseSizeClass(sc));
 	}
 }
 
