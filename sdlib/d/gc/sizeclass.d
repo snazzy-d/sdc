@@ -82,7 +82,7 @@ unittest sizeClassPredicates {
 
 // Determine whether given size class supports metadata.
 bool sizeClassSupportsMetadata(uint sizeClass) {
-	return sizeClass & 1 || sizeClass > 6;
+	return sizeClass > 0;
 }
 
 unittest sizeClassSupportsMetadata {
@@ -99,8 +99,7 @@ unittest sizeClassSupportsMetadata {
 
 // Determine whether given size class supports inline marking.
 bool sizeClassSupportsInlineMarking(uint sizeClass) {
-	auto magic = (sizeClass & 0x0a) != 0;
-	return sizeClass & magic || sizeClass > 10;
+	return sizeClass > 2;
 }
 
 unittest sizeClassSupportsInlineMarking {
@@ -239,18 +238,32 @@ auto getBinInfos() {
 	import d.gc.slab;
 	BinInfo[ClassCount.Small] bins;
 
+	static ubyte computePageCount(uint size, ubyte shift) {
+		// Try to see if one page is acceptable.
+		enum MaxAcceptableSlack = 16;
+		auto slack = PageSize - size * (PageSize / size);
+		if (slack <= MaxAcceptableSlack) {
+			return 1;
+		}
+
+		// Try to see if two pages is acceptable.
+		slack = 2 * PageSize - size * (2 * PageSize / size);
+		if (slack <= MaxAcceptableSlack) {
+			return 2;
+		}
+
+		ubyte[4] npLookup = [(((size - 1) >> LgPageSize) + 1) & 0xff, 5, 3, 7];
+		return npLookup[(size >> shift) % 4];
+	}
+
 	computeSizeClass((uint id, uint grp, uint delta, uint ndelta) {
-		// XXX: 1UL is useless here, but there is a bug in type
-		// promotion for >= so we need it.
-		auto s = (1UL << grp) + (ndelta << delta);
-		if (s >= (4UL << LgPageSize)) {
+		if (!isSmallSizeClass(id)) {
 			return;
 		}
 
+		auto s = (1 << grp) + (ndelta << delta);
 		assert(s < ushort.max);
 		ushort itemSize = s & ushort.max;
-
-		ubyte[4] npLookup = [(((s - 1) >> LgPageSize) + 1) & 0xff, 5, 3, 7];
 
 		ubyte shift = delta & 0xff;
 		if (grp == delta) {
@@ -258,12 +271,9 @@ auto getBinInfos() {
 			shift = (delta + tag - 2) & 0xff;
 		}
 
-		auto npages = npLookup[(itemSize >> shift) % 4];
+		auto npages = computePageCount(itemSize, shift);
+		ushort slots = ((npages << LgPageSize) / s) & ushort.max;
 
-		uint p = npages;
-		ushort slots = ((p << LgPageSize) / s) & ushort.max;
-
-		assert(isSmallSizeClass(id));
 		bins[id] = BinInfo(itemSize, shift, npages, slots);
 	});
 

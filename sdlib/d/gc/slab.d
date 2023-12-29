@@ -196,7 +196,7 @@ unittest SlabAllocInfo {
 	}
 
 	// When metadata is not supported by the size class:
-	foreach (size; [1, 6, 8, 20, 24, 35, 40, 50, 56]) {
+	foreach (size; [1, 6, 8]) {
 		auto sc = getSizeClass(size);
 		assert(!sizeClassSupportsMetadata(sc));
 		assert(!binInfos[sc].supportsMetadata);

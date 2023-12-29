@@ -1,6 +1,7 @@
 module tools.sizeclass;
 
 import d.gc.sizeclass;
+import d.gc.spec;
 
 void printfAlloc(size_t s) {
 	import d.gc.util, core.stdc.stdio;
@@ -59,20 +60,21 @@ void printAllSizeClasses() {
 void printBinInfos() {
 	import core.stdc.stdio;
 	printf(
-		"| Size class | Element size | Pages | Slot count | Multiplier | Shift | Appendable / Destructible | Marks inline | Dense |\n"
+		"| Size class | Element size | Pages | Slot count | Slack | Multiplier | Shift | Appendable / Destructible | Marks inline | Dense |\n"
 	);
 	printf(
-		"| ---------: | -----------: | ----: | ---------: | ---------: | ----: | :-----------------------: | :----------: | :---: |\n"
+		"| ---------: | -----------: | ----: | ---------: | ----: | ---------: | ----: | :-----------------------: | :----------: | :---: |\n"
 	);
 
 	auto bins = getBinInfos();
 	foreach (i, b; bins) {
 		printf(
-			"| %d | %hu | %hhu | %hu | %hu | %hhu | %c | %c | %c |\n",
+			"| %d | %hu | %hhu | %hu | %hu | %hu | %hhu | %c | %c | %c |\n",
 			i,
 			b.itemSize,
 			b.npages,
 			b.nslots,
+			b.npages * PageSize - b.nslots * b.itemSize,
 			b.mul,
 			b.shift,
 			b.supportsMetadata ? 'Y' : 'N',
