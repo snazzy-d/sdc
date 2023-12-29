@@ -59,16 +59,16 @@ void printAllSizeClasses() {
 void printBinInfos() {
 	import core.stdc.stdio;
 	printf(
-		"| Size class | Element size | Pages | Slot count | Multiplier | Shift | Appendable / Destructible | Dense |\n"
+		"| Size class | Element size | Pages | Slot count | Multiplier | Shift | Appendable / Destructible | Marks inline | Dense |\n"
 	);
 	printf(
-		"| ---------: | -----------: | ----: | ---------: | ---------: | ----: | :-----------------------: | :---: |\n"
+		"| ---------: | -----------: | ----: | ---------: | ---------: | ----: | :-----------------------: | :----------: | :---: |\n"
 	);
 
 	auto bins = getBinInfos();
 	foreach (i, b; bins) {
 		printf(
-			"| %d | %hu | %hhu | %hu | %hu | %hhu | %c | %c |\n",
+			"| %d | %hu | %hhu | %hu | %hu | %hhu | %c | %c | %c |\n",
 			i,
 			b.itemSize,
 			b.npages,
@@ -76,6 +76,7 @@ void printBinInfos() {
 			b.mul,
 			b.shift,
 			b.supportsMetadata ? 'Y' : 'N',
+			b.supportsInlineMarking ? 'Y' : 'N',
 			b.dense ? 'Y' : 'N'
 		);
 	}
