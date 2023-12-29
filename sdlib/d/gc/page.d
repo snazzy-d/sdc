@@ -395,14 +395,13 @@ private:
 			unusedBlockDescriptors = BlockDescriptor.fromPage(page);
 		}
 
-		auto block = unusedBlockDescriptors.pop();
-		assert(block !is null);
-
 		void* address;
 		if (!regionAllocator.acquire(&address, extraBlocks)) {
-			unusedBlockDescriptors.insert(block);
 			return null;
 		}
+
+		auto block = unusedBlockDescriptors.pop();
+		assert(block !is null);
 
 		block.at(address, false);
 		allBlocks.insert(block);
