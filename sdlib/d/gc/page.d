@@ -398,13 +398,15 @@ private:
 		auto block = unusedBlockDescriptors.pop();
 		assert(block !is null);
 
-		if (regionAllocator.acquire(block, extraBlocks)) {
-			allBlocks.insert(block);
-			return block;
+		void* address;
+		if (!regionAllocator.acquire(&address, extraBlocks)) {
+			unusedBlockDescriptors.insert(block);
+			return null;
 		}
 
-		unusedBlockDescriptors.insert(block);
-		return null;
+		block.at(address);
+		allBlocks.insert(block);
+		return block;
 	}
 
 	void releaseBlock(Extent* e, BlockDescriptor* block) {

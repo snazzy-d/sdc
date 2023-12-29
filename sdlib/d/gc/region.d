@@ -3,7 +3,6 @@ module d.gc.region;
 import d.gc.allocclass;
 import d.gc.base;
 import d.gc.heap;
-import d.gc.block;
 import d.gc.range;
 import d.gc.rbtree;
 
@@ -67,18 +66,11 @@ private:
 	ulong maxAddress = 0;
 
 public:
-	bool acquire(BlockDescriptor* block, uint extraBlocks = 0) shared {
+	bool acquire(void** addrPtr, uint extraBlocks = 0) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(RegionAllocator*) &this).acquireImpl(block, extraBlocks);
-	}
-
-	void release(BlockDescriptor* block) shared {
-		// FIXME: assert the block is not borrowed.
-		assert(block.empty, "Block is not empty!");
-
-		release(block.address, 1);
+		return (cast(RegionAllocator*) &this).acquireImpl(addrPtr, extraBlocks);
 	}
 
 	void release(void* ptr, uint blocks) shared {
@@ -104,7 +96,7 @@ private:
 		return makeRange(cast(void*) minAddress, cast(void*) maxAddress);
 	}
 
-	bool acquireImpl(BlockDescriptor* block, uint extraBlocks = 0) {
+	bool acquireImpl(void** addrPtr, uint extraBlocks) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto totalBlocks = extraBlocks + 1;
@@ -128,7 +120,7 @@ private:
 
 		auto ptr = r.address;
 		auto extraSize = extraBlocks * BlockSize;
-		block.at(ptr + extraSize);
+		*addrPtr = ptr + extraSize;
 
 		auto newBlockCount = r.blockCount - totalBlocks;
 		if (newBlockCount == 0) {
@@ -238,30 +230,28 @@ unittest acquire_release {
 
 	// To snoop in.
 	auto ra = cast(RegionAllocator*) &regionAllocator;
-
-	BlockDescriptor block0;
-
 	assert(ra.dirtyBlockCount == 0);
-	assert(regionAllocator.acquire(&block0));
+
+	void* addr0;
+	assert(regionAllocator.acquire(&addr0));
 
 	// Check we compute the proper range.
 	auto r = regionAllocator.computeAddressRange();
-	assert(!r.contains(block0.address - 1));
-	assert(r.contains(block0.address));
-	assert(r.contains(block0.address + RefillBlockCount * BlockSize - 1));
-	assert(!r.contains(block0.address + RefillBlockCount * BlockSize));
+	assert(!r.contains(addr0 - 1));
+	assert(r.contains(addr0));
+	assert(r.contains(addr0 + RefillBlockCount * BlockSize - 1));
+	assert(!r.contains(addr0 + RefillBlockCount * BlockSize));
 
 	foreach (i; 1 .. RefillBlockCount) {
-		BlockDescriptor block;
-		assert(regionAllocator.acquire(&block));
-		assert(block.address is block0.address + i * BlockSize);
-		assert(r.contains(block.address));
+		void* addr;
+		assert(regionAllocator.acquire(&addr));
+		assert(addr is addr0 + i * BlockSize);
+		assert(r.contains(addr));
 	}
 
 	foreach (i; 5 .. RefillBlockCount) {
-		BlockDescriptor block;
-		block.at(block0.address + i * BlockSize);
-		regionAllocator.release(&block);
+		void* addr = addr0 + i * BlockSize;
+		regionAllocator.release(addr, 1);
 		assert(ra.dirtyBlockCount == i - 4);
 	}
 
@@ -269,14 +259,13 @@ unittest acquire_release {
 		auto r = ra.regionsByClass.extractAny();
 		scope(exit) ra.regionsByClass.insert(r);
 
-		assert(r.address is block0.address + 5 * BlockSize);
+		assert(r.address is addr0 + 5 * BlockSize);
 		assert(r.size == RefillSize - 5 * BlockSize);
 	}
 
 	foreach (i; 0 .. 5) {
-		BlockDescriptor block;
-		block.at(block0.address + i * BlockSize);
-		regionAllocator.release(&block);
+		void* addr = addr0 + i * BlockSize;
+		regionAllocator.release(addr, 1);
 		assert(ra.dirtyBlockCount == i + 508);
 	}
 
@@ -284,7 +273,7 @@ unittest acquire_release {
 		auto r = ra.regionsByClass.extractAny();
 		scope(exit) ra.regionsByClass.insert(r);
 
-		assert(r.address is block0.address);
+		assert(r.address is addr0);
 		assert(r.size == RefillSize);
 	}
 }
@@ -296,34 +285,34 @@ unittest extra_blocks {
 	shared RegionAllocator regionAllocator;
 	regionAllocator.base = &base;
 
-	BlockDescriptor block0;
-	assert(regionAllocator.acquire(&block0));
+	void* addr0;
+	assert(regionAllocator.acquire(&addr0));
 
-	BlockDescriptor block1;
-	assert(regionAllocator.acquire(&block1, 1));
-	assert(block1.address is block0.address + 2 * BlockSize);
+	void* addr1;
+	assert(regionAllocator.acquire(&addr1, 1));
+	assert(addr1 is addr0 + 2 * BlockSize);
 
-	BlockDescriptor block2;
-	assert(regionAllocator.acquire(&block2, 5));
-	assert(block2.address is block1.address + 6 * BlockSize);
+	void* addr2;
+	assert(regionAllocator.acquire(&addr2, 5));
+	assert(addr2 is addr1 + 6 * BlockSize);
 
 	// Release 3 blocks. We now have 2 regions.
 	assert(regionAllocator.dirtyBlockCount == 0);
-	regionAllocator.release(&block0);
+	regionAllocator.release(addr0, 1);
 	assert(regionAllocator.dirtyBlockCount == 1);
-	regionAllocator.release(block0.address + BlockSize, 2);
+	regionAllocator.release(addr0 + BlockSize, 2);
 	assert(regionAllocator.dirtyBlockCount == 3);
 
 	// Too big too fit.
-	BlockDescriptor block3;
-	assert(regionAllocator.acquire(&block3, 3));
-	assert(block3.address is block2.address + 4 * BlockSize);
+	void* addr3;
+	assert(regionAllocator.acquire(&addr3, 3));
+	assert(addr3 is addr2 + 4 * BlockSize);
 	assert(regionAllocator.dirtyBlockCount == 3);
 
 	// Small enough, so we reuse freed regions.
-	BlockDescriptor block4;
-	assert(regionAllocator.acquire(&block4, 2));
-	assert(block4.address is block0.address + 2 * BlockSize);
+	void* addr4;
+	assert(regionAllocator.acquire(&addr4, 2));
+	assert(addr4 is addr0 + 2 * BlockSize);
 	assert(regionAllocator.dirtyBlockCount == 0);
 }
 
@@ -337,18 +326,18 @@ unittest enormous {
 	enum Blocks = 2048;
 	enum ExtraBlocks = Blocks - 1;
 
-	BlockDescriptor block0;
-	assert(regionAllocator.acquire(&block0, ExtraBlocks));
+	void* addr0;
+	assert(regionAllocator.acquire(&addr0, ExtraBlocks));
 
 	// Check we compute the proper range.
 	auto r = regionAllocator.computeAddressRange();
-	assert(!r.contains(block0.address - ExtraBlocks * BlockSize - 1));
-	assert(r.contains(block0.address - ExtraBlocks * BlockSize));
-	assert(r.contains(block0.address));
-	assert(r.contains(block0.address + BlockSize - 1));
-	assert(!r.contains(block0.address + BlockSize));
+	assert(!r.contains(addr0 - ExtraBlocks * BlockSize - 1));
+	assert(r.contains(addr0 - ExtraBlocks * BlockSize));
+	assert(r.contains(addr0));
+	assert(r.contains(addr0 + BlockSize - 1));
+	assert(!r.contains(addr0 + BlockSize));
 
-	regionAllocator.release(block0.address - ExtraBlocks * BlockSize, Blocks);
+	regionAllocator.release(addr0 - ExtraBlocks * BlockSize, Blocks);
 }
 
 struct Region {
@@ -581,27 +570,24 @@ unittest trackDirtyBlocks {
 	// To snoop in.
 	auto ra = cast(RegionAllocator*) &regionAllocator;
 
-	BlockDescriptor[16] blockArray;
-	void*[16] blockAddresses;
-
-	foreach (i; 0 .. 16) {
-		assert(regionAllocator.acquire(&blockArray[i]));
-		blockAddresses[i] = blockArray[i].address;
+	void*[16] addresses;
+	foreach (ref addr; addresses) {
+		assert(regionAllocator.acquire(&addr));
 	}
 
-	void freeRun(BlockDescriptor[] blocks) {
+	void freeRun(void*[] addresses) {
 		auto expectedDirtyBlocks = regionAllocator.dirtyBlockCount;
 
-		foreach (b; blocks) {
-			regionAllocator.release(&b);
+		foreach (addr; addresses) {
+			regionAllocator.release(addr, 1);
 
 			expectedDirtyBlocks++;
 			assert(regionAllocator.dirtyBlockCount == expectedDirtyBlocks);
 
 			Region rr;
-			rr.at(b.address, 1, 0);
+			rr.at(addr, 1, 0);
 			auto r = ra.regionsByRange.find(&rr);
-			assert(r.contains(b.address));
+			assert(r.contains(addr));
 			assert(r.dirtyBlocks.valueAt(rr.startOffset));
 		}
 	}
@@ -613,7 +599,7 @@ unittest trackDirtyBlocks {
 		rr.setAllocClass(getAllocClass(searchBlocks));
 		auto r = ra.regionsByClass.bestfit(&rr);
 		assert(r !is null);
-		assert(r.address == address);
+		assert(r.address is address);
 		assert(r.blockCount == blocks);
 		assert(r.dirtyBlockCount == dirtyBlocks);
 		assert(r.countDirtyBlocksInSubRegion(0, blocks) == dirtyBlocks);
@@ -623,33 +609,33 @@ unittest trackDirtyBlocks {
 	assert(regionAllocator.dirtyBlockCount == 0);
 
 	// Make some dirty regions.
-	freeRun(blockArray[0 .. 2]);
+	freeRun(addresses[0 .. 2]);
 	assert(regionAllocator.dirtyBlockCount == 2);
-	verifyUniqueRegion(blockAddresses[0], 2, 2, 2);
-	freeRun(blockArray[4 .. 8]);
+	verifyUniqueRegion(addresses[0], 2, 2, 2);
+	freeRun(addresses[4 .. 8]);
 	assert(regionAllocator.dirtyBlockCount == 6);
-	verifyUniqueRegion(blockAddresses[4], 4, 4, 4);
-	freeRun(blockArray[10 .. 15]);
+	verifyUniqueRegion(addresses[4], 4, 4, 4);
+	freeRun(addresses[10 .. 15]);
 	assert(regionAllocator.dirtyBlockCount == 11);
-	verifyUniqueRegion(blockAddresses[10], 5, 5, 5);
+	verifyUniqueRegion(addresses[10], 5, 5, 5);
 
 	// Merge regions and confirm expected effect.
-	freeRun(blockArray[8 .. 10]);
+	freeRun(addresses[8 .. 10]);
 	assert(regionAllocator.dirtyBlockCount == 13);
-	verifyUniqueRegion(blockAddresses[4], 10, 11, 11);
-	freeRun(blockArray[2 .. 4]);
+	verifyUniqueRegion(addresses[4], 10, 11, 11);
+	freeRun(addresses[2 .. 4]);
 	assert(regionAllocator.dirtyBlockCount == 15);
-	verifyUniqueRegion(blockAddresses[0], 14, 15, 15);
-	freeRun(blockArray[15 .. 16]);
-	verifyUniqueRegion(blockAddresses[0], 1, RefillBlockCount, 16);
+	verifyUniqueRegion(addresses[0], 14, 15, 15);
+	freeRun(addresses[15 .. 16]);
+	verifyUniqueRegion(addresses[0], 1, RefillBlockCount, 16);
 
 	// Test dirt behaviour in acquire and release.
-	BlockDescriptor block0;
-	assert(regionAllocator.acquire(&block0, 5));
-	assert(block0.address is blockAddresses[5]);
+	void* addr0;
+	assert(regionAllocator.acquire(&addr0, 5));
+	assert(addr0 is addresses[5]);
 	assert(regionAllocator.dirtyBlockCount == 10);
-	verifyUniqueRegion(blockAddresses[6], 1, RefillBlockCount - 6, 10);
-	regionAllocator.release(blockAddresses[0], 6);
+	verifyUniqueRegion(addresses[6], 1, RefillBlockCount - 6, 10);
+	regionAllocator.release(addresses[0], 6);
 	assert(regionAllocator.dirtyBlockCount == 16);
-	verifyUniqueRegion(blockAddresses[0], 1, RefillBlockCount, 16);
+	verifyUniqueRegion(addresses[0], 1, RefillBlockCount, 16);
 }
