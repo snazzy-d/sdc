@@ -28,9 +28,10 @@ private:
 	 *  - c: The allocation class associated with the longest free range.
 	 *  - s: The allocation score.
 	 *  - a: The address of the block itself.
+	 *  - d: indicates if the block is dense.
 	 * 
 	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
-	 * .fffffff fffccccc ......ss ssssssss .....aaa aaaaaaaa aaaaaaaa aaaaaaaa
+	 * .fffffff fffccccc ......ss ssssssss aaaaaaaa aaaaaaaa aaaaaaaa aaa....d
 	 * 
 	 * We want that bitfield to be usable as a discriminant to prioritize
 	 * from which block we want to allocate.
@@ -55,9 +56,11 @@ private:
 		| ulong(PagesInBlock) << AllocScoreIndex;
 
 	// Verify our assumptions.
-	enum SignifiantAddressBits = LgAddressSpace - LgBlockSize;
-	static assert(SignifiantAddressBits <= 32,
-	              "Unable to pack address in bits!");
+	enum BlockAddressShift = 16;
+	static assert(LgAddressSpace - BlockAddressShift <= 32,
+	              "Unable to pack address in 32 bits!");
+	static assert(BlockAddressShift <= LgBlockSize,
+	              "Unable to pack address in 32 bits!");
 
 	enum MaxFreeRangeClass = getFreeSpaceClass(PagesInBlock);
 	static assert(MaxFreeRangeClass <= FreeRangeClassMask,
@@ -94,16 +97,18 @@ private:
 	Bitmap!PagesInBlock allocatedPages;
 	Bitmap!PagesInBlock dirtyPages;
 
-	this(void* address, ubyte generation = 0) {
+	this(void* address, ubyte generation, bool dense) {
 		assert(isAligned(address, BlockSize), "Invalid address!");
 
-		this.bits |= (cast(size_t) address) >> LgBlockSize;
+		bits |= (cast(size_t) address) >> BlockAddressShift;
+		bits |= dense;
+
 		this.generation = generation;
 	}
 
 public:
-	BlockDescriptor* at(void* ptr) {
-		this = BlockDescriptor(ptr, generation);
+	BlockDescriptor* at(void* ptr, bool dense) {
+		this = BlockDescriptor(ptr, generation, dense);
 		return &this;
 	}
 
@@ -126,7 +131,7 @@ public:
 			auto slot = page.add((Count - 1 - i) * BlockDescriptorSize);
 			auto block = cast(BlockDescriptor*) slot.address;
 
-			*block = BlockDescriptor(null, slot.generation);
+			*block = BlockDescriptor(null, slot.generation, false);
 			ret.insert(block);
 		}
 
@@ -135,7 +140,7 @@ public:
 
 	@property
 	void* address() const {
-		return cast(void*) ((bits & uint.max) << LgBlockSize);
+		return cast(void*) ((bits << BlockAddressShift) & BlockPointerMask);
 	}
 
 	@property
@@ -146,6 +151,16 @@ public:
 	@property
 	ubyte freeRangeClass() const {
 		return (bits >> FreeRangeClassIndex) & FreeRangeClassMask;
+	}
+
+	@property
+	bool dense() const {
+		return (bits & 0x01) != 0;
+	}
+
+	@property
+	bool sparse() const {
+		return !dense;
 	}
 
 	void updateLongestFreeRange(uint lfr) {
@@ -299,6 +314,24 @@ public:
 		clear(index, pages);
 		bits += AllocScoreUnit;
 	}
+}
+
+unittest bitpack {
+	BlockDescriptor block;
+
+	auto ptr0 = cast(void*) 0x876543200000;
+	block.at(ptr0, false);
+
+	assert(block.address is ptr0);
+	assert(!block.dense);
+	assert(block.sparse);
+
+	auto ptr1 = ptr0 + 1234 * BlockSize;
+	block.at(ptr1, true);
+
+	assert(block.address is ptr1);
+	assert(block.dense);
+	assert(!block.sparse);
 }
 
 alias PriorityBlockHeap = Heap!(BlockDescriptor, priorityBlockCmp);

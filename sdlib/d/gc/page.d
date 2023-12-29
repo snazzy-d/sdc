@@ -404,7 +404,7 @@ private:
 			return null;
 		}
 
-		block.at(address);
+		block.at(address, false);
 		allBlocks.insert(block);
 		return block;
 	}
