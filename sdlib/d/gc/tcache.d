@@ -238,6 +238,10 @@ public:
 	}
 
 	void collect() {
+		import d.thread;
+		__sd_thread_stop_the_world();
+		scope(exit) __sd_thread_restart_the_world();
+
 		// TODO: The set need a range interface or some other way to iterrate.
 		// FIXME: Prepare the GC so it has bitfields for all extent classes.
 

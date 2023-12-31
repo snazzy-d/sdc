@@ -14,6 +14,14 @@ extern(C) void __sd_thread_scan(ScanFn scan) {
 	__sd_gc_push_registers(ts.scanStack);
 }
 
+extern(C) void __sd_thread_stop_the_world() {
+	// TODO: Actually stop the world.
+}
+
+extern(C) void __sd_thread_restart_the_world() {
+	// TODO: Actually stop the world.
+}
+
 private:
 
 struct ThreadScanner {

@@ -20,6 +20,14 @@ void __sd_thread_scan(ScanFn scan) {
 	thread_scanAll(dg);
 }
 
+void __sd_thread_stop_the_world() {
+	thread_suspendAll();
+}
+
+void __sd_thread_restart_the_world() {
+	thread_resumeAll();
+}
+
 private:
 
 struct ThreadScanner {
