@@ -28,6 +28,8 @@ void __sd_thread_restart_the_world() {
 	thread_resumeAll();
 }
 
+void __sd_thread_init() {}
+
 private:
 
 struct ThreadScanner {

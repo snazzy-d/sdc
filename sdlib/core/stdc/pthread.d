@@ -10,8 +10,8 @@ union pthread_attr_t {
 extern(C):
 
 pthread_t pthread_self();
-int pthread_create(pthread_t* thread, pthread_attr_t* attr,
-                   void* function(void*), void* arg);
+int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
+                   void* function(void*) start_routine, void* arg);
 int pthread_cancel(pthread_t thread);
 int pthread_join(pthread_t th, void** thread_return);
 
