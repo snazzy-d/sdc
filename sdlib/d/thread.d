@@ -1,11 +1,6 @@
 module d.thread;
 
-import core.stdc.pthread;
-
 extern(C) void __sd_thread_init() {
-	import d.gc.tcache, d.gc.emap, d.gc.base;
-	threadCache.initialize(&gExtentMap, &gBase);
-
 	registerTlsSegments();
 }
 
@@ -45,6 +40,8 @@ struct ThreadScanner {
 }
 
 version(linux) {
+	import core.stdc.pthread;
+
 	void* getStackBottom() {
 		pthread_attr_t attr;
 		void* addr;
@@ -102,6 +99,8 @@ version(linux) {
 }
 
 version(OSX) {
+	import core.stdc.pthread;
+
 	void* getStackBottom() {
 		return pthread_get_stackaddr_np(pthread_self());
 	}
@@ -114,6 +113,8 @@ version(OSX) {
 }
 
 version(FreeBSD) {
+	import core.stdc.pthread;
+
 	void* getStackBottom() {
 		pthread_attr_t attr;
 		void* addr;

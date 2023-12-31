@@ -17,10 +17,10 @@ LIBSDRT_OSX_OBJ = $(LIBSDRT_OSX_OBJ_C) $(LIBSDRT_OSX_OBJ_D)
 LIBSDRT_X64_SRC = $(wildcard sdlib/sys/x64/*.asm)
 LIBSDRT_X64_OBJ = $(LIBSDRT_X64_SRC:sdlib/sys/x64/%.asm=obj/x64/%.o)
 
-LIBSDRT_DEPS = obj/object.o obj/sdlib/d.o obj/sdlib/gc.o obj/sdlib/rt.o \
-	obj/sdlib/stdc.o obj/sdlib/sync.o $(LIBSDRT_X64_OBJ)
-LIBDMDALLOC_DEPS = obj/object.o obj/sdlib/gc.o obj/sdlib/rt.o \
-	obj/sdlib/sync.o obj/sdlib/dmd.o
+COMMON_LIB_DEPS = obj/object.o obj/sdlib/gc.o obj/sdlib/rt.o obj/sdlib/stdc.o \
+	obj/sdlib/sync.o $(LIBSDRT_X64_OBJ)
+LIBSDRT_DEPS = $(COMMON_LIB_DEPS) obj/sdlib/d.o
+LIBDMDALLOC_DEPS = $(COMMON_LIB_DEPS) obj/sdlib/dmd.o
 
 ifeq ($(PLATFORM),Linux)
 	LIBSDRT_DEPS += obj/sdlib/linux.o

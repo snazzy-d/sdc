@@ -50,3 +50,8 @@ void __sd_gc_add_roots(const void[] range) {
 void __sd_gc_collect() {
 	threadCache.runGCCycle();
 }
+
+void __sd_gc_init() {
+	import d.gc.emap, d.gc.base;
+	threadCache.initialize(&gExtentMap, &gBase);
+}
