@@ -389,14 +389,16 @@ public:
 
 	Expression visit(AstUnaryExpression e) {
 		auto expr = visit(e.expr);
-		auto op = e.op;
 
+		UnaryOp op;
 		Type type;
-		final switch (op) with (UnaryOp) {
+		final switch (e.op) with (AstUnaryOp) {
 			case AddressOf:
+				op = UnaryOp.AddressOf;
 				return handleAddressOf(expr);
 
 			case Dereference:
+				op = UnaryOp.Dereference;
 				auto c = expr.type.getCanonical();
 				if (c.kind == TypeKind.Pointer) {
 					type = c.element;
@@ -406,15 +408,40 @@ public:
 				return getError(expr, e.location,
 				                "Only pointers can be dereferenced.");
 
-			case PreInc, PreDec:
-			case PostInc, PostDec:
+			case PreInc:
+				op = UnaryOp.PreInc;
+				goto IncDecOp;
+
+			case PreDec:
+				op = UnaryOp.PreDec;
+				goto IncDecOp;
+
+			case PostInc:
+				op = UnaryOp.PostInc;
+				goto IncDecOp;
+
+			case PostDec:
+				op = UnaryOp.PostDec;
+				goto IncDecOp;
+
+			IncDecOp:
 				// FIXME: check that type is integer or pointer.
 				type = expr.type;
 				break;
 
 			case Plus:
+				op = UnaryOp.Plus;
+				goto IntegralOp;
+
 			case Minus:
+				op = UnaryOp.Minus;
+				goto IntegralOp;
+
 			case Complement:
+				op = UnaryOp.Complement;
+				goto IntegralOp;
+
+			IntegralOp:
 				import d.semantic.typepromotion;
 				type = getPromotedType(pass, expr.location, expr.type,
 				                       Type.get(BuiltinType.Int));
@@ -422,6 +449,7 @@ public:
 				break;
 
 			case Not:
+				op = UnaryOp.Not;
 				type = Type.get(BuiltinType.Bool);
 				expr = buildExplicitCast(pass, expr.location, type, expr);
 				break;

@@ -387,7 +387,7 @@ private AstExpression parsePrefixExpression(
 )(ref TokenRange trange) {
 	AstExpression result;
 
-	static auto processToken(ref TokenRange trange, UnaryOp op) {
+	static auto processToken(ref TokenRange trange, AstUnaryOp op) {
 		auto location = trange.front.location;
 		trange.popFront();
 
@@ -398,35 +398,35 @@ private AstExpression parsePrefixExpression(
 
 	switch (trange.front.type) with (TokenType) {
 		case Ampersand:
-			result = processToken(trange, UnaryOp.AddressOf);
+			result = processToken(trange, AstUnaryOp.AddressOf);
 			break;
 
 		case PlusPlus:
-			result = processToken(trange, UnaryOp.PreInc);
+			result = processToken(trange, AstUnaryOp.PreInc);
 			break;
 
 		case MinusMinus:
-			result = processToken(trange, UnaryOp.PreDec);
+			result = processToken(trange, AstUnaryOp.PreDec);
 			break;
 
 		case Star:
-			result = processToken(trange, UnaryOp.Dereference);
+			result = processToken(trange, AstUnaryOp.Dereference);
 			break;
 
 		case Plus:
-			result = processToken(trange, UnaryOp.Plus);
+			result = processToken(trange, AstUnaryOp.Plus);
 			break;
 
 		case Minus:
-			result = processToken(trange, UnaryOp.Minus);
+			result = processToken(trange, AstUnaryOp.Minus);
 			break;
 
 		case Bang:
-			result = processToken(trange, UnaryOp.Not);
+			result = processToken(trange, AstUnaryOp.Not);
 			break;
 
 		case Tilde:
-			result = processToken(trange, UnaryOp.Complement);
+			result = processToken(trange, AstUnaryOp.Complement);
 			break;
 
 		// TODO: parse qualifier casts.
@@ -655,13 +655,13 @@ AstExpression parsePostfixExpression(ParseMode Mode)(ref TokenRange trange,
 			case PlusPlus:
 				trange.popFront();
 				e = new AstUnaryExpression(location.spanTo(trange.previous),
-				                           UnaryOp.PostInc, e);
+				                           AstUnaryOp.PostInc, e);
 				break;
 
 			case MinusMinus:
 				trange.popFront();
 				e = new AstUnaryExpression(location.spanTo(trange.previous),
-				                           UnaryOp.PostDec, e);
+				                           AstUnaryOp.PostDec, e);
 				break;
 
 			case OpenParen:

@@ -41,8 +41,6 @@ Expression build(E, T...)(T args)
 	return new E(args);
 }
 
-alias UnaryOp = d.ast.expression.UnaryOp;
-
 /**
  * Any expression that have a value known at compile time.
  */
@@ -77,6 +75,56 @@ class TernaryExpression : Expression {
 	}
 }
 
+/**
+ * Unary Expression types.
+ */
+enum UnaryOp {
+	AddressOf,
+	Dereference,
+	PreInc,
+	PreDec,
+	PostInc,
+	PostDec,
+	Plus,
+	Minus,
+	Complement,
+	Not,
+}
+
+string unarizeString(string s, UnaryOp op) {
+	final switch (op) with (UnaryOp) {
+		case AddressOf:
+			return "&" ~ s;
+
+		case Dereference:
+			return "*" ~ s;
+
+		case PreInc:
+			return "++" ~ s;
+
+		case PreDec:
+			return "--" ~ s;
+
+		case PostInc:
+			return s ~ "++";
+
+		case PostDec:
+			return s ~ "--";
+
+		case Plus:
+			return "+" ~ s;
+
+		case Minus:
+			return "-" ~ s;
+
+		case Not:
+			return "!" ~ s;
+
+		case Complement:
+			return "~" ~ s;
+	}
+}
+
 class UnaryExpression : Expression {
 	Expression expr;
 	UnaryOp op;
@@ -86,10 +134,6 @@ class UnaryExpression : Expression {
 
 		this.expr = expr;
 		this.op = op;
-	}
-
-	invariant() {
-		assert(expr);
 	}
 
 	override string toString(const Context c) const {

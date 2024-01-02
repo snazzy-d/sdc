@@ -171,7 +171,7 @@ class AstBinaryExpression : AstExpression {
 /**
  * Unary Expression types.
  */
-enum UnaryOp {
+enum AstUnaryOp {
 	AddressOf,
 	Dereference,
 	PreInc,
@@ -184,8 +184,8 @@ enum UnaryOp {
 	Not,
 }
 
-string unarizeString(string s, UnaryOp op) {
-	final switch (op) with (UnaryOp) {
+string unarizeString(string s, AstUnaryOp op) {
+	final switch (op) with (AstUnaryOp) {
 		case AddressOf:
 			return "&" ~ s;
 
@@ -220,17 +220,13 @@ string unarizeString(string s, UnaryOp op) {
 
 class AstUnaryExpression : AstExpression {
 	AstExpression expr;
-	UnaryOp op;
+	AstUnaryOp op;
 
-	this(Location location, UnaryOp op, AstExpression expr) {
+	this(Location location, AstUnaryOp op, AstExpression expr) {
 		super(location);
 
 		this.expr = expr;
 		this.op = op;
-	}
-
-	invariant() {
-		assert(expr);
 	}
 
 	override string toString(const Context c) const {
