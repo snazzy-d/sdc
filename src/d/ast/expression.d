@@ -16,7 +16,8 @@ abstract class AstExpression : Node {
 	}
 
 	string toString(const Context) const {
-		assert(0, "toString not implement for " ~ typeid(this).toString());
+		import std.format;
+		assert(0, format!"toString not implement for %s."(typeid(this)));
 	}
 }
 
@@ -24,13 +25,14 @@ final:
 /**
  * Conditional expression of type ?:
  */
-class TernaryExpression(E) : E if (is(E : AstExpression)) {
-	E condition;
-	E lhs;
-	E rhs;
+class AstTernaryExpression : AstExpression {
+	AstExpression condition;
+	AstExpression lhs;
+	AstExpression rhs;
 
-	this(U...)(Location location, U args, E condition, E lhs, E rhs) {
-		super(location, args);
+	this(Location location, AstExpression condition, AstExpression lhs,
+	     AstExpression rhs) {
+		super(location);
 
 		this.condition = condition;
 		this.lhs = lhs;
@@ -38,12 +40,11 @@ class TernaryExpression(E) : E if (is(E : AstExpression)) {
 	}
 
 	override string toString(const Context c) const {
-		return condition.toString(c) ~ " ? " ~ lhs.toString(c) ~ " : "
-			~ rhs.toString(c);
+		import std.format;
+		return format!"%s ? %s : %s"(condition.toString(c), lhs.toString(c),
+		                             rhs.toString(c));
 	}
 }
-
-alias AstTernaryExpression = TernaryExpression!AstExpression;
 
 /**
  * Binary Expressions.
@@ -443,21 +444,19 @@ class SuperExpression : AstExpression {
 /**
  * Array literal
  */
-class ArrayLiteral(T) : T if (is(T : AstExpression)) {
-	T[] values;
+class AstArrayLiteral : AstExpression {
+	AstExpression[] values;
 
-	this(U...)(Location location, U args, T[] values) {
-		super(location, args);
+	this(Location location, AstExpression[] values) {
+		super(location);
 		this.values = values;
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range;
-		return "[" ~ values.map!(v => v.toString(c)).join(", ") ~ "]";
+		import std.format, std.algorithm;
+		return format!"[%-(%s, %)]"(values.map!(v => v.toString(c)));
 	}
 }
-
-alias AstArrayLiteral = ArrayLiteral!AstExpression;
 
 /**
  * __FILE__ literal
@@ -556,22 +555,20 @@ class AstTypeidExpression : AstExpression {
 /**
  * typeid(type) expression.
  */
-class StaticTypeidExpression(T, E) : E if (is(E : AstExpression)) {
-	T argument;
+class AstStaticTypeidExpression : AstExpression {
+	AstType argument;
 
-	this(U...)(Location location, U args, T argument) {
-		super(location, args);
+	this(Location location, AstType argument) {
+		super(location);
 
 		this.argument = argument;
 	}
 
 	override string toString(const Context c) const {
-		return "typeid(" ~ argument.toString(c) ~ ")";
+		import std.format;
+		return format!"typeid(%s)"(argument.toString(c));
 	}
 }
-
-alias AstStaticTypeidExpression =
-	StaticTypeidExpression!(AstType, AstExpression);
 
 /**
  * ambiguous typeid expression.

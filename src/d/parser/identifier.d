@@ -48,10 +48,11 @@ auto parseQualifiedIdentifier(Namespace)(ref TokenRange trange,
 	} else static if (is(Namespace : AstExpression)) {
 		alias QualifiedIdentifier = ExpressionDotIdentifier;
 	} else {
+		import std.format;
 		static assert(
 			0,
-			"Namespace can only be an Identifier, a AstType or an Expression."
-				~ " Not a " ~ Namespace.stringof
+			format!"Namespace can only be an Identifier, a AstType or an Expression. Not a %s."(
+				Namespace.stringof)
 		);
 	}
 

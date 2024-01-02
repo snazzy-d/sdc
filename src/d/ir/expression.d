@@ -5,6 +5,8 @@ import d.ir.type;
 
 import d.ast.expression;
 
+import d.common.node;
+
 import source.context;
 import source.location;
 import source.name;
@@ -22,6 +24,11 @@ abstract class Expression : AstExpression {
 	bool isLvalue() const {
 		return false;
 	}
+
+	override string toString(const Context) const {
+		import std.format;
+		assert(0, format!"toString not implement for %s."(typeid(this)));
+	}
 }
 
 Expression build(E, T...)(T args)
@@ -33,11 +40,6 @@ Expression build(E, T...)(T args)
 
 	return new E(args);
 }
-
-alias TernaryExpression = d.ast.expression.TernaryExpression!Expression;
-alias ArrayLiteral = d.ast.expression.ArrayLiteral!Expression;
-alias StaticTypeidExpression =
-	d.ast.expression.StaticTypeidExpression!(Type, Expression);
 
 alias UnaryOp = d.ast.expression.UnaryOp;
 
@@ -51,6 +53,30 @@ abstract class CompileTimeExpression : Expression {
 }
 
 final:
+/**
+ * Conditional expression of type ?:
+ */
+class TernaryExpression : Expression {
+	Expression condition;
+	Expression lhs;
+	Expression rhs;
+
+	this(Location location, Type type, Expression condition, Expression lhs,
+	     Expression rhs) {
+		super(location, type);
+
+		this.condition = condition;
+		this.lhs = lhs;
+		this.rhs = rhs;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"%s ? %s : %s"(condition.toString(c), lhs.toString(c),
+		                             rhs.toString(c));
+	}
+}
+
 class UnaryExpression : Expression {
 	Expression expr;
 	UnaryOp op;
@@ -496,6 +522,23 @@ class NullLiteral : CompileTimeExpression {
 }
 
 /**
+ * Array literal
+ */
+class ArrayLiteral : Expression {
+	Expression[] values;
+
+	this(Location location, Type type, Expression[] values) {
+		super(location, type);
+		this.values = values;
+	}
+
+	override string toString(const Context c) const {
+		import std.format, std.algorithm;
+		return format!"[%-(%s, %)]"(values.map!(v => v.toString(c)));
+	}
+}
+
+/**
  * Cast expressions
  */
 enum CastKind {
@@ -672,6 +715,27 @@ class DelegateExpression : Expression {
 }
 
 /**
+ * typeid(type) expression.
+ * 
+ * TODO: Make this a CompileTimeExpression.
+ * FIXME: This should simply resolve to the proper symbol.
+ */
+class StaticTypeidExpression : Expression {
+	Type argument;
+
+	this(Location location, Type type, Type argument) {
+		super(location, type);
+
+		this.argument = argument;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"typeid(%s)"(argument.toString(c));
+	}
+}
+
+/**
  * For classes, typeid is computed at runtime.
  */
 class DynamicTypeidExpression : Expression {
@@ -684,7 +748,8 @@ class DynamicTypeidExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		return "typeid(" ~ argument.toString(c) ~ ")";
+		import std.format;
+		return format!"typeid(%s)"(argument.toString(c));
 	}
 }
 
