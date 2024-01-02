@@ -271,7 +271,7 @@ public:
 	VR visit(IntrinsicExpression e) {
 		switch (e.intrinsic) with (Intrinsic) {
 			case Expect:
-				return processExpr(e.args[0]);
+				return processExpr(e.arguments[0]);
 
 			case PopCount, CountLeadingZeros, CountTrailingZeros:
 				// TODO: Get a better estimate based on the argument's range.

@@ -27,22 +27,22 @@ final:
  */
 class AstTernaryExpression : AstExpression {
 	AstExpression condition;
-	AstExpression lhs;
-	AstExpression rhs;
+	AstExpression ifTrue;
+	AstExpression ifFalse;
 
-	this(Location location, AstExpression condition, AstExpression lhs,
-	     AstExpression rhs) {
+	this(Location location, AstExpression condition, AstExpression ifTrue,
+	     AstExpression ifFalse) {
 		super(location);
 
 		this.condition = condition;
-		this.lhs = lhs;
-		this.rhs = rhs;
+		this.ifTrue = ifTrue;
+		this.ifFalse = ifFalse;
 	}
 
 	override string toString(const Context c) const {
 		import std.format;
-		return format!"%s ? %s : %s"(condition.toString(c), lhs.toString(c),
-		                             rhs.toString(c));
+		return format!"%s ? %s : %s"(condition.toString(c), ifTrue.toString(c),
+		                             ifFalse.toString(c));
 	}
 }
 
@@ -405,19 +405,19 @@ class IdentifierExpression : AstExpression {
  */
 class AstNewExpression : AstExpression {
 	AstType type;
-	AstExpression[] args;
+	AstExpression[] arguments;
 
-	this(Location location, AstType type, AstExpression[] args) {
+	this(Location location, AstType type, AstExpression[] arguments) {
 		super(location);
 
 		this.type = type;
-		this.args = args;
+		this.arguments = arguments;
 	}
 
 	override string toString(const Context c) const {
 		import std.format, std.algorithm;
 		return format!"new %s(%-(%s, %))"(type.toString(c),
-		                                  args.map!(a => a.toString(c)));
+		                                  arguments.map!(a => a.toString(c)));
 	}
 }
 

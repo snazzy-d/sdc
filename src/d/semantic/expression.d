@@ -357,16 +357,17 @@ public:
 			buildExplicitCast(pass, e.condition.location,
 			                  Type.get(BuiltinType.Bool), visit(e.condition));
 
-		auto lhs = visit(e.lhs);
-		auto rhs = visit(e.rhs);
+		auto ifTrue = visit(e.ifTrue);
+		auto ifFalse = visit(e.ifFalse);
 
 		import d.semantic.typepromotion;
-		auto t = getPromotedType(pass, e.location, lhs.type, rhs.type);
+		auto t = getPromotedType(pass, e.location, ifTrue.type, ifFalse.type);
 
-		lhs = buildExplicitCast(pass, lhs.location, t, lhs);
-		rhs = buildExplicitCast(pass, rhs.location, t, rhs);
+		ifTrue = buildExplicitCast(pass, ifTrue.location, t, ifTrue);
+		ifFalse = buildExplicitCast(pass, ifFalse.location, t, ifFalse);
 
-		return build!TernaryExpression(e.location, t, condition, lhs, rhs);
+		return
+			build!TernaryExpression(e.location, t, condition, ifTrue, ifFalse);
 	}
 
 	private Expression handleAddressOf(Expression expr) {
@@ -1055,7 +1056,7 @@ public:
 	// XXX: factorize with findCtor
 	Expression visit(AstNewExpression e) {
 		import std.algorithm, std.array;
-		auto args = e.args.map!(a => visit(a)).array();
+		auto args = e.arguments.map!(a => visit(a)).array();
 
 		import d.semantic.type;
 		auto type = TypeVisitor(pass).visit(e.type);

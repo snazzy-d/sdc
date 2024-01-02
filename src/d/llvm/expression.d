@@ -333,32 +333,32 @@ struct ExpressionGen {
 		auto condBB = LLVMGetInsertBlock(builder);
 		auto fun = LLVMGetBasicBlockParent(condBB);
 
-		auto lhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ternary_lhs");
-		auto rhsBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "ternary_rhs");
+		auto trueBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "if_true");
+		auto falseBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "if_false");
 		auto mergeBB =
 			LLVMAppendBasicBlockInContext(llvmCtx, fun, "ternary_merge");
 
-		LLVMBuildCondBr(builder, cond, lhsBB, rhsBB);
+		LLVMBuildCondBr(builder, cond, trueBB, falseBB);
 
 		// Emit lhs
-		LLVMPositionBuilderAtEnd(builder, lhsBB);
-		auto lhs = visit(e.lhs);
+		LLVMPositionBuilderAtEnd(builder, trueBB);
+		auto ifTrue = visit(e.ifTrue);
 		// Conclude that block.
 		LLVMBuildBr(builder, mergeBB);
 
 		// Codegen of lhs can change the current block, so we put everything in order.
-		lhsBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(rhsBB, lhsBB);
+		trueBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(falseBB, trueBB);
 
 		// Emit rhs
-		LLVMPositionBuilderAtEnd(builder, rhsBB);
-		auto rhs = visit(e.rhs);
+		LLVMPositionBuilderAtEnd(builder, falseBB);
+		auto ifFalse = visit(e.ifFalse);
 		// Conclude that block.
 		LLVMBuildBr(builder, mergeBB);
 
 		// Codegen of rhs can change the current block, so we put everything in order.
-		rhsBB = LLVMGetInsertBlock(builder);
-		LLVMMoveBasicBlockAfter(mergeBB, rhsBB);
+		falseBB = LLVMGetInsertBlock(builder);
+		LLVMMoveBasicBlockAfter(mergeBB, falseBB);
 
 		// Generate phi to get the result.
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
@@ -366,8 +366,8 @@ struct ExpressionGen {
 		auto eType = TypeGen(pass.pass).visit(e.type);
 		auto phiNode = LLVMBuildPhi(builder, eType, "");
 
-		LLVMValueRef[2] incomingValues = [lhs, rhs];
-		LLVMBasicBlockRef[2] incomingBlocks = [lhsBB, rhsBB];
+		LLVMValueRef[2] incomingValues = [ifTrue, ifFalse];
+		LLVMBasicBlockRef[2] incomingBlocks = [trueBB, falseBB];
 
 		LLVMAddIncoming(phiNode, incomingValues.ptr, incomingBlocks.ptr,
 		                incomingValues.length);
@@ -411,7 +411,7 @@ struct ExpressionGen {
 
 		auto classType = contexts[m.hasContext].type.getCanonical();
 		assert(classType.kind == TypeKind.Class,
-		       "Virtual dispatch can only be done on classes");
+		       "Virtual dispatch can only be done on classes!");
 
 		auto c = classType.dclass;
 		auto metadata = getClassInfo(c);
@@ -455,7 +455,7 @@ struct ExpressionGen {
 		auto ctor = declare(e.ctor);
 
 		import std.algorithm, std.array;
-		auto args = e.args.map!(a => visit(a)).array();
+		auto args = e.arguments.map!(a => visit(a)).array();
 
 		auto ct = e.type.getCanonical();
 		bool isClass = ct.kind == TypeKind.Class;
@@ -746,7 +746,7 @@ struct ExpressionGen {
 		auto params = cType.parameters;
 
 		LLVMValueRef[] args;
-		args.length = contexts.length + c.args.length;
+		args.length = contexts.length + c.arguments.length;
 
 		auto callee = visit(c.callee);
 		foreach (i, ctx; contexts) {
@@ -762,13 +762,13 @@ struct ExpressionGen {
 		uint i = 0;
 		foreach (t; params) {
 			args[i + firstarg] =
-				t.isRef ? addressOf(c.args[i]) : visit(c.args[i]);
+				t.isRef ? addressOf(c.arguments[i]) : visit(c.arguments[i]);
 			i++;
 		}
 
 		// Handle variadic functions.
-		while (i < c.args.length) {
-			args[i + firstarg] = visit(c.args[i]);
+		while (i < c.arguments.length) {
+			args[i + firstarg] = visit(c.arguments[i]);
 			i++;
 		}
 
@@ -790,7 +790,7 @@ struct ExpressionGen {
 	LLVMValueRef visit(IntrinsicExpression e) {
 		import d.llvm.intrinsic, d.llvm.type;
 		return buildBitCast(
-			IntrinsicGen(pass).build(e.intrinsic, e.args),
+			IntrinsicGen(pass).build(e.intrinsic, e.arguments),
 			// XXX: This is necessary until returning sequence is supported.
 			TypeGen(pass.pass).visit(e.type)
 		);

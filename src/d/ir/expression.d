@@ -58,22 +58,22 @@ final:
  */
 class TernaryExpression : Expression {
 	Expression condition;
-	Expression lhs;
-	Expression rhs;
+	Expression ifTrue;
+	Expression ifFalse;
 
-	this(Location location, Type type, Expression condition, Expression lhs,
-	     Expression rhs) {
+	this(Location location, Type type, Expression condition, Expression ifTrue,
+	     Expression ifFalse) {
 		super(location, type);
 
 		this.condition = condition;
-		this.lhs = lhs;
-		this.rhs = rhs;
+		this.ifTrue = ifTrue;
+		this.ifFalse = ifFalse;
 	}
 
 	override string toString(const Context c) const {
 		import std.format;
-		return format!"%s ? %s : %s"(condition.toString(c), lhs.toString(c),
-		                             rhs.toString(c));
+		return format!"%s ? %s : %s"(condition.toString(c), ifTrue.toString(c),
+		                             ifFalse.toString(c));
 	}
 }
 
@@ -240,19 +240,20 @@ class LifetimeExpression : Expression {
 
 class CallExpression : Expression {
 	Expression callee;
-	Expression[] args;
+	Expression[] arguments;
 
-	this(Location location, Type type, Expression callee, Expression[] args) {
+	this(Location location, Type type, Expression callee,
+	     Expression[] arguments) {
 		super(location, type);
 
 		this.callee = callee;
-		this.args = args;
+		this.arguments = arguments;
 	}
 
 	override string toString(const Context c) const {
 		import std.format, std.algorithm;
 		return format!"%s(%-(%s, %))"(callee.toString(c),
-		                              args.map!(a => a.toString(c)));
+		                              arguments.map!(a => a.toString(c)));
 	}
 
 	@property
@@ -284,19 +285,20 @@ enum Intrinsic {
  */
 class IntrinsicExpression : Expression {
 	Intrinsic intrinsic;
-	Expression[] args;
+	Expression[] arguments;
 
-	this(Location location, Type type, Intrinsic intrinsic, Expression[] args) {
+	this(Location location, Type type, Intrinsic intrinsic,
+	     Expression[] arguments) {
 		super(location, type);
 
 		this.intrinsic = intrinsic;
-		this.args = args;
+		this.arguments = arguments;
 	}
 
 	override string toString(const Context c) const {
 		import std.format, std.algorithm;
 		return format!"sdc.intrinsics.%s(%-(%s, %))"(
-			intrinsic, args.map!(a => a.toString(c)));
+			intrinsic, arguments.map!(a => a.toString(c)));
 	}
 }
 
@@ -618,21 +620,21 @@ class CastExpression : Expression {
 class NewExpression : Expression {
 	Expression dinit;
 	Function ctor;
-	Expression[] args;
+	Expression[] arguments;
 
 	this(Location location, Type type, Expression dinit, Function ctor,
-	     Expression[] args) {
+	     Expression[] arguments) {
 		super(location, type);
 
 		this.dinit = dinit;
 		this.ctor = ctor;
-		this.args = args;
+		this.arguments = arguments;
 	}
 
 	override string toString(const Context c) const {
 		import std.format, std.algorithm;
 		return format!"new %s(%-(%s, %))"(type.toString(c),
-		                                  args.map!(a => a.toString(c)));
+		                                  arguments.map!(a => a.toString(c)));
 	}
 }
 
