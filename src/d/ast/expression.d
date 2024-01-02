@@ -474,6 +474,27 @@ class BooleanLiteral : AstExpression {
 }
 
 /**
+ * Integer literal
+ */
+class IntegerLiteral : AstExpression {
+	BuiltinType type;
+	ulong value;
+
+	this(Location location, ulong value, BuiltinType type)
+			in(isIntegral(type)) {
+		super(location);
+
+		this.type = type;
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		import std.conv;
+		return isSigned(type) ? to!string(cast(long) value) : to!string(value);
+	}
+}
+
+/**
  * Array literal
  */
 class AstArrayLiteral : AstExpression {

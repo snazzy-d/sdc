@@ -222,6 +222,17 @@ struct ValueMangler {
 		return c.value ? "0" : "1";
 	}
 
+	string visit(IntegerConstant c) {
+		if (!isSigned(c.type.builtin)) {
+			import std.conv;
+			return to!string(c.value);
+		}
+
+		import std.conv;
+		long v = c.value;
+		return v >= 0 ? to!string(v) : "N" ~ to!string(-v);
+	}
+
 	import d.ir.expression;
 	string visit(CompileTimeExpression e) {
 		return this.dispatch(e);
@@ -229,18 +240,6 @@ struct ValueMangler {
 
 	string visit(ConstantExpression e) {
 		return this.dispatch(e.value);
-	}
-
-	string visit(IntegerLiteral e) {
-		if (!isSigned(e.type.builtin)) {
-			import std.conv;
-			return to!string(e.value);
-		}
-
-		long v = e.value;
-
-		import std.conv;
-		return v >= 0 ? to!string(v) : "N" ~ to!string(-v);
 	}
 
 	string visit(StringLiteral s) {

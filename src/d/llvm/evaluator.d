@@ -323,7 +323,8 @@ struct JitRepacker {
 				goto HandleIntegral;
 
 			HandleIntegral:
-				return new IntegerLiteral(location, raw, t);
+				return new ConstantExpression(location,
+				                              new IntegerConstant(raw, t));
 
 			default:
 				assert(0, "Not implemented");

@@ -35,6 +35,12 @@ struct ConstantGen {
 		return LLVMConstInt(i1, b.value, false);
 	}
 
+	LLVMValueRef visit(IntegerConstant i) {
+		import d.ir.type, d.llvm.type;
+		return LLVMConstInt(TypeGen(pass).visit(i.type), i.value,
+		                    i.type.builtin.isSigned());
+	}
+
 	// XXX: This should be removed at some point, but to ease transition.
 	LLVMValueRef visit(Expression e) {
 		if (auto ce = cast(CompileTimeExpression) e) {
@@ -56,12 +62,6 @@ struct ConstantGen {
 
 	LLVMValueRef visit(ConstantExpression e) {
 		return visit(e.value);
-	}
-
-	LLVMValueRef visit(IntegerLiteral il) {
-		import d.ir.type, d.llvm.type;
-		return LLVMConstInt(TypeGen(pass).visit(il.type), il.value,
-		                    il.type.builtin.isSigned());
 	}
 
 	LLVMValueRef visit(FloatLiteral fl) {

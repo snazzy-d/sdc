@@ -41,7 +41,8 @@ struct ExpressionVisitor {
 	}
 
 	Expression visit(IntegerLiteral e) {
-		return e;
+		return new ConstantExpression(e.location,
+		                              new IntegerConstant(e.value, e.type));
 	}
 
 	Expression visit(FloatLiteral e) {
@@ -202,7 +203,8 @@ private:
 
 				import d.semantic.sizeof;
 				auto isize = SizeofVisitor(pass).visit(etype.element);
-				auto esize = new IntegerLiteral(location, isize, t.builtin);
+				auto esize = new ConstantExpression(
+					location, new IntegerConstant(isize, t.builtin));
 
 				return build!BinaryExpression(location, t, BinaryOp.SDiv, d,
 				                              esize);

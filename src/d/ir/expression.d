@@ -457,26 +457,6 @@ class ContextExpression : Expression {
 }
 
 /**
- * Integer literal
- */
-class IntegerLiteral : CompileTimeExpression {
-	ulong value;
-
-	this(Location location, ulong value, BuiltinType t) in(isIntegral(t)) {
-		super(location, Type.get(t));
-
-		this.value = value;
-	}
-
-	override string toString(const Context) const {
-		import std.conv;
-		return isSigned(type.builtin)
-			? to!string(cast(long) value)
-			: to!string(value);
-	}
-}
-
-/**
  * Float literal
  */
 class FloatLiteral : CompileTimeExpression {

@@ -4,6 +4,7 @@ import d.semantic.semantic;
 
 import d.ast.declaration;
 
+import d.ir.constant;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -454,8 +455,10 @@ struct TypeMatcher(bool isIFTI) {
 			return false;
 		}
 
-		auto s = new IntegerLiteral(p.location, size,
-		                            pass.object.getSizeT().type.builtin);
+		auto s = new ConstantExpression(
+			p.location,
+			new IntegerConstant(size, pass.object.getSizeT().type.builtin)
+		);
 
 		return ValueMatcher(pass, matchedArgs, s).visit(p);
 	}

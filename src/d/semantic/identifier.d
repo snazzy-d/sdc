@@ -785,8 +785,12 @@ struct ExpressionDotIdentifierResolver {
 				t.element.getPointer(),
 				UnaryOp.AddressOf,
 				new IndexExpression(
-					location, t.element, e,
-					new IntegerLiteral(location, 0, BuiltinType.Uint))
+					location,
+					t.element,
+					e,
+					new ConstantExpression(
+						location, new IntegerConstant(0, BuiltinType.Uint))
+				)
 			));
 		}
 
@@ -893,16 +897,19 @@ struct TypeDotIdentifierResolver {
 			return Identifiable(InitBuilder(pass.pass, location).visit(t));
 		} else if (name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
-			return Identifiable(
-				new IntegerLiteral(location, SizeofVisitor(pass.pass).visit(t),
-				                   pass.object.getSizeT().type.builtin));
+			return Identifiable(new ConstantExpression(
+				location,
+				new IntegerConstant(SizeofVisitor(pass.pass).visit(t),
+				                    pass.object.getSizeT().type.builtin)
+			));
 		}
 
+		import std.format;
 		return Identifiable(getError(
 			t,
 			location,
-			name.toString(context) ~ " can't be resolved in type "
-				~ t.toString(context)
+			format!"%s can't be resolved in type %s."(name.toString(context),
+			                                          t.toString(context))
 		).symbol);
 	}
 
@@ -917,7 +924,9 @@ struct TypeDotIdentifierResolver {
 					new ConstantExpression(location, new BooleanConstant(true))
 				);
 			} else if (isIntegral(t)) {
-				return Identifiable(new IntegerLiteral(location, getMax(t), t));
+				return Identifiable(
+					new ConstantExpression(location,
+					                       new IntegerConstant(getMax(t), t)));
 			} else if (isChar(t)) {
 				auto c = new CharacterLiteral(location, getCharMax(t), t);
 				return Identifiable(c);
@@ -928,7 +937,9 @@ struct TypeDotIdentifierResolver {
 					new ConstantExpression(location, new BooleanConstant(false))
 				);
 			} else if (isIntegral(t)) {
-				return Identifiable(new IntegerLiteral(location, getMin(t), t));
+				return Identifiable(
+					new ConstantExpression(location,
+					                       new IntegerConstant(getMin(t), t)));
 			} else if (isChar(t)) {
 				return Identifiable(new CharacterLiteral(location, '\0', t));
 			}
@@ -972,9 +983,10 @@ struct TypeDotIdentifierResolver {
 			return bailout(t.getArray(size));
 		}
 
-		return Identifiable(
-			new IntegerLiteral(location, size,
-			                   pass.object.getSizeT().type.builtin));
+		return Identifiable(new ConstantExpression(
+			location,
+			new IntegerConstant(size, pass.object.getSizeT().type.builtin)
+		));
 	}
 
 	Symbol resolveInAggregate(Aggregate a) {

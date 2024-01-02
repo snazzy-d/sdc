@@ -327,7 +327,7 @@ struct DeclarationVisitor {
 		} else {
 			// XXX: Code duplication with symbols. Refactor.
 			import d.ast.expression : AstExpression, AstBinaryExpression,
-			                          AstBinaryOp;
+			                          AstBinaryOp, IntegerLiteral;
 			AstExpression previous;
 			AstExpression one;
 			foreach (vd; d.entries) {
@@ -337,7 +337,6 @@ struct DeclarationVisitor {
 				v.visibility = visibility;
 
 				if (!vd.value) {
-					import d.ir.expression;
 					if (previous) {
 						if (!one) {
 							one = new IntegerLiteral(vd.location, 1,

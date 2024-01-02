@@ -11,6 +11,7 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.statement;
 
+import d.ir.constant;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -152,8 +153,11 @@ final class SemanticPass {
 		if (returnType.kind == TypeKind.Builtin
 			    && returnType.builtin == BuiltinType.Void) {
 			fbody[bb].eval(location, call);
-			fbody[bb].ret(location,
-			              new IntegerLiteral(location, 0, BuiltinType.Int));
+			fbody[bb].ret(
+				location,
+				new ConstantExpression(location,
+				                       new IntegerConstant(0, BuiltinType.Int))
+			);
 		} else {
 			fbody[bb].ret(location, call);
 		}

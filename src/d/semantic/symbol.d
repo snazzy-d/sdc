@@ -1027,7 +1027,6 @@ struct SymbolAnalyzer {
 		e.mangle = context.getName("E" ~ manglePrefix);
 
 		Variable previous;
-		Expression one;
 		foreach (vd; d.entries) {
 			auto location = vd.location;
 			auto v = new Variable(vd.location, type, vd.name);
@@ -1039,18 +1038,21 @@ struct SymbolAnalyzer {
 			auto dv = vd.value;
 			if (dv is null) {
 				if (previous) {
-					if (!one) {
-						one = new IntegerLiteral(location, 1, bt);
-					}
-
 					// XXX: consider using AstExpression and always
 					// follow th same path.
 					scheduler.require(previous, Step.Signed);
 					v.value = new BinaryExpression(
-						location, type, BinaryOp.Add,
-						new VariableExpression(location, previous), one);
+						location,
+						type,
+						BinaryOp.Add,
+						new VariableExpression(location, previous),
+						new ConstantExpression(location,
+						                       new IntegerConstant(1, bt))
+					);
 				} else {
-					v.value = new IntegerLiteral(location, 0, bt);
+					v.value =
+						new ConstantExpression(location,
+						                       new IntegerConstant(0, bt));
 				}
 			}
 

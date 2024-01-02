@@ -63,3 +63,20 @@ class BooleanConstant : Constant {
 		return value ? "true" : "false";
 	}
 }
+
+class IntegerConstant : Constant {
+	ulong value;
+
+	this(ulong value, BuiltinType type) in(isIntegral(type)) {
+		super(Type.get(type));
+
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		import std.conv;
+		return isSigned(type.builtin)
+			? to!string(cast(long) value)
+			: to!string(value);
+	}
+}

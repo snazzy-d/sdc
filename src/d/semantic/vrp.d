@@ -131,16 +131,16 @@ public:
 		return VR(c.value);
 	}
 
+	VR visit(IntegerConstant c) {
+		return ValueRange!ulong(c.value).as!T;
+	}
+
 	VR visit(Expression e) in(isValidExpr(e), "VRP expect integral types.") {
 		return this.dispatch!(e => getRange(e.type))(e);
 	}
 
 	VR visit(ConstantExpression e) {
 		return visit(e.value);
-	}
-
-	VR visit(IntegerLiteral e) {
-		return ValueRange!ulong(e.value).as!T;
 	}
 
 	VR visit(BinaryExpression e) {
@@ -328,12 +328,22 @@ unittest {
 		 * Constant we can reuse for variosu tests.
 		 */
 		import source.location;
-		auto zero = new IntegerLiteral(Location.init, 0, BuiltinType.Int);
-		auto i1 = new IntegerLiteral(Location.init, -7, BuiltinType.Int);
-		auto i2 = new IntegerLiteral(Location.init, 42, BuiltinType.Int);
-		auto i3 = new IntegerLiteral(Location.init, 2, BuiltinType.Uint);
+		auto zero =
+			new ConstantExpression(Location.init,
+			                       new IntegerConstant(0, BuiltinType.Int));
+		auto i1 =
+			new ConstantExpression(Location.init,
+			                       new IntegerConstant(-7, BuiltinType.Int));
+		auto i2 =
+			new ConstantExpression(Location.init,
+			                       new IntegerConstant(42, BuiltinType.Int));
+		auto i3 =
+			new ConstantExpression(Location.init,
+			                       new IntegerConstant(2, BuiltinType.Uint));
 
-		auto bmax = new IntegerLiteral(Location.init, 255, BuiltinType.Byte);
+		auto bmax =
+			new ConstantExpression(Location.init,
+			                       new IntegerConstant(255, BuiltinType.Byte));
 
 		auto ctrue =
 			new ConstantExpression(Location.init, new BooleanConstant(true));

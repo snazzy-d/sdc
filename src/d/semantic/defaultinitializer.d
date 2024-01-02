@@ -63,7 +63,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 
 			case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent,
 			     Ucent:
-				return new IntegerLiteral(location, 0, t);
+				return
+					new ConstantExpression(location, new IntegerConstant(0, t));
 
 			case Float, Double, Real:
 				return new FloatLiteral(location, float.nan, t);
@@ -82,7 +83,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		auto sizet = pass.object.getSizeT().type.builtin;
 		CompileTimeExpression[] init =
 			[new ConstantExpression(location, new NullConstant(t.getPointer())),
-			 new IntegerLiteral(location, 0UL, sizet)];
+			 new ConstantExpression(location, new IntegerConstant(0, sizet))];
 
 		// XXX: Should cast to size_t, but buildImplicitCast
 		// doesn't produce CompileTimeExpressions.
