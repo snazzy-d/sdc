@@ -3,8 +3,6 @@ module d.parser.expression;
 import d.ast.expression;
 import d.ast.identifier;
 
-import d.ir.expression;
-
 import d.parser.ambiguous;
 import d.parser.base;
 import d.parser.identifier;

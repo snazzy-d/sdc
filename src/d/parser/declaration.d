@@ -14,8 +14,6 @@ import d.ast.expression;
 import d.ast.identifier;
 import d.ast.type;
 
-import d.ir.expression;
-
 import source.name;
 
 /**

@@ -4,15 +4,13 @@ import d.ir.constant;
 import d.ir.symbol;
 import d.ir.type;
 
-import d.ast.expression;
-
 import d.common.node;
 
 import source.context;
 import source.location;
 import source.name;
 
-abstract class Expression : AstExpression {
+abstract class Expression : Node {
 	Type type;
 
 	this(Location location, Type type) {
@@ -26,7 +24,7 @@ abstract class Expression : AstExpression {
 		return false;
 	}
 
-	override string toString(const Context) const {
+	string toString(const Context) const {
 		import std.format;
 		assert(0, format!"toString not implement for %s."(typeid(this)));
 	}
