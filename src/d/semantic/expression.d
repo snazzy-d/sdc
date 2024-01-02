@@ -25,8 +25,9 @@ struct ExpressionVisitor {
 
 	Expression visit(AstExpression e) {
 		return this.dispatch!((e) {
+			import std.format;
 			throw new CompileException(
-				e.location, typeid(e).toString() ~ " is not supported");
+				e.location, format!"%s is not supported."(typeid(e)));
 		})(e);
 	}
 
@@ -105,7 +106,7 @@ private:
 
 	auto buildAssign(Location location, Expression lhs, Expression rhs) {
 		if (!lhs.isLvalue) {
-			return getError(lhs, "Expected an lvalue");
+			return getError(lhs, "Expected an lvalue.");
 		}
 
 		auto type = lhs.type;
@@ -159,7 +160,8 @@ private:
 					}
 
 					if (isSub) {
-						return getError(lhs, location, "Invalid operand types");
+						return
+							getError(lhs, location, "Invalid operand types.");
 					}
 
 					import std.algorithm;
@@ -183,7 +185,7 @@ private:
 				}
 
 				if (!isSub) {
-					return new CompileError(location, "Invalid operand types")
+					return new CompileError(location, "Invalid operand types.")
 						.expression;
 				}
 
@@ -269,7 +271,7 @@ private:
 			case Concat:
 				type = lhs.type;
 				if (type.getCanonical().kind != TypeKind.Slice) {
-					return getError(lhs, "Expected a slice");
+					return getError(lhs, "Expected a slice.");
 				}
 
 				rhs = buildImplicitCast(
@@ -294,7 +296,7 @@ private:
 			case LogicalOrAssign:
 			case LogicalAndAssign:
 			case ConcatAssign:
-				assert(0, "Assign op should not reach this point");
+				assert(0, "Assign op should not reach this point!");
 
 			case Equal, Identical:
 				icmpop = ICmpOp.Equal;
@@ -401,7 +403,7 @@ public:
 				}
 
 				return getError(expr, e.location,
-				                "Only pointers can be dereferenced");
+				                "Only pointers can be dereferenced.");
 
 			case PreInc, PreDec:
 			case PostInc, PostDec:
@@ -450,10 +452,11 @@ public:
 
 	Expression buildArgument(Expression arg, ParamType pt) {
 		if (pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
+			import std.format;
 			return getError(
 				arg,
-				"Can't pass argument (" ~ arg.type.toString(context)
-					~ ") by ref to " ~ pt.toString(context)
+				format!"Can't pass argument (%s) by ref to %s."(
+					arg.type.toString(context), pt.toString(context))
 			);
 		}
 
@@ -461,7 +464,7 @@ public:
 
 		// Test if we can pass by ref.
 		if (pt.isRef && !arg.isLvalue) {
-			return getError(arg, "Argument isn't a lvalue");
+			return getError(arg, "Argument isn't a lvalue.");
 		}
 
 		return arg;
@@ -513,7 +516,7 @@ public:
 
 			case IntToPtr, PtrToInt, Down, IntToBool, Trunc:
 			case FloatToSigned, FloatToUnsigned:
-				assert(0, "Not an implicit cast !");
+				assert(0, "Not an implicit cast!");
 
 			case FloatExtend, FloatTrunc:
 			case SignedToFloat, UnsignedToFloat:
@@ -587,10 +590,11 @@ public:
 
 		assert(!f.hasContext);
 		if (f.params.length != ctxs.length - f.hasContext) {
+			import std.format;
 			return getError(
 				e,
-				"Invalid number of argument for @property "
-					~ f.name.toString(context)
+				format!"Invalid number of argument for @property %s."(
+					f.name.toString(context))
 			);
 		}
 
@@ -612,7 +616,7 @@ public:
 		// FIXME: check if we are in a constructor.
 		auto t = thisType.getType().getCanonical();
 		if (!t.isAggregate()) {
-			assert(0, "ctor on non aggregate not implemented");
+			assert(0, "ctor on non aggregate not implemented!");
 		}
 
 		auto loc = c.callee.location;
@@ -663,9 +667,13 @@ public:
 					return callType(c.location, c.callee.location, identified,
 					                args);
 				} else {
+					import std.format;
 					return getError(
-						identified, c.location,
-						c.callee.toString(pass.context) ~ " isn't callable");
+						identified,
+						c.location,
+						format!"%s isn't callable."(
+							c.callee.toString(pass.context))
+					);
 				}
 			}
 		}
@@ -701,7 +709,7 @@ public:
 					return buildImplicitCast(pass, location, t, args[0]);
 				}
 
-				return getError(t, location, "Expected one argument");
+				return getError(t, location, "Expected one argument.");
 
 			case Struct:
 				auto s = t.dstruct;
@@ -719,7 +727,7 @@ public:
 					callCtor(location, calleeLoc, thisExpr, args), thisExpr);
 
 			default:
-				return getError(t, location, "Cannot build this type");
+				return getError(t, location, "Cannot build this type.");
 		}
 	}
 
@@ -735,9 +743,11 @@ public:
 
 	// XXX: factorize with NewExpression
 	private Expression findCtor(Location location, Location calleeLoc,
-	                            Expression thisExpr, Expression[] args)
-			in(thisExpr.type.isAggregate(),
-			   thisExpr.toString(context) ~ " is not an aggregate") {
+	                            Expression thisExpr, Expression[] args) in {
+		import std.format;
+		assert(thisExpr.type.isAggregate(),
+		       format!"%s is not an aggregate!"(thisExpr.toString(context)));
+	} do {
 		auto agg = thisExpr.type.aggregate;
 
 		import source.name, d.semantic.identifier;
@@ -767,14 +777,17 @@ public:
 								}
 
 								// XXX: Template ??!?!!?
-								assert(0, "Not a constructor");
+								assert(0, "Not a constructor!");
 							}).array(), args);
 					}
 				}
 
+				import std.format;
 				return getError(
-					i, location,
-					agg.name.toString(pass.context) ~ " isn't callable");
+					i,
+					location,
+					format!"%s isn't callable."(agg.name.toString(pass.context))
+				);
 			})();
 	}
 
@@ -788,18 +801,19 @@ public:
 		scheduler.require(i);
 
 		import d.semantic.identifier;
-		return IdentifierResolver(pass)
-			.buildIn(location, i, t.name)
-			.apply!(delegate Expression(identified) {
-				alias T = typeof(identified);
-				static if (is(T : Expression)) {
-					return identified;
-				} else {
-					return getError(
-						identified, location,
-						t.name.toString(pass.context) ~ " isn't callable");
-				}
-			})();
+		return IdentifierResolver(
+			pass
+		).buildIn(location, i, t.name).apply!(delegate Expression(identified) {
+			alias T = typeof(identified);
+			static if (is(T : Expression)) {
+				return identified;
+			} else {
+				import std.format;
+				return getError(
+					identified, location,
+					format!"%s isn't callable."(t.name.toString(pass.context)));
+			}
+		})();
 	}
 
 	private
@@ -819,9 +833,10 @@ public:
 				return handleIFTI(location, t, args);
 			}
 
+			import std.format;
 			throw new CompileException(
 				s.location,
-				typeid(s).toString() ~ " is not supported in overload set"
+				format!"%s is not supported in overload set."(typeid(s))
 			);
 		}).array(), args), args);
 	}
@@ -839,9 +854,12 @@ public:
 		auto cds =
 			candidates.map!(e => findCallable(location, e, args)).filter!((e) {
 				auto t = e.type.getCanonical();
+
+				import std.format;
 				assert(
 					t.kind == TypeKind.Function,
-					e.type.toString(pass.context) ~ " is not a function type"
+					format!"%s is not a function type."(
+						e.type.toString(pass.context))
 				);
 
 				auto ft = t.asFunctionType();
@@ -908,7 +926,7 @@ public:
 
 				if (matchFail == candidateFail) {
 					return getError(candidate, location,
-					                "ambiguous function call.");
+					                "Ambiguous function call.");
 				}
 
 				if (matchFail) {
@@ -917,12 +935,12 @@ public:
 			}
 		}
 
-		if (!match) {
-			return new CompileError(location, "No candidate for function call")
-				.expression;
+		if (match) {
+			return match;
 		}
 
-		return match;
+		return new CompileError(location, "No candidate for function call.")
+			.expression;
 	}
 
 	private Expression findCallable(Location location, Expression callee,
@@ -956,11 +974,12 @@ public:
 			return results[0];
 		}
 
+		import std.format;
 		return getError(
 			callee,
 			location,
-			"You must call function or delegates, not "
-				~ callee.type.toString(context)
+			format!"You must call function or delegates, not %s."(
+				callee.type.toString(context))
 		);
 	}
 
@@ -998,7 +1017,7 @@ public:
 				fun = dge.method;
 			} else {
 				// Can't find the function, error.
-				return getError(callee, location, "Insuffiscient parameters");
+				return getError(callee, location, "Insuffiscient parameters.");
 			}
 
 			auto start = args.length + f.contexts.length;
@@ -1007,13 +1026,13 @@ public:
 			foreach (p; params) {
 				if (p.value is null) {
 					return
-						getError(callee, location, "Insuffiscient parameters");
+						getError(callee, location, "Insuffiscient parameters.");
 				}
 
 				args ~= p.value;
 			}
 		} else if (args.length > paramTypes.length && !f.isVariadic) {
-			return getError(callee, location, "Too much parameters");
+			return getError(callee, location, "Too many parameters.");
 		}
 
 		import std.range;
@@ -1063,7 +1082,7 @@ public:
 									                              hackForDg, f);
 								}
 
-								assert(0, "not a constructor");
+								assert(0, "Not a constructor!");
 							}).array(), args);
 
 						// XXX: find a clean way to achieve this.
@@ -1071,7 +1090,7 @@ public:
 					}
 				}
 
-				assert(0, "Gimme some construtor !");
+				assert(0, "Gimme some construtor!");
 			})();
 
 		// First parameter is compiler magic.
@@ -1099,7 +1118,7 @@ public:
 					return identified;
 				} else {
 					return new CompileError(
-						location, "Cannot find a suitable this pointer"
+						location, "Cannot find a suitable this pointer."
 					).expression;
 				}
 			})();
@@ -1115,8 +1134,10 @@ public:
 	                    Expression index) {
 		auto t = indexed.type.getCanonical();
 		if (!t.hasElement) {
-			return getError(indexed, location,
-			                "Can't index " ~ indexed.type.toString(context));
+			import std.format;
+			return getError(
+				indexed, location,
+				format!"Can't index %s."(indexed.type.toString(context)));
 		}
 
 		index = buildImplicitCast(pass, location, pass.object.getSizeT().type,
@@ -1137,7 +1158,7 @@ public:
 		import std.algorithm, std.array;
 		auto arguments = e.arguments.map!(e => visit(e)).array();
 		assert(arguments.length == 1,
-		       "Multiple argument index are not supported");
+		       "Multiple argument index are not supported!");
 
 		return getIndex(e.location, indexed, arguments[0]);
 	}
@@ -1148,8 +1169,9 @@ public:
 
 		auto t = sliced.type.getCanonical();
 		if (!t.hasElement) {
+			import std.format;
 			return getError(sliced, e.location,
-			                "Can't slice " ~ t.toString(context));
+			                format!"Can't slice %s."(t.toString(context)));
 		}
 
 		assert(e.first.length == 1 && e.second.length == 1);
@@ -1197,44 +1219,48 @@ public:
 
 	Expression visit(IdentifierTypeidExpression e) {
 		import d.semantic.identifier;
-		return IdentifierResolver(
-			pass
-		).build(e.argument).apply!(delegate Expression(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Type)) {
-				return getTypeInfo(e.location, identified);
-			} else static if (is(T : Expression)) {
-				return handleTypeid(e.location, identified);
-			} else {
-				return getError(
-					identified, e.location,
-					"Can't get typeid of " ~ e.argument.toString(pass.context));
-			}
-		})();
+		return IdentifierResolver(pass)
+			.build(e.argument).apply!(delegate Expression(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Type)) {
+					return getTypeInfo(e.location, identified);
+				} else static if (is(T : Expression)) {
+					return handleTypeid(e.location, identified);
+				} else {
+					import std.format;
+					return getError(
+						identified,
+						e.location,
+						format!"Can't get typeid of %s."(
+							e.argument.toString(pass.context))
+					);
+				}
+			})();
 	}
 
 	Expression visit(IdentifierExpression e) {
 		import d.semantic.identifier;
-		return IdentifierResolver(
-			pass
-		).build(e.identifier).apply!(delegate Expression(identified) {
-			alias T = typeof(identified);
-			static if (is(T : Expression)) {
-				return identified;
-			} else {
-				static if (is(T : Symbol)) {
-					if (auto s = cast(OverloadSet) identified) {
-						return buildPolysemous(e.location, s);
+		return IdentifierResolver(pass)
+			.build(e.identifier).apply!(delegate Expression(identified) {
+				alias T = typeof(identified);
+				static if (is(T : Expression)) {
+					return identified;
+				} else {
+					static if (is(T : Symbol)) {
+						if (auto s = cast(OverloadSet) identified) {
+							return buildPolysemous(e.location, s);
+						}
 					}
-				}
 
-				return getError(
-					identified,
-					e.location,
-					e.identifier.toString(pass.context) ~ " isn't an expression"
-				);
-			}
-		})();
+					import std.format;
+					return getError(
+						identified,
+						e.location,
+						format!"%s isn't an expression."(
+							e.identifier.toString(pass.context))
+					);
+				}
+			})();
 	}
 
 	private Expression buildPolysemous(Location location, OverloadSet s) {
@@ -1249,13 +1275,14 @@ public:
 					static if (is(T : Expression)) {
 						return identified;
 					} else static if (is(T : Type)) {
-						assert(0, "Type can't be overloaded");
+						assert(0, "Type can't be overloaded!");
 					} else {
 						// TODO: handle templates.
+						import std.format;
 						throw new CompileException(
 							identified.location,
-							typeid(identified).toString()
-								~ " is not supported in overload set"
+							format!"%s is not supported in overload set."(
+								typeid(identified))
 						);
 					}
 				})())
