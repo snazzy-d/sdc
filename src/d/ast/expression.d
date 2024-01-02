@@ -163,8 +163,8 @@ class AstBinaryExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		import std.conv;
-		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
+		import std.format;
+		return format!"%s %s %s"(lhs.toString(c), op, rhs.toString(c));
 	}
 }
 
@@ -250,7 +250,8 @@ class AstCastExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		return "cast(" ~ type.toString(c) ~ ") " ~ expr.toString(c);
+		import std.format;
+		return format!"cast(%s) %s"(type.toString(c), expr.toString(c));
 	}
 }
 
@@ -269,9 +270,9 @@ class AstCallExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range;
-		auto aa = arguments.map!(a => a.toString(c)).join(", ");
-		return callee.toString(c) ~ "(" ~ aa ~ ")";
+		import std.format, std.algorithm;
+		return format!"%s(%-(%s, %))"(callee.toString(c),
+		                              arguments.map!(a => a.toString(c)));
 	}
 }
 
@@ -290,9 +291,9 @@ class IdentifierCallExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range;
-		auto aa = arguments.map!(a => a.toString(c)).join(", ");
-		return callee.toString(c) ~ "(" ~ aa ~ ")";
+		import std.format, std.algorithm;
+		return format!"%s(%-(%s, %))"(callee.toString(c),
+		                              arguments.map!(a => a.toString(c)));
 	}
 }
 
@@ -311,9 +312,9 @@ class TypeCallExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range;
-		auto aa = arguments.map!(a => a.toString(c)).join(", ");
-		return type.toString(c) ~ "(" ~ aa ~ ")";
+		import std.format, std.algorithm;
+		return format!"%s(%-(%s, %))"(type.toString(c),
+		                              arguments.map!(a => a.toString(c)));
 	}
 }
 
@@ -332,9 +333,9 @@ class AstIndexExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range;
-		auto aa = arguments.map!(a => a.toString(c)).join(", ");
-		return indexed.toString(c) ~ "[" ~ aa ~ "]";
+		import std.format, std.algorithm;
+		return format!"%s[%-(%s, %)]"(indexed.toString(c),
+		                              arguments.map!(a => a.toString(c)));
 	}
 }
 
@@ -357,10 +358,10 @@ class AstSliceExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range;
-		auto fa = first.map!(a => a.toString(c)).join(", ");
-		auto sa = second.map!(a => a.toString(c)).join(", ");
-		return sliced.toString(c) ~ "[" ~ fa ~ " .. " ~ sa ~ "]";
+		import std.format, std.algorithm;
+		return format!"%s[%-(%s, %) .. %-(%s, %)]"(
+			sliced.toString(c), first.map!(a => a.toString(c)),
+			second.map!(a => a.toString(c)));
 	}
 }
 
@@ -374,6 +375,11 @@ class ParenExpression : AstExpression {
 		super(location);
 
 		this.expr = expr;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"(%s)"(expr.toString(c));
 	}
 }
 
@@ -409,9 +415,9 @@ class AstNewExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range;
-		auto aa = args.map!(a => a.toString(c)).join(", ");
-		return "new " ~ type.toString(c) ~ "(" ~ aa ~ ")";
+		import std.format, std.algorithm;
+		return format!"new %s(%-(%s, %))"(type.toString(c),
+		                                  args.map!(a => a.toString(c)));
 	}
 }
 
@@ -465,6 +471,10 @@ class __File__Literal : AstExpression {
 	this(Location location) {
 		super(location);
 	}
+
+	override string toString(const Context) const {
+		return "__FILE__";
+	}
 }
 
 /**
@@ -473,6 +483,10 @@ class __File__Literal : AstExpression {
 class __Line__Literal : AstExpression {
 	this(Location location) {
 		super(location);
+	}
+
+	override string toString(const Context) const {
+		return "__LINE__";
 	}
 }
 
@@ -520,6 +534,10 @@ class DollarExpression : AstExpression {
 	this(Location location) {
 		super(location);
 	}
+
+	override string toString(const Context) const {
+		return "$";
+	}
 }
 
 /**
@@ -548,7 +566,8 @@ class AstTypeidExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		return "typeid(" ~ argument.toString(c) ~ ")";
+		import std.format;
+		return format!"typeid(%s)"(argument.toString(c));
 	}
 }
 
@@ -571,7 +590,7 @@ class AstStaticTypeidExpression : AstExpression {
 }
 
 /**
- * ambiguous typeid expression.
+ * Ambiguous typeid expression.
  */
 class IdentifierTypeidExpression : AstExpression {
 	Identifier argument;
@@ -583,7 +602,8 @@ class IdentifierTypeidExpression : AstExpression {
 	}
 
 	override string toString(const Context c) const {
-		return "typeid(" ~ argument.toString(c) ~ ")";
+		import std.format;
+		return format!"typeid(%s)"(argument.toString(c));
 	}
 }
 
