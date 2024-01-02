@@ -22,17 +22,16 @@ struct ConstantGen {
 			return visit(ce);
 		}
 
-		assert(
-			0,
-			"Expected a compile time expression, not " ~ typeid(e).toString()
-		);
+		import std.format;
+		assert(0,
+		       format!"Expected a compile time expression, not %s."(typeid(e)));
 	}
 
 	LLVMValueRef visit(CompileTimeExpression e) {
 		return this.dispatch!(function LLVMValueRef(Expression e) {
-			import source.exception;
+			import source.exception, std.format;
 			throw new CompileException(
-				e.location, typeid(e).toString() ~ " is not supported");
+				e.location, format!"%s is not supported."(typeid(e)));
 		})(e);
 	}
 
