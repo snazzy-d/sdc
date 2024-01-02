@@ -120,3 +120,37 @@ class CharacterConstant : Constant {
 		return format!"%(%s%)"(x);
 	}
 }
+
+class StringConstant : Constant {
+	string value;
+
+	this(string value) {
+		super(Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable));
+
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		string[1] x = [value];
+
+		import std.format;
+		return format!"%(%s%)"(x);
+	}
+}
+
+class CStringConstant : Constant {
+	string value;
+
+	this(string value) {
+		super(Type.get(BuiltinType.Char).getPointer(TypeQualifier.Immutable));
+
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		string[1] x = [value];
+
+		import std.format;
+		return format!"%(%s%)"(x);
+	}
+}

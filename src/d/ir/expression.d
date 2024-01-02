@@ -457,45 +457,6 @@ class ContextExpression : Expression {
 }
 
 /**
- * String literal
- */
-class StringLiteral : CompileTimeExpression {
-	string value;
-
-	this(Location location, string value) {
-		super(location,
-		      Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable));
-
-		this.value = value;
-	}
-
-	override string toString(const Context) const {
-		string[1] x = [value];
-
-		import std.format;
-		return format!"%(%s%)"(x);
-	}
-}
-
-class CStringLiteral : CompileTimeExpression {
-	string value;
-
-	this(Location location, string value) {
-		super(location,
-		      Type.get(BuiltinType.Char).getPointer(TypeQualifier.Immutable));
-
-		this.value = value;
-	}
-
-	override string toString(const Context) const {
-		string[1] x = [value];
-
-		import std.format;
-		return format!"%(%s%)"(x);
-	}
-}
-
-/**
  * Array literal
  */
 class ArrayLiteral : Expression {

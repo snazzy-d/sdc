@@ -96,11 +96,15 @@ Expression buildCast(bool isExplicit)(
 	}
 
 	// D-style string literals can be implicitely converted to C-style ones.
-	if (auto sl = cast(StringLiteral) e) {
-		if (to.kind == TypeKind.Pointer
-			    && implicitCastFrom(pass, e.type.element, to.element)
-				    >= CastKind.Qual) {
-			return build!CStringLiteral(e.location, sl.value);
+	if (auto c = cast(ConstantExpression) e) {
+		import d.ir.constant;
+		if (auto s = cast(StringConstant) c.value) {
+			if (to.kind == TypeKind.Pointer
+				    && implicitCastFrom(pass, e.type.element, to.element)
+					    >= CastKind.Qual) {
+				return new ConstantExpression(e.location,
+				                              new CStringConstant(s.value));
+			}
 		}
 	}
 

@@ -538,7 +538,7 @@ struct SymbolAnalyzer {
 
 		import d.semantic.mangler;
 		auto typeMangle = TypeMangler(pass).visit(a.value.type);
-		auto valueMangle = ValueMangler(pass).visit(a.value);
+		auto valueMangle = ValueMangler().visit(a.value);
 		a.mangle = context.getName(typeMangle ~ valueMangle);
 
 		a.step = Step.Processed;

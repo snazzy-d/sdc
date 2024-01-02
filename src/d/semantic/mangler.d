@@ -206,43 +206,38 @@ struct TypeMangler {
 }
 
 struct ValueMangler {
-	private SemanticPass pass;
-	alias pass this;
-
-	this(SemanticPass pass) {
-		this.pass = pass;
-	}
-
-	import d.ir.constant;
-	string visit(Constant c) {
-		return this.dispatch(c);
-	}
-
-	string visit(BooleanConstant c) {
-		return c.value ? "0" : "1";
-	}
-
-	string visit(IntegerConstant c) {
-		if (!isSigned(c.type.builtin)) {
-			import std.conv;
-			return to!string(c.value);
-		}
-
-		import std.conv;
-		long v = c.value;
-		return v >= 0 ? to!string(v) : "N" ~ to!string(-v);
-	}
-
 	import d.ir.expression;
 	string visit(CompileTimeExpression e) {
 		return this.dispatch(e);
 	}
 
 	string visit(ConstantExpression e) {
-		return this.dispatch(e.value);
+		return ConstantMangler().visit(e.value);
+	}
+}
+
+struct ConstantMangler {
+	import d.ir.constant;
+	string visit(Constant c) {
+		return this.dispatch(c);
 	}
 
-	string visit(StringLiteral s) {
+	string visit(BooleanConstant b) {
+		return b.value ? "0" : "1";
+	}
+
+	string visit(IntegerConstant i) {
+		if (!isSigned(i.type.builtin)) {
+			import std.conv;
+			return to!string(i.value);
+		}
+
+		import std.conv;
+		long v = i.value;
+		return v >= 0 ? to!string(v) : "N" ~ to!string(-v);
+	}
+
+	string visit(StringConstant s) {
 		auto ret = "a";
 		auto str = s.value;
 		auto len = str.length;
@@ -277,10 +272,10 @@ unittest {
 
 unittest {
 	void check(string s, string m) {
-		import source.location, d.ir.expression;
-		auto sl = new StringLiteral(Location.init, s);
+		import d.ir.constant;
+		auto c = new StringConstant(s);
 
-		assert(ValueMangler().visit(sl) == m);
+		assert(ConstantMangler().visit(c) == m);
 	}
 
 	check("Hello World", "a11_48656c6c6f20576f726c64");

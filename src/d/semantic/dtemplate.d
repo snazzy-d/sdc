@@ -216,7 +216,7 @@ private:
 
 				import d.semantic.mangler;
 				auto typeMangle = TypeMangler(pass).visit(identified.type);
-				auto valueMangle = ValueMangler(pass).visit(identified);
+				auto valueMangle = ValueMangler().visit(identified);
 				a.mangle = pass.context.getName(typeMangle ~ valueMangle);
 				a.step = Step.Processed;
 

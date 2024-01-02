@@ -51,6 +51,14 @@ struct ConstantGen {
 		return LLVMConstInt(TypeGen(pass).visit(c.type), c.value, false);
 	}
 
+	LLVMValueRef visit(StringConstant s) {
+		return buildDString(s.value);
+	}
+
+	LLVMValueRef visit(CStringConstant cs) {
+		return buildCString(cs.value);
+	}
+
 	// XXX: This should be removed at some point, but to ease transition.
 	LLVMValueRef visit(Expression e) {
 		if (auto ce = cast(CompileTimeExpression) e) {
@@ -72,14 +80,6 @@ struct ConstantGen {
 
 	LLVMValueRef visit(ConstantExpression e) {
 		return visit(e.value);
-	}
-
-	LLVMValueRef visit(StringLiteral sl) {
-		return buildDString(sl.value);
-	}
-
-	LLVMValueRef visit(CStringLiteral csl) {
-		return buildCString(csl.value);
 	}
 
 	LLVMValueRef visit(CompileTimeTupleExpression e) {

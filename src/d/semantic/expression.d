@@ -60,7 +60,7 @@ struct ExpressionVisitor {
 	}
 
 	Expression visit(StringLiteral e) {
-		return e;
+		return new ConstantExpression(e.location, new StringConstant(e.value));
 	}
 
 private:

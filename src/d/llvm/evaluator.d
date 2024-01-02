@@ -338,7 +338,8 @@ struct JitRepacker {
 	CompileTimeExpression visitSliceOf(Type t) {
 		if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.Char
 			    && t.qualifier == TypeQualifier.Immutable) {
-			return new StringLiteral(location, get!string().idup);
+			return new ConstantExpression(
+				location, new StringConstant(get!string().idup));
 		}
 
 		assert(0, "Not Implemented.");

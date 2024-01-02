@@ -545,6 +545,26 @@ class CharacterLiteral : AstExpression {
 }
 
 /**
+ * String literal
+ */
+class StringLiteral : AstExpression {
+	string value;
+
+	this(Location location, string value) {
+		super(location);
+
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		string[1] x = [value];
+
+		import std.format;
+		return format!"%(%s%)"(x);
+	}
+}
+
+/**
  * Array literal
  */
 class AstArrayLiteral : AstExpression {
