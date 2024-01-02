@@ -46,7 +46,8 @@ struct ExpressionVisitor {
 	}
 
 	Expression visit(FloatLiteral e) {
-		return e;
+		return new ConstantExpression(e.location,
+		                              new FloatConstant(e.value, e.type));
 	}
 
 	Expression visit(CharacterLiteral e) {

@@ -41,6 +41,11 @@ struct ConstantGen {
 		                    i.type.builtin.isSigned());
 	}
 
+	LLVMValueRef visit(FloatConstant f) {
+		import d.llvm.type;
+		return LLVMConstReal(TypeGen(pass).visit(f.type), f.value);
+	}
+
 	// XXX: This should be removed at some point, but to ease transition.
 	LLVMValueRef visit(Expression e) {
 		if (auto ce = cast(CompileTimeExpression) e) {
@@ -62,11 +67,6 @@ struct ConstantGen {
 
 	LLVMValueRef visit(ConstantExpression e) {
 		return visit(e.value);
-	}
-
-	LLVMValueRef visit(FloatLiteral fl) {
-		import d.llvm.type;
-		return LLVMConstReal(TypeGen(pass).visit(fl.type), fl.value);
 	}
 
 	// XXX: character types in backend ?

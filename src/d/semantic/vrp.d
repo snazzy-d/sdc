@@ -530,10 +530,13 @@ unittest {
 			.visit(new CastExpression(Location.init, CastKind.Exact, tint, i1));
 		assert(v == VR(-7));
 
-		// Casts from floating point types to integer types
-
-		auto dPi = new FloatLiteral(Location.init, 3.14, BuiltinType.Double);
-		auto f0 = new FloatLiteral(Location.init, 0.0f, BuiltinType.Float);
+		// Casts from floating point types to integer types.
+		auto dPi =
+			new ConstantExpression(Location.init,
+			                       new FloatConstant(3.14, BuiltinType.Double));
+		auto f0 =
+			new ConstantExpression(Location.init,
+			                       new FloatConstant(0, BuiltinType.Float));
 
 		foreach (floatVal; [dPi, f0]) {
 			foreach (t;

@@ -67,7 +67,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 					new ConstantExpression(location, new IntegerConstant(0, t));
 
 			case Float, Double, Real:
-				return new FloatLiteral(location, float.nan, t);
+				return new ConstantExpression(location,
+				                              new FloatConstant(double.nan, t));
 
 			case Null:
 				return new ConstantExpression(location, new NullConstant());

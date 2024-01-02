@@ -457,24 +457,6 @@ class ContextExpression : Expression {
 }
 
 /**
- * Float literal
- */
-class FloatLiteral : CompileTimeExpression {
-	double value;
-
-	this(Location location, double value, BuiltinType t) in(isFloat(t)) {
-		super(location, Type.get(t));
-
-		this.value = value;
-	}
-
-	override string toString(const Context) const {
-		import std.conv;
-		return to!string(value);
-	}
-}
-
-/**
  * Character literal
  */
 class CharacterLiteral : CompileTimeExpression {

@@ -495,6 +495,26 @@ class IntegerLiteral : AstExpression {
 }
 
 /**
+ * Float literal
+ */
+class FloatLiteral : AstExpression {
+	BuiltinType type;
+	double value;
+
+	this(Location location, double value, BuiltinType type) in(isFloat(type)) {
+		super(location);
+
+		this.type = type;
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		import std.conv;
+		return to!string(value);
+	}
+}
+
+/**
  * Array literal
  */
 class AstArrayLiteral : AstExpression {

@@ -952,7 +952,7 @@ unittest {
 
 		auto lexer = makeTestLexer(floatString);
 		const fl = lexer.parseFloatLiteral();
-		assert(fl.type.builtin == ExpectedType);
+		assert(fl.type == ExpectedType);
 
 		// Note that the value is stored in the FloatLiteral as a double.
 		assert(fl.value is floatValue);

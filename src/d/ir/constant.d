@@ -80,3 +80,18 @@ class IntegerConstant : Constant {
 			: to!string(value);
 	}
 }
+
+class FloatConstant : Constant {
+	double value;
+
+	this(double value, BuiltinType t) in(isFloat(t)) {
+		super(Type.get(t));
+
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		import std.conv;
+		return to!string(value);
+	}
+}
