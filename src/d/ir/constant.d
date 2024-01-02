@@ -95,3 +95,28 @@ class FloatConstant : Constant {
 		return to!string(value);
 	}
 }
+
+class CharacterConstant : Constant {
+	uint value;
+
+	this(uint value, BuiltinType type) in(isChar(type)) {
+		super(Type.get(type));
+
+		this.value = value;
+	}
+
+	this(char value) {
+		this(value, BuiltinType.Char);
+	}
+
+	this(dchar value) {
+		this(value, BuiltinType.Dchar);
+	}
+
+	override string toString(const Context) const {
+		dchar[1] x = [dchar(value)];
+
+		import std.format;
+		return format!"%(%s%)"(x);
+	}
+}

@@ -515,6 +515,36 @@ class FloatLiteral : AstExpression {
 }
 
 /**
+ * Character literal
+ */
+class CharacterLiteral : AstExpression {
+	BuiltinType type;
+	uint value;
+
+	this(Location location, uint value, BuiltinType type) in(isChar(type)) {
+		super(location);
+
+		this.type = type;
+		this.value = value;
+	}
+
+	this(Location location, char value) {
+		this(location, value, BuiltinType.Char);
+	}
+
+	this(Location location, dchar value) {
+		this(location, value, BuiltinType.Dchar);
+	}
+
+	override string toString(const Context) const {
+		dchar[1] x = [dchar(value)];
+
+		import std.format;
+		return format!"%(%s%)"(x);
+	}
+}
+
+/**
  * Array literal
  */
 class AstArrayLiteral : AstExpression {

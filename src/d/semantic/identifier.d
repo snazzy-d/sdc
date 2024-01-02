@@ -928,8 +928,8 @@ struct TypeDotIdentifierResolver {
 					new ConstantExpression(location,
 					                       new IntegerConstant(getMax(t), t)));
 			} else if (isChar(t)) {
-				auto c = new CharacterLiteral(location, getCharMax(t), t);
-				return Identifiable(c);
+				return Identifiable(new ConstantExpression(
+					location, new CharacterConstant(getCharMax(t), t)));
 			}
 		} else if (name == BuiltinName!"min") {
 			if (t == BuiltinType.Bool) {
@@ -941,7 +941,9 @@ struct TypeDotIdentifierResolver {
 					new ConstantExpression(location,
 					                       new IntegerConstant(getMin(t), t)));
 			} else if (isChar(t)) {
-				return Identifiable(new CharacterLiteral(location, '\0', t));
+				return Identifiable(
+					new ConstantExpression(location,
+					                       new CharacterConstant('\0', t)));
 			}
 		}
 

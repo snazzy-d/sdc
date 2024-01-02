@@ -457,34 +457,6 @@ class ContextExpression : Expression {
 }
 
 /**
- * Character literal
- */
-class CharacterLiteral : CompileTimeExpression {
-	uint value;
-
-	this(Location location, uint value, BuiltinType t) in(isChar(t)) {
-		super(location, Type.get(t));
-
-		this.value = value;
-	}
-
-	this(Location location, char value) {
-		this(location, value, BuiltinType.Char);
-	}
-
-	this(Location location, dchar value) {
-		this(location, value, BuiltinType.Dchar);
-	}
-
-	override string toString(const Context) const {
-		dchar[1] x = [dchar(value)];
-
-		import std.format;
-		return format!"%(%s%)"(x);
-	}
-}
-
-/**
  * String literal
  */
 class StringLiteral : CompileTimeExpression {

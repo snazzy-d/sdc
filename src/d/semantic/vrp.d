@@ -304,7 +304,7 @@ unittest {
 		enum LS = T.sizeof == long.sizeof;
 
 		/**
-		 * Test internal facilities
+		 * Test internal facilities.
 		 */
 		assert(vrp.getRange(BuiltinType.Bool) == VR(0, 1));
 
@@ -325,7 +325,7 @@ unittest {
 		assert(vrp.getRange(BuiltinType.Dchar) == VR(uint.min, uint.max));
 
 		/**
-		 * Constant we can reuse for variosu tests.
+		 * Constant we can reuse for various tests.
 		 */
 		import source.location;
 		auto zero =

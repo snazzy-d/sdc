@@ -59,7 +59,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				                              new BooleanConstant(false));
 
 			case Char, Wchar, Dchar:
-				return new CharacterLiteral(location, getCharInit(t), t);
+				return new ConstantExpression(
+					location, new CharacterConstant(getCharInit(t), t));
 
 			case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent,
 			     Ucent:
