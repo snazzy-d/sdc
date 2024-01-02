@@ -139,8 +139,8 @@ class BinaryExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		import std.conv;
-		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
+		import std.format;
+		return format!"%s %s %s"(lhs.toString(c), op, rhs.toString(c));
 	}
 }
 
@@ -171,8 +171,8 @@ class ICmpExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		import std.conv;
-		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
+		import std.format;
+		return format!"%s %s %s"(lhs.toString(c), op, rhs.toString(c));
 	}
 }
 
@@ -210,8 +210,8 @@ class FPCmpExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		import std.conv;
-		return lhs.toString(c) ~ " " ~ to!string(op) ~ " " ~ rhs.toString(c);
+		import std.format;
+		return format!"%s %s %s"(lhs.toString(c), op, rhs.toString(c));
 	}
 }
 
@@ -250,9 +250,9 @@ class CallExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range;
-		auto aa = args.map!(a => a.toString(c)).join(", ");
-		return callee.toString(c) ~ "(" ~ aa ~ ")";
+		import std.format, std.algorithm;
+		return format!"%s(%-(%s, %))"(callee.toString(c),
+		                              args.map!(a => a.toString(c)));
 	}
 
 	@property
@@ -294,14 +294,14 @@ class IntrinsicExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range, std.conv;
-		auto aa = args.map!(a => a.toString(c)).join(", ");
-		return "sdc.intrinsics." ~ intrinsic.to!string ~ "(" ~ aa ~ ")";
+		import std.format, std.algorithm;
+		return format!"sdc.intrinsics.%s(%-(%s, %))"(
+			intrinsic, args.map!(a => a.toString(c)));
 	}
 }
 
 /**
- * Index expression : indexed[arguments]
+ * Index expression : indexed[index]
  */
 class IndexExpression : Expression {
 	Expression indexed;
@@ -315,7 +315,8 @@ class IndexExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		return indexed.toString(c) ~ "[" ~ index.toString(c) ~ "]";
+		import std.format;
+		return format!"%s[%s]"(indexed.toString(c), index.toString(c));
 	}
 
 	@property
@@ -331,7 +332,7 @@ class IndexExpression : Expression {
 }
 
 /**
- * Slice expression : [first .. second]
+ * Slice expression : sliced[first .. second]
  */
 class SliceExpression : Expression {
 	Expression sliced;
@@ -349,8 +350,9 @@ class SliceExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		return sliced.toString(c) ~ "[" ~ first.toString(c) ~ " .. "
-			~ second.toString(c) ~ "]";
+		import std.format;
+		return format!"%s[%s .. %s]"(sliced.toString(c), first.toString(c),
+		                             second.toString(c));
 	}
 }
 
@@ -466,8 +468,10 @@ class CharacterLiteral : CompileTimeExpression {
 	}
 
 	override string toString(const Context) const {
-		import std.conv;
-		return "'" ~ to!string(value) ~ "'";
+		dchar[1] x = [dchar(value)];
+
+		import std.format;
+		return format!"%(%s%)"(x);
 	}
 }
 
@@ -485,7 +489,10 @@ class StringLiteral : CompileTimeExpression {
 	}
 
 	override string toString(const Context) const {
-		return "\"" ~ value ~ "\"";
+		string[1] x = [value];
+
+		import std.format;
+		return format!"%(%s%)"(x);
 	}
 }
 
@@ -500,7 +507,10 @@ class CStringLiteral : CompileTimeExpression {
 	}
 
 	override string toString(const Context) const {
-		return "\"" ~ value ~ "\"";
+		string[1] x = [value];
+
+		import std.format;
+		return format!"%(%s%)"(x);
 	}
 }
 
@@ -574,7 +584,8 @@ class CastExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		return "cast(" ~ type.toString(c) ~ ") " ~ expr.toString(c);
+		import std.format;
+		return format!"cast(%s) %s"(type.toString(c), expr.toString(c));
 	}
 
 	@property
@@ -619,9 +630,9 @@ class NewExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		import std.algorithm, std.range;
-		auto aa = args.map!(a => a.toString(c)).join(", ");
-		return "new " ~ type.toString(c) ~ "(" ~ aa ~ ")";
+		import std.format, std.algorithm;
+		return format!"new %s(%-(%s, %))"(type.toString(c),
+		                                  args.map!(a => a.toString(c)));
 	}
 }
 
@@ -662,7 +673,8 @@ class FieldExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		return expr.toString(c) ~ "." ~ field.name.toString(c);
+		import std.format;
+		return format!"%s.%s"(expr.toString(c), field.name.toString(c));
 	}
 
 	@property
@@ -710,7 +722,9 @@ class DelegateExpression : Expression {
 	}
 
 	override string toString(const Context c) const {
-		return contexts[$ - 1].toString(c) ~ "." ~ method.name.toString(c);
+		import std.format;
+		return format!"%s.%s"(contexts[$ - 1].toString(c),
+		                      method.name.toString(c));
 	}
 }
 
@@ -787,14 +801,14 @@ template TupleExpressionImpl(bool isCompileTime = false) {
 		}
 
 		override string toString(const Context c) const {
-			import std.algorithm, std.range;
-			auto members = values.map!(v => v.toString(c)).join(", ");
-
 			// TODO: make this look nice for structs, classes, arrays...
+			import std.format, std.algorithm;
 			static if (isCompileTime) {
-				return "ctTuple!(" ~ members ~ ")";
+				return format!"ctTuple!(%-(%s, %))"(
+					values.map!(v => v.toString(c)));
 			} else {
-				return "tuple(" ~ members ~ ")";
+				return
+					format!"tuple(%-(%s, %))"(values.map!(v => v.toString(c)));
 			}
 		}
 	}
