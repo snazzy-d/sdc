@@ -918,33 +918,40 @@ struct TypeDotIdentifierResolver {
 	}
 
 	Identifiable visit(BuiltinType t) {
-		if (name == BuiltinName!"max") {
-			if (t == BuiltinType.Bool) {
-				return Identifiable(
-					new ConstantExpression(location, new BooleanConstant(true))
-				);
-			} else if (isIntegral(t)) {
-				return Identifiable(
-					new ConstantExpression(location,
-					                       new IntegerConstant(getMax(t), t)));
-			} else if (isChar(t)) {
-				return Identifiable(new ConstantExpression(
-					location, new CharacterConstant(getCharMax(t), t)));
+		static Constant maybeGetConstant(Name name, BuiltinType t) {
+			if (name == BuiltinName!"max") {
+				if (t == BuiltinType.Bool) {
+					return new BooleanConstant(true);
+				}
+
+				if (isIntegral(t)) {
+					return new IntegerConstant(getMax(t), t);
+				}
+
+				if (isChar(t)) {
+					return new CharacterConstant(getCharMax(t), t);
+				}
 			}
-		} else if (name == BuiltinName!"min") {
-			if (t == BuiltinType.Bool) {
-				return Identifiable(
-					new ConstantExpression(location, new BooleanConstant(false))
-				);
-			} else if (isIntegral(t)) {
-				return Identifiable(
-					new ConstantExpression(location,
-					                       new IntegerConstant(getMin(t), t)));
-			} else if (isChar(t)) {
-				return Identifiable(
-					new ConstantExpression(location,
-					                       new CharacterConstant('\0', t)));
+
+			if (name == BuiltinName!"min") {
+				if (t == BuiltinType.Bool) {
+					return new BooleanConstant(false);
+				}
+
+				if (isIntegral(t)) {
+					return new IntegerConstant(getMin(t), t);
+				}
+
+				if (isChar(t)) {
+					return new CharacterConstant('\0', t);
+				}
 			}
+
+			return null;
+		}
+
+		if (auto c = maybeGetConstant(name, t)) {
+			return Identifiable(new ConstantExpression(location, c));
 		}
 
 		return bailout(Type.get(t));
