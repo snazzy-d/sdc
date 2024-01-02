@@ -15,8 +15,6 @@ import d.ir.type;
 alias AstModule = d.ast.declaration.Module;
 alias Module = d.ir.symbol.Module;
 
-alias BinaryExpression = d.ir.expression.BinaryExpression;
-
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
@@ -47,10 +45,12 @@ struct SymbolVisitor {
 
 				if (tid is typeid(SymType)) {
 					auto decl = cast(DeclType) d;
+
+					import std.format;
 					assert(
 						decl,
-						"Unexpected declaration type "
-							~ typeid(DeclType).toString()
+						format!"Unexpected declaration type %s."(
+							typeid(DeclType))
 					);
 
 					scheduler.schedule(decl, () @trusted {
@@ -64,7 +64,8 @@ struct SymbolVisitor {
 			}
 		}
 
-		assert(0, "Can't process " ~ tid.toString());
+		import std.format;
+		assert(0, format!"Can't process %s."(tid));
 	}
 }
 
@@ -204,7 +205,7 @@ struct SymbolAnalyzer {
 			                   .getParamType(oldThisType.paramKind);
 		} else {
 			assert(fd.storageClass.qualifier == TypeQualifier.Mutable,
-			       "Unexpected qualifier for a function without this");
+			       "Unexpected qualifier for a function without this!");
 		}
 
 		void buildType() {
@@ -213,7 +214,7 @@ struct SymbolAnalyzer {
 				params.map!(p => p.paramType).array(), fd.isVariadic);
 
 			assert(!isCtor || !isDtor || f.linkage == Linkage.D,
-			       "Only D linkage is supported for ctors and dtors");
+			       "Only D linkage is supported for ctors and dtors!");
 
 			switch (f.linkage) with (Linkage) {
 				case D:
@@ -229,18 +230,15 @@ struct SymbolAnalyzer {
 					break;
 
 				default:
-					import std.conv;
-					assert(
-						0,
-						"Linkage " ~ to!string(f.linkage) ~ " is not supported"
-					);
+					import std.format;
+					assert(0, format!"Linkage %s is not supported."(f.linkage));
 			}
 
 			f.step = Step.Signed;
 		}
 
 		if (isCtor || isDtor) {
-			assert(f.hasThis, "Constructor must have a this pointer");
+			assert(f.hasThis, "Constructor must have a this pointer!");
 
 			// However, we don't want usual hasThis behavior to kick in
 			// as constructor are kind of magic.
@@ -408,7 +406,7 @@ struct SymbolAnalyzer {
 			buildType();
 		}
 
-		assert(f.fbody || !isAuto, "Auto functions must have a body");
+		assert(f.fbody || !isAuto, "Auto functions must have a body!");
 		f.step = Step.Processed;
 	}
 
@@ -462,7 +460,7 @@ struct SymbolAnalyzer {
 		v.mangle = v.name;
 		static if (is(V : Variable)) {
 			if (v.storage == Storage.Static) {
-				assert(v.linkage == Linkage.D, "I mangle only D !");
+				assert(v.linkage == Linkage.D, "I mangle only D!");
 
 				auto name = v.name.toString(context);
 
@@ -490,24 +488,23 @@ struct SymbolAnalyzer {
 
 	void analyze(IdentifierAliasDeclaration iad, SymbolAlias a) {
 		import d.semantic.identifier;
-		a.symbol = IdentifierResolver(pass)
-			.resolve(iad.identifier).apply!(function Symbol(identified) {
-				alias T = typeof(identified);
-				static if (is(T : Symbol)) {
-					return identified;
-				} else {
-					assert(
-						0,
-						"Not implemented for " ~ typeid(identified).toString()
-					);
-				}
-			})();
+		a.symbol = IdentifierResolver(
+			pass
+		).resolve(iad.identifier).apply!(function Symbol(identified) {
+			alias T = typeof(identified);
+			static if (is(T : Symbol)) {
+				return identified;
+			} else {
+				import std.format;
+				assert(0, format!"Not implemented for %s."(typeid(identified)));
+			}
+		})();
 
 		process(a);
 	}
 
 	void process(SymbolAlias a) {
-		assert(a.symbol, "SymbolAlias must alias to something");
+		assert(a.symbol, "SymbolAlias must alias to something!");
 		a.step = Step.Populated;
 
 		scheduler.require(a.symbol, Step.Signed);
@@ -757,20 +754,20 @@ struct SymbolAnalyzer {
 				}
 
 				if (m.index != -1) {
-					import source.exception;
+					import source.exception, std.format;
 					throw new CompileException(
 						m.location,
-						m.name.toString(context)
-							~ " overrides a base class method "
-							~ "but is not marked override."
+						format!"%s overrides a base class method but is not marked override."(
+							m.name.toString(context))
 					);
 				}
 
 				if (candidate.isFinal) {
-					import source.exception;
+					import source.exception, std.format;
 					throw new CompileException(
 						m.location,
-						m.name.toString(context) ~ " overrides a final method.",
+						format!"%s overrides a final method."(
+							m.name.toString(context)),
 					);
 				}
 
@@ -782,7 +779,7 @@ struct SymbolAnalyzer {
 
 				// Remove candidate from scope.
 				auto os = cast(OverloadSet) c.resolve(c.location, m.name);
-				assert(os, "This must be an overload set");
+				assert(os, "This must be an overload set!");
 
 				uint k = 0;
 				while (os.set[k] !is candidate) {
@@ -798,10 +795,11 @@ struct SymbolAnalyzer {
 			}
 
 			if (m.index == -1) {
-				import source.exception;
+				import source.exception, std.format;
 				throw new CompileException(
 					m.location,
-					"Override not found for " ~ m.name.toString(context)
+					format!"Override not found for %s."(
+						m.name.toString(context))
 				);
 			}
 
@@ -840,10 +838,10 @@ struct SymbolAnalyzer {
 					}
 
 					static if (is(typeof(identified.location))) {
-						import source.exception;
+						import source.exception, std.format;
 						throw new CompileException(
 							identified.location,
-							typeid(identified).toString() ~ " is not a class."
+							format!"%s is not a class."(typeid(identified))
 						);
 					} else {
 						// for typeof(null)
@@ -861,11 +859,11 @@ struct SymbolAnalyzer {
 
 		// Cannot inherit from final classes.
 		if (c.base.isFinal) {
-			import source.exception;
+			import source.exception, std.format;
 			throw new CompileException(
 				c.location,
-				c.name.toString(context) ~ " cannot inherit from "
-					~ c.base.name.toString(context) ~ " because it is final."
+				format!"%s cannot inherit from %s because it is final."(
+					c.name.toString(context), c.base.name.toString(context))
 			);
 		}
 
@@ -971,10 +969,10 @@ struct SymbolAnalyzer {
 		i.mangle = context.getName("I" ~ manglePrefix);
 
 		assert(d.members.length == 0,
-		       "Member support not implemented for interfaces yet");
+		       "Member support not implemented for interfaces yet!");
 
 		assert(d.bases.length == 0,
-		       "Interface inheritance not implemented yet");
+		       "Interface inheritance not implemented yet!");
 
 		// TODO: lots of stuff to add
 
@@ -982,7 +980,7 @@ struct SymbolAnalyzer {
 	}
 
 	void analyze(EnumDeclaration d, Enum e)
-			in(e.name.isDefined, "anonymous enums must be flattened !") {
+			in(e.name.isDefined, "Anonymous enums must be flattened!") {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 
@@ -1001,19 +999,19 @@ struct SymbolAnalyzer {
 		auto type = Type.get(e);
 
 		if (e.type.kind != TypeKind.Builtin) {
-			import source.exception;
+			import source.exception, std.format;
 			throw new CompileException(
 				e.location,
-				"Unsupported enum type " ~ e.type.toString(context)
+				format!"Unsupported enum type %s."(e.type.toString(context))
 			);
 		}
 
 		auto bt = e.type.builtin;
 		if (!isIntegral(bt) && bt != BuiltinType.Bool) {
-			import source.exception;
+			import source.exception, std.format;
 			throw new CompileException(
 				e.location,
-				"Unsupported enum type " ~ e.type.toString(context)
+				format!"Unsupported enum type %s."(e.type.toString(context))
 			);
 		}
 
@@ -1154,10 +1152,11 @@ struct SymbolAnalyzer {
 				tap.step = Step.Signed;
 				t.parameters[i] = tap;
 			} else {
+				import std.format;
 				assert(
 					0,
-					typeid(p).toString()
-						~ " template parameters are not supported."
+					format!"%s template parameters are not supported."(
+						typeid(p))
 				);
 			}
 		}
@@ -1237,7 +1236,7 @@ struct SymbolAnalyzer {
 				continue;
 			}
 
-			assert(!i.hasContext, "template can only have one context");
+			assert(!i.hasContext, "Template can only have one context!");
 
 			import d.semantic.closure;
 			ctxSym = ContextFinder(pass).visit(s);
