@@ -213,9 +213,34 @@ struct ValueMangler {
 		this.pass = pass;
 	}
 
-	import d.ir.expression, std.conv;
+	import d.ir.constant;
+	string visit(Constant c) {
+		return this.dispatch(c);
+	}
+
+	string visit(BooleanConstant c) {
+		return c.value ? "0" : "1";
+	}
+
+	import d.ir.expression;
 	string visit(CompileTimeExpression e) {
 		return this.dispatch(e);
+	}
+
+	string visit(ConstantExpression e) {
+		return this.dispatch(e.value);
+	}
+
+	string visit(IntegerLiteral e) {
+		if (!isSigned(e.type.builtin)) {
+			import std.conv;
+			return to!string(e.value);
+		}
+
+		long v = e.value;
+
+		import std.conv;
+		return v >= 0 ? to!string(v) : "N" ~ to!string(-v);
 	}
 
 	string visit(StringLiteral s) {
@@ -224,6 +249,8 @@ struct ValueMangler {
 		auto len = str.length;
 
 		ret.reserve(len * 2 + 8);
+
+		import std.conv;
 		ret ~= to!string(len);
 		ret ~= '_';
 		foreach (ubyte c; str) {
@@ -231,20 +258,6 @@ struct ValueMangler {
 		}
 
 		return ret;
-	}
-
-	string visit(BooleanLiteral e) {
-		return to!string(cast(ubyte) e.value);
-	}
-
-	string visit(IntegerLiteral e) {
-		if (!isSigned(e.type.builtin)) {
-			return e.value.to!string();
-		}
-
-		long v = e.value;
-
-		return v >= 0 ? v.to!string() : "N" ~ to!string(-v);
 	}
 }
 

@@ -457,23 +457,6 @@ class ContextExpression : Expression {
 }
 
 /**
- * Boolean literal
- */
-class BooleanLiteral : CompileTimeExpression {
-	bool value;
-
-	this(Location location, bool value) {
-		super(location, Type.get(BuiltinType.Bool));
-
-		this.value = value;
-	}
-
-	override string toString(const Context) const {
-		return value ? "true" : "false";
-	}
-}
-
-/**
  * Integer literal
  */
 class IntegerLiteral : CompileTimeExpression {

@@ -55,7 +55,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				).expression;
 
 			case Bool:
-				return new BooleanLiteral(location, false);
+				return new ConstantExpression(location,
+				                              new BooleanConstant(false));
 
 			case Char, Wchar, Dchar:
 				return new CharacterLiteral(location, getCharInit(t), t);

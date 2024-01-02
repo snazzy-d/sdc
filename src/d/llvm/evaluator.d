@@ -2,6 +2,7 @@ module d.llvm.evaluator;
 
 import d.llvm.codegen;
 
+import d.ir.constant;
 import d.ir.expression;
 
 import d.semantic.evaluator;
@@ -302,7 +303,8 @@ struct JitRepacker {
 		ulong raw;
 		switch (t) with (BuiltinType) {
 			case Bool:
-				return new BooleanLiteral(location, get!bool());
+				return new ConstantExpression(location,
+				                              new BooleanConstant(get!bool()));
 
 			case Byte, Ubyte:
 				raw = get!ubyte();

@@ -35,9 +35,6 @@ class VoidConstant : Constant {
 	}
 }
 
-/**
- * Null literal.
- */
 class NullConstant : Constant {
 	this() {
 		this(Type.get(BuiltinType.Null));
@@ -50,5 +47,19 @@ class NullConstant : Constant {
 	override string toString(const Context c) const {
 		import std.format;
 		return format!"null(%s)"(type.toString(c));
+	}
+}
+
+class BooleanConstant : Constant {
+	bool value;
+
+	this(bool value) {
+		super(Type.get(BuiltinType.Bool));
+
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		return value ? "true" : "false";
 	}
 }

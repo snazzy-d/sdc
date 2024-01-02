@@ -37,7 +37,7 @@ struct ExpressionVisitor {
 	}
 
 	Expression visit(BooleanLiteral e) {
-		return e;
+		return new ConstantExpression(e.location, new BooleanConstant(e.value));
 	}
 
 	Expression visit(IntegerLiteral e) {

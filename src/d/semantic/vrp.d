@@ -1,5 +1,6 @@
 module d.semantic.vrp;
 
+import d.ir.constant;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -122,12 +123,20 @@ private:
 	}
 
 public:
+	VR visit(Constant c) {
+		return this.dispatch!(c => getRange(c.type))(c);
+	}
+
+	VR visit(BooleanConstant c) {
+		return VR(c.value);
+	}
+
 	VR visit(Expression e) in(isValidExpr(e), "VRP expect integral types.") {
 		return this.dispatch!(e => getRange(e.type))(e);
 	}
 
-	VR visit(BooleanLiteral e) {
-		return VR(e.value);
+	VR visit(ConstantExpression e) {
+		return visit(e.value);
 	}
 
 	VR visit(IntegerLiteral e) {
@@ -326,8 +335,10 @@ unittest {
 
 		auto bmax = new IntegerLiteral(Location.init, 255, BuiltinType.Byte);
 
-		auto ctrue = new BooleanLiteral(Location.init, true);
-		auto cfalse = new BooleanLiteral(Location.init, false);
+		auto ctrue =
+			new ConstantExpression(Location.init, new BooleanConstant(true));
+		auto cfalse =
+			new ConstantExpression(Location.init, new BooleanConstant(false));
 
 		auto tbool = Type.get(BuiltinType.Bool);
 

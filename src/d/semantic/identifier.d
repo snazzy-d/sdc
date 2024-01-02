@@ -4,6 +4,7 @@ import d.semantic.semantic;
 
 import d.ast.identifier;
 
+import d.ir.constant;
 import d.ir.error;
 import d.ir.expression;
 import d.ir.symbol;
@@ -912,7 +913,9 @@ struct TypeDotIdentifierResolver {
 	Identifiable visit(BuiltinType t) {
 		if (name == BuiltinName!"max") {
 			if (t == BuiltinType.Bool) {
-				return Identifiable(new BooleanLiteral(location, true));
+				return Identifiable(
+					new ConstantExpression(location, new BooleanConstant(true))
+				);
 			} else if (isIntegral(t)) {
 				return Identifiable(new IntegerLiteral(location, getMax(t), t));
 			} else if (isChar(t)) {
@@ -921,7 +924,9 @@ struct TypeDotIdentifierResolver {
 			}
 		} else if (name == BuiltinName!"min") {
 			if (t == BuiltinType.Bool) {
-				return Identifiable(new BooleanLiteral(location, false));
+				return Identifiable(
+					new ConstantExpression(location, new BooleanConstant(false))
+				);
 			} else if (isIntegral(t)) {
 				return Identifiable(new IntegerLiteral(location, getMin(t), t));
 			} else if (isChar(t)) {

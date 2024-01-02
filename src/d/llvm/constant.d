@@ -30,6 +30,11 @@ struct ConstantGen {
 		return llvmNull;
 	}
 
+	LLVMValueRef visit(BooleanConstant b) {
+		import d.llvm.type;
+		return LLVMConstInt(i1, b.value, false);
+	}
+
 	// XXX: This should be removed at some point, but to ease transition.
 	LLVMValueRef visit(Expression e) {
 		if (auto ce = cast(CompileTimeExpression) e) {
@@ -51,11 +56,6 @@ struct ConstantGen {
 
 	LLVMValueRef visit(ConstantExpression e) {
 		return visit(e.value);
-	}
-
-	LLVMValueRef visit(BooleanLiteral bl) {
-		import d.llvm.type;
-		return LLVMConstInt(TypeGen(pass).visit(bl.type), bl.value, false);
 	}
 
 	LLVMValueRef visit(IntegerLiteral il) {

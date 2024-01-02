@@ -457,6 +457,23 @@ class NullLiteral : AstExpression {
 }
 
 /**
+ * Boolean literal
+ */
+class BooleanLiteral : AstExpression {
+	bool value;
+
+	this(Location location, bool value) {
+		super(location);
+
+		this.value = value;
+	}
+
+	override string toString(const Context) const {
+		return value ? "true" : "false";
+	}
+}
+
+/**
  * Array literal
  */
 class AstArrayLiteral : AstExpression {
