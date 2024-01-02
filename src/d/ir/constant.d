@@ -34,3 +34,21 @@ class VoidConstant : Constant {
 		return format!"void(%s)"(type.toString(c));
 	}
 }
+
+/**
+ * Null literal.
+ */
+class NullConstant : Constant {
+	this() {
+		this(Type.get(BuiltinType.Null));
+	}
+
+	this(Type t) {
+		super(t);
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"null(%s)"(type.toString(c));
+	}
+}

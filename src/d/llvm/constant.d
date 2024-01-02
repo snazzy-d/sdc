@@ -26,6 +26,10 @@ struct ConstantGen {
 		return LLVMGetUndef(TypeGen(pass).visit(c.type));
 	}
 
+	LLVMValueRef visit(NullConstant c) {
+		return llvmNull;
+	}
+
 	// XXX: This should be removed at some point, but to ease transition.
 	LLVMValueRef visit(Expression e) {
 		if (auto ce = cast(CompileTimeExpression) e) {
@@ -69,10 +73,6 @@ struct ConstantGen {
 	LLVMValueRef visit(CharacterLiteral cl) {
 		import d.llvm.type;
 		return LLVMConstInt(TypeGen(pass).visit(cl.type), cl.value, false);
-	}
-
-	LLVMValueRef visit(NullLiteral nl) {
-		return llvmNull;
 	}
 
 	LLVMValueRef visit(StringLiteral sl) {

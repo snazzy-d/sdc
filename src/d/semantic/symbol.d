@@ -570,8 +570,9 @@ struct SymbolAnalyzer {
 		Field[] fields;
 		if (s.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
-			auto ctx = new Field(s.location, 0, ctxPtr, BuiltinName!"__ctx",
-			                     new NullLiteral(s.location, ctxPtr));
+			auto ctx = new Field(
+				s.location, 0, ctxPtr, BuiltinName!"__ctx",
+				new ConstantExpression(s.location, new NullConstant(ctxPtr)));
 
 			ctx.step = Step.Processed;
 			fields = [ctx];
@@ -666,8 +667,9 @@ struct SymbolAnalyzer {
 		Field[] fields;
 		if (u.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
-			auto ctx = new Field(u.location, 0, ctxPtr, BuiltinName!"__ctx",
-			                     new NullLiteral(u.location, ctxPtr));
+			auto ctx = new Field(
+				u.location, 0, ctxPtr, BuiltinName!"__ctx",
+				new ConstantExpression(u.location, new NullConstant(ctxPtr)));
 
 			ctx.step = Step.Processed;
 			fields = [ctx];
@@ -910,7 +912,8 @@ struct SymbolAnalyzer {
 		if (c.hasContext) {
 			// XXX: check for duplicate.
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
-			auto nullCtxPtr = new NullLiteral(c.location, ctxPtr);
+			auto nullCtxPtr =
+				new ConstantExpression(c.location, new NullConstant(ctxPtr));
 
 			import source.name;
 			auto ctx = new Field(c.location, fieldIndex++, ctxPtr,

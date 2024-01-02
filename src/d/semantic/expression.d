@@ -6,6 +6,7 @@ import d.semantic.semantic;
 import d.ast.expression;
 import d.ast.type;
 
+import d.ir.constant;
 import d.ir.error;
 import d.ir.expression;
 import d.ir.symbol;
@@ -52,7 +53,7 @@ struct ExpressionVisitor {
 	}
 
 	Expression visit(NullLiteral e) {
-		return e;
+		return new ConstantExpression(e.location, new NullConstant());
 	}
 
 	Expression visit(StringLiteral e) {

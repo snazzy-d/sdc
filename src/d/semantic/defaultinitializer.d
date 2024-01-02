@@ -68,18 +68,19 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				return new FloatLiteral(location, float.nan, t);
 
 			case Null:
-				return new NullLiteral(location);
+				return new ConstantExpression(location, new NullConstant());
 		}
 	}
 
 	E visitPointerOf(Type t) {
-		return new NullLiteral(location, t.getPointer());
+		return
+			new ConstantExpression(location, new NullConstant(t.getPointer()));
 	}
 
 	E visitSliceOf(Type t) {
 		auto sizet = pass.object.getSizeT().type.builtin;
 		CompileTimeExpression[] init =
-			[new NullLiteral(location, t.getPointer()),
+			[new ConstantExpression(location, new NullConstant(t.getPointer())),
 			 new IntegerLiteral(location, 0UL, sizet)];
 
 		// XXX: Should cast to size_t, but buildImplicitCast
@@ -193,14 +194,19 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 			return build!TupleExpression(
 				location, Type.get(fields.map!(f => f.type).array()), fields);
 		} else {
-			return new NullLiteral(location, Type.get(c));
+			return
+				new ConstantExpression(location, new NullConstant(Type.get(c)));
 		}
 	}
 
 	E visit(Interface i) {
 		CompileTimeExpression[] init = [
-			new NullLiteral(location, Type.get(pass.object.getObject())),
-			new NullLiteral(location, Type.get(BuiltinType.Void).getPointer())
+			new ConstantExpression(
+				location, new NullConstant(Type.get(pass.object.getObject()))),
+			new ConstantExpression(
+				location,
+				new NullConstant(Type.get(BuiltinType.Void).getPointer())
+			),
 		];
 
 		return new CompileTimeTupleExpression(location, Type.get(i), init);
@@ -239,7 +245,8 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 
 	E visit(FunctionType f) {
 		if (f.contexts.length == 0) {
-			return new NullLiteral(location, f.getType());
+			return
+				new ConstantExpression(location, new NullConstant(f.getType()));
 		}
 
 		assert(f.contexts.length == 1,

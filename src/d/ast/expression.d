@@ -444,6 +444,19 @@ class SuperExpression : AstExpression {
 }
 
 /**
+ * Null literal
+ */
+class NullLiteral : AstExpression {
+	this(Location location) {
+		super(location);
+	}
+
+	override string toString(const Context) const {
+		return "null";
+	}
+}
+
+/**
  * Array literal
  */
 class AstArrayLiteral : AstExpression {

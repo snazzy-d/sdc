@@ -579,23 +579,6 @@ class CStringLiteral : CompileTimeExpression {
 }
 
 /**
- * Null literal
- */
-class NullLiteral : CompileTimeExpression {
-	this(Location location) {
-		this(location, Type.get(BuiltinType.Null));
-	}
-
-	this(Location location, Type t) {
-		super(location, t);
-	}
-
-	override string toString(const Context) const {
-		return "null";
-	}
-}
-
-/**
  * Array literal
  */
 class ArrayLiteral : Expression {
