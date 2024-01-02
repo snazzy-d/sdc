@@ -8,6 +8,7 @@ import d.ast.declaration;
 import d.ast.expression;
 import d.ast.identifier;
 
+import d.ir.constant;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -426,7 +427,7 @@ struct SymbolAnalyzer {
 		import d.semantic.type : TypeVisitor;
 		auto type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
 		if (auto vi = cast(AstVoidInitializer) d.value) {
-			return new VoidInitializer(vi.location, type);
+			return new ConstantExpression(vi.location, new VoidConstant(type));
 		}
 
 		// XXX: remove selective import when dmd is sane.
@@ -695,7 +696,7 @@ struct SymbolAnalyzer {
 		u.step = Step.Populated;
 		scheduler.require(fields);
 
-		init.value = new VoidInitializer(u.location, type);
+		init.value = new ConstantExpression(u.location, new VoidConstant(type));
 		init.step = Step.Processed;
 		u.members ~= init;
 

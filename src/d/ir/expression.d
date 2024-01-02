@@ -1,5 +1,6 @@
 module d.ir.expression;
 
+import d.ir.constant;
 import d.ir.symbol;
 import d.ir.type;
 
@@ -51,6 +52,23 @@ abstract class CompileTimeExpression : Expression {
 }
 
 final:
+/**
+ * This serves as a bridge to d.ir.constant .
+ */
+class ConstantExpression : CompileTimeExpression {
+	Constant value;
+
+	this(Location location, Constant value) {
+		super(location, value.type);
+
+		this.value = value;
+	}
+
+	override string toString(const Context c) const {
+		return value.toString(c);
+	}
+}
+
 /**
  * Conditional expression of type ?:
  */
@@ -810,19 +828,6 @@ class DynamicTypeidExpression : Expression {
 	override string toString(const Context c) const {
 		import std.format;
 		return format!"typeid(%s)"(argument.toString(c));
-	}
-}
-
-/**
- * Used for type identifier = void;
- */
-class VoidInitializer : CompileTimeExpression {
-	this(Location location, Type type) {
-		super(location, type);
-	}
-
-	override string toString(const Context) const {
-		return "void";
 	}
 }
 

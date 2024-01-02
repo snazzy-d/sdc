@@ -2,6 +2,7 @@ module d.llvm.constant;
 
 import d.llvm.codegen;
 
+import d.ir.constant;
 import d.ir.expression;
 
 import util.visitor;
@@ -14,6 +15,15 @@ struct ConstantGen {
 
 	this(CodeGen pass) {
 		this.pass = pass;
+	}
+
+	LLVMValueRef visit(Constant c) {
+		return this.dispatch(c);
+	}
+
+	LLVMValueRef visit(VoidConstant c) {
+		import d.llvm.type;
+		return LLVMGetUndef(TypeGen(pass).visit(c.type));
 	}
 
 	// XXX: This should be removed at some point, but to ease transition.
@@ -33,6 +43,10 @@ struct ConstantGen {
 			throw new CompileException(
 				e.location, format!"%s is not supported."(typeid(e)));
 		})(e);
+	}
+
+	LLVMValueRef visit(ConstantExpression e) {
+		return visit(e.value);
 	}
 
 	LLVMValueRef visit(BooleanLiteral bl) {
@@ -67,11 +81,6 @@ struct ConstantGen {
 
 	LLVMValueRef visit(CStringLiteral csl) {
 		return buildCString(csl.value);
-	}
-
-	LLVMValueRef visit(VoidInitializer v) {
-		import d.llvm.type;
-		return LLVMGetUndef(TypeGen(pass).visit(v.type));
 	}
 
 	LLVMValueRef visit(CompileTimeTupleExpression e) {

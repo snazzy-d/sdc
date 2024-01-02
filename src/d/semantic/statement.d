@@ -9,6 +9,7 @@ import d.ast.statement;
 import source.location;
 import source.name;
 
+import d.ir.constant;
 import d.ir.dscope;
 import d.ir.expression;
 import d.ir.instruction;
@@ -667,9 +668,13 @@ public:
 		if (unwindActions.length) {
 			auto location = value.location;
 			if (retval is null) {
-				auto v =
-					new Variable(location, value.type, BuiltinName!"return",
-					             new VoidInitializer(location, value.type));
+				auto v = new Variable(
+					location,
+					value.type,
+					BuiltinName!"return",
+					new ConstantExpression(location,
+					                       new VoidConstant(value.type))
+				);
 
 				v.step = Step.Processed;
 				retval = new VariableExpression(location, v);

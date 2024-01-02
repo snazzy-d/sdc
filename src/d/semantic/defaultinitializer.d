@@ -2,6 +2,8 @@ module d.semantic.defaultinitializer;
 
 import d.semantic.semantic;
 
+import d.ir.constant;
+import d.ir.error;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
@@ -45,11 +47,11 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	E visit(BuiltinType t) {
 		final switch (t) with (BuiltinType) {
 			case None, Void:
-				import d.ir.error;
+				import std.format;
 				return new CompileError(
 					location,
-					Type.get(t).toString(context)
-						~ " has no default initializer"
+					format!"%s has no default initializer."(
+						Type.get(t).toString(context))
 				).expression;
 
 			case Bool:
@@ -123,7 +125,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 
 		static if (isCompileTime) {
 			auto v = cast(E) init.value;
-			assert(v, "init must be a compile time expression");
+			assert(v, "init must be a compile time expressionf");
 
 			return v;
 		} else {
@@ -158,7 +160,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	E visit(Union u) {
 		// FIXME: Computing this properly would require layout
 		// informations from the backend. Will do for now.
-		return new VoidInitializer(location, Type.get(u));
+		return new ConstantExpression(location, new VoidConstant(Type.get(u)));
 	}
 
 	E visit(Class c) {
@@ -257,7 +259,6 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		assert(0, "Patterns have no initializer.");
 	}
 
-	import d.ir.error;
 	E visit(CompileError e) {
 		return e.expression;
 	}
