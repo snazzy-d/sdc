@@ -15,11 +15,6 @@ import source.location;
 
 import source.exception;
 
-alias TernaryExpression = d.ir.expression.TernaryExpression;
-alias ArrayLiteral = d.ir.expression.ArrayLiteral;
-alias CallExpression = d.ir.expression.CallExpression;
-alias NewExpression = d.ir.expression.NewExpression;
-
 struct ExpressionVisitor {
 	private SemanticPass pass;
 	alias pass this;
@@ -1182,13 +1177,11 @@ public:
 			return getClassInfo(location, t.dclass);
 		}
 
-		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
 		return build!StaticTypeidExpression(
 			location, Type.get(pass.object.getTypeInfo()), t);
 	}
 
 	auto getClassInfo(Location location, Class c) {
-		alias StaticTypeidExpression = d.ir.expression.StaticTypeidExpression;
 		return build!StaticTypeidExpression(
 			location, Type.get(pass.object.getClassInfo()), Type.get(c));
 	}
