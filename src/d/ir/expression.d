@@ -347,28 +347,6 @@ class PolysemousExpression : Expression {
 }
 
 /**
- * Super
- */
-class SuperExpression : Expression {
-	this(Location location) {
-		super(location, Type.get(BuiltinType.None));
-	}
-
-	this(Location location, Type type) {
-		super(location, type);
-	}
-
-	override string toString(const Context) const {
-		return "super";
-	}
-
-	@property
-	override bool isLvalue() const {
-		return true;
-	}
-}
-
-/**
  * Context
  */
 class ContextExpression : Expression {

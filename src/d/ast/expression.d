@@ -428,6 +428,19 @@ class ThisExpression : AstExpression {
 }
 
 /**
+ * Super
+ */
+class SuperExpression : AstExpression {
+	this(Location location) {
+		super(location);
+	}
+
+	override string toString(const Context) const {
+		return "super";
+	}
+}
+
+/**
  * Array literal
  */
 class ArrayLiteral(T) : T if (is(T : AstExpression)) {
