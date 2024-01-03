@@ -163,11 +163,11 @@ struct LocalGen {
 			if (auto fun = LLVMGetNamedFunction(pass.dmodule, name)) {
 				if (type != LLVMGlobalGetValueType(fun)
 					    || (LLVMCountBasicBlocks(fun) > 0 && f.fbody)) {
-					import source.exception;
+					import source.exception, std.format;
 					throw new CompileException(
 						f.location,
-						"Invalid redefinition of "
-							~ f.name.toString(pass.context)
+						format!"Invalid redefinition of %s."(
+							f.name.toString(pass.context))
 					);
 				}
 
@@ -197,8 +197,12 @@ struct LocalGen {
 		}
 
 		auto linkage = LLVMGetLinkage(fun);
-		assert(linkage == LLVMLinkage.LinkOnceODR,
-		       "function " ~ f.mangle.toString(context) ~ " already defined");
+
+		import std.format;
+		assert(
+			linkage == LLVMLinkage.LinkOnceODR,
+			format!"Function %s is already defined."(f.mangle.toString(context))
+		);
 
 		LLVMSetLinkage(fun, LLVMLinkage.External);
 		return fun;
@@ -218,8 +222,11 @@ struct LocalGen {
 	}
 
 	private void genBody(Function f, LLVMValueRef fun) in {
-		assert(LLVMCountBasicBlocks(fun) == 0,
-		       f.mangle.toString(context) ~ " body is already defined");
+		import std.format;
+		assert(
+			LLVMCountBasicBlocks(fun) == 0,
+			format!"%s body is already defined."(f.mangle.toString(context))
+		);
 
 		assert(f.step == Step.Processed, "f is not processed");
 		assert(f.fbody || f.intrinsicID, "f must have a body");
@@ -353,7 +360,8 @@ struct LocalGen {
 
 			buildEmbededCaptures(thisPtr, c, f.index);
 		} else {
-			assert(0, typeid(t).toString() ~ " is not supported.");
+			import std.format;
+			assert(0, format!"%s is not supported."(typeid(t)));
 		}
 	}
 
