@@ -22,9 +22,6 @@ private:
 struct LocalData {
 private:
 	Closure[][Aggregate] embededContexts;
-
-	Class classInfoClass;
-	LLVMValueRef[Class] classInfos;
 }
 
 struct LocalGen {
@@ -61,24 +58,8 @@ struct LocalGen {
 	@disable
 	this(this);
 
-	@property
-	auto typeGen() {
-		import d.llvm.type;
-		return TypeGen(pass.pass);
-	}
-
 	// XXX: lack of multiple alias this, so we do it automanually.
 	private {
-		@property
-		ref Class classInfoClass() {
-			return pass.localData.classInfoClass;
-		}
-
-		@property
-		ref LLVMValueRef[Class] classInfos() {
-			return pass.localData.classInfos;
-		}
-
 		@property
 		ref Closure[][Aggregate] embededContexts() {
 			return pass.localData.embededContexts;
@@ -512,147 +493,6 @@ struct LocalGen {
 			embededContexts[a] = contexts;
 		}
 
-		if (auto s = cast(Struct) a) {
-			return define(s);
-		}
-
-		if (auto c = cast(Class) a) {
-			return define(c);
-		}
-
-		if (auto u = cast(Union) a) {
-			return define(u);
-		}
-
-		if (auto i = cast(Interface) a) {
-			return define(i);
-		}
-
-		import std.format;
-		assert(0, format!"Aggregate type %s is not supported."(typeid(a)));
-	}
-
-	LLVMTypeRef define(Struct s) in(s.step == Step.Processed) {
-		auto ret = typeGen.visit(s);
-
-		foreach (m; s.members) {
-			define(m);
-		}
-
-		return ret;
-	}
-
-	LLVMTypeRef define(Class c) in(c.step == Step.Processed) {
-		// If we are in eager mode, make sure the parent is defined too.
-		if (pass.mode == Mode.Eager && c !is c.base) {
-			define(c.base);
-		}
-
-		// Define virtual methods.
-		foreach (m; c.methods) {
-			// We don't want to define inherited methods in childs.
-			if (!m.hasThis || m.type.parameters[0].getType().dclass is c) {
-				define(m);
-			}
-		}
-
-		// Generate the ClassInfo so we have it even if it is not used.
-		getClassInfo(c);
-
-		// Anything else that could be in there.
-		foreach (m; c.members) {
-			define(m);
-		}
-
-		return typeGen.visit(c);
-	}
-
-	LLVMTypeRef define(Union u) in(u.step == Step.Processed) {
-		auto ret = typeGen.visit(u);
-
-		foreach (m; u.members) {
-			define(m);
-		}
-
-		return ret;
-	}
-
-	LLVMTypeRef define(Interface i) in(i.step == Step.Processed) {
-		return typeGen.visit(i);
-	}
-
-	private LLVMValueRef genPrimaries(Class c, string mangle) {
-		auto count = cast(uint) c.primaries.length;
-		auto typeSize = LLVMConstInt(i64, count, false);
-
-		if (count == 0) {
-			LLVMValueRef[2] elts = [typeSize, llvmNull];
-			return
-				LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
-		}
-
-		import std.algorithm, std.array;
-		auto parents = c.primaries.map!(p => getClassInfo(p)).array();
-		auto gen = LLVMConstArray(llvmPtr, parents.ptr, count);
-
-		import std.string;
-		auto type = LLVMArrayType(llvmPtr, count);
-		auto primaries =
-			LLVMAddGlobal(dmodule, type, toStringz(mangle ~ "__primaries"));
-		LLVMSetInitializer(primaries, gen);
-		LLVMSetGlobalConstant(primaries, true);
-		LLVMSetUnnamedAddr(primaries, true);
-		LLVMSetLinkage(primaries, LLVMLinkage.LinkOnceODR);
-
-		LLVMValueRef[2] elts = [typeSize, primaries];
-		return LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
-	}
-
-	LLVMValueRef getClassInfo(Class c) in(c.step >= Step.Signed) {
-		if (auto ti = c in classInfos) {
-			return *ti;
-		}
-
-		import std.string;
-		auto mangle = c.mangle.toString(context);
-		auto metadataStruct =
-			LLVMStructCreateNamed(llvmCtx, toStringz(mangle ~ "__metadata"));
-
-		if (!classInfoClass) {
-			classInfoClass = pass.object.getClassInfo();
-		}
-
-		auto classInfoStruct = typeGen.getClassStructure(classInfoClass);
-
-		auto methodCount = cast(uint) c.methods.length;
-		auto vtblArray = LLVMArrayType(llvmPtr, methodCount);
-		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblArray];
-		LLVMStructSetBody(metadataStruct, classMetadataElts.ptr,
-		                  classMetadataElts.length, false);
-
-		auto metadata = LLVMAddGlobal(dmodule, metadataStruct,
-		                              toStringz(mangle ~ "__vtbl"));
-		classInfos[c] = metadata;
-
-		LLVMValueRef[2] classInfoData =
-			[getClassInfo(classInfoClass), genPrimaries(c, mangle)];
-		auto classInfoGen =
-			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
-			                     classInfoData.length);
-
-		import std.algorithm, std.array;
-		auto methods = c.methods.map!(m => declare(m)).array();
-		auto vtbl = LLVMConstArray(llvmPtr, methods.ptr, methodCount);
-
-		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
-		auto metadataGen =
-			LLVMConstNamedStruct(metadataStruct, classDataData.ptr,
-			                     classDataData.length);
-
-		LLVMSetInitializer(metadata, metadataGen);
-		LLVMSetGlobalConstant(metadata, true);
-		LLVMSetLinkage(metadata, LLVMLinkage.LinkOnceODR);
-
-		return metadata;
+		return pass.define(a);
 	}
 }

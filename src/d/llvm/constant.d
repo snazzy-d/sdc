@@ -22,12 +22,6 @@ struct ConstantGen {
 		this.pass = pass;
 	}
 
-	@property
-	auto typeGen() {
-		import d.llvm.type;
-		return TypeGen(pass.pass);
-	}
-
 	// XXX: lack of multiple alias this, so we do it automanually.
 	private {
 		@property

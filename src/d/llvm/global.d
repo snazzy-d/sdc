@@ -17,8 +17,17 @@ struct GlobalGen {
 	CodeGen pass;
 	alias pass this;
 
+	// TODO: Move whatever uses mode in LocalGen here.
+	// private:
+	Mode mode;
+
 	LLVMValueRef[ValueSymbol] globals;
 
+private:
+	Class classInfoClass;
+	LLVMValueRef[Class] classInfos;
+
+public:
 	import d.llvm.local;
 	LocalData localData;
 
@@ -34,10 +43,6 @@ struct GlobalGen {
 	import d.llvm.intrinsic;
 	IntrinsicGenData intrinsicGenData;
 
-	// TODO: Move whatever uses mode in LocalGen here.
-	// private:
-	Mode mode;
-
 public:
 	this(CodeGen pass, string name, Mode mode = Mode.Lazy) {
 		this.pass = pass;
@@ -46,6 +51,12 @@ public:
 		// Make sure globals are initialized.
 		globals[null] = null;
 		globals.remove(null);
+	}
+
+	@property
+	auto typeGen() {
+		import d.llvm.type;
+		return TypeGen(pass);
 	}
 
 	void define(Module m) {
@@ -117,8 +128,143 @@ public:
 	}
 
 	LLVMTypeRef define(Aggregate a) in(a.step == Step.Processed) {
-		import d.llvm.local;
-		return LocalGen(&this).define(a);
+		if (auto s = cast(Struct) a) {
+			return define(s);
+		}
+
+		if (auto c = cast(Class) a) {
+			return define(c);
+		}
+
+		if (auto u = cast(Union) a) {
+			return define(u);
+		}
+
+		if (auto i = cast(Interface) a) {
+			return define(i);
+		}
+
+		import std.format;
+		assert(0, format!"Aggregate type %s is not supported."(typeid(a)));
+	}
+
+	LLVMTypeRef define(Struct s) in(s.step == Step.Processed) {
+		foreach (m; s.members) {
+			define(m);
+		}
+
+		return typeGen.visit(s);
+	}
+
+	LLVMTypeRef define(Class c) in(c.step == Step.Processed) {
+		// If we are in eager mode, make sure the parent is defined too.
+		if (mode == Mode.Eager && c !is c.base) {
+			define(c.base);
+		}
+
+		// Define virtual methods.
+		foreach (m; c.methods) {
+			// We don't want to define inherited methods in childs.
+			if (!m.hasThis || m.type.parameters[0].getType().dclass is c) {
+				define(m);
+			}
+		}
+
+		// Generate the ClassInfo so we have it even if it is not used.
+		// getClassInfo(c);
+
+		// Anything else that could be in there.
+		foreach (m; c.members) {
+			define(m);
+		}
+
+		return typeGen.visit(c);
+	}
+
+	LLVMTypeRef define(Union u) in(u.step == Step.Processed) {
+		foreach (m; u.members) {
+			define(m);
+		}
+
+		return typeGen.visit(u);
+	}
+
+	LLVMTypeRef define(Interface i) in(i.step == Step.Processed) {
+		return typeGen.visit(i);
+	}
+
+	private LLVMValueRef genPrimaries(Class c, string mangle) {
+		auto count = cast(uint) c.primaries.length;
+		auto typeSize = LLVMConstInt(i64, count, false);
+
+		if (count == 0) {
+			LLVMValueRef[2] elts = [typeSize, llvmNull];
+			return
+				LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
+		}
+
+		import std.algorithm, std.array;
+		auto parents = c.primaries.map!(p => getClassInfo(p)).array();
+		auto gen = LLVMConstArray(llvmPtr, parents.ptr, count);
+
+		import std.string;
+		auto type = LLVMArrayType(llvmPtr, count);
+		auto primaries =
+			LLVMAddGlobal(dmodule, type, toStringz(mangle ~ ".primaries"));
+		LLVMSetInitializer(primaries, gen);
+		LLVMSetGlobalConstant(primaries, true);
+		LLVMSetUnnamedAddr(primaries, true);
+		LLVMSetLinkage(primaries, LLVMLinkage.LinkOnceODR);
+
+		LLVMValueRef[2] elts = [typeSize, primaries];
+		return LLVMConstStructInContext(llvmCtx, elts.ptr, elts.length, false);
+	}
+
+	LLVMValueRef getClassInfo(Class c) in(c.step >= Step.Signed) {
+		if (auto ti = c in classInfos) {
+			return *ti;
+		}
+
+		if (!classInfoClass) {
+			classInfoClass = pass.object.getClassInfo();
+		}
+
+		auto classInfoStruct = typeGen.getClassStructure(classInfoClass);
+
+		auto methodCount = cast(uint) c.methods.length;
+		auto vtblArray = LLVMArrayType(llvmPtr, methodCount);
+
+		LLVMTypeRef[2] classMetadataElts = [classInfoStruct, vtblArray];
+		auto metadataStruct =
+			LLVMStructTypeInContext(llvmCtx, classMetadataElts.ptr,
+			                        classMetadataElts.length, false);
+
+		import std.string;
+		auto mangle = c.mangle.toString(context);
+		auto metadata =
+			LLVMAddGlobal(dmodule, metadataStruct, toStringz(mangle ~ ".vtbl"));
+		classInfos[c] = metadata;
+
+		LLVMValueRef[2] classInfoData =
+			[getClassInfo(classInfoClass), genPrimaries(c, mangle)];
+		auto classInfoGen =
+			LLVMConstNamedStruct(classInfoStruct, classInfoData.ptr,
+			                     classInfoData.length);
+
+		import std.algorithm, std.array;
+		auto methods = c.methods.map!(m => declare(m)).array();
+		auto vtbl = LLVMConstArray(llvmPtr, methods.ptr, methodCount);
+
+		LLVMValueRef[2] classDataData = [classInfoGen, vtbl];
+		auto metadataGen =
+			LLVMConstStructInContext(llvmCtx, classDataData.ptr,
+			                         classDataData.length, false);
+
+		LLVMSetInitializer(metadata, metadataGen);
+		LLVMSetGlobalConstant(metadata, true);
+		LLVMSetLinkage(metadata, LLVMLinkage.LinkOnceODR);
+
+		return metadata;
 	}
 
 	LLVMValueRef declare(Variable v) in {
@@ -199,7 +345,7 @@ public:
 		auto qualifier = v.type.qualifier;
 
 		import d.llvm.type;
-		auto type = TypeGen(pass).visit(v.type);
+		auto type = typeGen.visit(v.type);
 
 		// If it is not enum, it must be static.
 		assert(v.storage == Storage.Static);

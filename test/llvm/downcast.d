@@ -25,7 +25,7 @@ auto downcastToA(Object o) {
 	// CHECK: [[PRIMARIES:%[a-z0-9\.]+]] = load ptr, ptr [[PRIMARIES_ADDR]], align 8
 	// CHECK: [[BASE:%[a-z0-9\.]+]] = load ptr, ptr [[PRIMARIES]], align 8
 	// CHECK: [[BASE_FREEZE:%[a-z0-9\.]+]] = freeze ptr [[BASE]]
-	// CHECK: [[BASE_CMP:%[a-z0-9\.]+]] = icmp eq ptr [[BASE_FREEZE]], @C8downcast1A__vtbl
+	// CHECK: [[BASE_CMP:%[a-z0-9\.]+]] = icmp eq ptr [[BASE_FREEZE]], @C8downcast1A.vtbl
 	// CHECK: br i1 [[BASE_CMP]], label %[[EXIT]], label %[[FAIL]]
 
 	// CHECK: [[FAIL]]:
@@ -55,7 +55,7 @@ auto downcastToB(Object o) {
 	// CHECK: [[BASE_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds ptr, ptr [[PRIMARIES]], i64 1
 	// CHECK: [[BASE:%[a-z0-9\.]+]] = load ptr, ptr [[BASE_ADDR]], align 8
 	// CHECK: [[BASE_FREEZE:%[a-z0-9\.]+]] = freeze ptr [[BASE]]
-	// CHECK: [[BASE_CMP:%[a-z0-9\.]+]] = icmp eq ptr [[BASE_FREEZE]], @C8downcast1B__vtbl
+	// CHECK: [[BASE_CMP:%[a-z0-9\.]+]] = icmp eq ptr [[BASE_FREEZE]], @C8downcast1B.vtbl
 	// CHECK: br i1 [[BASE_CMP]], label %[[EXIT:[A-Za-z0-9\._]+]], label %[[FAIL]]
 
 	// CHECK: [[FAIL]]:
@@ -75,7 +75,7 @@ auto downcastToC(Object o) {
 	// CHECK: [[DOWNCAST]]:
 	// CHECK: [[BASE:%[a-z0-9\.]+]] = load ptr, ptr %arg.o, align 8
 	// CHECK: [[BASE_FREEZE:%[a-z0-9\.]+]] = freeze ptr [[BASE]]
-	// CHECK: [[BASE_CMP:%[a-z0-9\.]+]] = icmp eq ptr [[BASE_FREEZE]], @C8downcast1C__vtbl
+	// CHECK: [[BASE_CMP:%[a-z0-9\.]+]] = icmp eq ptr [[BASE_FREEZE]], @C8downcast1C.vtbl
 	// CHECK: br i1 [[BASE_CMP]], label %[[EXIT:[A-Za-z0-9\._]+]], label %[[FAIL]]
 
 	// CHECK: [[FAIL]]:
