@@ -57,11 +57,19 @@ extern(C) {
 }
 
 final class LLVMEvaluator : Evaluator {
-	private CodeGen pass;
-	alias pass this;
+private:
+	import d.llvm.global;
+	GlobalGen globalGen;
 
+	alias pass this;
+	@property
+	auto pass() {
+		return globalGen.pass;
+	}
+
+public:
 	this(CodeGen pass) {
-		this.pass = pass;
+		globalGen = GlobalGen(pass, "sdc.jit", Mode.Eager);
 	}
 
 	CompileTimeExpression evaluate(Expression e) {
@@ -127,14 +135,14 @@ final class LLVMEvaluator : Evaluator {
 			auto returnType = i64;
 		}
 
-		// Generate function signature
+		// Generate function signature.
 		auto funType = LLVMFunctionType(returnType, null, 0, false);
 		auto fun = LLVMAddFunction(dmodule, "__ctfe", funType);
 		scope(exit) LLVMDeleteFunction(fun);
 
 		// Generate function's body. Warning: horrible hack.
 		import d.llvm.local;
-		auto lg = LocalGen(pass, Mode.Eager);
+		auto lg = LocalGen(&globalGen);
 		auto builder = lg.builder;
 
 		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
@@ -153,7 +161,7 @@ final class LLVMEvaluator : Evaluator {
 			LLVMBuildRet(builder, ptrToInt);
 		}
 
-		checkModule();
+		globalGen.checkModule();
 
 		auto ee = createExecutionEngine(dmodule);
 		scope(exit) destroyExecutionEngine(ee, dmodule);
@@ -175,18 +183,19 @@ final class LLVMEvaluator : Evaluator {
 	import d.ir.symbol;
 	auto createTestStub(Function f) {
 		// Make sure the function we want to call is ready to go.
-		import d.llvm.local;
-		auto lg = LocalGen(pass, Mode.Eager);
-		auto callee = lg.declare(f);
+		auto callee = globalGen.declare(f);
 
 		// Generate function's body. Warning: horrible hack.
+		import d.llvm.local;
+		auto lg = LocalGen(&globalGen);
 		auto builder = lg.builder;
 
 		auto funType = LLVMFunctionType(i64, null, 0, false);
 		auto fun = LLVMAddFunction(dmodule, "__unittest", funType);
 
 		// Personality function to handle exceptions.
-		LLVMSetPersonalityFn(fun, lg.declare(pass.object.getPersonality()));
+		LLVMSetPersonalityFn(fun,
+		                     globalGen.declare(pass.object.getPersonality()));
 
 		auto callBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "call");
 		auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");

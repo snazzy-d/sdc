@@ -1,6 +1,6 @@
 module d.llvm.local;
 
-import d.llvm.codegen;
+import d.llvm.global;
 
 import d.ir.dscope;
 import d.ir.symbol;
@@ -12,11 +12,6 @@ import llvm.c.core;
 alias Interface = d.ir.symbol.Interface;
 
 alias LocalPass = LocalGen*;
-
-enum Mode {
-	Lazy,
-	Eager,
-}
 
 struct Closure {
 private:
@@ -33,12 +28,10 @@ private:
 }
 
 struct LocalGen {
-	CodeGen pass;
+	GlobalPass pass;
 	alias pass this;
 
 	LLVMBuilderRef builder;
-
-	Mode mode;
 
 	LLVMValueRef ctxPtr;
 
@@ -49,9 +42,8 @@ struct LocalGen {
 	LLVMValueRef lpContext;
 	LLVMBasicBlockRef lpBB;
 
-	this(CodeGen pass, Mode mode = Mode.Lazy, Closure[] contexts = []) {
+	this(GlobalPass pass, Closure[] contexts = []) {
 		this.pass = pass;
-		this.mode = mode;
 		this.contexts = contexts;
 
 		// Make sure locals are initialized.
@@ -70,15 +62,9 @@ struct LocalGen {
 	this(this);
 
 	@property
-	auto globalGen() {
-		import d.llvm.global;
-		return GlobalGen(pass, mode);
-	}
-
-	@property
 	auto typeGen() {
 		import d.llvm.type;
-		return TypeGen(pass);
+		return TypeGen(pass.pass);
 	}
 
 	// XXX: lack of multiple alias this, so we do it automanually.
@@ -107,7 +93,7 @@ struct LocalGen {
 		} else if (auto a = cast(Aggregate) s) {
 			define(a);
 		} else {
-			globalGen.define(s);
+			pass.define(s);
 		}
 	}
 
@@ -185,7 +171,7 @@ struct LocalGen {
 			return lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
 		}());
 
-		if (isLocal || f.inTemplate || mode == Mode.Eager) {
+		if (isLocal || f.inTemplate || pass.mode == Mode.Eager) {
 			if (f.fbody && maybeDefine(f, fun)) {
 				LLVMSetLinkage(fun, LLVMLinkage.LinkOnceODR);
 			}
@@ -222,7 +208,7 @@ struct LocalGen {
 		}
 
 		auto contexts = f.hasContext ? this.contexts : [];
-		LocalGen(pass, mode, contexts).genBody(f, fun);
+		LocalGen(pass, contexts).genBody(f, fun);
 
 		return true;
 	}
@@ -427,7 +413,7 @@ struct LocalGen {
 
 	LLVMValueRef declare(Variable v) {
 		if (v.storage.isGlobal) {
-			return globalGen.declare(v);
+			return pass.declare(v);
 		}
 
 		// TODO: Actually just declare here :)
@@ -436,7 +422,7 @@ struct LocalGen {
 
 	LLVMValueRef define(Variable v) in(!v.isFinal) {
 		if (v.storage.isGlobal) {
-			return globalGen.define(v);
+			return pass.define(v);
 		}
 
 		import d.llvm.expression;
@@ -558,7 +544,7 @@ struct LocalGen {
 
 	LLVMTypeRef define(Class c) in(c.step == Step.Processed) {
 		// If we are in eager mode, make sure the parent is defined too.
-		if (mode == Mode.Eager && c !is c.base) {
+		if (pass.mode == Mode.Eager && c !is c.base) {
 			define(c.base);
 		}
 

@@ -12,7 +12,13 @@ import llvm.c.targetMachine;
 
 final class LLVMBackend {
 private:
-	CodeGen pass;
+	import d.llvm.global;
+	GlobalGen globalGen;
+
+	@property
+	auto pass() {
+		return globalGen.pass;
+	}
 
 	uint optLevel;
 	string[] linkerPaths;
@@ -57,7 +63,8 @@ public:
 		auto td = LLVMCreateTargetDataLayout(targetMachine);
 		scope(exit) LLVMDisposeTargetData(td);
 
-		pass = new CodeGen(sema, name, this, td);
+		auto pass = new CodeGen(sema, name, this, td);
+		globalGen = GlobalGen(pass, name);
 		dataLayout = new LLVMDataLayout(pass, pass.targetData);
 	}
 
@@ -78,8 +85,7 @@ public:
 	}
 
 	void define(Function f) {
-		import d.llvm.global;
-		GlobalGen(pass).define(f);
+		globalGen.define(f);
 	}
 
 	private void runLLVMPasses() {
@@ -100,12 +106,12 @@ public:
 		scope(exit) LLVMDisposePassManager(pm);
 
 		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
-		LLVMRunPassManager(pm, pass.dmodule);
+		LLVMRunPassManager(pm, globalGen.dmodule);
 	}
 
 	private void emitModules(Module[] modules) {
 		foreach (m; modules) {
-			pass.define(m);
+			globalGen.define(m);
 		}
 
 		runLLVMPasses();
@@ -119,7 +125,7 @@ public:
 
 		char* errorPtr;
 		if (!LLVMTargetMachineEmitToFile(
-			    targetMachine, pass.dmodule, cobjFile,
+			    targetMachine, globalGen.dmodule, cobjFile,
 			    LLVMCodeGenFileType.Object, &errorPtr)) {
 			return;
 		}
@@ -139,7 +145,7 @@ public:
 
 		char* errorPtr;
 		if (!LLVMTargetMachineEmitToFile(
-			    targetMachine, pass.dmodule, cfilename,
+			    targetMachine, globalGen.dmodule, cfilename,
 			    LLVMCodeGenFileType.Assembly, &errorPtr)) {
 			return;
 		}
@@ -158,7 +164,7 @@ public:
 		auto cfilename = filename.toStringz();
 
 		char* errorPtr;
-		if (!LLVMPrintModuleToFile(pass.dmodule, cfilename, &errorPtr)) {
+		if (!LLVMPrintModuleToFile(globalGen.dmodule, cfilename, &errorPtr)) {
 			return;
 		}
 
@@ -176,7 +182,7 @@ public:
 		auto cfilename = filename.toStringz();
 
 		import llvm.c.bitWriter;
-		if (!LLVMWriteBitcodeToFile(pass.dmodule, filename.toStringz())) {
+		if (!LLVMWriteBitcodeToFile(globalGen.dmodule, filename.toStringz())) {
 			return;
 		}
 
@@ -223,9 +229,8 @@ public:
 		runLLVMPasses();
 
 		// Now that we generated the IR, we run the unittests.
-		import d.llvm.evaluator;
-		auto ee = createExecutionEngine(pass.dmodule);
-		scope(exit) destroyExecutionEngine(ee, pass.dmodule);
+		auto ee = createExecutionEngine(globalGen.dmodule);
+		scope(exit) destroyExecutionEngine(ee, globalGen.dmodule);
 
 		struct Result {
 			import std.bitmanip;

@@ -38,27 +38,10 @@ final class CodeGen {
 	LLVMTypeRef i64;
 	LLVMTypeRef i128;
 
-	LLVMValueRef[ValueSymbol] globals;
-
-	import d.llvm.local;
-	LocalData localData;
-
 	LLVMTargetDataRef targetData;
 
 	import d.llvm.type;
 	TypeGenData typeGenData;
-
-	import d.llvm.runtime;
-	RuntimeData runtimeData;
-
-	import d.llvm.constant;
-	ConstantData constantData;
-
-	import d.llvm.statement;
-	StatementGenData statementGenData;
-
-	import d.llvm.intrinsic;
-	IntrinsicGenData intrinsicGenData;
 
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
@@ -77,10 +60,6 @@ final class CodeGen {
 		this.scheduler = sema.scheduler;
 		this.object = sema.object;
 		this.backend = backend;
-
-		// Make sure globals are initialized.
-		globals[null] = null;
-		globals.remove(null);
 
 		llvmCtx = LLVMContextCreate();
 		LLVMContextSetOpaquePointers(llvmCtx, true);
@@ -122,33 +101,6 @@ final class CodeGen {
 	~this() {
 		LLVMDisposeModule(dmodule);
 		LLVMContextDispose(llvmCtx);
-	}
-
-	Module define(Module m) {
-		// Dump module content on failure (for debug purpose).
-		scope(failure) LLVMDumpModule(dmodule);
-
-		foreach (s; m.members) {
-			import d.llvm.global;
-			GlobalGen(this).define(s);
-		}
-
-		checkModule();
-		return m;
-	}
-
-	auto checkModule() {
-		char* errorPtr;
-		if (!LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus,
-		                      &errorPtr)) {
-			return;
-		}
-
-		scope(exit) LLVMDisposeMessage(errorPtr);
-
-		import core.stdc.string;
-		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-		throw new Exception(error);
 	}
 
 	auto getAttribute(string name, ulong val = 0) {

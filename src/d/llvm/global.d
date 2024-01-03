@@ -3,23 +3,76 @@ module d.llvm.global;
 import d.llvm.codegen;
 
 import d.ir.symbol;
-import d.ir.type;
 
-import util.visitor;
-
-import llvm.c.analysis;
 import llvm.c.core;
 
+enum Mode {
+	Lazy,
+	Eager,
+}
+
+alias GlobalPass = GlobalGen*;
+
 struct GlobalGen {
-	private CodeGen pass;
+	CodeGen pass;
 	alias pass this;
 
-	import d.llvm.local : Mode;
+	LLVMValueRef[ValueSymbol] globals;
+
+	import d.llvm.local;
+	LocalData localData;
+
+	import d.llvm.constant;
+	ConstantData constantData;
+
+	import d.llvm.runtime;
+	RuntimeData runtimeData;
+
+	import d.llvm.statement;
+	StatementGenData statementGenData;
+
+	import d.llvm.intrinsic;
+	IntrinsicGenData intrinsicGenData;
+
+	// TODO: Move whatever uses mode in LocalGen here.
+	// private:
 	Mode mode;
 
-	this(CodeGen pass, Mode mode = Mode.Lazy) {
+public:
+	this(CodeGen pass, string name, Mode mode = Mode.Lazy) {
 		this.pass = pass;
 		this.mode = mode;
+
+		// Make sure globals are initialized.
+		globals[null] = null;
+		globals.remove(null);
+	}
+
+	void define(Module m) {
+		// Dump module content on failure (for debug purpose).
+		scope(failure) LLVMDumpModule(dmodule);
+
+		foreach (s; m.members) {
+			define(s);
+		}
+
+		checkModule();
+	}
+
+	auto checkModule() {
+		char* errorPtr;
+
+		import llvm.c.analysis;
+		if (!LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus,
+		                      &errorPtr)) {
+			return;
+		}
+
+		scope(exit) LLVMDisposeMessage(errorPtr);
+
+		import core.stdc.string;
+		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
+		throw new Exception(error);
 	}
 
 	void define(Symbol s) in(s.step == Step.Processed) {
@@ -31,19 +84,41 @@ struct GlobalGen {
 			define(a);
 		} else if (auto v = cast(Variable) s) {
 			define(v);
+		} else {
+			// Some symbol just don't need to generate anything, suck as TypeAlias.
+			import std.format;
+			assert(true, format!"%s is not supported!"(typeid(s)));
 		}
 	}
 
 	LLVMValueRef declare(Function f)
-			in(!f.hasContext, "function must not have context") {
+			in(!f.hasContext, "Function must not have context!") {
 		import d.llvm.local;
-		return LocalGen(pass).declare(f);
+		return LocalGen(&this).declare(f);
 	}
 
 	LLVMValueRef define(Function f)
-			in(!f.hasContext, "function must not have context") {
+			in(!f.hasContext, "Function must not have context!") {
 		import d.llvm.local;
-		return LocalGen(pass).define(f);
+		return LocalGen(&this).define(f);
+	}
+
+	void define(Template t) {
+		foreach (i; t.instances) {
+			if (i.hasThis || i.hasContext) {
+				continue;
+			}
+
+			foreach (m; i.members) {
+				import d.llvm.local;
+				LocalGen(&this).define(m);
+			}
+		}
+	}
+
+	LLVMTypeRef define(Aggregate a) in(a.step == Step.Processed) {
+		import d.llvm.local;
+		return LocalGen(&this).define(a);
 	}
 
 	LLVMValueRef declare(Variable v) in {
@@ -54,7 +129,7 @@ struct GlobalGen {
 		auto var = globals.get(v, {
 			if (v.storage == Storage.Enum) {
 				import d.llvm.constant;
-				return ConstantGen(pass).visit(v.value);
+				return ConstantGen(&this).visit(v.value);
 			}
 
 			return createVariableStorage(v);
@@ -110,7 +185,7 @@ struct GlobalGen {
 		}
 
 		import d.llvm.constant;
-		auto value = ConstantGen(pass).visit(v.value);
+		auto value = ConstantGen(&this).visit(v.value);
 
 		// Store the initial value into the global variable.
 		LLVMSetInitializer(var, value);
@@ -146,23 +221,5 @@ struct GlobalGen {
 		}
 
 		return var;
-	}
-
-	LLVMTypeRef define(Aggregate a) in(a.step == Step.Processed) {
-		import d.llvm.local;
-		return LocalGen(pass).define(a);
-	}
-
-	void define(Template t) {
-		foreach (i; t.instances) {
-			if (i.hasThis || i.hasContext) {
-				continue;
-			}
-
-			foreach (m; i.members) {
-				import d.llvm.local;
-				LocalGen(pass).define(m);
-			}
-		}
 	}
 }

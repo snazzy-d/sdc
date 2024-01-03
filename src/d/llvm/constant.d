@@ -1,6 +1,6 @@
 module d.llvm.constant;
 
-import d.llvm.codegen;
+import d.llvm.global;
 
 import d.ir.constant;
 import d.ir.expression;
@@ -15,17 +15,17 @@ private:
 }
 
 struct ConstantGen {
-	private CodeGen pass;
+	private GlobalPass pass;
 	alias pass this;
 
-	this(CodeGen pass) {
+	this(GlobalPass pass) {
 		this.pass = pass;
 	}
 
 	@property
 	auto typeGen() {
 		import d.llvm.type;
-		return TypeGen(pass);
+		return TypeGen(pass.pass);
 	}
 
 	// XXX: lack of multiple alias this, so we do it automanually.
