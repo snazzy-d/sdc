@@ -30,9 +30,9 @@ struct ExpressionGen {
 		}
 
 		return this.dispatch!(function LLVMValueRef(Expression e) {
-			import source.exception;
+			import source.exception, std.format;
 			throw new CompileException(
-				e.location, typeid(e).toString() ~ " is not supported");
+				e.location, format!"%s is not supported."(typeid(e)));
 		})(e);
 	}
 
@@ -179,7 +179,7 @@ struct ExpressionGen {
 				return handleBinaryOp!LLVMBuildSRem(e);
 
 			case Pow:
-				assert(0, "Not implemented");
+				assert(0, "Not implemented.");
 
 			case Or:
 				return handleBinaryOp!LLVMBuildOr(e);
@@ -234,7 +234,9 @@ struct ExpressionGen {
 
 		auto t1 = e.lhs.type.toString(context);
 		auto t2 = e.rhs.type.toString(context);
-		assert(0, "Can't compare " ~ t1 ~ " with " ~ t2);
+
+		import std.format;
+		assert(0, format!"Can't compare %s with %s."(t1, t2));
 	}
 
 	LLVMValueRef visit(ICmpExpression e) {
@@ -534,8 +536,12 @@ struct ExpressionGen {
 				break;
 
 			default:
-				assert(0,
-				       "Don't know how to slice " ~ e.type.toString(context));
+				import std.format;
+				assert(
+					0,
+					format!"Don't know how to slice %s."(
+						e.type.toString(context))
+				);
 		}
 
 		auto first = LLVMBuildZExt(builder, visit(e.first), i64, "");
@@ -820,7 +826,7 @@ struct ExpressionGen {
 
 	private LLVMValueRef getTypeid(Type t) {
 		t = t.getCanonical();
-		assert(t.kind == TypeKind.Class, "Not implemented");
+		assert(t.kind == TypeKind.Class, "Not implemented.");
 
 		// Ensure that the thing is generated.
 		return getClassInfo(t.dclass);
@@ -880,10 +886,11 @@ struct AddressOfGen {
 				break;
 
 			default:
+				import std.format;
 				assert(
 					0,
-					"Address of field only work on aggregate types, not "
-						~ t.toString(context)
+					format!"Address of field only work on aggregate types, not %s."(
+						t.toString(context))
 				);
 		}
 
@@ -896,7 +903,7 @@ struct AddressOfGen {
 
 	LLVMValueRef visit(ContextExpression e)
 			in(e.type.kind == TypeKind.Context,
-			   "ContextExpression must be of ContextType") {
+			   "ContextExpression must be of ContextType!") {
 		return pass.getContext(e.type.context);
 	}
 
@@ -955,9 +962,11 @@ struct AddressOfGen {
 				break;
 
 			default:
+				import std.format;
 				assert(
 					0,
-					indexed.type.toString(context) ~ "is not an indexable type!"
+					format!"%s is not an indexable type!"(
+						indexed.type.toString(context))
 				);
 		}
 
