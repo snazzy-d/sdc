@@ -65,10 +65,6 @@ public:
 		LLVMDisposeTargetMachine(targetMachine);
 	}
 
-	auto getPass() {
-		return pass;
-	}
-
 	auto getEvaluator() {
 		if (evaluator is null) {
 			evaluator = new LLVMEvaluator(pass);
