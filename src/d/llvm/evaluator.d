@@ -219,10 +219,7 @@ package:
 auto createExecutionEngine(LLVMModuleRef dmodule) {
 	char* errorPtr;
 	LLVMExecutionEngineRef ee;
-	auto creationError =
-		LLVMCreateMCJITCompilerForModule(&ee, dmodule, null, 0, &errorPtr);
-
-	if (!creationError) {
+	if (!LLVMCreateMCJITCompilerForModule(&ee, dmodule, null, 0, &errorPtr)) {
 		return ee;
 	}
 
@@ -230,29 +227,22 @@ auto createExecutionEngine(LLVMModuleRef dmodule) {
 
 	import core.stdc.string;
 	auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-
-	import std.stdio;
-	writeln(error);
-	assert(0, "Cannot create execution engine!");
+	throw new Exception(error);
 }
 
 void destroyExecutionEngine(LLVMExecutionEngineRef ee, LLVMModuleRef dmodule) {
 	char* errorPtr;
 	LLVMModuleRef outMod;
-	auto removeError = LLVMRemoveModule(ee, dmodule, &outMod, &errorPtr);
-
-	if (!removeError) {
+	if (!LLVMRemoveModule(ee, dmodule, &outMod, &errorPtr)) {
 		LLVMDisposeExecutionEngine(ee);
 		return;
 	}
 
 	scope(exit) LLVMDisposeMessage(errorPtr);
+
 	import core.stdc.string;
 	auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-
-	import std.stdio;
-	writeln(error);
-	assert(0, "Cannot remove module from execution engine!");
+	throw new Exception(error);
 }
 
 private:

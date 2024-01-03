@@ -171,17 +171,16 @@ final class CodeGen {
 	}
 
 	auto checkModule() {
-		char* msg;
+		char* errorPtr;
 		if (!LLVMVerifyModule(dmodule, LLVMVerifierFailureAction.ReturnStatus,
-		                      &msg)) {
+		                      &errorPtr)) {
 			return;
 		}
 
-		scope(exit) LLVMDisposeMessage(msg);
+		scope(exit) LLVMDisposeMessage(errorPtr);
 
 		import core.stdc.string;
-		auto error = msg[0 .. strlen(msg)].idup;
-
+		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
 		throw new Exception(error);
 	}
 

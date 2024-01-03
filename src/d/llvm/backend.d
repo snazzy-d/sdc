@@ -123,68 +123,72 @@ public:
 		emitModules(modules);
 
 		import std.string;
+		auto cobjFile = objFile.toStringz();
+
 		char* errorPtr;
-		auto emitError = LLVMTargetMachineEmitToFile(
-			targetMachine, pass.dmodule, objFile.toStringz(),
-			LLVMCodeGenFileType.Object, &errorPtr);
-
-		if (emitError) {
-			scope(exit) LLVMDisposeMessage(errorPtr);
-
-			import core.stdc.string, std.stdio;
-			writeln(errorPtr[0 .. strlen(errorPtr)]);
-
-			assert(0, "Fail to emit object file ! Exiting...");
+		if (!LLVMTargetMachineEmitToFile(
+			    targetMachine, pass.dmodule, cobjFile,
+			    LLVMCodeGenFileType.Object, &errorPtr)) {
+			return;
 		}
+
+		scope(exit) LLVMDisposeMessage(errorPtr);
+
+		import core.stdc.string;
+		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
+		throw new Exception(error);
 	}
 
 	void emitAsm(Module[] modules, string filename) {
 		emitModules(modules);
 
 		import std.string;
+		auto cfilename = filename.toStringz();
+
 		char* errorPtr;
-		auto printError = LLVMTargetMachineEmitToFile(
-			targetMachine, pass.dmodule, filename.toStringz(),
-			LLVMCodeGenFileType.Assembly, &errorPtr);
-
-		if (printError) {
-			scope(exit) LLVMDisposeMessage(errorPtr);
-
-			import core.stdc.string, std.stdio;
-			writeln(errorPtr[0 .. strlen(errorPtr)]);
-
-			assert(0, "Failed to output assembly file! Exiting...");
+		if (!LLVMTargetMachineEmitToFile(
+			    targetMachine, pass.dmodule, cfilename,
+			    LLVMCodeGenFileType.Assembly, &errorPtr)) {
+			return;
 		}
+
+		scope(exit) LLVMDisposeMessage(errorPtr);
+
+		import core.stdc.string;
+		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
+		throw new Exception(error);
 	}
 
 	void emitLLVMAsm(Module[] modules, string filename) {
 		emitModules(modules);
 
 		import std.string;
+		auto cfilename = filename.toStringz();
+
 		char* errorPtr;
-		auto printError =
-			LLVMPrintModuleToFile(pass.dmodule, filename.toStringz(),
-			                      &errorPtr);
-
-		if (printError) {
-			scope(exit) LLVMDisposeMessage(errorPtr);
-
-			import core.stdc.string, std.stdio;
-			writeln(errorPtr[0 .. strlen(errorPtr)]);
-
-			assert(0, "Failed to output LLVM assembly file! Exiting...");
+		if (!LLVMPrintModuleToFile(pass.dmodule, cfilename, &errorPtr)) {
+			return;
 		}
+
+		scope(exit) LLVMDisposeMessage(errorPtr);
+
+		import core.stdc.string;
+		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
+		throw new Exception(error);
 	}
 
 	void emitLLVMBitcode(Module[] modules, string filename) {
 		emitModules(modules);
 
-		import llvm.c.bitWriter;
 		import std.string;
-		auto error = LLVMWriteBitcodeToFile(pass.dmodule, filename.toStringz());
-		if (error) {
-			assert(0, "Failed to output LLVM bitcode file! Exiting...");
+		auto cfilename = filename.toStringz();
+
+		import llvm.c.bitWriter;
+		if (!LLVMWriteBitcodeToFile(pass.dmodule, filename.toStringz())) {
+			return;
 		}
+
+		throw new Exception("Failed to output LLVM bitcode file.");
 	}
 
 	void link(string objFile, string executable) {
