@@ -123,7 +123,7 @@ final class CodeGen {
 		LLVMContextDispose(llvmCtx);
 	}
 
-	Module visit(Module m) {
+	Module define(Module m) {
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 

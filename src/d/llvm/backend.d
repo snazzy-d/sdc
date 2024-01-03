@@ -81,11 +81,7 @@ public:
 		return dataLayout;
 	}
 
-	void visit(Module mod) {
-		pass.visit(mod);
-	}
-
-	void visit(Function f) {
+	void define(Function f) {
 		import d.llvm.global;
 		GlobalGen(pass).define(f);
 	}
@@ -113,7 +109,7 @@ public:
 
 	private void emitModules(Module[] modules) {
 		foreach (m; modules) {
-			pass.visit(m);
+			pass.define(m);
 		}
 
 		runLLVMPasses();
