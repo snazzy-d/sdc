@@ -86,11 +86,13 @@ struct GlobalGen {
 		}
 
 		if (!maybeDefine(v, var)) {
-			auto linkage = LLVMGetLinkage(var);
+			import std.format;
 			assert(
-				linkage == LLVMLinkage.LinkOnceODR,
-				"variable " ~ v.mangle.toString(context) ~ " already defined"
+				LLVMGetLinkage(var) == LLVMLinkage.LinkOnceODR,
+				format!"Variable %s already defined!"(
+					v.mangle.toString(context))
 			);
+
 			LLVMSetLinkage(var, LLVMLinkage.External);
 		}
 
