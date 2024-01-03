@@ -51,7 +51,8 @@ final class CodeGen {
 	import d.llvm.runtime;
 	RuntimeData runtimeData;
 
-	private LLVMValueRef[string] stringLiterals;
+	import d.llvm.constant;
+	ConstantData constantData;
 
 	import d.llvm.statement;
 	StatementGenData statementGenData;
@@ -134,40 +135,6 @@ final class CodeGen {
 
 		checkModule();
 		return m;
-	}
-
-	private auto buildStringConstant(string str)
-			in(str.length <= uint.max, "string length must be < uint.max") {
-		return stringLiterals.get(str, stringLiterals[str] = {
-			auto charArray =
-				LLVMConstStringInContext(llvmCtx, str.ptr,
-				                         cast(uint) str.length, true);
-
-			auto type = LLVMTypeOf(charArray);
-			auto globalVar = LLVMAddGlobal(dmodule, type, ".str");
-			LLVMSetInitializer(globalVar, charArray);
-			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
-			LLVMSetGlobalConstant(globalVar, true);
-			LLVMSetUnnamedAddr(globalVar, true);
-
-			auto zero = LLVMConstInt(i32, 0, true);
-			LLVMValueRef[2] indices = [zero, zero];
-			return LLVMConstInBoundsGEP2(type, globalVar, indices.ptr,
-			                             indices.length);
-		}());
-	}
-
-	auto buildCString(string str) {
-		import std.string;
-		auto cstr = str.toStringz()[0 .. str.length + 1];
-		return buildStringConstant(cstr);
-	}
-
-	auto buildDString(string str) {
-		LLVMValueRef[2] slice =
-			[LLVMConstInt(i64, str.length, false), buildStringConstant(str)];
-		return
-			LLVMConstStructInContext(llvmCtx, slice.ptr, slice.length, false);
 	}
 
 	auto checkModule() {

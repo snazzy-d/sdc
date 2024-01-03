@@ -9,12 +9,25 @@ import util.visitor;
 
 import llvm.c.core;
 
+struct ConstantData {
+private:
+	LLVMValueRef[string] stringLiterals;
+}
+
 struct ConstantGen {
 	private CodeGen pass;
 	alias pass this;
 
 	this(CodeGen pass) {
 		this.pass = pass;
+	}
+
+	// XXX: lack of multiple alias this, so we do it automanually.
+	private {
+		@property
+		ref LLVMValueRef[string] stringLiterals() {
+			return pass.constantData.stringLiterals;
+		}
 	}
 
 	LLVMValueRef visit(Constant c) {
@@ -57,6 +70,40 @@ struct ConstantGen {
 
 	LLVMValueRef visit(CStringConstant cs) {
 		return buildCString(cs.value);
+	}
+
+	private auto buildStringConstant(string str)
+			in(str.length <= uint.max, "string length must be < uint.max") {
+		return stringLiterals.get(str, stringLiterals[str] = {
+			auto charArray =
+				LLVMConstStringInContext(llvmCtx, str.ptr,
+				                         cast(uint) str.length, true);
+
+			auto type = LLVMTypeOf(charArray);
+			auto globalVar = LLVMAddGlobal(dmodule, type, ".str");
+			LLVMSetInitializer(globalVar, charArray);
+			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
+			LLVMSetGlobalConstant(globalVar, true);
+			LLVMSetUnnamedAddr(globalVar, true);
+
+			auto zero = LLVMConstInt(i32, 0, true);
+			LLVMValueRef[2] indices = [zero, zero];
+			return LLVMConstInBoundsGEP2(type, globalVar, indices.ptr,
+			                             indices.length);
+		}());
+	}
+
+	auto buildCString(string str) {
+		import std.string;
+		auto cstr = str.toStringz()[0 .. str.length + 1];
+		return buildStringConstant(cstr);
+	}
+
+	auto buildDString(string str) {
+		LLVMValueRef[2] slice =
+			[LLVMConstInt(i64, str.length, false), buildStringConstant(str)];
+		return
+			LLVMConstStructInContext(llvmCtx, slice.ptr, slice.length, false);
 	}
 
 	// XXX: This should be removed at some point, but to ease transition.
