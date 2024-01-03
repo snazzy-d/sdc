@@ -8,6 +8,9 @@ import d.ir.type;
 
 import llvm.c.core;
 
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
+
 alias LocalPass = LocalGen*;
 
 enum Mode {
@@ -433,9 +436,7 @@ struct LocalGen {
 		return locals.get(v, define(v));
 	}
 
-	LLVMValueRef define(Variable v) in {
-		assert(!v.isFinal);
-	} do {
+	LLVMValueRef define(Variable v) in(!v.isFinal) {
 		if (v.storage.isGlobal) {
 			return globalGen.define(v);
 		}
@@ -529,7 +530,67 @@ struct LocalGen {
 			embededContexts[a] = contexts;
 		}
 
-		return globalGen.define(a);
+		if (auto s = cast(Struct) a) {
+			return define(s);
+		}
+
+		if (auto c = cast(Class) a) {
+			return define(c);
+		}
+
+		if (auto u = cast(Union) a) {
+			return define(u);
+		}
+
+		if (auto i = cast(Interface) a) {
+			return define(i);
+		}
+
+		import std.format;
+		assert(0, format!"Aggregate type %s is not supported."(typeid(a)));
+	}
+
+	LLVMTypeRef define(Struct s) in(s.step == Step.Processed) {
+		import d.llvm.type;
+		auto ret = TypeGen(pass).visit(s);
+
+		foreach (m; s.members) {
+			define(m);
+		}
+
+		return ret;
+	}
+
+	LLVMTypeRef define(Class c) in(c.step == Step.Processed) {
+		foreach (m; c.methods) {
+			// We don't want to define inherited methods in childs.
+			if (!m.hasThis || m.type.parameters[0].getType().dclass is c) {
+				define(m);
+			}
+		}
+
+		foreach (m; c.members) {
+			define(m);
+		}
+
+		import d.llvm.type;
+		return TypeGen(pass).visit(c);
+	}
+
+	LLVMTypeRef define(Union u) in(u.step == Step.Processed) {
+		import d.llvm.type;
+		auto ret = TypeGen(pass).visit(u);
+
+		foreach (m; u.members) {
+			define(m);
+		}
+
+		return ret;
+	}
+
+	LLVMTypeRef define(Interface i) in(i.step == Step.Processed) {
+		import d.llvm.type;
+		return TypeGen(pass).visit(i);
 	}
 
 	private LLVMValueRef genPrimaries(Class c, string mangle) {

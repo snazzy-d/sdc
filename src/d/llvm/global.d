@@ -10,9 +10,6 @@ import util.visitor;
 import llvm.c.analysis;
 import llvm.c.core;
 
-// Conflict with Interface in object.di
-alias Interface = d.ir.symbol.Interface;
-
 struct GlobalGen {
 	private CodeGen pass;
 	alias pass this;
@@ -150,50 +147,8 @@ struct GlobalGen {
 	}
 
 	LLVMTypeRef define(Aggregate a) in(a.step == Step.Processed) {
-		return this.dispatch(a);
-	}
-
-	LLVMTypeRef visit(Struct s) in(s.step == Step.Processed) {
-		import d.llvm.type;
-		auto ret = TypeGen(pass).visit(s);
-
-		foreach (m; s.members) {
-			define(m);
-		}
-
-		return ret;
-	}
-
-	LLVMTypeRef visit(Class c) in(c.step == Step.Processed) {
-		foreach (m; c.methods) {
-			// We don't want to define inherited methods in childs.
-			if (!m.hasThis || m.type.parameters[0].getType().dclass is c) {
-				define(m);
-			}
-		}
-
-		foreach (m; c.members) {
-			define(m);
-		}
-
-		import d.llvm.type;
-		return TypeGen(pass).visit(c);
-	}
-
-	LLVMTypeRef visit(Union u) in(u.step == Step.Processed) {
-		import d.llvm.type;
-		auto ret = TypeGen(pass).visit(u);
-
-		foreach (m; u.members) {
-			define(m);
-		}
-
-		return ret;
-	}
-
-	LLVMTypeRef visit(Interface i) in(i.step == Step.Processed) {
-		import d.llvm.type;
-		return TypeGen(pass).visit(i);
+		import d.llvm.local;
+		return LocalGen(pass).define(a);
 	}
 
 	void define(Template t) {
