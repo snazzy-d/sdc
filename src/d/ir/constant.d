@@ -154,3 +154,24 @@ class CStringConstant : Constant {
 		return format!"%(%s%)"(x);
 	}
 }
+
+/**
+ * typeid(type) expression.
+ * 
+ * TODO: Consider hanlding this as a regular symbol instead of
+ *       special casing typeid.
+ */
+class TypeidConstant : Constant {
+	Type argument;
+
+	this(Type type, Type argument) {
+		super(type);
+
+		this.argument = argument;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"typeid(%s)"(argument.toString(c));
+	}
+}

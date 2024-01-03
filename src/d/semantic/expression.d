@@ -1227,19 +1227,30 @@ public:
 			location, Type.get(pass.object.getClassInfo()), e);
 	}
 
-	auto getTypeInfo(Location location, Type t) {
+	Expression getTypeInfo(Location location, Type t) {
 		t = t.getCanonical();
 		if (t.kind == TypeKind.Class) {
 			return getClassInfo(location, t.dclass);
 		}
 
-		return build!StaticTypeidExpression(
-			location, Type.get(pass.object.getTypeInfo()), t);
+		// FIXME: Have some kind of builder for constant, and make
+		//        ErrorExpression a Constant.
+		if (auto e = errorize(t)) {
+			return e.expression;
+		}
+
+		return new ConstantExpression(
+			location,
+			new TypeidConstant(Type.get(pass.object.getTypeInfo()), t)
+		);
 	}
 
 	auto getClassInfo(Location location, Class c) {
-		return build!StaticTypeidExpression(
-			location, Type.get(pass.object.getClassInfo()), Type.get(c));
+		return new ConstantExpression(
+			location,
+			new TypeidConstant(Type.get(pass.object.getClassInfo()),
+			                   Type.get(c))
+		);
 	}
 
 	Expression visit(AstTypeidExpression e) {

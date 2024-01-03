@@ -102,6 +102,16 @@ struct ConstantGen {
 			LLVMConstStructInContext(llvmCtx, slice.ptr, slice.length, false);
 	}
 
+	LLVMValueRef visit(TypeidConstant tc) {
+		auto t = tc.argument.getCanonical();
+
+		import d.ir.type;
+		assert(t.kind == TypeKind.Class, "Not implemented.");
+
+		// Ensure that the thing is generated.
+		return getClassInfo(t.dclass);
+	}
+
 	// XXX: This should be removed at some point, but to ease transition.
 	LLVMValueRef visit(Expression e) {
 		if (auto ce = cast(CompileTimeExpression) e) {

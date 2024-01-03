@@ -820,18 +820,6 @@ struct ExpressionGen {
 		auto c = e.argument.type.getCanonical().dclass;
 		return c.isFinal ? getClassInfo(c) : loadTypeid(arg);
 	}
-
-	private LLVMValueRef getTypeid(Type t) {
-		t = t.getCanonical();
-		assert(t.kind == TypeKind.Class, "Not implemented.");
-
-		// Ensure that the thing is generated.
-		return getClassInfo(t.dclass);
-	}
-
-	LLVMValueRef visit(StaticTypeidExpression e) {
-		return getTypeid(e.argument);
-	}
 }
 
 struct AddressOfGen {

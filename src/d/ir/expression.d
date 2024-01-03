@@ -652,27 +652,6 @@ class DelegateExpression : Expression {
 }
 
 /**
- * typeid(type) expression.
- * 
- * TODO: Make this a CompileTimeExpression.
- * FIXME: This should simply resolve to the proper symbol.
- */
-class StaticTypeidExpression : Expression {
-	Type argument;
-
-	this(Location location, Type type, Type argument) {
-		super(location, type);
-
-		this.argument = argument;
-	}
-
-	override string toString(const Context c) const {
-		import std.format;
-		return format!"typeid(%s)"(argument.toString(c));
-	}
-}
-
-/**
  * For classes, typeid is computed at runtime.
  */
 class DynamicTypeidExpression : Expression {

@@ -177,8 +177,11 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				return f.value;
 			}).array();
 
-			fields[0] = new StaticTypeidExpression(
-				location, Type.get(pass.object.getTypeInfo()), Type.get(c));
+			fields[0] = new ConstantExpression(
+				location,
+				new TypeidConstant(Type.get(pass.object.getTypeInfo()),
+				                   Type.get(c))
+			);
 			if (c.hasContext) {
 				import std.algorithm;
 				import source.name;
