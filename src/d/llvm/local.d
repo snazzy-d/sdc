@@ -111,48 +111,36 @@ struct LocalGen {
 	LLVMValueRef declare(Function f) {
 		require(f);
 
-		// XXX: This should probably a member of the Function class.
-		auto isLocal = f.hasContext || (cast(NestedScope) f.getParentScope());
-		auto lookup = isLocal ? locals : globals;
-
-		// FIXME: This is broken, but we do it all in globals for now.
-		// We have no good way to pass the nested locals down in aggregates
-		// declarations as we do a round trip through globals.
-		// We could fix this by removing any require from the backend
-		// and moving local to the localData, or bubbling down part of the
-		// aggregate declaration code in the LocalGen. This last option seems
-		// more reasonable as the situation is also broken for embededContexts.
-		// In the meantime, just store everything in globals.
-		lookup = globals;
-
-		auto fun = lookup.get(f, {
+		auto fun = globals.get(f, {
 			auto type = typeGen.getFunctionType(f.type);
 
 			// The method may have been defined when visiting the type.
-			if (auto funPtr = f in lookup) {
+			if (auto funPtr = f in globals) {
 				return *funPtr;
 			}
 
 			// Sanity check: do not declare multiple time.
-			auto name = f.mangle.toStringz(pass.context);
-			if (auto fun = LLVMGetNamedFunction(pass.dmodule, name)) {
-				if (type != LLVMGlobalGetValueType(fun)
-					    || (LLVMCountBasicBlocks(fun) > 0 && f.fbody)) {
-					import source.exception, std.format;
-					throw new CompileException(
-						f.location,
-						format!"Invalid redefinition of %s."(
-							f.name.toString(pass.context))
-					);
-				}
-
-				return lookup[f] = fun;
+			auto name = f.mangle.toStringz(context);
+			auto fun = LLVMGetNamedFunction(dmodule, name);
+			if (!fun) {
+				return globals[f] = LLVMAddFunction(dmodule, name, type);
 			}
 
-			return lookup[f] = LLVMAddFunction(pass.dmodule, name, type);
+			if ((!f.fbody || LLVMCountBasicBlocks(fun) == 0)
+				    && type == LLVMGlobalGetValueType(fun)) {
+				return globals[f] = fun;
+			}
+
+			import source.exception, std.format;
+			throw new CompileException(
+				f.location,
+				format!"Invalid redefinition of %s."(
+					f.name.toString(pass.context))
+			);
 		}());
 
-		if (isLocal || f.inTemplate || pass.mode == Mode.Eager) {
+		if (f.hasContext || f.inTemplate || pass.mode == Mode.Eager
+			    || (cast(NestedScope) f.getParentScope())) {
 			if (f.fbody && maybeDefine(f, fun)) {
 				LLVMSetLinkage(fun, LLVMLinkage.LinkOnceODR);
 			}
