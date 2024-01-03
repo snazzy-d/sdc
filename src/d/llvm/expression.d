@@ -1,7 +1,6 @@
 module d.llvm.expression;
 
 import d.llvm.local;
-import d.llvm.type;
 
 import d.ir.expression;
 import d.ir.symbol;
@@ -65,8 +64,7 @@ struct ExpressionGen {
 	private LLVMValueRef loadAddressOf(E)(E e) if (is(E : Expression))
 			in(e.isLvalue, "e must be an lvalue") {
 		auto t = e.type.getCanonical();
-		auto type = TypeGen(pass.pass).visit(t);
-		return buildLoad(addressOf(e), type, t.qualifier);
+		return buildLoad(addressOf(e), typeGen.visit(t), t.qualifier);
 	}
 
 	private LLVMValueRef buildStore(LLVMValueRef ptr, LLVMValueRef val,
@@ -132,8 +130,7 @@ struct ExpressionGen {
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 
 		// Generate phi to get the result.
-		auto eType = TypeGen(pass.pass).visit(e.type);
-		auto phiNode = LLVMBuildPhi(builder, eType, "");
+		auto phiNode = LLVMBuildPhi(builder, typeGen.visit(e.type), "");
 
 		LLVMValueRef[2] incomingValues = [lhs, rhs];
 		LLVMBasicBlockRef[2] incomingBlocks = [lhsBB, rhsBB];
@@ -267,7 +264,7 @@ struct ExpressionGen {
 
 	private LLVMValueRef buildUnary(int Offset, bool IsPost)(Expression e) {
 		auto t = e.type.getCanonical();
-		auto type = TypeGen(pass.pass).visit(t);
+		auto type = typeGen.visit(t);
 
 		auto ptr = addressOf(e);
 		auto value = buildLoad(ptr, type, t.qualifier);
@@ -275,7 +272,7 @@ struct ExpressionGen {
 
 		if (t.kind == TypeKind.Pointer) {
 			auto o = LLVMConstInt(i32, Offset, true);
-			auto gepType = TypeGen(pass.pass).getElementType(t);
+			auto gepType = typeGen.getElementType(t);
 			value = LLVMBuildInBoundsGEP2(builder, gepType, value, &o, 1, "");
 		} else {
 			auto o = LLVMConstInt(type, Offset, true);
@@ -293,7 +290,7 @@ struct ExpressionGen {
 
 			case Dereference:
 				auto t = e.type.getCanonical();
-				auto type = TypeGen(pass.pass).visit(t);
+				auto type = typeGen.visit(t);
 				return buildLoad(visit(e.expr), type, t.qualifier);
 
 			case PreInc:
@@ -312,18 +309,18 @@ struct ExpressionGen {
 				return visit(e.expr);
 
 			case Minus:
-				auto eType = TypeGen(pass.pass).visit(e.type);
+				auto eType = typeGen.visit(e.type);
 				return LLVMBuildSub(builder, LLVMConstInt(eType, 0, true),
 				                    visit(e.expr), "");
 
 			case Not:
-				auto eType = TypeGen(pass.pass).visit(e.type);
+				auto eType = typeGen.visit(e.type);
 				return LLVMBuildICmp(
 					builder, LLVMIntPredicate.EQ, LLVMConstInt(eType, 0, true),
 					visit(e.expr), "");
 
 			case Complement:
-				auto eType = TypeGen(pass.pass).visit(e.type);
+				auto eType = typeGen.visit(e.type);
 				return LLVMBuildXor(builder, visit(e.expr),
 				                    LLVMConstInt(eType, -1, true), "");
 		}
@@ -365,7 +362,7 @@ struct ExpressionGen {
 		// Generate phi to get the result.
 		LLVMPositionBuilderAtEnd(builder, mergeBB);
 
-		auto eType = TypeGen(pass.pass).visit(e.type);
+		auto eType = typeGen.visit(e.type);
 		auto phiNode = LLVMBuildPhi(builder, eType, "");
 
 		LLVMValueRef[2] incomingValues = [ifTrue, ifFalse];
@@ -439,7 +436,7 @@ struct ExpressionGen {
 		auto length = cast(uint) tCtxs.length;
 		assert(eCtxs.length == length);
 
-		auto dg = LLVMGetUndef(TypeGen(pass.pass).visit(type));
+		auto dg = LLVMGetUndef(typeGen.visit(type));
 
 		foreach (size_t idx, c; eCtxs) {
 			auto i = cast(uint) idx;
@@ -462,8 +459,8 @@ struct ExpressionGen {
 		auto ct = e.type.getCanonical();
 		bool isClass = ct.kind == TypeKind.Class;
 		auto eType = isClass
-			? TypeGen(pass.pass).getClassStructure(ct.dclass)
-			: TypeGen(pass.pass).visit(ct.element);
+			? typeGen.getClassStructure(ct.dclass)
+			: typeGen.visit(ct.element);
 
 		import d.llvm.runtime;
 		auto ptr = RuntimeGen(pass).genGCalloc(eType);
@@ -515,7 +512,7 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(SliceExpression e) {
 		auto t = e.sliced.type.getCanonical();
-		auto eType = TypeGen(pass.pass).getElementType(t);
+		auto eType = typeGen.getElementType(t);
 
 		LLVMValueRef length, ptr;
 		switch (t.kind) with (TypeKind) {
@@ -557,7 +554,7 @@ struct ExpressionGen {
 
 		genBoundCheck(e.location, condition);
 
-		auto sliceType = TypeGen(pass.pass).visit(e.type);
+		auto sliceType = typeGen.visit(e.type);
 		auto slice = LLVMGetUndef(sliceType);
 
 		auto sub = LLVMBuildSub(builder, second, first, "");
@@ -629,7 +626,7 @@ struct ExpressionGen {
 			return buildDownCast(value, t.dclass);
 		}
 
-		auto type = TypeGen(pass.pass).visit(t);
+		auto type = typeGen.visit(t);
 
 		final switch (e.kind) with (CastKind) {
 			case Bit:
@@ -685,7 +682,7 @@ struct ExpressionGen {
 		auto t = e.type;
 		auto count = cast(uint) e.values.length;
 
-		auto eType = TypeGen(pass.pass).visit(t.element);
+		auto eType = typeGen.visit(t.element);
 		auto type = LLVMArrayType(eType, count);
 		auto array = LLVMGetUndef(type);
 
@@ -778,7 +775,7 @@ struct ExpressionGen {
 			i++;
 		}
 
-		auto type = TypeGen(pass.pass).getFunctionType(cType);
+		auto type = typeGen.getFunctionType(cType);
 		return buildCall(callee, type, args);
 	}
 
@@ -789,21 +786,21 @@ struct ExpressionGen {
 			return r;
 		}
 
-		auto returnType = TypeGen(pass.pass).visit(c.type);
+		auto returnType = typeGen.visit(c.type);
 		return LLVMBuildLoad2(builder, returnType, r, "");
 	}
 
 	LLVMValueRef visit(IntrinsicExpression e) {
-		import d.llvm.intrinsic, d.llvm.type;
+		import d.llvm.intrinsic;
 		return buildBitCast(
 			IntrinsicGen(pass).build(e.intrinsic, e.arguments),
 			// XXX: This is necessary until returning sequence is supported.
-			TypeGen(pass.pass).visit(e.type)
+			typeGen.visit(e.type)
 		);
 	}
 
 	LLVMValueRef visit(TupleExpression e) {
-		auto tuple = LLVMGetUndef(TypeGen(pass.pass).visit(e.type));
+		auto tuple = LLVMGetUndef(typeGen.visit(e.type));
 
 		uint i = 0;
 		import std.algorithm;
@@ -871,18 +868,18 @@ struct AddressOfGen {
 		switch (t.kind) with (TypeKind) {
 			case Slice, Struct, Union:
 				ptr = visit(base);
-				type = TypeGen(pass.pass).visit(t);
+				type = typeGen.visit(t);
 				break;
 
 			// XXX: Remove pointer. libd do not dererefence as expected.
 			case Pointer:
 				ptr = valueOf(base);
-				type = TypeGen(pass.pass).getElementType(t);
+				type = typeGen.getElementType(t);
 				break;
 
 			case Class:
 				ptr = valueOf(base);
-				type = TypeGen(pass.pass).getClassStructure(t.dclass);
+				type = typeGen.getClassStructure(t.dclass);
 				break;
 
 			default:
@@ -914,7 +911,7 @@ struct AddressOfGen {
 	}
 
 	LLVMValueRef visit(CastExpression e) {
-		auto type = TypeGen(pass.pass).visit(e.type);
+		auto type = typeGen.visit(e.type);
 		auto value = visit(e.expr);
 
 		final switch (e.kind) with (CastKind) {
@@ -941,7 +938,7 @@ struct AddressOfGen {
 	auto computeIndexPtr(Location location, Expression indexed,
 	                     Expression index) {
 		auto t = indexed.type.getCanonical();
-		auto eType = TypeGen(pass.pass).getElementType(t);
+		auto eType = typeGen.getElementType(t);
 
 		LLVMValueRef ptr, length;
 

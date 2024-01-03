@@ -75,6 +75,12 @@ struct LocalGen {
 		return GlobalGen(pass, mode);
 	}
 
+	@property
+	auto typeGen() {
+		import d.llvm.type;
+		return TypeGen(pass);
+	}
+
 	// XXX: lack of multiple alias this, so we do it automanually.
 	private {
 		@property
@@ -153,8 +159,7 @@ struct LocalGen {
 		lookup = globals;
 
 		auto fun = lookup.get(f, {
-			import d.llvm.type;
-			auto type = TypeGen(pass).getFunctionType(f.type);
+			auto type = typeGen.getFunctionType(f.type);
 
 			// The method may have been defined when visiting the type.
 			if (auto funPtr = f in lookup) {
@@ -240,8 +245,7 @@ struct LocalGen {
 		// Handle parameters in the alloca block.
 		LLVMPositionBuilderAtEnd(builder, allocaBB);
 
-		import d.llvm.type;
-		auto funType = TypeGen(pass).getFunctionType(f.type);
+		auto funType = typeGen.getFunctionType(f.type);
 
 		LLVMValueRef[] params;
 		LLVMTypeRef[] paramTypes;
@@ -264,8 +268,7 @@ struct LocalGen {
 
 		auto parameters = f.params;
 
-		import d.llvm.type;
-		auto closure = Closure(f.closure, TypeGen(pass).visit(f));
+		auto closure = Closure(f.closure, typeGen.visit(f));
 		if (f.hasContext) {
 			auto parentCtxType = f.type.parameters[0];
 			assert(parentCtxType.isRef || parentCtxType.isFinal);
@@ -274,8 +277,7 @@ struct LocalGen {
 			LLVMSetValueName(parentCtx, "__ctx");
 
 			// Find the right context as parent.
-			import d.llvm.type;
-			auto ctxTypeGen = TypeGen(pass).visit(parentCtxType.getType());
+			auto ctxTypeGen = typeGen.visit(parentCtxType.getType());
 
 			import std.algorithm, std.range;
 			auto ctxCount = contexts.length
@@ -293,8 +295,7 @@ struct LocalGen {
 			contexts ~= closure;
 		} else {
 			// Build closure for this function.
-			import d.llvm.type;
-			closure.type = TypeGen(pass).visit(f);
+			closure.type = typeGen.visit(f);
 			contexts = [closure];
 		}
 
@@ -371,11 +372,10 @@ struct LocalGen {
 		auto f = a.fields[i];
 		assert(f.index == i, "Invalid index!");
 
-		import d.llvm.type;
 		static if (is(A : Class)) {
-			auto baseStruct = TypeGen(pass).getClassStructure(a);
+			auto baseStruct = typeGen.getClassStructure(a);
 		} else {
-			auto baseStruct = TypeGen(pass).visit(a);
+			auto baseStruct = typeGen.visit(a);
 		}
 
 		auto rootPtr = LLVMBuildStructGEP2(builder, baseStruct, thisPtr, i, "");
@@ -476,10 +476,9 @@ struct LocalGen {
 			assert(LLVMGetInsertBlock(builder) is backupCurrentBlock);
 		}
 
-		import d.llvm.type;
 		LLVMValueRef addr = (v.storage == Storage.Capture)
 			? createCaptureStorage(v, name)
-			: LLVMBuildAlloca(builder, TypeGen(pass).visit(v.type), name);
+			: LLVMBuildAlloca(builder, typeGen.visit(v.type), name);
 
 		// Store the initial value into the alloca.
 		LLVMPositionBuilderAtEnd(builder, backupCurrentBlock);
@@ -503,8 +502,7 @@ struct LocalGen {
 	}
 
 	LLVMValueRef getContext(Function f) {
-		import d.llvm.type;
-		auto type = TypeGen(pass).visit(f);
+		auto type = typeGen.visit(f);
 		auto value = ctxPtr;
 		foreach_reverse (i, c; contexts) {
 			if (value is null) {
@@ -549,8 +547,7 @@ struct LocalGen {
 	}
 
 	LLVMTypeRef define(Struct s) in(s.step == Step.Processed) {
-		import d.llvm.type;
-		auto ret = TypeGen(pass).visit(s);
+		auto ret = typeGen.visit(s);
 
 		foreach (m; s.members) {
 			define(m);
@@ -581,13 +578,11 @@ struct LocalGen {
 			define(m);
 		}
 
-		import d.llvm.type;
-		return TypeGen(pass).visit(c);
+		return typeGen.visit(c);
 	}
 
 	LLVMTypeRef define(Union u) in(u.step == Step.Processed) {
-		import d.llvm.type;
-		auto ret = TypeGen(pass).visit(u);
+		auto ret = typeGen.visit(u);
 
 		foreach (m; u.members) {
 			define(m);
@@ -597,8 +592,7 @@ struct LocalGen {
 	}
 
 	LLVMTypeRef define(Interface i) in(i.step == Step.Processed) {
-		import d.llvm.type;
-		return TypeGen(pass).visit(i);
+		return typeGen.visit(i);
 	}
 
 	private LLVMValueRef genPrimaries(Class c, string mangle) {
@@ -642,8 +636,7 @@ struct LocalGen {
 			classInfoClass = pass.object.getClassInfo();
 		}
 
-		import d.llvm.type;
-		auto classInfoStruct = TypeGen(pass).getClassStructure(classInfoClass);
+		auto classInfoStruct = typeGen.getClassStructure(classInfoClass);
 
 		auto methodCount = cast(uint) c.methods.length;
 		auto vtblArray = LLVMArrayType(llvmPtr, methodCount);
