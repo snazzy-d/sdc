@@ -199,11 +199,9 @@ struct LocalGen {
 			return fun;
 		}
 
-		auto linkage = LLVMGetLinkage(fun);
-
 		import std.format;
 		assert(
-			linkage == LLVMLinkage.LinkOnceODR,
+			LLVMGetLinkage(fun) == LLVMLinkage.LinkOnceODR,
 			format!"Function %s is already defined."(f.mangle.toString(context))
 		);
 
@@ -562,6 +560,12 @@ struct LocalGen {
 	}
 
 	LLVMTypeRef define(Class c) in(c.step == Step.Processed) {
+		// If we are in eager mode, make sure the parent is defined too.
+		if (mode == Mode.Eager && c !is c.base) {
+			define(c.base);
+		}
+
+		// Define virtual methods.
 		foreach (m; c.methods) {
 			// We don't want to define inherited methods in childs.
 			if (!m.hasThis || m.type.parameters[0].getType().dclass is c) {
@@ -569,6 +573,10 @@ struct LocalGen {
 			}
 		}
 
+		// Generate the ClassInfo so we have it even if it is not used.
+		getClassInfo(c);
+
+		// Anything else that could be in there.
 		foreach (m; c.members) {
 			define(m);
 		}
