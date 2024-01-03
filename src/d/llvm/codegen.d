@@ -136,32 +136,38 @@ final class CodeGen {
 		return m;
 	}
 
-	auto buildCString(string str)
-			in(str.length < uint.max, "string length must be < uint.max") {
-		auto cstr = str ~ '\0';
-		auto charArray = LLVMConstStringInContext(llvmCtx, cstr.ptr,
-		                                          cast(uint) cstr.length, true);
+	private auto buildStringConstant(string str)
+			in(str.length <= uint.max, "string length must be < uint.max") {
+		return stringLiterals.get(str, stringLiterals[str] = {
+			auto charArray =
+				LLVMConstStringInContext(llvmCtx, str.ptr,
+				                         cast(uint) str.length, true);
 
-		auto type = LLVMTypeOf(charArray);
-		auto globalVar = LLVMAddGlobal(dmodule, type, ".str");
-		LLVMSetInitializer(globalVar, charArray);
-		LLVMSetLinkage(globalVar, LLVMLinkage.Private);
-		LLVMSetGlobalConstant(globalVar, true);
-		LLVMSetUnnamedAddr(globalVar, true);
+			auto type = LLVMTypeOf(charArray);
+			auto globalVar = LLVMAddGlobal(dmodule, type, ".str");
+			LLVMSetInitializer(globalVar, charArray);
+			LLVMSetLinkage(globalVar, LLVMLinkage.Private);
+			LLVMSetGlobalConstant(globalVar, true);
+			LLVMSetUnnamedAddr(globalVar, true);
 
-		auto zero = LLVMConstInt(i32, 0, true);
-		LLVMValueRef[2] indices = [zero, zero];
-		return
-			LLVMConstInBoundsGEP2(type, globalVar, indices.ptr, indices.length);
+			auto zero = LLVMConstInt(i32, 0, true);
+			LLVMValueRef[2] indices = [zero, zero];
+			return LLVMConstInBoundsGEP2(type, globalVar, indices.ptr,
+			                             indices.length);
+		}());
+	}
+
+	auto buildCString(string str) {
+		import std.string;
+		auto cstr = str.toStringz()[0 .. str.length + 1];
+		return buildStringConstant(cstr);
 	}
 
 	auto buildDString(string str) {
-		return stringLiterals.get(str, stringLiterals[str] = {
-			LLVMValueRef[2] slice =
-				[LLVMConstInt(i64, str.length, false), buildCString(str)];
-			return LLVMConstStructInContext(llvmCtx, slice.ptr, slice.length,
-			                                false);
-		}());
+		LLVMValueRef[2] slice =
+			[LLVMConstInt(i64, str.length, false), buildStringConstant(str)];
+		return
+			LLVMConstStructInContext(llvmCtx, slice.ptr, slice.length, false);
 	}
 
 	auto checkModule() {

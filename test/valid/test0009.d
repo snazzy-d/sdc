@@ -15,8 +15,8 @@ int main() {
 		return 2;
 	}
 
-	auto p = str.ptr;
-	if (strlen(p) != str.length) {
+	const(char)* p = "test";
+	if (strlen(p) == str.length + 1) {
 		return 3;
 	}
 
