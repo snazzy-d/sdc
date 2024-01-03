@@ -22,6 +22,12 @@ struct ConstantGen {
 		this.pass = pass;
 	}
 
+	@property
+	auto typeGen() {
+		import d.llvm.type;
+		return TypeGen(pass);
+	}
+
 	// XXX: lack of multiple alias this, so we do it automanually.
 	private {
 		@property
@@ -35,8 +41,7 @@ struct ConstantGen {
 	}
 
 	LLVMValueRef visit(VoidConstant c) {
-		import d.llvm.type;
-		return LLVMGetUndef(TypeGen(pass).visit(c.type));
+		return LLVMGetUndef(typeGen.visit(c.type));
 	}
 
 	LLVMValueRef visit(NullConstant c) {
@@ -44,24 +49,21 @@ struct ConstantGen {
 	}
 
 	LLVMValueRef visit(BooleanConstant b) {
-		import d.llvm.type;
 		return LLVMConstInt(i1, b.value, false);
 	}
 
 	LLVMValueRef visit(IntegerConstant i) {
-		import d.ir.type, d.llvm.type;
-		return LLVMConstInt(TypeGen(pass).visit(i.type), i.value,
+		import d.ir.type;
+		return LLVMConstInt(typeGen.visit(i.type), i.value,
 		                    i.type.builtin.isSigned());
 	}
 
 	LLVMValueRef visit(FloatConstant f) {
-		import d.llvm.type;
-		return LLVMConstReal(TypeGen(pass).visit(f.type), f.value);
+		return LLVMConstReal(typeGen.visit(f.type), f.value);
 	}
 
 	LLVMValueRef visit(CharacterConstant c) {
-		import d.llvm.type;
-		return LLVMConstInt(TypeGen(pass).visit(c.type), c.value, false);
+		return LLVMConstInt(typeGen.visit(c.type), c.value, false);
 	}
 
 	LLVMValueRef visit(StringConstant s) {
@@ -133,16 +135,14 @@ struct ConstantGen {
 		import std.algorithm, std.array;
 		auto elts = e.values.map!(v => visit(v)).array();
 
-		import d.llvm.type;
-		auto t = TypeGen(pass).visit(e.type);
-
+		auto t = typeGen.visit(e.type);
 		switch (LLVMGetTypeKind(t)) with (LLVMTypeKind) {
 			case Struct:
 				return
 					LLVMConstNamedStruct(t, elts.ptr, cast(uint) elts.length);
 
 			case Array:
-				auto et = TypeGen(pass).visit(e.type.element);
+				auto et = typeGen.visit(e.type.element);
 				return LLVMConstArray(et, elts.ptr, cast(uint) elts.length);
 
 			default:
