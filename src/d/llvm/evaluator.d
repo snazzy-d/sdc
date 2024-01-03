@@ -222,36 +222,37 @@ auto createExecutionEngine(LLVMModuleRef dmodule) {
 	auto creationError =
 		LLVMCreateMCJITCompilerForModule(&ee, dmodule, null, 0, &errorPtr);
 
-	if (creationError) {
-		scope(exit) LLVMDisposeMessage(errorPtr);
-
-		import core.stdc.string;
-		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-
-		import std.stdio;
-		writeln(error);
-		assert(0, "Cannot create execution engine ! Exiting...");
+	if (!creationError) {
+		return ee;
 	}
 
-	return ee;
+	scope(exit) LLVMDisposeMessage(errorPtr);
+
+	import core.stdc.string;
+	auto error = errorPtr[0 .. strlen(errorPtr)].idup;
+
+	import std.stdio;
+	writeln(error);
+	assert(0, "Cannot create execution engine!");
 }
 
-auto destroyExecutionEngine(LLVMExecutionEngineRef ee, LLVMModuleRef dmodule) {
+void destroyExecutionEngine(LLVMExecutionEngineRef ee, LLVMModuleRef dmodule) {
 	char* errorPtr;
 	LLVMModuleRef outMod;
 	auto removeError = LLVMRemoveModule(ee, dmodule, &outMod, &errorPtr);
 
-	if (removeError) {
-		scope(exit) LLVMDisposeMessage(errorPtr);
-		import core.stdc.string;
-		auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-
-		import std.stdio;
-		writeln(error);
-		assert(0, "Cannot remove module from execution engine ! Exiting...");
+	if (!removeError) {
+		LLVMDisposeExecutionEngine(ee);
+		return;
 	}
 
-	LLVMDisposeExecutionEngine(ee);
+	scope(exit) LLVMDisposeMessage(errorPtr);
+	import core.stdc.string;
+	auto error = errorPtr[0 .. strlen(errorPtr)].idup;
+
+	import std.stdio;
+	writeln(error);
+	assert(0, "Cannot remove module from execution engine!");
 }
 
 private:
@@ -280,16 +281,16 @@ struct JitRepacker {
 		import d.llvm.type, llvm.c.target;
 		auto size = LLVMStoreSizeOfType(targetData, TypeGen(pass).visit(t));
 
-		import std.conv;
+		import std.format;
 		assert(
 			size == p.length,
-			"Buffer of length " ~ p.length.to!string() ~ " when "
-				~ size.to!string() ~ " was expected"
+			format!"Buffer of length %s provided when %s was expected!"(
+				p.length, size)
 		);
 	} out(result) {
 		// FIXME: This does not always pass now.
 		// assert(result.type == t, "Result type do not match");
-		assert(p.length == 0, "Remaining data in the buffer");
+		assert(p.length == 0, "Remaining data in the buffer!");
 	} do {
 		return t.accept(this);
 	}
@@ -327,12 +328,12 @@ struct JitRepacker {
 				                              new IntegerConstant(raw, t));
 
 			default:
-				assert(0, "Not implemented");
+				assert(0, "Not implemented.");
 		}
 	}
 
 	CompileTimeExpression visitPointerOf(Type t) {
-		assert(0, "Not implemented");
+		assert(0, "Not implemented.");
 	}
 
 	CompileTimeExpression visitSliceOf(Type t) {
@@ -384,7 +385,7 @@ struct JitRepacker {
 			auto i = cast(uint) idx;
 			assert(i == idx);
 
-			assert(f.index == i, "fields are out of order");
+			assert(f.index == i, "Fields are out of order!");
 			auto t = f.type;
 
 			auto start = LLVMOffsetOfElement(targetData, type, i);
