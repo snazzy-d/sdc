@@ -28,7 +28,7 @@ struct TemplateInstancier {
 				return t.parameters.length >= args.length;
 			}
 
-			assert(0, "this isn't a template");
+			assert(0, "This isn't a template.");
 		});
 
 		Template match;
@@ -69,9 +69,9 @@ struct TemplateInstancier {
 					return TemplateArgument.init;
 				}
 
-				import source.exception;
+				import source.exception, std.format;
 				throw new CompileException(
-					p.location, typeid(p).toString() ~ " not implemented");
+					p.location, format!"%s not implemented."(typeid(p)));
 			}
 
 			import std.algorithm, std.array;
@@ -84,7 +84,7 @@ struct TemplateInstancier {
 			bool t2match = matchArguments(match, asArg, [], dummy);
 
 			if (t2match == match2t) {
-				assert(0, "Ambiguous template");
+				assert(0, "Ambiguous template.");
 			}
 
 			if (t2match) {
@@ -168,6 +168,7 @@ private:
 						evaluate(buildImplicitCast(pass, v.location, v.type,
 						                           v.defaultValue))
 					);
+
 					return ValueMatcher(pass, matchedArgs, e).visit(v);
 				}
 			}
@@ -233,7 +234,8 @@ private:
 				argSyms ~= a;
 				return "S" ~ a.mangle.toString(pass.context);
 			} else {
-				assert(0, typeid(identified).toString() ~ " is not supported.");
+				import std.format;
+				assert(0, format!"%s is not supported."(typeid(identified)));
 			}
 		})).array().join();
 
