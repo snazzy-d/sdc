@@ -198,7 +198,20 @@ struct InitBuilder {
 		       "delegate initializer is not implemented.");
 
 		auto elements = [visit(f.contexts[0]), visit(f.getFunction())];
-		return new CompileTimeTupleExpression(location, f.getType(), elements);
+
+		Constant[] constants;
+		foreach (e; elements) {
+			if (auto ce = cast(ConstantExpression) e) {
+				constants ~= ce.value;
+				continue;
+			}
+
+			return
+				new CompileTimeTupleExpression(location, f.getType(), elements);
+		}
+
+		return new ConstantExpression(
+			location, new SplatConstant(f.getType(), constants));
 	}
 
 	CompileTimeExpression visit(Pattern p) {
