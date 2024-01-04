@@ -108,7 +108,7 @@ final class SemanticPass {
 	}
 
 	auto evaluate(Expression e) {
-		return evaluator.evaluate(e);
+		return new ConstantExpression(e.location, evaluator.evaluate(e));
 	}
 
 	auto evalIntegral(Expression e) {

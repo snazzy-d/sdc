@@ -163,7 +163,7 @@ private:
 			if (auto v = cast(ValueTemplateParameter) p) {
 				if (v.defaultValue !is null) {
 					import d.semantic.caster;
-					auto e = pass.evaluate(
+					auto e = evaluate(
 						buildImplicitCast(pass, v.location, v.type,
 						                  v.defaultValue));
 					return ValueMatcher(pass, matchedArgs, e).visit(v);
@@ -616,7 +616,7 @@ struct SymbolMatcher {
 				.postProcess(p.location, vs).apply!(delegate bool(i) {
 					alias T = typeof(i);
 					static if (is(T : Expression)) {
-						auto v = pass.evaluate(i);
+						auto v = evaluate(i);
 						return ValueMatcher(pass, matchedArgs, v).visit(p);
 					} else {
 						return false;
@@ -647,7 +647,7 @@ struct SymbolMatcher {
 			.postProcess(p.location, matchee).apply!(delegate bool(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
-					auto v = pass.evaluate(identified);
+					auto v = evaluate(identified);
 					return ValueMatcher(pass, matchedArgs, v).visit(p);
 				} else {
 					return false;

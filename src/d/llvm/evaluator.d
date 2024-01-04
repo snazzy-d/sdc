@@ -1,6 +1,7 @@
 module d.llvm.evaluator;
 
 import d.llvm.codegen;
+import d.llvm.global;
 
 import d.ir.constant;
 import d.ir.expression;
@@ -58,7 +59,6 @@ extern(C) {
 
 final class LLVMEvaluator : Evaluator {
 private:
-	import d.llvm.global;
 	GlobalGen globalGen;
 
 	alias pass this;
@@ -72,18 +72,21 @@ public:
 		globalGen = GlobalGen(pass, "sdc.jit", Mode.Eager);
 	}
 
-	CompileTimeExpression evaluate(Expression e) {
-		if (auto ce = cast(CompileTimeExpression) e) {
-			return ce;
+	Constant evaluate(Expression e) {
+		if (auto ce = cast(ConstantExpression) e) {
+			return ce.value;
+		}
+
+		import d.ir.error;
+		if (auto ee = cast(ErrorExpression) e) {
+			return ee.error.constant;
 		}
 
 		// We agressively JIT all CTFE.
-		auto c =
+		return
 			jit!(function Constant(CodeGen pass, Expression e, void[] buffer) {
 				return JitRepacker(pass, buffer).visit(e.type);
 			})(e);
-
-		return new ConstantExpression(e.location, c);
 	}
 
 	ulong evalIntegral(Expression e) in {
