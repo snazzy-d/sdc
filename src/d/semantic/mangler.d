@@ -205,18 +205,12 @@ struct TypeMangler {
 	}
 }
 
-struct ValueMangler {
-	import d.ir.expression;
-	string visit(CompileTimeExpression e) {
-		return this.dispatch(e);
-	}
-
-	string visit(ConstantExpression e) {
-		return ConstantMangler().visit(e.value);
-	}
-}
-
 struct ConstantMangler {
+	import d.ir.expression;
+	string visit(ConstantExpression e) {
+		return this.dispatch(e.value);
+	}
+
 	import d.ir.constant;
 	string visit(Constant c) {
 		return this.dispatch(c);

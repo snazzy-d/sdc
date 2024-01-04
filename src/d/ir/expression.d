@@ -40,20 +40,11 @@ Expression build(E, T...)(T args)
 	return new E(args);
 }
 
-/**
- * Any expression that have a value known at compile time.
- */
-abstract class CompileTimeExpression : Expression {
-	this(Location location, Type type) {
-		super(location, type);
-	}
-}
-
 final:
 /**
  * This serves as a bridge to d.ir.constant .
  */
-class ConstantExpression : CompileTimeExpression {
+class ConstantExpression : Expression {
 	Constant value;
 
 	this(Location location, Constant value) {

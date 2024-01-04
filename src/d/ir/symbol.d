@@ -439,7 +439,7 @@ class TemplateInstance : Symbol, Scope {
 }
 
 alias TemplateArgument =
-	Type.UnionType!(typeof(null), Symbol, CompileTimeExpression);
+	Type.UnionType!(typeof(null), Symbol, ConstantExpression);
 
 auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
 	alias Tag = typeof(a.tag);
@@ -450,8 +450,8 @@ auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
 		case Symbol:
 			return handler(a.get!Symbol);
 
-		case CompileTimeExpression:
-			return handler(a.get!CompileTimeExpression);
+		case ConstantExpression:
+			return handler(a.get!ConstantExpression);
 
 		case Type:
 			return handler(a.get!Type);
@@ -502,9 +502,9 @@ class TypeAlias : Symbol {
  * Alias of values
  */
 class ValueAlias : ValueSymbol {
-	CompileTimeExpression value;
+	ConstantExpression value;
 
-	this(Location location, Name name, CompileTimeExpression value) {
+	this(Location location, Name name, ConstantExpression value) {
 		super(location, name);
 
 		this.value = value;

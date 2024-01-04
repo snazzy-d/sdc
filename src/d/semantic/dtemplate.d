@@ -213,12 +213,12 @@ private:
 
 				argSyms ~= a;
 				return "T" ~ a.mangle.toString(pass.context);
-			} else static if (is(T : CompileTimeExpression)) {
+			} else static if (is(T : ConstantExpression)) {
 				auto a = new ValueAlias(p.location, p.name, identified);
 
 				import d.semantic.mangler;
 				auto typeMangle = TypeMangler(pass).visit(identified.type);
-				auto valueMangle = ValueMangler().visit(identified);
+				auto valueMangle = ConstantMangler().visit(identified);
 				a.mangle = pass.context.getName(typeMangle ~ valueMangle);
 				a.step = Step.Processed;
 
@@ -521,13 +521,13 @@ struct TypeMatcher(bool isIFTI) {
 
 struct ValueMatcher {
 	TemplateArgument[] matchedArgs;
-	CompileTimeExpression matchee;
+	ConstantExpression matchee;
 
 	SemanticPass pass;
 	alias pass this;
 
 	this(SemanticPass pass, TemplateArgument[] matchedArgs,
-	     CompileTimeExpression matchee) {
+	     ConstantExpression matchee) {
 		this.pass = pass;
 		this.matchedArgs = matchedArgs;
 		this.matchee = matchee;
