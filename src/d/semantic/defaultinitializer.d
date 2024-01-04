@@ -240,12 +240,24 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		import std.algorithm, std.array;
 		auto elements = splat.map!(t => visit(t)).array();
 
-		static if (isCompileTime) {
-			return new CompileTimeTupleExpression(location, Type.get(splat),
-			                                      elements);
-		} else {
-			return build!TupleExpression(location, Type.get(splat), elements);
+		Constant[] constants;
+		foreach (e; elements) {
+			if (auto ce = cast(ConstantExpression) e) {
+				constants ~= ce.value;
+				continue;
+			}
+
+			static if (isCompileTime) {
+				return new CompileTimeTupleExpression(location, Type.get(splat),
+				                                      elements);
+			} else {
+				return
+					build!TupleExpression(location, Type.get(splat), elements);
+			}
 		}
+
+		return new ConstantExpression(
+			location, new SplatConstant(Type.get(splat), constants));
 	}
 
 	E visit(ParamType t) {
