@@ -91,9 +91,19 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 
 	E visitArrayOf(uint size, Type t) {
+		auto e = visit(t);
+		if (auto ce = cast(ConstantExpression) e) {
+			Constant[] elements;
+			elements.length = size;
+			elements[] = ce.value;
+
+			return new ConstantExpression(location,
+			                              new ArrayConstant(t, elements));
+		}
+
 		E[] elements;
 		elements.length = size;
-		elements[] = visit(t);
+		elements[] = e;
 
 		static if (isCompileTime) {
 			return new CompileTimeTupleExpression(location, t.getArray(size),
