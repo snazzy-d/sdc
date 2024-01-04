@@ -11,7 +11,7 @@ class CompileError {
 	Location location;
 	string message;
 
-	void[StorageSize!ErrorSymbol] symStorage;
+	void[StorageSize!ErrorSymbol] symbolStorage;
 	void[StorageSize!ErrorExpression] exprStorage;
 
 public:
@@ -20,7 +20,7 @@ public:
 		this.message = message;
 
 		import std.conv;
-		symStorage.emplace!ErrorSymbol(this);
+		symbolStorage.emplace!ErrorSymbol(this);
 		exprStorage.emplace!ErrorExpression(this);
 	}
 
@@ -31,7 +31,7 @@ public:
 final:
 	@property
 	auto symbol() inout {
-		return cast(inout(ErrorSymbol)) symStorage.ptr;
+		return cast(inout(ErrorSymbol)) symbolStorage.ptr;
 	}
 
 	@property
@@ -41,46 +41,33 @@ final:
 
 	@property
 	auto type() {
-		import d.ir.type;
 		return Type.get(this);
 	}
 }
 
-CompileError getError(T)(T t, Location location, string msg) {
-	import d.ir.type;
-	static if (is(T : Expression)) {
-		if (auto e = cast(ErrorExpression) t) {
-			return e.error;
-		}
-	} else static if (is(T : Symbol)) {
-		if (auto e = cast(ErrorSymbol) t) {
-			return e.error;
-		}
-	} else static if (is(T : Type)) {
-		if (t.kind == TypeKind.Error) {
-			return t.error;
-		}
-	} else {
-		static assert(0, "Unepxected " ~ typeid(t).toString());
+CompileError getError(T)(T t, Location location, string msg)
+		if (isErrorizable!T) {
+	if (auto e = errorize(t)) {
+		return e;
 	}
 
 	return new CompileError(location, msg);
-}
-
-CompileError errorize(E)(E e) if (is(E : Expression)) {
-	static if (is(ErrorExpression : E)) {
-		if (auto ee = cast(ErrorExpression) e) {
-			return ee.error;
-		}
-	}
-
-	return null;
 }
 
 CompileError errorize(S)(S s) if (is(S : Symbol)) {
 	static if (is(ErrorSymbol : S)) {
 		if (auto es = cast(ErrorSymbol) s) {
 			return es.error;
+		}
+	}
+
+	return null;
+}
+
+CompileError errorize(E)(E e) if (is(E : Expression)) {
+	static if (is(ErrorExpression : E)) {
+		if (auto ee = cast(ErrorExpression) e) {
+			return ee.error;
 		}
 	}
 
@@ -122,33 +109,6 @@ CompileError errorize(T...)(T ts) if (T.length > 1) {
 
 final:
 /**
- * An Error occured but an Expression is expected.
- * Useful for speculative compilation.
- */
-class ErrorExpression : CompileTimeExpression {
-	// private:
-	this(CompileError error) {
-		import d.ir.type;
-		super(error.location, Type.get(error));
-	}
-
-	invariant() {
-		import d.ir.type;
-		assert(type.kind == TypeKind.Error);
-	}
-
-public:
-	@property
-	auto error() {
-		return type.error;
-	}
-
-	override string toString(const Context c) const {
-		return type.toString(c);
-	}
-}
-
-/**
  * An Error occured but a Symbol is expected.
  * Useful for speculative compilation.
  */
@@ -166,7 +126,33 @@ class ErrorSymbol : Symbol {
 
 public:
 	override string toString(const Context c) const {
-		return "__error__(" ~ error.toString(c) ~ ")";
+		import std.format;
+		return format!"__error__(%s)"(error.toString(c));
+	}
+}
+
+/**
+ * An Error occured but an Expression is expected.
+ * Useful for speculative compilation.
+ */
+class ErrorExpression : CompileTimeExpression {
+	// private:
+	this(CompileError error) {
+		super(error.location, Type.get(error));
+	}
+
+	invariant() {
+		assert(type.kind == TypeKind.Error);
+	}
+
+public:
+	@property
+	auto error() {
+		return type.error;
+	}
+
+	override string toString(const Context c) const {
+		return type.toString(c);
 	}
 }
 
