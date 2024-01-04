@@ -159,7 +159,7 @@ public:
  * An Error occured but an Expression is expected.
  * Useful for speculative compilation.
  */
-class ErrorExpression : CompileTimeExpression {
+class ErrorExpression : Expression {
 	// private:
 	this(CompileError error) {
 		super(error.location, Type.get(error));
