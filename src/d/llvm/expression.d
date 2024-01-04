@@ -21,18 +21,16 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(Expression e) {
-		if (auto ce = cast(CompileTimeExpression) e) {
-			// XXX: for some resaon, pass.pass is need as
-			// alias this doesn't kick in.
-			import d.llvm.constant;
-			return ConstantGen(pass.pass).visit(ce);
-		}
-
 		return this.dispatch!(function LLVMValueRef(Expression e) {
 			import source.exception, std.format;
 			throw new CompileException(
 				e.location, format!"%s is not supported."(typeid(e)));
 		})(e);
+	}
+
+	LLVMValueRef visit(ConstantExpression e) {
+		import d.llvm.constant;
+		return ConstantGen(pass.pass).visit(e.value);
 	}
 
 	private LLVMValueRef addressOf(E)(E e) if (is(E : Expression))

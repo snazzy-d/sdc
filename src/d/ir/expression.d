@@ -670,39 +670,21 @@ class DynamicTypeidExpression : Expression {
 }
 
 /**
- * tuples. Also used for struct initialization.
+ * tuples. Also used for struct/class initialization.
  */
-template TupleExpressionImpl(bool isCompileTime = false) {
-	static if (isCompileTime) {
-		alias E = CompileTimeExpression;
-	} else {
-		alias E = Expression;
+class TupleExpression : Expression {
+	Expression[] values;
+
+	this(Location location, Type t, Expression[] values) {
+		// Implement type tuples.
+		super(location, t);
+
+		this.values = values;
 	}
 
-	class TupleExpressionImpl : E {
-		E[] values;
-
-		this(Location location, Type t, E[] values) {
-			// Implement type tuples.
-			super(location, t);
-
-			this.values = values;
-		}
-
-		override string toString(const Context c) const {
-			// TODO: make this look nice for structs, classes, arrays...
-			import std.format, std.algorithm;
-			static if (isCompileTime) {
-				return format!"ctTuple!(%-(%s, %))"(
-					values.map!(v => v.toString(c)));
-			} else {
-				return
-					format!"tuple(%-(%s, %))"(values.map!(v => v.toString(c)));
-			}
-		}
+	override string toString(const Context c) const {
+		// TODO: make this look nice for structs, classes, arrays...
+		import std.format, std.algorithm;
+		return format!"tuple(%-(%s, %))"(values.map!(v => v.toString(c)));
 	}
 }
-
-// XXX: required as long as 0 argument instanciation is not possible.
-alias TupleExpression = TupleExpressionImpl!false;
-alias CompileTimeTupleExpression = TupleExpressionImpl!true;

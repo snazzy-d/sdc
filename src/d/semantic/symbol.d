@@ -435,7 +435,7 @@ struct SymbolAnalyzer {
 		import d.semantic.defaultinitializer : InitBuilder;
 		auto value = d.value
 			? ExpressionVisitor(pass).visit(d.value)
-			: InitBuilder(pass, d.location).visit(type);
+			: InitBuilder(pass, d.location).asExpression(type);
 
 		return buildImplicitCast(pass, d.location, type, value);
 	}
@@ -601,7 +601,7 @@ struct SymbolAnalyzer {
 		s.step = Step.Populated;
 
 		import d.semantic.defaultinitializer;
-		init.value = InitBuilder(pass, s.location).visit(s);
+		init.value = InitBuilder(pass, s.location).asExpression(s);
 		init.step = Step.Processed;
 
 		// If the struct has no dtor and only pod fields, it is a pod.
@@ -689,7 +689,7 @@ struct SymbolAnalyzer {
 		u.step = Step.Populated;
 
 		import d.semantic.defaultinitializer;
-		init.value = InitBuilder(pass, u.location).visit(u);
+		init.value = InitBuilder(pass, u.location).asExpression(u);
 		init.step = Step.Processed;
 
 		import std.algorithm;

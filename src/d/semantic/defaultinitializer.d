@@ -27,14 +27,18 @@ struct InitBuilder {
 		this.location = location;
 	}
 
-	CompileTimeExpression visit(Type t) {
-		auto e = t.accept(this);
-		e.type = e.type.qualify(t.qualifier);
-
-		return e;
+	ConstantExpression asExpression(T)(T t) {
+		return new ConstantExpression(location, visit(t));
 	}
 
-	CompileTimeExpression visit(BuiltinType t) {
+	Constant visit(Type t) {
+		auto c = t.accept(this);
+		c.type = c.type.qualify(t.qualifier);
+
+		return c;
+	}
+
+	Constant visit(BuiltinType t) {
 		final switch (t) with (BuiltinType) {
 			case None, Void:
 				import std.format;
@@ -42,64 +46,47 @@ struct InitBuilder {
 					location,
 					format!"%s has no default initializer."(
 						Type.get(t).toString(context))
-				).expression;
+				).constant;
 
 			case Bool:
-				return new ConstantExpression(location,
-				                              new BooleanConstant(false));
+				return new BooleanConstant(false);
 
 			case Char, Wchar, Dchar:
-				return new ConstantExpression(
-					location, new CharacterConstant(getCharInit(t), t));
+				return new CharacterConstant(getCharInit(t), t);
 
 			case Byte, Ubyte, Short, Ushort, Int, Uint, Long, Ulong, Cent,
 			     Ucent:
-				return
-					new ConstantExpression(location, new IntegerConstant(0, t));
+				return new IntegerConstant(0, t);
 
 			case Float, Double, Real:
-				return new ConstantExpression(location,
-				                              new FloatConstant(double.nan, t));
+				return new FloatConstant(double.nan, t);
 
 			case Null:
-				return new ConstantExpression(location, new NullConstant());
+				return new NullConstant();
 		}
 	}
 
-	CompileTimeExpression visitPointerOf(Type t) {
-		return
-			new ConstantExpression(location, new NullConstant(t.getPointer()));
+	Constant visitPointerOf(Type t) {
+		return new NullConstant(t.getPointer());
 	}
 
-	CompileTimeExpression visitSliceOf(Type t) {
+	Constant visitSliceOf(Type t) {
 		auto sizet = pass.object.getSizeT().type.builtin;
 		Constant[] init =
 			[new NullConstant(t.getPointer()), new IntegerConstant(0, sizet)];
 
-		return new ConstantExpression(location,
-		                              new SplatConstant(t.getSlice(), init));
+		return new SplatConstant(t.getSlice(), init);
 	}
 
-	CompileTimeExpression visitArrayOf(uint size, Type t) {
-		auto e = visit(t);
-		if (auto ce = cast(ConstantExpression) e) {
-			Constant[] elements;
-			elements.length = size;
-			elements[] = ce.value;
-
-			return new ConstantExpression(location,
-			                              new ArrayConstant(t, elements));
-		}
-
-		CompileTimeExpression[] elements;
+	Constant visitArrayOf(uint size, Type t) {
+		Constant[] elements;
 		elements.length = size;
-		elements[] = e;
+		elements[] = visit(t);
 
-		return new CompileTimeTupleExpression(location, t.getArray(size),
-		                                      elements);
+		return new ArrayConstant(t, elements);
 	}
 
-	CompileTimeExpression visit(Struct s) {
+	Constant visit(Struct s) {
 		if (s.init) {
 			return s.init;
 		}
@@ -115,99 +102,71 @@ struct InitBuilder {
 			elements ~= f.value;
 		}
 
-		return s.init =
-			new ConstantExpression(location,
-			                       new AggregateConstant(s, elements));
+		return s.init = new AggregateConstant(s, elements);
 	}
 
-	CompileTimeExpression visit(Union u) {
+	Constant visit(Union u) {
 		// FIXME: Computing this properly would require layout
 		// informations from the backend. Will do for now.
-		return new ConstantExpression(location, new VoidConstant(Type.get(u)));
+		return new VoidConstant(Type.get(u));
 	}
 
-	CompileTimeExpression visit(Class c) {
-		return new ConstantExpression(location, new NullConstant(Type.get(c)));
+	Constant visit(Class c) {
+		return new NullConstant(Type.get(c));
 	}
 
-	CompileTimeExpression visit(Interface i) {
+	Constant visit(Interface i) {
 		Constant[] init =
 			[new NullConstant(Type.get(pass.object.getObject())),
 			 new NullConstant(Type.get(BuiltinType.Void).getPointer())];
 
-		return new ConstantExpression(location, new AggregateConstant(i, init));
+		return new AggregateConstant(i, init);
 	}
 
-	CompileTimeExpression visit(Enum e) {
+	Constant visit(Enum e) {
 		assert(0, "Not implemented.");
 	}
 
-	CompileTimeExpression visit(TypeAlias a) {
+	Constant visit(TypeAlias a) {
 		// TODO: build implicit cast.
 		return visit(a.type);
 	}
 
-	CompileTimeExpression visit(Function f) {
+	Constant visit(Function f) {
 		assert(0, "Not implemented.");
 	}
 
-	CompileTimeExpression visit(Type[] splat) {
+	Constant visit(Type[] splat) {
 		import std.algorithm, std.array;
 		auto elements = splat.map!(t => visit(t)).array();
 
-		Constant[] constants;
-		foreach (e; elements) {
-			if (auto ce = cast(ConstantExpression) e) {
-				constants ~= ce.value;
-				continue;
-			}
-
-			return new CompileTimeTupleExpression(location, Type.get(splat),
-			                                      elements);
-		}
-
-		return new ConstantExpression(
-			location, new SplatConstant(Type.get(splat), constants));
+		return new SplatConstant(Type.get(splat), elements);
 	}
 
-	CompileTimeExpression visit(ParamType t) {
+	Constant visit(ParamType t) {
 		assert(!t.isRef, "ref initializer is not implemented.");
 
 		return visit(t.getType());
 	}
 
-	CompileTimeExpression visit(FunctionType f) {
+	Constant visit(FunctionType f) {
 		if (f.contexts.length == 0) {
-			return
-				new ConstantExpression(location, new NullConstant(f.getType()));
+			return new NullConstant(f.getType());
 		}
 
 		assert(f.contexts.length == 1,
 		       "delegate initializer is not implemented.");
 
 		auto elements = [visit(f.contexts[0]), visit(f.getFunction())];
-
-		Constant[] constants;
-		foreach (e; elements) {
-			if (auto ce = cast(ConstantExpression) e) {
-				constants ~= ce.value;
-				continue;
-			}
-
-			return
-				new CompileTimeTupleExpression(location, f.getType(), elements);
-		}
-
-		return new ConstantExpression(
-			location, new SplatConstant(f.getType(), constants));
+		return new SplatConstant(f.getType(), elements);
 	}
 
-	CompileTimeExpression visit(Pattern p) {
+	Constant visit(Pattern p) {
 		assert(0, "Patterns have no initializer.");
 	}
 
-	CompileTimeExpression visit(CompileError e) {
-		return e.expression;
+	Constant visit(CompileError e) {
+		return e.constant;
 	}
 }
 
@@ -231,7 +190,7 @@ struct DefaultInitializerVisitor(bool isNew) {
 	}
 
 	Expression getDefaultInit(T)(T t) {
-		return InitBuilder(pass, location).visit(t);
+		return InitBuilder(pass, location).asExpression(t);
 	}
 
 	Expression visit(BuiltinType t) {

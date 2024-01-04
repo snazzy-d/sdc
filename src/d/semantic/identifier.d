@@ -897,7 +897,8 @@ struct TypeDotIdentifierResolver {
 	Identifiable bailout(Type t) {
 		if (name == BuiltinName!"init") {
 			import d.semantic.defaultinitializer;
-			return Identifiable(InitBuilder(pass.pass, location).visit(t));
+			return
+				Identifiable(InitBuilder(pass.pass, location).asExpression(t));
 		} else if (name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
 			return Identifiable(new ConstantExpression(

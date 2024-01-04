@@ -320,7 +320,7 @@ public:
 				import d.semantic.defaultinitializer : InitBuilder;
 				auto value = s.value
 					? ExpressionVisitor(pass).visit(s.value)
-					: InitBuilder(pass, s.location).visit(t);
+					: InitBuilder(pass, s.location).asExpression(t);
 
 				import d.semantic.caster;
 				auto v = new Variable(
@@ -491,8 +491,9 @@ public:
 		switch (f.tupleElements.length) {
 			case 1:
 				import d.semantic.defaultinitializer;
-				idx = new Variable(loc, length.type, BuiltinName!"",
-				                   InitBuilder(pass, loc).visit(length.type));
+				idx = new Variable(
+					loc, length.type, BuiltinName!"",
+					InitBuilder(pass, loc).asExpression(length.type));
 
 				idx.step = Step.Processed;
 				break;
@@ -512,7 +513,7 @@ public:
 
 				import d.semantic.defaultinitializer;
 				idx = new Variable(idxLoc, t, idxDecl.name,
-				                   InitBuilder(pass, idxLoc).visit(t));
+				                   InitBuilder(pass, idxLoc).asExpression(t));
 
 				idx.step = Step.Processed;
 				currentScope.addSymbol(idx);

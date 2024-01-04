@@ -138,45 +138,11 @@ struct ConstantGen {
 
 	// XXX: This should be removed at some point, but to ease transition.
 	LLVMValueRef visit(Expression e) {
-		if (auto ce = cast(CompileTimeExpression) e) {
-			return visit(ce);
+		if (auto ce = cast(ConstantExpression) e) {
+			return visit(ce.value);
 		}
 
 		import std.format;
-		assert(0,
-		       format!"Expected a compile time expression, not %s."(typeid(e)));
-	}
-
-	LLVMValueRef visit(CompileTimeExpression e) {
-		return this.dispatch!(function LLVMValueRef(Expression e) {
-			import source.exception, std.format;
-			throw new CompileException(
-				e.location, format!"%s is not supported."(typeid(e)));
-		})(e);
-	}
-
-	LLVMValueRef visit(ConstantExpression e) {
-		return visit(e.value);
-	}
-
-	LLVMValueRef visit(CompileTimeTupleExpression e) {
-		import std.algorithm, std.array;
-		auto elts = e.values.map!(v => visit(v)).array();
-
-		auto t = typeGen.visit(e.type);
-		switch (LLVMGetTypeKind(t)) with (LLVMTypeKind) {
-			case Struct:
-				return
-					LLVMConstNamedStruct(t, elts.ptr, cast(uint) elts.length);
-
-			case Array:
-				auto et = typeGen.visit(e.type.element);
-				return LLVMConstArray(et, elts.ptr, cast(uint) elts.length);
-
-			default:
-				break;
-		}
-
-		assert(0, "Invalid type tuple.");
+		assert(0, format!"Expected a constant expression, not %s."(typeid(e)));
 	}
 }
