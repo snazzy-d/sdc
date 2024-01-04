@@ -163,25 +163,25 @@ private:
 			if (auto v = cast(ValueTemplateParameter) p) {
 				if (v.defaultValue !is null) {
 					import d.semantic.caster;
-					auto e = new ConstantExpression(
-						v.location,
-						evaluate(buildImplicitCast(pass, v.location, v.type,
-						                           v.defaultValue))
-					);
+					auto e = evaluate(
+						buildImplicitCast(pass, v.location, v.type,
+						                  v.defaultValue));
 
-					return ValueMatcher(pass, matchedArgs, e).visit(v);
+					return ConstantMatcher(pass, matchedArgs, v.location, e)
+						.visit(v);
 				}
 			}
 
 			return false;
 		}, (identified) {
-			static if (is(typeof(identified) : Type)) {
+			static if (is(typeof(identified) : Symbol)) {
+				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
+			} else static if (is(typeof(identified) : Constant)) {
+				return ConstantMatcher(pass, matchedArgs, p.location,
+				                       identified).visit(p);
+			} else static if (is(typeof(identified) : Type)) {
 				return TypeParameterMatcher(pass, matchedArgs, identified)
 					.visit(p);
-			} else static if (is(typeof(identified) : Expression)) {
-				return ValueMatcher(pass, matchedArgs, identified).visit(p);
-			} else static if (is(typeof(identified) : Symbol)) {
-				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
 			} else {
 				return false;
 			}
@@ -204,18 +204,16 @@ private:
 			auto p = t.parameters[i++];
 
 			alias T = typeof(identified);
-			static if (is(T : Type)) {
-				auto a = new TypeAlias(p.location, p.name, identified);
+			static if (is(T : Symbol)) {
+				auto a = new SymbolAlias(p.location, p.name, identified);
 
-				import d.semantic.mangler;
-				a.mangle =
-					pass.context.getName(TypeMangler(pass).visit(identified));
-				a.step = Step.Processed;
+				import d.semantic.symbol;
+				SymbolAnalyzer(pass).process(a);
 
 				argSyms ~= a;
-				return "T" ~ a.mangle.toString(pass.context);
-			} else static if (is(T : ConstantExpression)) {
-				auto a = new ValueAlias(p.location, p.name, identified.value);
+				return "S" ~ a.mangle.toString(pass.context);
+			} else static if (is(T : Constant)) {
+				auto a = new ValueAlias(p.location, p.name, identified);
 
 				import d.semantic.mangler;
 				auto typeMangle = TypeMangler(pass).visit(identified.type);
@@ -225,14 +223,16 @@ private:
 
 				argSyms ~= a;
 				return "V" ~ a.mangle.toString(pass.context);
-			} else static if (is(T : Symbol)) {
-				auto a = new SymbolAlias(p.location, p.name, identified);
+			} else static if (is(T : Type)) {
+				auto a = new TypeAlias(p.location, p.name, identified);
 
-				import d.semantic.symbol;
-				SymbolAnalyzer(pass).process(a);
+				import d.semantic.mangler;
+				a.mangle =
+					pass.context.getName(TypeMangler(pass).visit(identified));
+				a.step = Step.Processed;
 
 				argSyms ~= a;
-				return "S" ~ a.mangle.toString(pass.context);
+				return "T" ~ a.mangle.toString(pass.context);
 			} else {
 				import std.format;
 				assert(0, format!"%s is not supported."(typeid(identified)));
@@ -323,11 +323,12 @@ alias StaticTypeMatcher = TypeMatcher!false;
 alias IftiTypeMatcher = TypeMatcher!true;
 
 struct TypeMatcher(bool isIFTI) {
-	TemplateArgument[] matchedArgs;
-	Type matchee;
-
 	SemanticPass pass;
 	alias pass this;
+
+	TemplateArgument[] matchedArgs;
+
+	Type matchee;
 
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Type matchee) {
 		this.pass = pass;
@@ -459,12 +460,8 @@ struct TypeMatcher(bool isIFTI) {
 			return false;
 		}
 
-		auto s = new ConstantExpression(
-			p.location,
-			new IntegerConstant(size, pass.object.getSizeT().type.builtin)
-		);
-
-		return ValueMatcher(pass, matchedArgs, s).visit(p);
+		auto i = new IntegerConstant(size, pass.object.getSizeT().type.builtin);
+		return ConstantMatcher(pass, matchedArgs, p.location, i).visit(p);
 	}
 
 	bool visit(Symbol s, TemplateArgument[] args) {
@@ -521,18 +518,21 @@ struct TypeMatcher(bool isIFTI) {
 	}
 }
 
-struct ValueMatcher {
-	TemplateArgument[] matchedArgs;
-	ConstantExpression matchee;
-
+struct ConstantMatcher {
 	SemanticPass pass;
 	alias pass this;
 
-	this(SemanticPass pass, TemplateArgument[] matchedArgs,
-	     ConstantExpression matchee) {
+	TemplateArgument[] matchedArgs;
+
+	Location location;
+	Constant matchee;
+
+	this(SemanticPass pass, TemplateArgument[] matchedArgs, Location location,
+	     Constant matchee) {
 		this.pass = pass;
-		this.matchedArgs = matchedArgs;
+		this.location = location;
 		this.matchee = matchee;
+		this.matchedArgs = matchedArgs;
 	}
 
 	bool visit(TemplateParameter p) {
@@ -546,13 +546,12 @@ struct ValueMatcher {
 		}
 
 		import d.semantic.caster;
-		matchee = new ConstantExpression(
-			matchee.location,
-			evaluate(buildImplicitCast(pass, matchee.location, t, matchee))
-		);
+		matchee = evaluate(
+			buildImplicitCast(pass, location, t,
+			                  new ConstantExpression(location, matchee)));
 
 		import d.ir.error;
-		if (cast(ErrorExpression) matchee) {
+		if (cast(ErrorConstant) matchee) {
 			return false;
 		}
 
@@ -575,11 +574,12 @@ struct ValueMatcher {
 }
 
 struct SymbolMatcher {
-	TemplateArgument[] matchedArgs;
-	Symbol matchee;
-
 	SemanticPass pass;
 	alias pass this;
+
+	TemplateArgument[] matchedArgs;
+
+	Symbol matchee;
 
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Symbol matchee) {
 		this.pass = pass;
@@ -622,9 +622,9 @@ struct SymbolMatcher {
 				.postProcess(p.location, vs).apply!(delegate bool(identified) {
 					alias T = typeof(identified);
 					static if (is(T : Expression)) {
-						auto v = new ConstantExpression(identified.location,
-						                                evaluate(identified));
-						return ValueMatcher(pass, matchedArgs, v).visit(p);
+						auto v = evaluate(identified);
+						return ConstantMatcher(pass, matchedArgs,
+						                       identified.location, v).visit(p);
 					} else {
 						return false;
 					}
@@ -654,9 +654,9 @@ struct SymbolMatcher {
 			.postProcess(p.location, matchee).apply!(delegate bool(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
-					auto v = new ConstantExpression(identified.location,
-					                                evaluate(identified));
-					return ValueMatcher(pass, matchedArgs, v).visit(p);
+					auto v = evaluate(identified);
+					return ConstantMatcher(pass, matchedArgs,
+					                       identified.location, v).visit(p);
 				} else {
 					return false;
 				}

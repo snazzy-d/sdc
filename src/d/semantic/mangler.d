@@ -206,11 +206,6 @@ struct TypeMangler {
 }
 
 struct ConstantMangler {
-	import d.ir.expression;
-	string visit(ConstantExpression e) {
-		return this.dispatch(e.value);
-	}
-
 	import d.ir.constant;
 	string visit(Constant c) {
 		return this.dispatch(c);

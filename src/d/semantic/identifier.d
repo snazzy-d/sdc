@@ -276,9 +276,7 @@ private:
 
 				return visit(a).apply!((val) {
 					static if (is(typeof(val) : Expression)) {
-						return TemplateArgument(
-							new ConstantExpression(val.location, evaluate(val))
-						);
+						return TemplateArgument(evaluate(val));
 					} else {
 						return TemplateArgument(val);
 					}
@@ -289,8 +287,7 @@ private:
 			} else {
 				import d.semantic.expression;
 				auto e = ExpressionVisitor(pass.pass).visit(a);
-				return TemplateArgument(
-					new ConstantExpression(e.location, evaluate(e)));
+				return TemplateArgument(evaluate(e));
 			}
 		})(a)).array();
 

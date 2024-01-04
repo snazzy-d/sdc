@@ -438,8 +438,7 @@ class TemplateInstance : Symbol, Scope {
 	}
 }
 
-alias TemplateArgument =
-	Type.UnionType!(typeof(null), Symbol, ConstantExpression);
+alias TemplateArgument = Type.UnionType!(typeof(null), Symbol, Constant);
 
 auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
 	alias Tag = typeof(a.tag);
@@ -450,8 +449,8 @@ auto apply(alias undefinedHandler, alias handler)(TemplateArgument a) {
 		case Symbol:
 			return handler(a.get!Symbol);
 
-		case ConstantExpression:
-			return handler(a.get!ConstantExpression);
+		case Constant:
+			return handler(a.get!Constant);
 
 		case Type:
 			return handler(a.get!Type);
