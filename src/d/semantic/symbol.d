@@ -449,9 +449,12 @@ struct SymbolAnalyzer {
 
 		assert(value);
 		static if (is(typeof(v.value) : CompileTimeExpression)) {
-			value = v.value = evaluate(value);
+			value = v.value =
+				new ConstantExpression(value.location, evaluate(value));
 		} else {
-			value = v.value = v.storage.isGlobal ? evaluate(value) : value;
+			value = v.value = v.storage.isGlobal
+				? new ConstantExpression(value.location, evaluate(value))
+				: value;
 		}
 
 		// XXX: Make sure type is at least signed.
@@ -534,7 +537,8 @@ struct SymbolAnalyzer {
 	void analyze(ValueAliasDeclaration d, ValueAlias a) {
 		// XXX: remove selective import when dmd is sane.
 		import d.semantic.expression : ExpressionVisitor;
-		a.value = evaluate(ExpressionVisitor(pass).visit(d.value));
+		a.value = new ConstantExpression(
+			d.location, evaluate(ExpressionVisitor(pass).visit(d.value)));
 
 		import d.semantic.mangler;
 		auto typeMangle = TypeMangler(pass).visit(a.value.type);
@@ -1071,7 +1075,7 @@ struct SymbolAnalyzer {
 		assert(v.value);
 		v.step = Step.Signed;
 
-		v.value = evaluate(v.value);
+		v.value = new ConstantExpression(v.location, evaluate(v.value));
 		v.step = Step.Processed;
 	}
 

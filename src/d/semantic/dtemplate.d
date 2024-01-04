@@ -163,9 +163,11 @@ private:
 			if (auto v = cast(ValueTemplateParameter) p) {
 				if (v.defaultValue !is null) {
 					import d.semantic.caster;
-					auto e = evaluate(
-						buildImplicitCast(pass, v.location, v.type,
-						                  v.defaultValue));
+					auto e = new ConstantExpression(
+						v.location,
+						evaluate(buildImplicitCast(pass, v.location, v.type,
+						                           v.defaultValue))
+					);
 					return ValueMatcher(pass, matchedArgs, e).visit(v);
 				}
 			}
@@ -542,8 +544,10 @@ struct ValueMatcher {
 		}
 
 		import d.semantic.caster;
-		matchee =
-			evaluate(buildImplicitCast(pass, matchee.location, t, matchee));
+		matchee = new ConstantExpression(
+			matchee.location,
+			evaluate(buildImplicitCast(pass, matchee.location, t, matchee))
+		);
 
 		import d.ir.error;
 		if (cast(ErrorExpression) matchee) {
@@ -613,10 +617,11 @@ struct SymbolMatcher {
 		if (auto vs = cast(ValueSymbol) matchee) {
 			import d.semantic.identifier : IdentifierResolver, apply;
 			return IdentifierResolver(pass)
-				.postProcess(p.location, vs).apply!(delegate bool(i) {
-					alias T = typeof(i);
+				.postProcess(p.location, vs).apply!(delegate bool(identified) {
+					alias T = typeof(identified);
 					static if (is(T : Expression)) {
-						auto v = evaluate(i);
+						auto v = new ConstantExpression(identified.location,
+						                                evaluate(identified));
 						return ValueMatcher(pass, matchedArgs, v).visit(p);
 					} else {
 						return false;
@@ -647,7 +652,8 @@ struct SymbolMatcher {
 			.postProcess(p.location, matchee).apply!(delegate bool(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
-					auto v = evaluate(identified);
+					auto v = new ConstantExpression(identified.location,
+					                                evaluate(identified));
 					return ValueMatcher(pass, matchedArgs, v).visit(p);
 				} else {
 					return false;
