@@ -110,13 +110,26 @@ struct InitBuilder {
 		CompileTimeExpression[] elements;
 		elements.reserve(fields.length);
 
+		bool allConstant = true;
 		foreach (f; fields) {
 			scheduler.require(f);
 			elements ~= f.value;
+
+			allConstant =
+				allConstant && cast(ConstantExpression) elements[$ - 1];
 		}
 
+		if (!allConstant) {
+			return s.init =
+				new CompileTimeTupleExpression(location, Type.get(s), elements);
+		}
+
+		import std.algorithm, std.array;
+		auto constants =
+			elements.map!(e => (cast(ConstantExpression) e).value).array();
 		return s.init =
-			new CompileTimeTupleExpression(s.location, Type.get(s), elements);
+			new ConstantExpression(location,
+			                       new AggregateConstant(s, constants));
 	}
 
 	CompileTimeExpression visit(Union u) {
