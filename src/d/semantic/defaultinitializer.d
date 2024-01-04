@@ -83,13 +83,11 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 
 	E visitSliceOf(Type t) {
 		auto sizet = pass.object.getSizeT().type.builtin;
-		CompileTimeExpression[] init =
-			[new ConstantExpression(location, new NullConstant(t.getPointer())),
-			 new ConstantExpression(location, new IntegerConstant(0, sizet))];
+		Constant[] init =
+			[new NullConstant(t.getPointer()), new IntegerConstant(0, sizet)];
 
-		// XXX: Should cast to size_t, but buildImplicitCast
-		// doesn't produce CompileTimeExpressions.
-		return new CompileTimeTupleExpression(location, t.getSlice(), init);
+		return new ConstantExpression(location,
+		                              new SplatConstant(t.getSlice(), init));
 	}
 
 	E visitArrayOf(uint size, Type t) {
@@ -182,6 +180,7 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 				new TypeidConstant(Type.get(pass.object.getTypeInfo()),
 				                   Type.get(c))
 			);
+
 			if (c.hasContext) {
 				import std.algorithm;
 				import source.name;
@@ -207,16 +206,11 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 	}
 
 	E visit(Interface i) {
-		CompileTimeExpression[] init = [
-			new ConstantExpression(
-				location, new NullConstant(Type.get(pass.object.getObject()))),
-			new ConstantExpression(
-				location,
-				new NullConstant(Type.get(BuiltinType.Void).getPointer())
-			),
-		];
+		Constant[] init =
+			[new NullConstant(Type.get(pass.object.getObject())),
+			 new NullConstant(Type.get(BuiltinType.Void).getPointer())];
 
-		return new CompileTimeTupleExpression(location, Type.get(i), init);
+		return new ConstantExpression(location, new AggregateConstant(i, init));
 	}
 
 	E visit(Enum e) {

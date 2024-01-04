@@ -187,6 +187,21 @@ class AggregateConstant : Constant {
 	}
 }
 
+class SplatConstant : Constant {
+	Constant[] elements;
+
+	this(Type type, Constant[] elements) {
+		super(type);
+
+		this.elements = elements;
+	}
+
+	override string toString(const Context c) const {
+		import std.format, std.algorithm;
+		return format!"(%-(%s, %))"(elements.map!(e => e.toString(c)));
+	}
+}
+
 /**
  * typeid(type) expression.
  * 

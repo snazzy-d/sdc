@@ -104,7 +104,7 @@ struct ConstantGen {
 
 	LLVMValueRef visit(ArrayConstant a) {
 		import std.algorithm, std.array;
-		auto elts = a.elements.map!(v => visit(v)).array();
+		auto elts = a.elements.map!(e => visit(e)).array();
 
 		auto t = typeGen.visit(a.type.element);
 		return LLVMConstArray(t, elts.ptr, cast(uint) elts.length);
@@ -112,10 +112,18 @@ struct ConstantGen {
 
 	LLVMValueRef visit(AggregateConstant a) {
 		import std.algorithm, std.array;
-		auto elts = a.elements.map!(v => visit(v)).array();
+		auto elts = a.elements.map!(e => visit(e)).array();
 
 		auto t = typeGen.visit(a.type);
 		return LLVMConstNamedStruct(t, elts.ptr, cast(uint) elts.length);
+	}
+
+	LLVMValueRef visit(SplatConstant s) {
+		import std.algorithm, std.array;
+		auto elts = s.elements.map!(e => visit(e)).array();
+
+		return LLVMConstStructInContext(llvmCtx, elts.ptr,
+		                                cast(uint) elts.length, false);
 	}
 
 	LLVMValueRef visit(TypeidConstant tc) {
