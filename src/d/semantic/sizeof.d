@@ -68,7 +68,7 @@ struct SizeofVisitor {
 		assert(0, "context.sizeof is not implemented.");
 	}
 
-	uint visit(Type[] seq) {
+	uint visit(Type[] splat) {
 		assert(0, "sequence.sizeof is not implemented.");
 	}
 

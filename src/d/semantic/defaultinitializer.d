@@ -226,15 +226,15 @@ struct DefaultInitializerVisitor(bool isCompileTime, bool isNew) {
 		assert(0, "Not implemented");
 	}
 
-	E visit(Type[] seq) {
+	E visit(Type[] splat) {
 		import std.algorithm, std.array;
-		auto elements = seq.map!(t => visit(t)).array();
+		auto elements = splat.map!(t => visit(t)).array();
 
 		static if (isCompileTime) {
-			return new CompileTimeTupleExpression(location, Type.get(seq),
+			return new CompileTimeTupleExpression(location, Type.get(splat),
 			                                      elements);
 		} else {
-			return build!TupleExpression(location, Type.get(seq), elements);
+			return build!TupleExpression(location, Type.get(splat), elements);
 		}
 	}
 

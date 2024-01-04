@@ -424,7 +424,7 @@ struct JitRepacker {
 		assert(0, "Not Implemented.");
 	}
 
-	Constant visit(Type[] seq) {
+	Constant visit(Type[] splat) {
 		assert(0, "Not Implemented.");
 	}
 

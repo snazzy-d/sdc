@@ -328,9 +328,9 @@ struct TypeGen {
 		return LLVMStructTypeInContext(llvmCtx, types.ptr, length + 1, false);
 	}
 
-	LLVMTypeRef visit(Type[] seq) {
+	LLVMTypeRef visit(Type[] splat) {
 		import std.algorithm, std.array;
-		auto types = seq.map!(t => visit(t)).array();
+		auto types = splat.map!(t => visit(t)).array();
 		return LLVMStructTypeInContext(llvmCtx, types.ptr,
 		                               cast(uint) types.length, false);
 	}

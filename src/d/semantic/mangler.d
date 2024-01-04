@@ -152,7 +152,7 @@ struct TypeMangler {
 		return "M";
 	}
 
-	string visit(Type[] seq) {
+	string visit(Type[] splat) {
 		assert(0, "Not implemented.");
 	}
 

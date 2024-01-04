@@ -414,7 +414,7 @@ struct TypeMatcher(bool isIFTI) {
 		assert(0, "Not implemented.");
 	}
 
-	bool visit(Type[] seq) {
+	bool visit(Type[] splat) {
 		assert(0, "Not implemented.");
 	}
 

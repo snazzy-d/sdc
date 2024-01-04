@@ -158,7 +158,7 @@ struct TypePromoter {
 		assert(0, "Not Implemented.");
 	}
 
-	Type visit(Type[] seq) {
+	Type visit(Type[] splat) {
 		assert(0, "Not Implemented.");
 	}
 

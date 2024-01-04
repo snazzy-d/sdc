@@ -567,7 +567,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		assert(0, "Cast to context type do not make any sense.");
 	}
 
-	CastKind visit(Type[] seq) {
+	CastKind visit(Type[] splat) {
 		assert(0, "Cast to sequence type do not make any sense.");
 	}
 

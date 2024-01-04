@@ -31,8 +31,8 @@ enum TypeKind : ubyte {
 	Slice,
 	Array,
 
-	// Sequence
-	Sequence,
+	// Splat
+	Splat,
 
 	// Complex types
 	Function,
@@ -110,8 +110,8 @@ private:
 			case Array:
 				return t.visitArrayOf(size, element);
 
-			case Sequence:
-				return t.visit(sequence);
+			case Splat:
+				return t.visit(splat);
 
 			case Function:
 				return t.visit(asFunctionType());
@@ -289,8 +289,7 @@ public:
 	}
 
 	@property
-	auto sequence() inout
-			in(kind == TypeKind.Sequence, "Not a sequence type.") {
+	auto splat() inout in(kind == TypeKind.Splat, "Not a splat type.") {
 		return payload.next[0 .. desc.data];
 	}
 
@@ -337,9 +336,9 @@ public:
 				return asFunctionType()
 					.contexts.any!(t => t.isRef || t.getType().hasIndirection);
 
-			case Sequence:
+			case Splat:
 				import std.algorithm;
-				return sequence.any!(t => t.hasIndirection);
+				return splat.any!(t => t.hasIndirection);
 		}
 	}
 
@@ -410,10 +409,10 @@ public:
 			case Array:
 				return format!"%s[%s]"(element.toString(c, qualifier), size);
 
-			case Sequence:
+			case Splat:
 				import std.algorithm;
 				return format!"(%-(%s, %))"(
-					this.sequence.map!(e => e.toString(c, qualifier)));
+					this.splat.map!(e => e.toString(c, qualifier)));
 
 			case Function:
 				auto f = asFunctionType();
@@ -479,7 +478,7 @@ static:
 	}
 
 	Type get(Type[] elements, TypeQualifier q = TypeQualifier.Mutable) {
-		return Type(Desc(TypeKind.Sequence, q, elements.length), elements.ptr);
+		return Type(Desc(TypeKind.Splat, q, elements.length), elements.ptr);
 	}
 
 	Type get(TypeTemplateParameter p, TypeQualifier q = TypeQualifier.Mutable) {

@@ -1053,7 +1053,7 @@ struct TypeDotIdentifierResolver {
 		assert(0, "Not Implemented.");
 	}
 
-	Identifiable visit(Type[] seq) {
+	Identifiable visit(Type[] splat) {
 		assert(0, "Not Implemented.");
 	}
 
