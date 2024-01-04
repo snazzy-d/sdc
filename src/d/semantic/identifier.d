@@ -54,7 +54,7 @@ public:
 
 		// FIXME: This is an abominable error message and it needs to go!
 		auto e = getError(thisExpr, thisExpr.location,
-		                  "thisExpr has not been consumed");
+		                  "thisExpr has not been consumed.");
 
 		import source.exception;
 		throw new CompileException(e.location, e.message);
@@ -229,9 +229,11 @@ private:
 				auto symInMod = m.resolve(location, name);
 				if (symInMod) {
 					if (symbol) {
+						import std.format;
 						return new CompileError(
 							location,
-							"Ambiguous symbol " ~ name.toString(context)
+							format!"Ambiguous symbol %s."(
+								name.toString(context))
 						).symbol;
 					}
 
@@ -245,9 +247,11 @@ private:
 
 			dscope = dscope.getParentScope();
 			if (dscope is null) {
+				import std.format;
 				return new CompileError(
 					location,
-					"Symbol " ~ name.toString(context) ~ " has not been found"
+					format!"Symbol %s has not been found."(
+						name.toString(context))
 				).symbol;
 			}
 
@@ -318,8 +322,9 @@ private:
 				}
 			}
 
+			import std.format;
 			ce = getError(identified, iloc,
-			              "Unexpected " ~ typeid(identified).toString());
+			              format!"Unexpected %s."(typeid(identified)));
 
 			return null;
 		})();
@@ -369,13 +374,13 @@ private:
 			                  pass.object.getSizeT().type, index));
 
 		assert(size <= uint.max,
-		       "Array larger than uint.max are not supported");
+		       "Array larger than uint.max are not supported.");
 
 		return Identifiable(base.getArray(cast(uint) size));
 	}
 
 	Identifiable resolveBracket(Location location, Type base, Type index) {
-		assert(0, "Maps not implemented");
+		assert(0, "Maps not implemented.");
 	}
 
 	Identifiable resolveBracket(Location location, Expression base,
@@ -496,7 +501,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 		Expression[] exprs;
 		foreach (sym; s.set) {
 			auto f = cast(Function) sym;
-			assert(f, "Only function are implemented");
+			assert(f, "Only function are implemented.");
 
 			import d.semantic.expression;
 			auto e = ExpressionVisitor(pass.pass).getFrom(location, dthis, f);
@@ -511,7 +516,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 			case 0:
 				return Identifiable(
 					new CompileError(location,
-					                 "No valid candidate in overload set")
+					                 "No valid candidate in overload set.")
 						.symbol);
 
 			case 1:
@@ -635,7 +640,7 @@ struct SymbolDotIdentifierResolver {
 	Identifiable visit(OverloadSet o) {
 		auto i = postProcess(location, o);
 		if (i == Identifiable(o)) {
-			assert(0, "Error, infinite loop");
+			assert(0, "Error, infinite loop!");
 		}
 
 		return resolveIn(location, i, name);
@@ -647,10 +652,11 @@ struct SymbolDotIdentifierResolver {
 			return Identifiable(s);
 		}
 
-		return Identifiable(
-			new CompileError(location,
-			                 "Cannot resolve " ~ name.toString(context)).symbol
-		);
+		import std.format;
+		return Identifiable(new CompileError(
+			location,
+			format!"Cannot resolve %s."(name.toString(context))
+		).symbol);
 	}
 
 	Identifiable visit(TemplateInstance ti) {
@@ -665,10 +671,11 @@ struct SymbolDotIdentifierResolver {
 			return resolveIn(location, s, name);
 		}
 
-		return Identifiable(
-			new CompileError(location,
-			                 "Cannot resolve " ~ name.toString(context)).symbol
-		);
+		import std.format;
+		return Identifiable(new CompileError(
+			location,
+			format!"Cannot resolve %s."(name.toString(context))
+		).symbol);
 	}
 
 	Identifiable visit(SymbolAlias s) {
