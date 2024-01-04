@@ -78,10 +78,12 @@ public:
 		}
 
 		// We agressively JIT all CTFE.
-		return jit!(function CompileTimeExpression(CodeGen pass, Expression e,
-		                                           void[] p) {
-			return JitRepacker(pass, e.location, p).visit(e.type);
-		})(e);
+		auto c =
+			jit!(function Constant(CodeGen pass, Expression e, void[] buffer) {
+				return JitRepacker(pass, buffer).visit(e.type);
+			})(e);
+
+		return new ConstantExpression(e.location, c);
 	}
 
 	ulong evalIntegral(Expression e) in {
@@ -265,46 +267,42 @@ struct JitRepacker {
 	CodeGen pass;
 	alias pass this;
 
-	import source.location;
-	Location location;
+	void[] buffer;
 
-	void[] p;
-
-	this(CodeGen pass, Location location, void[] p) {
+	this(CodeGen pass, void[] buffer) {
 		this.pass = pass;
-		this.p = p;
+		this.buffer = buffer;
 	}
 
 	import d.ir.type, d.ir.symbol;
-	CompileTimeExpression visit(Type t) in {
+	Constant visit(Type t) in {
 		import d.llvm.type, llvm.c.target;
 		auto size = LLVMStoreSizeOfType(targetData, TypeGen(pass).visit(t));
 
 		import std.format;
 		assert(
-			size == p.length,
+			size == buffer.length,
 			format!"Buffer of length %s provided when %s was expected!"(
-				p.length, size)
+				buffer.length, size)
 		);
 	} out(result) {
 		// FIXME: This does not always pass now.
 		// assert(result.type == t, "Result type do not match");
-		assert(p.length == 0, "Remaining data in the buffer!");
+		assert(buffer.length == 0, "Remaining data in the buffer!");
 	} do {
 		return t.accept(this);
 	}
 
 	T get(T)() {
-		scope(exit) p = p[T.sizeof .. $];
-		return *(cast(T*) p.ptr);
+		scope(exit) buffer = buffer[T.sizeof .. $];
+		return *(cast(T*) buffer.ptr);
 	}
 
-	CompileTimeExpression visit(BuiltinType t) {
+	Constant visit(BuiltinType t) {
 		ulong raw;
 		switch (t) with (BuiltinType) {
 			case Bool:
-				return new ConstantExpression(location,
-				                              new BooleanConstant(get!bool()));
+				return new BooleanConstant(get!bool());
 
 			case Byte, Ubyte:
 				raw = get!ubyte();
@@ -323,62 +321,62 @@ struct JitRepacker {
 				goto HandleIntegral;
 
 			HandleIntegral:
-				return new ConstantExpression(location,
-				                              new IntegerConstant(raw, t));
+				return new IntegerConstant(raw, t);
 
 			default:
 				assert(0, "Not implemented.");
 		}
 	}
 
-	CompileTimeExpression visitPointerOf(Type t) {
+	Constant visitPointerOf(Type t) {
 		assert(0, "Not implemented.");
 	}
 
-	CompileTimeExpression visitSliceOf(Type t) {
+	Constant visitSliceOf(Type t) {
 		if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.Char
 			    && t.qualifier == TypeQualifier.Immutable) {
-			return new ConstantExpression(
-				location, new StringConstant(get!string().idup));
+			return new StringConstant(get!string().idup);
 		}
 
 		assert(0, "Not Implemented.");
 	}
 
-	CompileTimeExpression visitArrayOf(uint size, Type t) {
+	Constant visitArrayOf(uint size, Type t) {
 		import d.llvm.type, llvm.c.target;
 		uint elementSize =
 			cast(uint) LLVMStoreSizeOfType(targetData, TypeGen(pass).visit(t));
 
-		CompileTimeExpression[] elements;
+		Constant[] elements;
 		elements.reserve(size);
 
-		auto buf = p;
-		uint start = 0;
-		scope(exit) p = buf[start .. $];
+		uint index = 0;
 
-		for (uint i = 0; i < size; i++) {
-			uint end = start + elementSize;
-			p = buf[start .. end];
-			start = end;
+		auto x = buffer;
+		scope(exit) buffer = x[index .. $];
+
+		foreach (i; 0 .. size) {
+			buffer = x[index .. index + elementSize];
 			elements ~= visit(t);
+
+			index += elementSize;
 		}
 
-		return new CompileTimeTupleExpression(location, t.getArray(size),
-		                                      elements);
+		return new ArrayConstant(t, elements);
 	}
 
-	CompileTimeExpression visit(Struct s) {
+	Constant visit(Struct s) {
 		import d.llvm.type;
 		auto type = TypeGen(pass).visit(s);
 
 		import llvm.c.target;
 		auto size = LLVMStoreSizeOfType(targetData, type);
+		auto count = LLVMCountStructElementTypes(type);
 
-		auto buf = p;
-		scope(exit) p = buf[size .. $];
+		Constant[] elements;
+		elements.reserve(count);
 
-		CompileTimeExpression[] elements;
+		auto x = buffer;
+		scope(exit) buffer = x[size .. $];
 
 		foreach (size_t idx, f; s.fields) {
 			auto i = cast(uint) idx;
@@ -391,55 +389,55 @@ struct JitRepacker {
 			auto elementType = LLVMStructGetTypeAtIndex(type, i);
 
 			auto fieldSize = LLVMStoreSizeOfType(targetData, elementType);
-			auto end = start + fieldSize;
+			auto stop = start + fieldSize;
 
-			p = buf[start .. end];
+			buffer = x[start .. stop];
 			elements ~= visit(t);
 		}
 
-		return new CompileTimeTupleExpression(location, Type.get(s), elements);
+		return new AggregateConstant(s, elements);
 	}
 
-	CompileTimeExpression visit(Class c) {
+	Constant visit(Class c) {
 		assert(0, "Not Implemented.");
 	}
 
-	CompileTimeExpression visit(Enum e) {
+	Constant visit(Enum e) {
 		// TODO: build implicit cast.
 		return visit(e.type);
 	}
 
-	CompileTimeExpression visit(TypeAlias a) {
+	Constant visit(TypeAlias a) {
 		// TODO: build implicit cast.
 		return visit(a.type);
 	}
 
-	CompileTimeExpression visit(Interface i) {
+	Constant visit(Interface i) {
 		assert(0, "Not Implemented.");
 	}
 
-	CompileTimeExpression visit(Union u) {
+	Constant visit(Union u) {
 		assert(0, "Not Implemented.");
 	}
 
-	CompileTimeExpression visit(Function f) {
+	Constant visit(Function f) {
 		assert(0, "Not Implemented.");
 	}
 
-	CompileTimeExpression visit(Type[] seq) {
+	Constant visit(Type[] seq) {
 		assert(0, "Not Implemented.");
 	}
 
-	CompileTimeExpression visit(FunctionType f) {
+	Constant visit(FunctionType f) {
 		assert(0, "Not Implemented.");
 	}
 
-	CompileTimeExpression visit(Pattern p) {
+	Constant visit(Pattern p) {
 		assert(0, "Not implemented.");
 	}
 
 	import d.ir.error;
-	CompileTimeExpression visit(CompileError e) {
+	Constant visit(CompileError e) {
 		assert(0, "Not implemented.");
 	}
 }

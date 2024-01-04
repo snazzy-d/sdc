@@ -155,6 +155,38 @@ class CStringConstant : Constant {
 	}
 }
 
+class ArrayConstant : Constant {
+	Constant[] elements;
+
+	this(Type type, Constant[] elements) {
+		super(type.getArray(cast(uint) elements.length));
+
+		this.elements = elements;
+	}
+
+	override string toString(const Context c) const {
+		import std.format, std.algorithm;
+		return format!"[%-(%s, %)]"(elements.map!(e => e.toString(c)));
+	}
+}
+
+class AggregateConstant : Constant {
+	Constant[] elements;
+
+	import d.ir.symbol;
+	this(S)(S s, Constant[] elements) if (is(S : Aggregate)) {
+		super(Type.get(s));
+
+		this.elements = elements;
+	}
+
+	override string toString(const Context c) const {
+		import std.format, std.algorithm;
+		return format!"%s(%-(%s, %))"(type.aggregate.name.toString(c),
+		                              elements.map!(e => e.toString(c)));
+	}
+}
+
 /**
  * typeid(type) expression.
  * 
