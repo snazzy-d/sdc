@@ -1,5 +1,6 @@
 module d.ir.symbol;
 
+import d.ir.constant;
 import d.ir.dscope;
 import d.ir.expression;
 import d.ir.type;
@@ -291,14 +292,13 @@ class Variable : ValueSymbol {
 
 /**
  * Field
- * Simply a Variable with a field index.
  */
 class Field : ValueSymbol {
-	CompileTimeExpression value;
+	Constant value;
 	Type type;
 
 	this(Location location, uint index, Type type, Name name,
-	     CompileTimeExpression value = null) {
+	     Constant value = null) {
 		super(location, name);
 
 		this.value = value;

@@ -107,29 +107,17 @@ struct InitBuilder {
 		scheduler.require(s, Step.Populated);
 
 		auto fields = s.fields;
-		CompileTimeExpression[] elements;
+		Constant[] elements;
 		elements.reserve(fields.length);
 
-		bool allConstant = true;
 		foreach (f; fields) {
 			scheduler.require(f);
 			elements ~= f.value;
-
-			allConstant =
-				allConstant && cast(ConstantExpression) elements[$ - 1];
 		}
 
-		if (!allConstant) {
-			return s.init =
-				new CompileTimeTupleExpression(location, Type.get(s), elements);
-		}
-
-		import std.algorithm, std.array;
-		auto constants =
-			elements.map!(e => (cast(ConstantExpression) e).value).array();
 		return s.init =
 			new ConstantExpression(location,
-			                       new AggregateConstant(s, constants));
+			                       new AggregateConstant(s, elements));
 	}
 
 	CompileTimeExpression visit(Union u) {
@@ -324,8 +312,8 @@ struct DefaultInitializerVisitor(bool isNew) {
 		scheduler.require(c);
 
 		import std.algorithm, std.array;
-		auto fields = c.fields.map!(function Expression(f) {
-			return f.value;
+		Expression[] fields = c.fields.map!(delegate Expression(Field f) {
+			return new ConstantExpression(f.location, f.value);
 		}).array();
 
 		fields[0] = new ConstantExpression(

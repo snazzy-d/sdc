@@ -448,9 +448,9 @@ struct SymbolAnalyzer {
 		v.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
 		assert(value);
-		static if (is(typeof(v.value) : CompileTimeExpression)) {
-			value = v.value =
-				new ConstantExpression(value.location, evaluate(value));
+		static if (is(typeof(v.value) : Constant)) {
+			v.value = evaluate(value);
+			value = new ConstantExpression(value.location, v.value);
 		} else {
 			value = v.value = v.storage.isGlobal
 				? new ConstantExpression(value.location, evaluate(value))
@@ -573,9 +573,8 @@ struct SymbolAnalyzer {
 		import source.name : BuiltinName;
 		if (s.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
-			auto ctx = new Field(
-				s.location, 0, ctxPtr, BuiltinName!"__ctx",
-				new ConstantExpression(s.location, new NullConstant(ctxPtr)));
+			auto ctx = new Field(s.location, 0, ctxPtr, BuiltinName!"__ctx",
+			                     new NullConstant(ctxPtr));
 
 			ctx.step = Step.Processed;
 			s.fields = [ctx];
@@ -664,9 +663,8 @@ struct SymbolAnalyzer {
 		import source.name : BuiltinName;
 		if (u.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
-			auto ctx = new Field(
-				u.location, 0, ctxPtr, BuiltinName!"__ctx",
-				new ConstantExpression(u.location, new NullConstant(ctxPtr)));
+			auto ctx = new Field(u.location, 0, ctxPtr, BuiltinName!"__ctx",
+			                     new NullConstant(ctxPtr));
 
 			ctx.step = Step.Processed;
 			u.fields = [ctx];
@@ -874,8 +872,8 @@ struct SymbolAnalyzer {
 				Type.get(BuiltinType.Void).getPointer(TypeQualifier.Immutable);
 
 			import source.name : BuiltinName;
-			auto vtbl =
-				new Field(d.location, 0, vtblType, BuiltinName!"__vtbl", null);
+			auto vtbl = new Field(d.location, 0, vtblType, BuiltinName!"__vtbl",
+			                      new NullConstant(vtblType));
 
 			vtbl.step = Step.Processed;
 
@@ -905,12 +903,10 @@ struct SymbolAnalyzer {
 		if (c.hasContext) {
 			// XXX: check for duplicate.
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
-			auto nullCtxPtr =
-				new ConstantExpression(c.location, new NullConstant(ctxPtr));
 
 			import source.name;
 			auto ctx = new Field(c.location, fieldIndex++, ctxPtr,
-			                     BuiltinName!"__ctx", nullCtxPtr);
+			                     BuiltinName!"__ctx", new NullConstant(ctxPtr));
 
 			ctx.step = Step.Processed;
 			fields ~= ctx;
