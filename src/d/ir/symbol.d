@@ -515,6 +515,8 @@ class ValueAlias : ValueSymbol {
  * Struct
  */
 class Struct : Aggregate {
+	CompileTimeExpression init;
+
 	this(Location location, Scope parentScope, Name name) {
 		super(location, parentScope, name);
 	}

@@ -567,7 +567,6 @@ struct SymbolAnalyzer {
 
 		// XXX: d is hijacked without explicit import
 		import source.name : BuiltinName;
-		Field[] fields;
 		if (s.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 			auto ctx = new Field(
@@ -575,10 +574,17 @@ struct SymbolAnalyzer {
 				new ConstantExpression(s.location, new NullConstant(ctxPtr)));
 
 			ctx.step = Step.Processed;
-			fields = [ctx];
+			s.fields = [ctx];
 		}
 
 		auto members = DeclarationVisitor(pass).flatten(d.members, s);
+		foreach (m; members) {
+			if (auto f = cast(Field) m) {
+				s.fields ~= f;
+			} else {
+				s.members ~= m;
+			}
+		}
 
 		auto init = new Variable(d.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
@@ -586,26 +592,14 @@ struct SymbolAnalyzer {
 		init.mangle = context.getName(
 			"_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
 
+		s.members ~= init;
 		s.addSymbol(init);
 
-		foreach (m; members) {
-			if (auto f = cast(Field) m) {
-				fields ~= f;
-			} else {
-				s.members ~= m;
-			}
-		}
-
-		s.fields = fields;
 		s.step = Step.Populated;
-		scheduler.require(fields);
 
-		import std.algorithm, std.array;
+		import d.semantic.defaultinitializer;
+		init.value = InitBuilder(pass, s.location).visit(s);
 		init.step = Step.Processed;
-		init.value = new CompileTimeTupleExpression(
-			d.location, type,
-			fields.map!(f => cast(CompileTimeExpression) f.value).array());
-		s.members ~= init;
 
 		// If the struct has no dtor and only pod fields, it is a pod.
 		auto hasDtor = s.resolve(s.location, BuiltinName!"__dtor");
@@ -613,7 +607,7 @@ struct SymbolAnalyzer {
 
 		bool hasIndirection = false;
 		bool isPod = !hasDtor && !hasPostblit;
-		foreach (f; fields) {
+		foreach (f; s.fields) {
 			auto t = f.type.getCanonical();
 			if (t.kind == TypeKind.Struct) {
 				isPod = isPod && t.dstruct.isPod;
@@ -629,6 +623,7 @@ struct SymbolAnalyzer {
 			// TODO: Create default ctor and dtor
 		}
 
+		scheduler.require(s.fields);
 		s.step = Step.Signed;
 
 		// Must be done once the struct is signed, but really is part
@@ -663,8 +658,6 @@ struct SymbolAnalyzer {
 
 		// XXX: d is hijacked without explicit import
 		import source.name : BuiltinName;
-
-		Field[] fields;
 		if (u.hasContext) {
 			auto ctxPtr = Type.getContextType(ctxSym).getPointer();
 			auto ctx = new Field(
@@ -672,10 +665,17 @@ struct SymbolAnalyzer {
 				new ConstantExpression(u.location, new NullConstant(ctxPtr)));
 
 			ctx.step = Step.Processed;
-			fields = [ctx];
+			u.fields = [ctx];
 		}
 
 		auto members = DeclarationVisitor(pass).flatten(d.members, u);
+		foreach (m; members) {
+			if (auto f = cast(Field) m) {
+				u.fields ~= f;
+			} else {
+				u.members ~= m;
+			}
+		}
 
 		auto init = new Variable(u.location, type, BuiltinName!"init");
 		init.storage = Storage.Static;
@@ -686,25 +686,14 @@ struct SymbolAnalyzer {
 		u.addSymbol(init);
 		u.step = Step.Populated;
 
-		foreach (m; members) {
-			if (auto f = cast(Field) m) {
-				fields ~= f;
-			} else {
-				u.members ~= m;
-			}
-		}
-
-		u.fields = fields;
-		u.step = Step.Populated;
-		scheduler.require(fields);
-
-		init.value = new ConstantExpression(u.location, new VoidConstant(type));
+		import d.semantic.defaultinitializer;
+		init.value = InitBuilder(pass, u.location).visit(u);
 		init.step = Step.Processed;
-		u.members ~= init;
 
 		import std.algorithm;
-		u.hasIndirection = fields.any!(f => f.type.hasIndirection);
+		u.hasIndirection = u.fields.any!(f => f.type.hasIndirection);
 
+		scheduler.require(u.fields);
 		u.step = Step.Signed;
 
 		scheduler.require(u.members);

@@ -100,18 +100,23 @@ struct InitBuilder {
 	}
 
 	CompileTimeExpression visit(Struct s) {
-		scheduler.require(s, Step.Signed);
+		if (s.init) {
+			return s.init;
+		}
 
-		import source.name;
-		auto init = cast(Variable) s.resolve(location, BuiltinName!"init");
-		assert(init, "init must be defined");
+		scheduler.require(s, Step.Populated);
 
-		scheduler.require(init);
+		auto fields = s.fields;
+		CompileTimeExpression[] elements;
+		elements.reserve(fields.length);
 
-		auto v = cast(CompileTimeExpression) init.value;
-		assert(v, "init must be a compile time expressionf");
+		foreach (f; fields) {
+			scheduler.require(f);
+			elements ~= f.value;
+		}
 
-		return v;
+		return s.init =
+			new CompileTimeTupleExpression(s.location, Type.get(s), elements);
 	}
 
 	CompileTimeExpression visit(Union u) {
