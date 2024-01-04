@@ -533,7 +533,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 		}
 
 		scheduler.require(a, Step.Signed);
-		return visit(a.value);
+		return visit(new ConstantExpression(a.location, a.value));
 	}
 
 	Identifiable visit(SymbolAlias s) {

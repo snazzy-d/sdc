@@ -537,8 +537,7 @@ struct SymbolAnalyzer {
 	void analyze(ValueAliasDeclaration d, ValueAlias a) {
 		// XXX: remove selective import when dmd is sane.
 		import d.semantic.expression : ExpressionVisitor;
-		a.value = new ConstantExpression(
-			d.location, evaluate(ExpressionVisitor(pass).visit(d.value)));
+		a.value = evaluate(ExpressionVisitor(pass).visit(d.value));
 
 		import d.semantic.mangler;
 		auto typeMangle = TypeMangler(pass).visit(a.value.type);

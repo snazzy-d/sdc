@@ -341,6 +341,7 @@ struct TypeGen {
 
 	import d.ir.error;
 	LLVMTypeRef visit(CompileError e) {
-		assert(0, "Error type can't be generated.");
+		import source.exception;
+		throw new CompileException(e.location, e.message);
 	}
 }

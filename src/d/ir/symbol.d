@@ -502,9 +502,9 @@ class TypeAlias : Symbol {
  * Alias of values
  */
 class ValueAlias : ValueSymbol {
-	ConstantExpression value;
+	Constant value;
 
-	this(Location location, Name name, ConstantExpression value) {
+	this(Location location, Name name, Constant value) {
 		super(location, name);
 
 		this.value = value;

@@ -214,7 +214,7 @@ private:
 				argSyms ~= a;
 				return "T" ~ a.mangle.toString(pass.context);
 			} else static if (is(T : ConstantExpression)) {
-				auto a = new ValueAlias(p.location, p.name, identified);
+				auto a = new ValueAlias(p.location, p.name, identified.value);
 
 				import d.semantic.mangler;
 				auto typeMangle = TypeMangler(pass).visit(identified.type);
