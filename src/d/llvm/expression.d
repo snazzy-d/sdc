@@ -378,6 +378,10 @@ struct ExpressionGen {
 			: loadAddressOf(e);
 	}
 
+	LLVMValueRef visit(GlobalVariableExpression e) {
+		return loadAddressOf(e);
+	}
+
 	LLVMValueRef visit(FieldExpression e) {
 		if (e.isLvalue) {
 			return loadAddressOf(e);
@@ -842,6 +846,10 @@ struct AddressOfGen {
 		assert(!e.var.isFinal, "finals have no address.");
 	} do {
 		return declare(e.var);
+	}
+
+	LLVMValueRef visit(GlobalVariableExpression e) {
+		return globalGen.declare(e.var);
 	}
 
 	LLVMValueRef visit(FieldExpression e) {

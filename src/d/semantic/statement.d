@@ -296,7 +296,10 @@ public:
 		foreach (sym; syms) {
 			if (auto v = cast(Variable) sym) {
 				alloca(v);
-			} else if (cast(Aggregate) sym) {
+				continue;
+			}
+
+			if (cast(GlobalVariable) sym || cast(Aggregate) sym) {
 				// FIXME: We should get rid of this.
 				currentBlock.declare(sym.location, sym);
 			}

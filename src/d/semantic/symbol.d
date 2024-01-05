@@ -456,10 +456,9 @@ struct SymbolAnalyzer {
 		if (v.storage == Storage.Static) {
 			assert(v.linkage == Linkage.D, "Only D mangling is implemented.");
 
-			auto name = v.name.toString(context);
-
 			import d.semantic.mangler;
 			auto mangle = TypeMangler(pass).visit(v.type);
+			auto name = v.name.toString(context);
 
 			import std.conv;
 			mangle =
@@ -473,6 +472,24 @@ struct SymbolAnalyzer {
 		SizeofVisitor(pass).visit(value.type);
 
 		v.step = Step.Processed;
+	}
+
+	void analyze(VariableDeclaration d, GlobalVariable g) {
+		auto value = getValue(d);
+		assert(value);
+
+		assert(g.linkage == Linkage.D, "Only D mangling is implemented.");
+
+		import d.semantic.mangler;
+		auto mangle = TypeMangler(pass).visit(value.type);
+		auto name = g.name.toString(context);
+
+		import std.conv;
+		mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
+		g.mangle = context.getName(mangle);
+
+		g.value = evaluate(value);
+		g.step = Step.Processed;
 	}
 
 	void analyze(VariableDeclaration d, ManifestConstant m) {

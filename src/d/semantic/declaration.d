@@ -234,6 +234,11 @@ struct DeclarationVisitor {
 			return register(d, e, stc);
 		}
 
+		if (storage.isGlobal) {
+			auto g = new GlobalVariable(d.location, d.name);
+			return register(d, g, stc);
+		}
+
 		if (aggregateType == AggregateType.None || storage.isGlobal) {
 			auto v =
 				new Variable(d.location, Type.get(BuiltinType.None), d.name);

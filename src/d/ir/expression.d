@@ -565,7 +565,26 @@ class VariableExpression : Expression {
 
 	@property
 	override bool isLvalue() const {
-		return var.storage != Storage.Enum;
+		return true;
+	}
+
+	override string toString(const Context c) const {
+		return var.name.toString(c);
+	}
+}
+
+class GlobalVariableExpression : Expression {
+	GlobalVariable var;
+
+	this(Location location, GlobalVariable var) {
+		super(location, var.type);
+
+		this.var = var;
+	}
+
+	@property
+	override bool isLvalue() const {
+		return true;
 	}
 
 	override string toString(const Context c) const {

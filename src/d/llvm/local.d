@@ -66,6 +66,11 @@ struct LocalGen {
 		}
 	}
 
+	@property
+	auto globalGen() {
+		return pass;
+	}
+
 	void define(Symbol s) {
 		if (auto v = cast(Variable) s) {
 			define(v);

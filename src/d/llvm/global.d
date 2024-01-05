@@ -95,6 +95,8 @@ public:
 			define(a);
 		} else if (auto v = cast(Variable) s) {
 			define(v);
+		} else if (auto g = cast(GlobalVariable) s) {
+			define(g);
 		} else {
 			// Some symbol just don't need to generate anything, suck as TypeAlias.
 			import std.format;
@@ -350,6 +352,75 @@ public:
 		// If it is not enum, it must be static.
 		assert(v.storage == Storage.Static);
 		auto var = LLVMAddGlobal(dmodule, type, v.mangle.toStringz(context));
+
+		// Depending on the type qualifier,
+		// make it thread local/ constant or nothing.
+		final switch (qualifier) with (TypeQualifier) {
+			case Mutable, Inout, Const:
+				LLVMSetThreadLocal(var, true);
+				break;
+
+			case Shared, ConstShared:
+				break;
+
+			case Immutable:
+				LLVMSetGlobalConstant(var, true);
+				break;
+		}
+
+		return var;
+	}
+
+	LLVMValueRef declare(GlobalVariable g) {
+		auto var = globals.get(g, createStorage(g));
+
+		if (g.inTemplate || mode == Mode.Eager) {
+			if (maybeDefine(g, var)) {
+				LLVMSetLinkage(var, LLVMLinkage.LinkOnceODR);
+			}
+		}
+
+		return var;
+	}
+
+	LLVMValueRef define(GlobalVariable g) {
+		auto var = declare(g);
+		if (maybeDefine(g, var)) {
+			return var;
+		}
+
+		import std.format;
+		assert(
+			LLVMGetLinkage(var) == LLVMLinkage.LinkOnceODR,
+			format!"Global variable %s already defined!"(
+				g.mangle.toString(context))
+		);
+
+		LLVMSetLinkage(var, LLVMLinkage.External);
+		return var;
+	}
+
+	bool maybeDefine(GlobalVariable g, LLVMValueRef var) {
+		if (LLVMGetInitializer(var)) {
+			return false;
+		}
+
+		import d.llvm.constant;
+		auto value = ConstantGen(&this).visit(g.value);
+
+		// Store the initial value into the global variable.
+		LLVMSetInitializer(var, value);
+		return true;
+	}
+
+	private LLVMValueRef createStorage(GlobalVariable g) {
+		auto qualifier = g.type.qualifier;
+
+		import d.llvm.type;
+		auto type = typeGen.visit(g.type);
+
+		auto var = LLVMAddGlobal(dmodule, type, g.mangle.toStringz(context));
+		globals[g] = var;
 
 		// Depending on the type qualifier,
 		// make it thread local/ constant or nothing.
