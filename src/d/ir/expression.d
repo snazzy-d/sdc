@@ -3,6 +3,7 @@ module d.ir.expression;
 import d.ir.constant;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
 import d.common.node;
 
@@ -10,23 +11,18 @@ import source.context;
 import source.location;
 import source.name;
 
-abstract class Expression : Node {
-	Type type;
+abstract class Expression : Value {
+	Location location;
 
 	this(Location location, Type type) {
-		super(location);
+		super(type);
 
-		this.type = type;
+		this.location = location;
 	}
 
 	@property
 	bool isLvalue() const {
 		return false;
-	}
-
-	string toString(const Context) const {
-		import std.format;
-		assert(0, format!"toString not implement for %s."(typeid(this)));
 	}
 }
 
@@ -143,13 +139,13 @@ class UnaryExpression : Expression {
 		this.op = op;
 	}
 
-	override string toString(const Context c) const {
-		return unarizeString(expr.toString(c), op);
-	}
-
 	@property
 	override bool isLvalue() const {
 		return op == UnaryOp.Dereference;
+	}
+
+	override string toString(const Context c) const {
+		return unarizeString(expr.toString(c), op);
 	}
 }
 
@@ -287,6 +283,11 @@ class LifetimeExpression : Expression {
 		this.op = op;
 		this.value = value;
 	}
+
+	override string toString(const Context c) const {
+		import std.format, std.algorithm;
+		return format!"%s %s"(op, value.toString(c));
+	}
 }
 
 class CallExpression : Expression {
@@ -301,15 +302,15 @@ class CallExpression : Expression {
 		this.arguments = arguments;
 	}
 
+	@property
+	override bool isLvalue() const {
+		return callee.type.asFunctionType().returnType.isRef;
+	}
+
 	override string toString(const Context c) const {
 		import std.format, std.algorithm;
 		return format!"%s(%-(%s, %))"(callee.toString(c),
 		                              arguments.map!(a => a.toString(c)));
-	}
-
-	@property
-	override bool isLvalue() const {
-		return callee.type.asFunctionType().returnType.isRef;
 	}
 }
 
@@ -367,11 +368,6 @@ class IndexExpression : Expression {
 		this.index = index;
 	}
 
-	override string toString(const Context c) const {
-		import std.format;
-		return format!"%s[%s]"(indexed.toString(c), index.toString(c));
-	}
-
 	@property
 	override bool isLvalue() const {
 		// FIXME: make this const compliant
@@ -381,6 +377,11 @@ class IndexExpression : Expression {
 		}
 
 		return indexed.isLvalue;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"%s[%s]"(indexed.toString(c), index.toString(c));
 	}
 }
 
@@ -435,13 +436,13 @@ class ContextExpression : Expression {
 		super(location, Type.getContextType(f));
 	}
 
-	override string toString(const Context) const {
-		return "__ctx";
-	}
-
 	@property
 	override bool isLvalue() const {
 		return true;
+	}
+
+	override string toString(const Context) const {
+		return "__ctx";
 	}
 }
 
@@ -497,11 +498,6 @@ class CastExpression : Expression {
 		this.expr = expr;
 	}
 
-	override string toString(const Context c) const {
-		import std.format;
-		return format!"cast(%s) %s"(type.toString(c), expr.toString(c));
-	}
-
 	@property
 	override bool isLvalue() const {
 		final switch (kind) with (CastKind) {
@@ -523,6 +519,11 @@ class CastExpression : Expression {
 			case Exact:
 				return expr.isLvalue;
 		}
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"cast(%s) %s"(type.toString(c), expr.toString(c));
 	}
 }
 
@@ -562,13 +563,13 @@ class VariableExpression : Expression {
 		this.var = var;
 	}
 
-	override string toString(const Context c) const {
-		return var.name.toString(c);
-	}
-
 	@property
 	override bool isLvalue() const {
 		return var.storage != Storage.Enum;
+	}
+
+	override string toString(const Context c) const {
+		return var.name.toString(c);
 	}
 }
 
@@ -586,11 +587,6 @@ class FieldExpression : Expression {
 		this.field = field;
 	}
 
-	override string toString(const Context c) const {
-		import std.format;
-		return format!"%s.%s"(expr.toString(c), field.name.toString(c));
-	}
-
 	@property
 	override bool isLvalue() const {
 		// FIXME: make this const compliant
@@ -600,6 +596,11 @@ class FieldExpression : Expression {
 		}
 
 		return expr.isLvalue;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"%s.%s"(expr.toString(c), field.name.toString(c));
 	}
 }
 

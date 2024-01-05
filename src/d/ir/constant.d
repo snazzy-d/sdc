@@ -1,21 +1,13 @@
 module d.ir.constant;
 
 import source.context;
-import source.location;
-import source.name;
 
 import d.ir.type;
+import d.ir.value;
 
-abstract class Constant {
-	Type type;
-
+abstract class Constant : Value {
 	this(Type type) {
-		this.type = type;
-	}
-
-	string toString(const Context) const {
-		import std.format;
-		assert(0, format!"toString not implement for %s."(typeid(this)));
+		super(type);
 	}
 }
 
