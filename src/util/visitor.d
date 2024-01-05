@@ -1,22 +1,22 @@
 module util.visitor;
 
 auto dispatch(alias unhandled = function void(t) {
-	throw new Exception(typeid(t).toString() ~ " is not supported.");
-	// XXX: Buggy for some reason.
-	// throw new Exception(typeid(t).toString() ~ " is not supported by visitor " ~ typeid(V).toString() ~ " .");
+	import std.format;
+	throw new Exception(
+		format!"%s is not supported by visitor %s."(typeid(t), typeid(V)));
 }, V, T, Args...)(ref V visitor, Args args, T t)
 		if (is(V == struct) && (is(T == class) || is(T == interface))) {
-	return dispatchImpl!(unhandled)(visitor, args, t);
+	return dispatchImpl!unhandled(visitor, args, t);
 }
 
 auto dispatch(alias unhandled = function void(t) {
-	throw new Exception(typeid(t).toString() ~ " is not supported.");
-	// XXX: Buggy for some reason.
-	// throw new Exception(typeid(t).toString() ~ " is not supported by visitor " ~ typeid(V).toString() ~ " .");
+	import std.format;
+	throw new Exception(
+		format!"%s is not supported by visitor %s."(typeid(t), typeid(V)));
 }, V, T, Args...)(V visitor, Args args, T t)
 		if ((is(V == class) || is(V == interface))
 			    && (is(T == class) || is(T == interface))) {
-	return dispatchImpl!(unhandled)(visitor, args, t);
+	return dispatchImpl!unhandled(visitor, args, t);
 }
 
 // XXX: is @trusted if visitor.visit is @safe .
