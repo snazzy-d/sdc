@@ -138,21 +138,19 @@ class Function : ValueSymbol, Scope {
 
 	@property
 	Intrinsic intrinsicID(Intrinsic id)
-			in(!hasThis, "Method can't be intrinsic")
-			in(intrinsicID == Intrinsic.None, "This is already an intrinsic") {
+			in(!hasThis, "Methods can't be intrinsic!")
+			in(intrinsicID == Intrinsic.None, "This is already an intrinsic!") {
 		derived = id;
 		return intrinsicID;
 	}
 
 	void dump(const Context c) const {
-		import std.algorithm, std.range;
-		auto params = params.map!(p => p.name.toString(c)).join(", ");
-
 		auto retStr =
 			(step >= Step.Signed) ? type.returnType.toString(c) : "__untyped";
 
-		import std.stdio;
-		write(retStr, ' ', name.toString(c), '(', params, ") {");
+		import std.stdio, std.algorithm, std.range;
+		writef!"%s %s(%-(%s, %)) {"(retStr, name.toString(c),
+		                            params.map!(p => p.name.toString(c)));
 		fbody.dump(c);
 		writeln("}\n");
 	}
@@ -285,8 +283,9 @@ class Variable : ValueSymbol {
 	}
 
 	override string toString(const Context c) const {
-		return type.toString(c) ~ " " ~ name.toString(c) ~ " = "
-			~ value.toString(c) ~ ";";
+		import std.format;
+		return format!"%s %s = %s;"(type.toString(c), name.toString(c),
+		                            value.toString(c));
 	}
 }
 
@@ -312,6 +311,12 @@ class Field : ValueSymbol {
 	@property
 	uint index() const {
 		return derived;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"%s %s = %s;"(type.toString(c), name.toString(c),
+		                            value.toString(c));
 	}
 }
 
@@ -363,8 +368,10 @@ class TypeTemplateParameter : TemplateParameter {
 	}
 
 	override string toString(const Context c) const {
-		return name.toString(c) ~ " : " ~ specialization.toString(c) ~ " = "
-			~ defaultValue.toString(c);
+		import std.format;
+		return format!"%s : %s = %s"(
+			name.toString(c), specialization.toString(c),
+			defaultValue.toString(c));
 	}
 }
 
@@ -382,6 +389,12 @@ class ValueTemplateParameter : TemplateParameter {
 		this.type = type;
 		this.defaultValue = defaultValue;
 	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"%s %s = %s"(name.toString(c), type.toString(c),
+		                           defaultValue.toString(c));
+	}
 }
 
 /**
@@ -390,6 +403,11 @@ class ValueTemplateParameter : TemplateParameter {
 class AliasTemplateParameter : TemplateParameter {
 	this(Location location, Name name, uint index) {
 		super(location, name, index);
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"alias %s"(name.toString(c));
 	}
 }
 
@@ -403,6 +421,11 @@ class TypedAliasTemplateParameter : TemplateParameter {
 		super(location, name, index);
 
 		this.type = type;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"alias %s %s"(type.toString(c), name.toString(c));
 	}
 }
 
@@ -474,14 +497,6 @@ class SymbolAlias : Symbol {
 
 		this.symbol = symbol;
 	}
-
-	/+
-	invariant() {
-		if (step >= Step.Signed) {
-			assert(symbol && hasContext == symbol.hasContext);
-		}
-	}
-	+/
 }
 
 /**
@@ -525,7 +540,7 @@ class Struct : Aggregate {
 	@property
 	bool hasIndirection() const
 			in(step >= Step.Signed,
-			   "Struct need to be signed to use hasIndirection") {
+			   "Struct need to be signed to use hasIndirection!") {
 		return !!(derived & 0x01);
 	}
 
@@ -542,7 +557,7 @@ class Struct : Aggregate {
 
 	@property
 	bool isPod() const
-			in(step >= Step.Signed, "Struct need to be signed to use isPod") {
+			in(step >= Step.Signed, "Struct need to be signed to use isPod!") {
 		return !!(derived & 0x02);
 	}
 
@@ -558,8 +573,8 @@ class Struct : Aggregate {
 	}
 
 	@property
-	bool isSmall() const
-			in(step >= Step.Signed, "Struct need to be signed to use isSmall") {
+	bool isSmall() const in(step >= Step.Signed,
+	                        "Struct need to be signed to use isSmall!") {
 		return !!(derived & 0x04);
 	}
 
@@ -586,7 +601,7 @@ class Union : Aggregate {
 	@property
 	bool hasIndirection() const
 			in(step >= Step.Signed,
-			   "Union need to be signed to use hasIndirection") {
+			   "Union need to be signed to use hasIndirection!") {
 		return !!derived;
 	}
 
