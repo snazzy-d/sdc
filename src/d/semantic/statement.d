@@ -335,7 +335,8 @@ public:
 
 				currentBlock.alloca(s.location, v);
 			} else {
-				assert(0, "Was not expecting " ~ T.stringof);
+				import std.format;
+				assert(0, format!"Was not expecting %s"(typeid(identified)));
 			}
 		})();
 	}
@@ -480,10 +481,10 @@ public:
 				static if (is(typeof(e) : Expression)) {
 					return e;
 				} else {
-					import d.ir.error;
+					import d.ir.error, std.format;
 					return new CompileError(
 						iterated.location,
-						typeid(e).toString() ~ " is not a valid length"
+						format!"%s is not a valid length."(typeid(e))
 					).expression;
 				}
 			})();
@@ -1021,7 +1022,7 @@ public:
 		assert(unwindActions[$ - 1].statement is null);
 
 		auto catchSwitchBlock = unwindActions[$ - 1].unwindBlock;
-		assert(catchSwitchBlock, "No catch switch block");
+		assert(catchSwitchBlock, "No catch switch block.");
 
 		unwindActions = unwindActions[0 .. preCatchLevel];
 
@@ -1044,10 +1045,10 @@ public:
 					static if (is(T : Type)) {
 						assert(0);
 					} else {
-						import source.exception;
+						import source.exception, std.format;
 						throw new CompileException(
 							identified.location,
-							typeid(identified).toString() ~ " is not a class."
+							format!"%s is not a class."(typeid(identified))
 						);
 					}
 				})();
@@ -1103,11 +1104,14 @@ public:
 
 		import source.exception;
 		if (s.message is null) {
-			throw new CompileException(s.location, "assertion failure");
+			throw new CompileException(s.location, "assertion failure.");
 		}
 
 		auto msg = evalString(buildString(s.message));
-		throw new CompileException(s.location, "assertion failure: " ~ msg);
+
+		import std.format;
+		throw new CompileException(s.location,
+		                           format!"assertion failure: %s"(msg));
 	}
 
 	void visit(Version!Statement d) {
