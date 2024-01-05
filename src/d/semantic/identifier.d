@@ -453,6 +453,15 @@ struct IdentifierPostProcessor(bool asAlias) {
 		return visit(new VariableExpression(location, v));
 	}
 
+	Identifiable visit(ManifestConstant m) {
+		if (asAlias && !thisExpr) {
+			return Identifiable(m);
+		}
+
+		scheduler.require(m, Step.Signed);
+		return Identifiable(new ConstantExpression(location, m.value));
+	}
+
 	Identifiable visit(Field f) {
 		scheduler.require(f, Step.Signed);
 		return

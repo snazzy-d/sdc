@@ -216,20 +216,30 @@ struct DeclarationVisitor {
 		select(d, f);
 	}
 
+	auto register(S)(VariableDeclaration d, S s, StorageClass stc) {
+		s.linkage = getLinkage(stc);
+		s.visibility = getVisibility(stc);
+		s.inTemplate = inTemplate;
+
+		addSymbol(s);
+		select(d, s);
+	}
+
 	void visit(VariableDeclaration d) {
 		auto stc = d.storageClass;
 		auto storage = getStorage(stc);
 
+		if (storage == Storage.Enum) {
+			auto e = new ManifestConstant(d.location, d.name);
+			return register(d, e, stc);
+		}
+
 		if (aggregateType == AggregateType.None || storage.isGlobal) {
 			auto v =
 				new Variable(d.location, Type.get(BuiltinType.None), d.name);
-			v.linkage = getLinkage(stc);
-			v.visibility = getVisibility(stc);
 			v.storage = storage;
-			v.inTemplate = inTemplate;
 
-			addSymbol(v);
-			select(d, v);
+			return register(d, v, stc);
 		} else {
 			auto f = new Field(d.location, fieldIndex,
 			                   Type.get(BuiltinType.None), d.name);
@@ -239,12 +249,7 @@ struct DeclarationVisitor {
 				fieldIndex++;
 			}
 
-			f.linkage = getLinkage(stc);
-			f.visibility = getVisibility(stc);
-			f.inTemplate = inTemplate;
-
-			addSymbol(f);
-			select(d, f);
+			return register(d, f, stc);
 		}
 	}
 

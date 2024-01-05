@@ -445,7 +445,9 @@ struct SymbolAnalyzer {
 
 		// We peel alias for auto variable as it can lead to
 		// very confusing results, like a template parameter.
-		v.type = d.type.isAuto ? value.type.getCanonical() : value.type;
+		static if (is(typeof(v.type = Type.init))) {
+			v.type = d.type.isAuto ? value.type.getCanonical() : value.type;
+		}
 
 		assert(value);
 		static if (is(typeof(v.value) : Constant)) {
@@ -464,7 +466,8 @@ struct SymbolAnalyzer {
 		v.mangle = v.name;
 		static if (is(V : Variable)) {
 			if (v.storage == Storage.Static) {
-				assert(v.linkage == Linkage.D, "I mangle only D!");
+				assert(v.linkage == Linkage.D,
+				       "Only D mangling is implemented.");
 
 				auto name = v.name.toString(context);
 
@@ -484,6 +487,10 @@ struct SymbolAnalyzer {
 
 	void analyze(VariableDeclaration d, Variable v) {
 		analyzeVarLike(d, v);
+	}
+
+	void analyze(VariableDeclaration d, ManifestConstant m) {
+		analyzeVarLike(d, m);
 	}
 
 	void analyze(VariableDeclaration d, Field f) {

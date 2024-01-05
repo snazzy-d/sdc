@@ -290,6 +290,31 @@ class Variable : ValueSymbol {
 }
 
 /**
+ * enum Foo = 123;
+ */
+class ManifestConstant : ValueSymbol {
+	Constant value;
+
+	this(Location location, Name name, Constant value = null) {
+		super(location, name);
+
+		this.value = value;
+		isFinal = true;
+	}
+
+	@property
+	inout(Type) type() inout {
+		return value.type;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"enum %s %s = %s;"(type.toString(c), name.toString(c),
+		                                 value.toString(c));
+	}
+}
+
+/**
  * Field
  */
 class Field : ValueSymbol {
