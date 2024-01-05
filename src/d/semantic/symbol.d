@@ -595,8 +595,7 @@ struct SymbolAnalyzer {
 			}
 		}
 
-		auto init = new Variable(d.location, type, BuiltinName!"init");
-		init.storage = Storage.Static;
+		auto init = new ManifestConstant(d.location, BuiltinName!"init");
 		init.step = Step.Signed;
 		init.mangle = context.getName(
 			"_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
@@ -607,7 +606,7 @@ struct SymbolAnalyzer {
 		s.step = Step.Populated;
 
 		import d.semantic.defaultinitializer;
-		init.value = InitBuilder(pass, s.location).asExpression(s);
+		init.value = InitBuilder(pass, s.location).visit(s);
 		init.step = Step.Processed;
 
 		// If the struct has no dtor and only pod fields, it is a pod.
@@ -685,8 +684,7 @@ struct SymbolAnalyzer {
 			}
 		}
 
-		auto init = new Variable(u.location, type, BuiltinName!"init");
-		init.storage = Storage.Static;
+		auto init = new ManifestConstant(u.location, BuiltinName!"init");
 		init.step = Step.Signed;
 		init.mangle = context.getName(
 			"_D" ~ manglePrefix ~ to!string("init".length) ~ "init" ~ mangle);
@@ -695,7 +693,7 @@ struct SymbolAnalyzer {
 		u.step = Step.Populated;
 
 		import d.semantic.defaultinitializer;
-		init.value = InitBuilder(pass, u.location).asExpression(u);
+		init.value = InitBuilder(pass, u.location).visit(u);
 		init.step = Step.Processed;
 
 		import std.algorithm;
@@ -1031,28 +1029,31 @@ struct SymbolAnalyzer {
 			e.entries ~= v;
 
 			auto dv = vd.value;
-			if (dv is null) {
-				if (previous) {
-					// XXX: consider using AstExpression and always
-					// follow th same path.
-					scheduler.require(previous, Step.Signed);
-					v.value = new BinaryExpression(
-						location,
-						type,
-						BinaryOp.Add,
-						new VariableExpression(location, previous),
-						new ConstantExpression(location,
-						                       new IntegerConstant(1, bt))
-					);
-				} else {
-					v.value =
-						new ConstantExpression(location,
-						                       new IntegerConstant(0, bt));
-				}
+			scope(success) {
+				pass.scheduler.schedule(dv, v);
+				previous = v;
 			}
 
-			pass.scheduler.schedule(dv, v);
-			previous = v;
+			if (dv !is null) {
+				continue;
+			}
+
+			if (previous is null) {
+				v.value = new ConstantExpression(location,
+				                                 new IntegerConstant(0, bt));
+				continue;
+			}
+
+			// XXX: consider using AstExpression and always
+			// follow the same path.
+			scheduler.require(previous, Step.Signed);
+			v.value = new BinaryExpression(
+				location,
+				type,
+				BinaryOp.Add,
+				new VariableExpression(location, previous),
+				new ConstantExpression(location, new IntegerConstant(1, bt))
+			);
 		}
 
 		e.step = Step.Signed;
