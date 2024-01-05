@@ -42,7 +42,7 @@ struct TypeMangler {
 	string visit(BuiltinType t) {
 		final switch (t) with (BuiltinType) {
 			case None:
-				assert(0, "none should never be mangled");
+				assert(0, "None cannot be mangled.");
 
 			case Void:
 				return "v";
@@ -114,8 +114,8 @@ struct TypeMangler {
 	}
 
 	string visitArrayOf(uint size, Type t) {
-		import std.conv;
-		return "G" ~ size.to!string() ~ visit(t);
+		import std.format;
+		return format!"G%s%s"(size, visit(t));
 	}
 
 	string visit(Struct s) {
@@ -178,9 +178,8 @@ struct TypeMangler {
 				return "R";
 			+/
 			default:
-				import std.conv;
-				assert(0,
-				       "Linkage " ~ to!string(linkage) ~ " is not supported.");
+				import std.format;
+				assert(0, format!"Linkage %s is not supported."(linkage));
 		}
 	}
 
