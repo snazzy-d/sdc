@@ -440,61 +440,67 @@ struct SymbolAnalyzer {
 		return buildImplicitCast(pass, d.location, type, value);
 	}
 
-	private void analyzeVarLike(V)(VariableDeclaration d, V v) {
+	void analyze(VariableDeclaration d, Variable v) {
 		auto value = getValue(d);
+		assert(value);
 
 		// We peel alias for auto variable as it can lead to
 		// very confusing results, like a template parameter.
-		static if (is(typeof(v.type = Type.init))) {
-			v.type = d.type.isAuto ? value.type.getCanonical() : value.type;
-		}
+		v.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
-		assert(value);
-		static if (is(typeof(v.value) : Constant)) {
-			v.value = evaluate(value);
-			value = new ConstantExpression(value.location, v.value);
-		} else {
-			value = v.value = v.storage.isGlobal
-				? new ConstantExpression(value.location, evaluate(value))
-				: value;
+		value = v.value = v.storage.isGlobal
+			? new ConstantExpression(value.location, evaluate(value))
+			: value;
+
+		v.mangle = v.name;
+		if (v.storage == Storage.Static) {
+			assert(v.linkage == Linkage.D, "Only D mangling is implemented.");
+
+			auto name = v.name.toString(context);
+
+			import d.semantic.mangler;
+			auto mangle = TypeMangler(pass).visit(v.type);
+
+			import std.conv;
+			mangle =
+				"_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
+
+			v.mangle = context.getName(mangle);
 		}
 
 		// XXX: Make sure type is at least signed.
 		import d.semantic.sizeof;
 		SizeofVisitor(pass).visit(value.type);
 
-		v.mangle = v.name;
-		static if (is(V : Variable)) {
-			if (v.storage == Storage.Static) {
-				assert(v.linkage == Linkage.D,
-				       "Only D mangling is implemented.");
-
-				auto name = v.name.toString(context);
-
-				import d.semantic.mangler;
-				auto mangle = TypeMangler(pass).visit(v.type);
-
-				import std.conv;
-				mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name
-					~ mangle;
-
-				v.mangle = context.getName(mangle);
-			}
-		}
-
 		v.step = Step.Processed;
 	}
 
-	void analyze(VariableDeclaration d, Variable v) {
-		analyzeVarLike(d, v);
-	}
-
 	void analyze(VariableDeclaration d, ManifestConstant m) {
-		analyzeVarLike(d, m);
+		auto value = getValue(d);
+		assert(value);
+
+		m.mangle = m.name;
+		m.value = evaluate(value);
+
+		m.step = Step.Processed;
 	}
 
 	void analyze(VariableDeclaration d, Field f) {
-		analyzeVarLike(d, f);
+		auto value = getValue(d);
+		assert(value);
+
+		// We peel alias for auto variable as it can lead to
+		// very confusing results, like a template parameter.
+		f.type = d.type.isAuto ? value.type.getCanonical() : value.type;
+
+		f.mangle = f.name;
+		f.value = evaluate(value);
+
+		// XXX: Make sure type is at least signed.
+		import d.semantic.sizeof;
+		SizeofVisitor(pass).visit(value.type);
+
+		f.step = Step.Processed;
 	}
 
 	void analyze(IdentifierAliasDeclaration iad, SymbolAlias a) {
