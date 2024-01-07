@@ -30,6 +30,11 @@ public:
 	}
 
 	@property
+	auto range() {
+		return Range!(N, NodeName)(this);
+	}
+
+	@property
 	N* first() {
 		return root.node;
 	}
@@ -184,4 +189,70 @@ unittest ring {
 	ring.remove(a);
 	assert(ring.first is null);
 	assert(ring.last is null);
+}
+
+struct Range(N, string NodeName = "rnode") {
+private:
+	alias Link = .Link!(N, NodeName);
+
+	Link current;
+	Link sentinel;
+
+public:
+	this(Ring!(N, NodeName) ring) {
+		this.current = ring.root;
+		this.sentinel = ring.root;
+	}
+
+	@property
+	N* front() {
+		return current.node;
+	}
+
+	@property
+	bool empty() {
+		return current.isNull();
+	}
+
+	void popFront() {
+		current = current.next;
+		if (current.node is sentinel.node) {
+			current = Link(null);
+		}
+	}
+}
+
+unittest range {
+	struct Stuff {
+		ulong value;
+		Node!Stuff rnode;
+	}
+
+	Stuff[128] stuffs;
+	foreach (i; 0 .. stuffs.length) {
+		stuffs[i].value = i;
+	}
+
+	alias Link = .Link!(Stuff, "rnode");
+	Ring!Stuff ring;
+
+	auto range = ring.range;
+	assert(range.empty);
+	assert(range.front is null);
+
+	foreach (i; 0 .. stuffs.length) {
+		auto n = &stuffs[i];
+		ring.insert(n);
+	}
+
+	range = ring.range;
+	foreach (i; 0 .. stuffs.length) {
+		assert(!range.empty);
+		assert(range.front is &stuffs[127 - i]);
+
+		range.popFront();
+	}
+
+	assert(range.empty);
+	assert(range.front is null);
 }
