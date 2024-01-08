@@ -22,6 +22,11 @@ public:
 		return leaf is null ? PageDescriptor(0) : leaf.load();
 	}
 
+	BlockExtentMap blockLookup(ref ExtentMapCache cache, void* block) shared {
+		assert(isAligned(block, BlockSize), "Invalid block address!");
+		return BlockExtentMap(block, tree.get(cache, block));
+	}
+
 	bool map(ref shared Base base, ref ExtentMapCache cache, void* address,
 	         uint pages, PageDescriptor pd) shared {
 		return tree.setRange(cache, address, pages, pd, base);
@@ -69,6 +74,12 @@ public:
 
 	PageDescriptor lookup(void* address) {
 		return emap.lookup(cache, address);
+	}
+
+	BlockExtentMap blockLookup(void* address) {
+		assert(isAligned(address, BlockSize), "Invalid block address!");
+
+		return emap.blockLookup(cache, address);
 	}
 
 	bool map(void* address, uint pages, PageDescriptor pd) {
@@ -193,6 +204,28 @@ public:
 	ubyte sizeClass() const {
 		auto ec = extentClass;
 		return ec.sizeClass;
+	}
+}
+
+struct BlockExtentMap {
+private:
+	void* block;
+	shared(Leaf[PagesInBlock])* leaves;
+
+	alias Leaf = RTree!PageDescriptor.Leaf;
+
+public:
+	this(void* block, shared(Leaf)* leaf) {
+		assert(isAligned(block, BlockSize), "Invalid block address!");
+		assert(leaf !is null, "Unmapped block!");
+
+		this.block = block;
+		this.leaves = cast(shared(Leaf[PagesInBlock])*) leaf;
+	}
+
+	auto lookup(uint index) {
+		assert(index < PagesInBlock, "Invalid index!");
+		return (*leaves)[index].load();
 	}
 }
 
