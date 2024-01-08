@@ -51,7 +51,7 @@ enum ExtentAlign = ExtentSize;
 enum ExtentMask = AddressSpace - ExtentAlign;
 
 enum LgArenaCount = 12;
-enum ArenaCount = One << LgArenaCount;
+enum ArenaCount = 1 << LgArenaCount;
 enum ArenaMask = ArenaCount - 1;
 
 // Various thresolds.

@@ -196,6 +196,23 @@ public:
 		(cast(PageFiller*) &this).freePagesImpl(e, n, pages);
 	}
 
+	/**
+	 * GC facilities.
+	 */
+	void prepareGCCycle(ref CachedExtentMap emap) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(PageFiller*) &this).prepareGCCycleImpl(emap);
+	}
+
+	void collect(ref CachedExtentMap emap) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(PageFiller*) &this).collectImpl(emap);
+	}
+
 private:
 	/**
 	 * Allocate and free pages, private implementation.
@@ -514,6 +531,125 @@ private:
 
 		auto sharedThis = cast(shared(PageFiller)*) &this;
 		return Extent.fromSlot(sharedThis.arena.index, slot);
+	}
+
+	/**
+	 * GC facilities.
+	 */
+	ulong[] allocGCBitmap() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		// Allocate one page.
+		bool dirty;
+		auto e = allocRunImpl(1, uint.max, ExtentClass.large(), dirty);
+		if (unlikely(e is null)) {
+			return [];
+		}
+
+		if (dirty) {
+			import d.gc.memmap;
+			pages_zero(e.address, e.size);
+		}
+
+		/**
+		 * We sacrifice the last nimble to store a pointer to
+		 * the extent itself. This allows us to skip registering
+		 * the extent in the extent map.
+		 */
+		enum NimbleCount = (PageSize / ulong.sizeof) - 1;
+
+		auto ptr = cast(ulong*) e.address;
+		ptr[NimbleCount] = cast(ulong) e;
+		return ptr[0 .. NimbleCount];
+	}
+
+	void prepareGCCycleImpl(ref CachedExtentMap emap) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		ulong[] bitmaps;
+
+		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
+			auto b = r.front;
+			auto bem = emap.blockLookup(b.address);
+
+			uint i = 0;
+			while (i < PagesInBlock) {
+				i = b.nextAllocatedPage(i);
+				if (i >= PagesInBlock) {
+					break;
+				}
+
+				auto pd = bem.lookup(i);
+				auto sc = pd.sizeClass;
+
+				scope(success) {
+					import d.gc.slab;
+					i += binInfos[sc].npages;
+				}
+
+				import d.gc.sizeclass;
+				if (sizeClassSupportsInlineMarking(sc)) {
+					continue;
+				}
+
+				import d.gc.slab;
+				auto nslots = binInfos[sc].nslots;
+				auto nimble = alignUp(nslots, 64) / 64;
+				if (bitmaps.length < nimble) {
+					bitmaps = allocGCBitmap();
+				}
+
+				assert(bitmaps.length >= nimble,
+				       "Failed to allocate GC bitmaps.");
+
+				pd.extent.outlineBitmap = bitmaps.ptr;
+				bitmaps = bitmaps[nimble .. bitmaps.length];
+			}
+		}
+	}
+
+	void collectImpl(ref CachedExtentMap emap) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
+			auto b = r.front;
+			auto bem = emap.blockLookup(b.address);
+
+			uint i = 0;
+			while (i < PagesInBlock) {
+				i = b.nextAllocatedPage(i);
+				if (i >= PagesInBlock) {
+					break;
+				}
+
+				auto pd = bem.lookup(i);
+				auto sc = pd.sizeClass;
+
+				scope(success) {
+					import d.gc.slab;
+					i += binInfos[sc].npages;
+				}
+
+				import d.gc.sizeclass;
+				if (sizeClassSupportsInlineMarking(sc)) {
+					continue;
+				}
+
+				auto e = pd.extent;
+				if (isAligned(e.outlineBitmap, PageSize)) {
+					enum ExtentIndex = (PageSize / ulong.sizeof) - 1;
+					auto be = *(cast(Extent**) (e.outlineBitmap + ExtentIndex));
+
+					// Make sure we have the extent we expect.
+					assert(be.address is cast(void*) e.outlineBitmap);
+					assert(be.npages == 1);
+
+					freePagesImpl(be, be.blockIndex, 1);
+				}
+
+				e.outlineBitmap = null;
+			}
+		}
 	}
 }
 

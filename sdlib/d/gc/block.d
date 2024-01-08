@@ -201,6 +201,10 @@ public:
 		return _links.rnode;
 	}
 
+	uint nextAllocatedPage(uint index) {
+		return allocatedPages.findSet(index);
+	}
+
 	uint reserve(uint pages, ref bool dirty) {
 		// FIXME: in contract
 		assert(0 < pages && pages <= longestFreeRange,

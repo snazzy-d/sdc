@@ -48,5 +48,5 @@ void __sd_gc_add_roots(const void[] range) {
 }
 
 void __sd_gc_collect() {
-	threadCache.collect();
+	threadCache.runGCCycle();
 }

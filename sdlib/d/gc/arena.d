@@ -60,6 +60,11 @@ public:
 		return a;
 	}
 
+	static getIfInitialized(uint index) {
+		auto a = getArenaAddress(index);
+		return a.initialized ? a : null;
+	}
+
 	static getOrInitialize(uint index) {
 		// Compute the internal index.
 		index &= ArenaMask;
@@ -159,6 +164,17 @@ public:
 			emap.clear(pd.extent);
 			filler.freePages(pd.extent);
 		}
+	}
+
+	/**
+	 * GC facilities.
+	 */
+	void prepareGCCycle(ref CachedExtentMap emap) shared {
+		filler.prepareGCCycle(emap);
+	}
+
+	void collect(ref CachedExtentMap emap) shared {
+		filler.collect(emap);
 	}
 }
 

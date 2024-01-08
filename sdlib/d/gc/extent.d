@@ -118,9 +118,10 @@ public:
 private:
 	Node!Extent _phnode;
 
+	ulong* outlineBitmap;
+
 	// TODO: Reuse this data to do something useful,
 	// like garbage collection :P
-	void* _pad0;
 	void* _pad1;
 
 	struct SlabMetadata {

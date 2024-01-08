@@ -222,10 +222,15 @@ public:
 	/**
 	 * GC facilities.
 	 */
-	void collect() {
+	void runGCCycle() {
+		// Just in case.
+		initializeExtentMap();
+
 		import d.thread;
 		__sd_thread_stop_the_world();
 		scope(exit) __sd_thread_restart_the_world();
+
+		prepareGCCycle();
 
 		// TODO: The set need a range interface or some other way to iterrate.
 		// FIXME: Prepare the GC so it has bitfields for all extent classes.
@@ -236,7 +241,27 @@ public:
 
 		// TODO: Go on and on until all worklists are empty.
 
-		// TODO: Collect.
+		collect();
+	}
+
+	void prepareGCCycle() {
+		foreach (i; 0 .. ArenaCount) {
+			import d.gc.arena;
+			auto a = Arena.getIfInitialized(i);
+			if (a !is null) {
+				a.prepareGCCycle(emap);
+			}
+		}
+	}
+
+	void collect() {
+		foreach (i; 0 .. ArenaCount) {
+			import d.gc.arena;
+			auto a = Arena.getIfInitialized(i);
+			if (a !is null) {
+				a.collect(emap);
+			}
+		}
 	}
 
 	bool scan(const(void*)[] range) {
@@ -253,7 +278,7 @@ public:
 
 			auto pd = maybeGetPageDescriptor(ptr);
 			if (pd.extent is null) {
-				// We have no mappign there.
+				// We have no mapping there.
 				continue;
 			}
 
