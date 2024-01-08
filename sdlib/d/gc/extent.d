@@ -54,6 +54,16 @@ struct ExtentClass {
 	bool sparse() const {
 		return !dense;
 	}
+
+	@property
+	bool supportsMetadata() const {
+		return data != 1;
+	}
+
+	@property
+	bool supportsInlineMarking() const {
+		return uint(data - 1) > 2;
+	}
 }
 
 unittest ExtentClass {
@@ -61,6 +71,8 @@ unittest ExtentClass {
 	assert(!l.isSlab());
 	assert(!l.dense);
 	assert(l.sparse);
+	assert(l.supportsMetadata);
+	assert(l.supportsInlineMarking);
 
 	foreach (ubyte sc; 0 .. ClassCount.Small) {
 		auto s = ExtentClass.slab(sc);
@@ -69,6 +81,8 @@ unittest ExtentClass {
 
 		assert(s.dense == isDenseSizeClass(sc));
 		assert(s.sparse == isSparseSizeClass(sc));
+		assert(s.supportsMetadata == sizeClassSupportsMetadata(sc));
+		assert(s.supportsInlineMarking == sizeClassSupportsInlineMarking(sc));
 	}
 }
 
