@@ -33,6 +33,12 @@ public:
 		                                  getName(directory), content);
 	}
 
+	Position registerFile(Location location, string filename, string directory,
+	                      string content) {
+		return sourceManager.registerFile(location, getName(filename),
+		                                  getName(directory), content);
+	}
+
 	Position registerMixin(Location location, string content) {
 		return sourceManager.registerMixin(location, content);
 	}
@@ -40,4 +46,15 @@ public:
 	void registerLineDirective(Position p, Name filename, uint line) {
 		return sourceManager.registerLineDirective(p, filename, line);
 	}
+}
+
+unittest {
+	import source.location;
+	auto context = new Context();
+	auto pos = context.registerFile(Location.init, "file.txt", null, "content")
+	                  .getFullPosition(context);
+	assert(pos.getSource().getContent() == "content");
+	assert(pos.getSource().getFileName().toString() == "file.txt");
+	assert(pos.getLineNumber() == 1);
+	assert(pos.getColumn() == 0);
 }
