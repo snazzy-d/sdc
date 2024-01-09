@@ -1216,6 +1216,8 @@ public:
 		auto preUnwindBlock = currentBlockRef;
 		scope(exit) currentBlockRef = preUnwindBlock;
 
+		bool hasUnwindAction = false;
+
 		auto i = unwindActions.length;
 		while (i-- > level) {
 			auto bPtr = &unwindActions[i];
@@ -1224,6 +1226,7 @@ public:
 				continue;
 			}
 
+			hasUnwindAction = true;
 			unwindActions = unwindActions[0 .. i];
 
 			// We encountered a scope statement that
@@ -1252,16 +1255,14 @@ public:
 			}
 		}
 
-		if (unwindActions.length != level) {
-			foreach (b; unwindActions[level .. $]) {
-				assert(!b.isUnwind());
-			}
-
-			unwindActions = unwindActions[0 .. level];
-			concludeUnwind(Location.init);
+		// Sanity check.
+		foreach (b; unwindActions[level .. $]) {
+			assert(!b.isUnwind());
 		}
 
-		if (!terminate) {
+		unwindActions = unwindActions[0 .. level];
+
+		if (hasUnwindAction && !terminate) {
 			maybeBranchToNewBlock(Location.init, BuiltinName!"resume");
 		}
 	}
