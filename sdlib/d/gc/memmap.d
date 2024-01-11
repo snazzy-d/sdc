@@ -65,7 +65,7 @@ void* pages_map(void* addr, size_t size, size_t alignment) {
 
 void pages_unmap(void* addr, size_t size) {
 	auto ret = munmap(addr, size);
-	assert(ret != -1, "munmap failed!");
+	assert(ret == 0, "munmap failed!");
 }
 
 void pages_purge(void* addr, size_t size) {
