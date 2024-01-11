@@ -73,6 +73,14 @@ void pages_purge(void* addr, size_t size) {
 	assert(ret == 0, "madvise failed!");
 }
 
+void pages_zero(void* addr, size_t size) {
+	if (size >= PurgePageThresold) {
+		pages_purge(addr, size);
+	} else {
+		memset(addr, 0, size);
+	}
+}
+
 private:
 
 enum PagesFDTag = -1;
