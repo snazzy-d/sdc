@@ -19,7 +19,7 @@ version(OSX) {
 		Anon = 0x1000,
 	}
 
-	enum Advise {
+	enum Madv {
 		Normal = 0x00,
 		Random = 0x01,
 		Sequential = 0x02,
@@ -37,7 +37,7 @@ version(FreeBSD) {
 		Anon = 0x1000,
 	}
 
-	enum Advise {
+	enum Madv {
 		Normal = 0x00,
 		Random = 0x01,
 		Sequential = 0x02,
@@ -55,7 +55,7 @@ version(linux) {
 		Anon = 0x20,
 	}
 
-	enum Advise {
+	enum Madv {
 		Normal = 0x00,
 		Random = 0x01,
 		Sequential = 0x02,

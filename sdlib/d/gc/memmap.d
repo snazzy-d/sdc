@@ -69,7 +69,7 @@ void pages_unmap(void* addr, size_t size) {
 }
 
 void pages_purge(void* addr, size_t size) {
-	auto ret = madvise(addr, size, Advise.Free);
+	auto ret = madvise(addr, size, Madv.Free);
 	assert(ret == 0, "madvise failed!");
 }
 
