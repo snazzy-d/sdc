@@ -201,9 +201,9 @@ public:
 		return _links.rnode;
 	}
 
-	uint reserve(uint pages) {
+	uint reserve(uint pages, ref bool dirty) {
 		// FIXME: in contract
-		assert(pages > 0 && pages <= longestFreeRange,
+		assert(0 < pages && pages <= longestFreeRange,
 		       "Invalid number of pages!");
 
 		uint bestIndex = uint.max;
@@ -232,8 +232,9 @@ public:
 			current = index + length;
 		}
 
-		bits -= AllocScoreUnit;
-		registerAllocation(bestIndex, pages);
+		assert(bestIndex < PagesInBlock, "Invalid best index!");
+		assert(pages <= bestLength && bestLength <= PagesInBlock,
+		       "Invalid best length!");
 
 		// If we allocated from the longest range,
 		// compute the new longest free range.
@@ -241,6 +242,9 @@ public:
 			longestLength = max(longestLength - pages, secondLongestLength);
 			updateLongestFreeRange(longestLength);
 		}
+
+		bits -= AllocScoreUnit;
+		dirty = registerAllocation(bestIndex, pages);
 
 		return bestIndex;
 	}
@@ -276,7 +280,7 @@ public:
 		return true;
 	}
 
-	void registerAllocation(uint index, uint pages) {
+	bool registerAllocation(uint index, uint pages) {
 		assert(index < PagesInBlock, "Invalid index!");
 		assert(pages > 0 && index + pages <= PagesInBlock,
 		       "Invalid number of pages!");
@@ -286,9 +290,13 @@ public:
 		allocatedPages.setRange(index, pages);
 
 		// Mark the pages as dirty.
-		dirtyCount -= dirtyPages.countBits(index, pages);
-		dirtyCount += pages;
+		auto alreadyDirty = dirtyPages.countBits(index, pages);
 		dirtyPages.setRange(index, pages);
+
+		dirtyCount -= alreadyDirty;
+		dirtyCount += pages;
+
+		return alreadyDirty > 0;
 	}
 
 	void clear(uint index, uint pages) {
@@ -416,6 +424,12 @@ ptrdiff_t unusedBlockDescriptorCmp(BlockDescriptor* lhs, BlockDescriptor* rhs) {
 unittest reserve_release {
 	BlockDescriptor block;
 
+	void checkReserve(uint pages, uint index, bool clean) {
+		bool dirty;
+		assert(block.reserve(pages, dirty) == index);
+		assert(dirty == !clean);
+	}
+
 	void checkRangeState(uint nalloc, uint nused, uint ndirty, uint lfr) {
 		assert(block.allocCount == nalloc);
 		assert(block.usedCount == nused);
@@ -427,11 +441,11 @@ unittest reserve_release {
 	checkRangeState(0, 0, 0, PagesInBlock);
 
 	// First allocation.
-	assert(block.reserve(5) == 0);
+	checkReserve(5, 0, true);
 	checkRangeState(1, 5, 5, PagesInBlock - 5);
 
 	// Second allocation.
-	assert(block.reserve(5) == 5);
+	checkReserve(5, 5, true);
 	checkRangeState(2, 10, 10, PagesInBlock - 10);
 
 	// Check that freeing the first allocation works as expected.
@@ -440,11 +454,11 @@ unittest reserve_release {
 
 	// A new allocation that doesn't fit in the space left
 	// by the first one is done in the trailign space.
-	assert(block.reserve(7) == 10);
+	checkReserve(7, 10, true);
 	checkRangeState(2, 12, 17, PagesInBlock - 17);
 
 	// A new allocation that fits is allocated in there.
-	assert(block.reserve(5) == 0);
+	checkReserve(5, 0, false);
 	checkRangeState(3, 17, 17, PagesInBlock - 17);
 
 	// Make sure we keep track of the longest free range
@@ -460,7 +474,7 @@ unittest reserve_release {
 
 	// Allocate the whole block.
 	foreach (i; 0 .. PagesInBlock / 4) {
-		assert(block.reserve(4) == 4 * i);
+		checkReserve(4, 4 * i, i > 4);
 	}
 
 	checkRangeState(PagesInBlock / 4, PagesInBlock, 512, 0);
@@ -494,6 +508,12 @@ unittest reserve_release {
 unittest clear {
 	BlockDescriptor block;
 
+	void checkReserve(uint pages, uint index, bool clean) {
+		bool dirty;
+		assert(block.reserve(pages, dirty) == index);
+		assert(dirty == !clean);
+	}
+
 	void checkRangeState(uint nalloc, uint nused, uint ndirty, uint lfr) {
 		assert(block.allocCount == nalloc);
 		assert(block.usedCount == nused);
@@ -503,15 +523,15 @@ unittest clear {
 	}
 
 	// First allocation.
-	assert(block.reserve(200) == 0);
+	checkReserve(200, 0, true);
 	checkRangeState(1, 200, 200, PagesInBlock - 200);
 
 	// Second allocation:
-	assert(block.reserve(100) == 200);
+	checkReserve(100, 200, true);
 	checkRangeState(2, 300, 300, PagesInBlock - 300);
 
 	// Third allocation, and we're full:
-	assert(block.reserve(212) == 300);
+	checkReserve(212, 300, true);
 	checkRangeState(3, 512, 512, 0);
 
 	// Shrink the first allocation, make lfr of 100.
@@ -542,6 +562,12 @@ unittest clear {
 unittest growAt {
 	BlockDescriptor block;
 
+	void checkReserve(uint pages, uint index, bool clean) {
+		bool dirty;
+		assert(block.reserve(pages, dirty) == index);
+		assert(dirty == !clean);
+	}
+
 	void checkRangeState(uint nalloc, uint nused, uint ndirty, uint lfr) {
 		assert(block.allocCount == nalloc);
 		assert(block.usedCount == nused);
@@ -553,7 +579,7 @@ unittest growAt {
 	checkRangeState(0, 0, 0, PagesInBlock);
 
 	// First allocation.
-	assert(block.reserve(64) == 0);
+	checkReserve(64, 0, true);
 	checkRangeState(1, 64, 64, PagesInBlock - 64);
 
 	// Grow it by 32 pages.
@@ -565,7 +591,7 @@ unittest growAt {
 	checkRangeState(1, 128, 128, PagesInBlock - 128);
 
 	// Second allocation.
-	assert(block.reserve(256) == 128);
+	checkReserve(256, 128, true);
 	checkRangeState(2, 384, 384, PagesInBlock - 384);
 
 	// Try to grow the first allocation, but cannot, there is no space.
@@ -573,7 +599,7 @@ unittest growAt {
 	checkRangeState(2, 384, 384, PagesInBlock - 384);
 
 	// Third allocation.
-	assert(block.reserve(128) == 384);
+	checkReserve(128, 384, true);
 	checkRangeState(3, 512, 512, 0);
 
 	// Try to grow the second allocation, but cannot, there is no space.
@@ -594,7 +620,7 @@ unittest growAt {
 	checkRangeState(1, 257, 512, 128);
 
 	// Make an allocation in the lfr, new lfr is after the second alloc.
-	assert(block.reserve(128) == 0);
+	checkReserve(128, 0, false);
 	checkRangeState(2, 385, 512, 127);
 
 	// Free the above allocation, lfr is 128 again.
@@ -608,11 +634,11 @@ unittest growAt {
 	// Test with a full block:
 
 	// Make an allocation:
-	assert(block.reserve(256) == 0);
+	checkReserve(256, 0, false);
 	checkRangeState(1, 256, 512, PagesInBlock - 256);
 
 	// Make another allocation, filling block.
-	assert(block.reserve(256) == 256);
+	checkReserve(256, 256, false);
 	checkRangeState(2, 512, 512, 0);
 
 	// Try expanding the first one, but there is no space.
@@ -624,7 +650,7 @@ unittest growAt {
 	checkRangeState(1, 256, 512, PagesInBlock - 256);
 
 	// Replace it with a shorter one.
-	assert(block.reserve(250) == 0);
+	checkReserve(250, 0, false);
 	checkRangeState(2, 506, 512, PagesInBlock - 506);
 
 	// Try to grow the above by 7, but cannot, this is one page too many.
@@ -637,7 +663,14 @@ unittest growAt {
 }
 
 unittest track_dirty {
+	bool dirty;
 	BlockDescriptor block;
+
+	void checkReserve(uint pages, uint index, bool clean) {
+		bool dirty;
+		assert(block.reserve(pages, dirty) == index);
+		assert(dirty == !clean);
+	}
 
 	void checkRangeState(uint nalloc, uint nused, uint ndirty, uint lfr) {
 		assert(block.allocCount == nalloc);
@@ -650,11 +683,11 @@ unittest track_dirty {
 	checkRangeState(0, 0, 0, PagesInBlock);
 
 	// First allocation.
-	assert(block.reserve(5) == 0);
+	checkReserve(5, 0, true);
 	checkRangeState(1, 5, 5, PagesInBlock - 5);
 
 	// Second allocation.
-	assert(block.reserve(5) == 5);
+	checkReserve(5, 5, true);
 	checkRangeState(2, 10, 10, PagesInBlock - 10);
 
 	// Check that freeing the first allocation works as expected.
@@ -663,11 +696,11 @@ unittest track_dirty {
 
 	// A new allocation that doesn't fit in the space left
 	// by the first one is done in the trailign space.
-	assert(block.reserve(7) == 10);
+	checkReserve(7, 10, true);
 	checkRangeState(2, 12, 17, PagesInBlock - 17);
 
 	// A new allocation that fits is allocated in there.
-	assert(block.reserve(5) == 0);
+	checkReserve(5, 0, false);
 	checkRangeState(3, 17, 17, PagesInBlock - 17);
 
 	// Make sure we keep track of the longest free range
@@ -680,6 +713,6 @@ unittest track_dirty {
 
 	// Check that allocating something that do not fit in
 	// the first slot allocates in the apropriate free range.
-	assert(block.reserve(10) == 10);
+	checkReserve(10, 10, false);
 	checkRangeState(2, 15, 20, PagesInBlock - 20);
 }

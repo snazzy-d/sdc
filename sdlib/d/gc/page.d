@@ -148,7 +148,13 @@ public:
 	}
 
 	Extent* allocRun(uint pages, uint allocClass, ExtentClass ec) shared {
-		assert(pages > 0 && pages <= MaxPagesInLargeAlloc,
+		bool dirty;
+		return allocRun(pages, allocClass, ec, dirty);
+	}
+
+	Extent* allocRun(uint pages, uint allocClass, ExtentClass ec,
+	                 ref bool dirty) shared {
+		assert(0 < pages && pages <= MaxPagesInLargeAlloc,
 		       "Invalid page count!");
 		assert(allocClass == getAllocClass(pages), "Invalid allocClass!");
 
@@ -157,7 +163,7 @@ public:
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(PageFiller*) &this).allocRunImpl(pages, mask, ec);
+		return (cast(PageFiller*) &this).allocRunImpl(pages, mask, ec, dirty);
 	}
 
 	Extent* allocHuge(uint pages) shared {
@@ -189,7 +195,8 @@ private:
 	/**
 	 * Allocate and free pages, private implementation.
 	 */
-	Extent* allocRunImpl(uint pages, uint mask, ExtentClass ec) {
+	Extent* allocRunImpl(uint pages, uint mask, ExtentClass ec,
+	                     ref bool dirty) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto e = getOrAllocateExtent();
@@ -203,7 +210,7 @@ private:
 			return null;
 		}
 
-		auto n = block.reserve(pages);
+		auto n = block.reserve(pages, dirty);
 		registerBlock(block);
 
 		auto ptr = block.address + n * PageSize;
@@ -225,10 +232,13 @@ private:
 			return null;
 		}
 
-		auto n = block.reserve(pages);
-		registerBlock(block);
+		bool dirty;
+		auto n = block.reserve(pages, dirty);
 
 		assert(n == 0, "Unexpected page allocated!");
+		assert(!dirty, "Huge allocations shouldn't be dirty!");
+
+		registerBlock(block);
 
 		auto leadSize = extraBlocks * BlockSize;
 		auto ptr = block.address - leadSize;
