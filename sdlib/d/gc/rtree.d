@@ -166,12 +166,22 @@ public:
 
 			auto leaves = getLeaves(cache, ptr);
 			if (leaves is null) {
-				import d.gc.util;
 				ptr = nextPtr;
 				continue;
 			}
 
 			auto key1 = subKey(ptr, 1);
+
+			// If we need to clear the whole page, do so via purging.
+			// XXX: We might want to do it for smaller runs, but this is
+			// more complicated as the alternative path requires atomic ops.
+			if (key1 == 0 && stop >= nextPtr) {
+				import d.gc.memmap;
+				pages_purge(cast(void*) leaves.ptr, typeof(*leaves).sizeof);
+
+				ptr = nextPtr;
+				continue;
+			}
 
 			auto subStop = stop < nextPtr ? stop : nextPtr;
 			while (ptr < subStop) {
