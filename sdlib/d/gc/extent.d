@@ -410,16 +410,29 @@ public:
 unittest finalizers {
 	static void destruct(void* ptr, size_t size) {}
 
-	// Basic test for large allocs:
-	import d.gc.tcache;
-	auto large = threadCache.alloc(20000, false);
-	auto largePd = threadCache.getPageDescriptor(large);
-	largePd.extent.setUsedCapacity(19999);
-	assert(largePd.extent.finalizer is null);
-	largePd.extent.setFinalizer(&destruct);
-	assert(cast(void*) largePd.extent.finalizer == cast(void*) &destruct);
-	assert(largePd.extent.usedCapacity == 19999);
-	threadCache.free(large);
+	Extent e;
+
+	enum PageCount = 5;
+	ubyte[(PageCount + 1) * PageSize] buffer;
+
+	// Make sure we are page alligned.
+	auto ptr = alignUp(buffer.ptr, PageSize);
+	e.at(ptr, PageCount, null);
+
+	assert(e.finalizer is null);
+	assert(e.usedCapacity == 20480);
+
+	e.setUsedCapacity(20000);
+	assert(e.finalizer is null);
+	assert(e.usedCapacity == 20000);
+
+	e.setFinalizer(destruct);
+	assert(cast(void*) e.finalizer is cast(void*) destruct);
+	assert(e.usedCapacity == 20000);
+
+	e.setUsedCapacity(20400);
+	assert(cast(void*) e.finalizer is cast(void*) destruct);
+	assert(e.usedCapacity == 20400);
 }
 
 static assert(Extent.sizeof == ExtentSize, "Unexpected Extent size!");
