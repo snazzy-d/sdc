@@ -19,7 +19,7 @@ struct Bin {
 	PriorityExtentHeap slabs;
 
 	void* alloc(shared(PageFiller)* filler, ref CachedExtentMap emap,
-	            ubyte sizeClass) shared {
+	            ubyte sizeClass, bool zero) shared {
 		import d.gc.sizeclass;
 		assert(sizeClass < ClassCount.Small);
 		assert(&filler.arena.bins[sizeClass] == &this,
@@ -29,10 +29,13 @@ struct Bin {
 		import d.gc.slab;
 		auto slotSize = binInfos[sizeClass].itemSize;
 
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		auto ptr = allocSized(filler, emap, sizeClass, slotSize);
+		if (ptr !is null && zero) {
+			import d.gc.slab;
+			memset(ptr, 0, slotSize);
+		}
 
-		return (cast(Bin*) &this).allocImpl(filler, emap, sizeClass, slotSize);
+		return ptr;
 	}
 
 	bool free(void* ptr, PageDescriptor pd) shared {
@@ -52,8 +55,17 @@ struct Bin {
 	}
 
 private:
-	void* allocImpl(shared(PageFiller)* filler, ref CachedExtentMap emap,
-	                ubyte sizeClass, size_t slotSize) {
+	void* allocSized(shared(PageFiller)* filler, ref CachedExtentMap emap,
+	                 ubyte sizeClass, size_t slotSize) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(Bin*) &this)
+			.allocSizedImpl(filler, emap, sizeClass, slotSize);
+	}
+
+	void* allocSizedImpl(shared(PageFiller)* filler, ref CachedExtentMap emap,
+	                     ubyte sizeClass, size_t slotSize) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 

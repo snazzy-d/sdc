@@ -8,7 +8,7 @@ extern(C):
  * Standard C allocating functions.
  */
 void* malloc(size_t size) {
-	return threadCache.alloc(size, true);
+	return threadCache.alloc(size, true, false);
 }
 
 void free(void* ptr) {
@@ -16,13 +16,7 @@ void free(void* ptr) {
 }
 
 void* calloc(size_t nmemb, size_t size) {
-	auto asize = nmemb * size;
-	auto ret = threadCache.alloc(asize, true);
-	if (ret !is null) {
-		memset(ret, 0, asize);
-	}
-
-	return ret;
+	return threadCache.alloc(nmemb * size, true, true);
 }
 
 void* realloc(void* ptr, size_t size) {
@@ -33,7 +27,7 @@ void* realloc(void* ptr, size_t size) {
  * SDC runtime API.
  */
 void* __sd_gc_alloc(size_t size) {
-	return threadCache.alloc(size, true);
+	return threadCache.alloc(size, true, false);
 }
 
 void* __sd_gc_array_alloc(size_t size) {

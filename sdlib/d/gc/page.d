@@ -96,8 +96,7 @@ public:
 	/**
 	 * Large allocation facilities.
 	 */
-	void* allocLarge(ref CachedExtentMap emap, uint pages,
-	                 bool needZero = false) shared {
+	void* allocLarge(ref CachedExtentMap emap, uint pages, bool zero) shared {
 		bool dirty;
 		auto e = allocPages(pages, dirty);
 		if (unlikely(e is null)) {
@@ -110,7 +109,7 @@ public:
 			return null;
 		}
 
-		if (needZero && dirty) {
+		if (zero && dirty) {
 			import d.gc.memmap;
 			pages_zero(e.address, e.size);
 		}

@@ -16,7 +16,7 @@ private:
 	const(void*)[][] roots;
 
 public:
-	void* alloc(size_t size, bool containsPointers) {
+	void* alloc(size_t size, bool containsPointers, bool zero) {
 		if (!isAllocatableSize(size)) {
 			return null;
 		}
@@ -24,12 +24,14 @@ public:
 		initializeExtentMap();
 
 		auto arena = chooseArena(containsPointers);
-		return isSmallSize(size)
-			? arena.allocSmall(emap, size)
-			: arena.allocLarge(emap, size, false);
+		if (isSmallSize(size)) {
+			return arena.allocSmall(emap, size, zero);
+		}
+
+		return arena.allocLarge(emap, size, zero);
 	}
 
-	void* allocAppendable(size_t size, bool containsPointers,
+	void* allocAppendable(size_t size, bool containsPointers, bool zero,
 	                      Finalizer finalizer = null) {
 		if (!isAllocatableSize(size)) {
 			return null;
@@ -44,14 +46,14 @@ public:
 
 		auto arena = chooseArena(containsPointers);
 		if (isSmallSize(asize)) {
-			auto ptr = arena.allocSmall(emap, asize);
+			auto ptr = arena.allocSmall(emap, asize, zero);
 			auto pd = getPageDescriptor(ptr);
 			auto si = SlabAllocInfo(pd, ptr);
 			si.initializeMetadata(finalizer, size);
 			return ptr;
 		}
 
-		auto ptr = arena.allocLarge(emap, size, false);
+		auto ptr = arena.allocLarge(emap, size, zero);
 		auto pd = getPageDescriptor(ptr);
 		auto e = pd.extent;
 		e.setUsedCapacity(size);
@@ -105,7 +107,7 @@ public:
 		}
 
 		if (ptr is null) {
-			return alloc(size, containsPointers);
+			return alloc(size, containsPointers, false);
 		}
 
 		auto copySize = size;
@@ -137,7 +139,7 @@ public:
 			copySize = min(size, pd.extent.usedCapacity);
 		}
 
-		auto newPtr = alloc(size, containsPointers);
+		auto newPtr = alloc(size, containsPointers, false);
 		if (newPtr is null) {
 			return null;
 		}
@@ -362,15 +364,97 @@ private:
 
 unittest nonAllocatableSizes {
 	// Prohibited sizes of allocations
-	assert(threadCache.alloc(0, false) == null);
-	assert(threadCache.alloc(MaxAllocationSize + 1, false) == null);
-	assert(threadCache.allocAppendable(0, false) == null);
-	assert(threadCache.allocAppendable(MaxAllocationSize + 1, false) == null);
+	assert(threadCache.alloc(0, false, false) is null);
+	assert(threadCache.alloc(MaxAllocationSize + 1, false, false) is null);
+	assert(threadCache.allocAppendable(0, false, false) is null);
+	assert(
+		threadCache.allocAppendable(MaxAllocationSize + 1, false, false) is null
+	);
+}
+
+unittest zero {
+	enum LargeSize = 5 * PageSize;
+	enum SmallSize = 8;
+
+	// Check that zeroing large allocations works as expected.
+	void* ptr0 = null;
+	auto ptr = threadCache.alloc(LargeSize, false, true);
+
+	// Make sure this isn't the only allocation on the block.
+	if (isAligned(ptr, BlockSize)) {
+		ptr0 = ptr;
+		ptr = threadCache.alloc(LargeSize, false, true);
+	}
+
+	void checkValue(ulong value) {
+		auto x = cast(ulong*) ptr;
+
+		foreach (_; 0 .. LargeSize / ulong.sizeof) {
+			assert(*x++ == value);
+		}
+	}
+
+	void setValue(ulong value) {
+		auto x = cast(ulong*) ptr;
+
+		foreach (_; 0 .. LargeSize / ulong.sizeof) {
+			*x++ = value;
+		}
+
+		checkValue(value);
+	}
+
+	checkValue(0);
+	setValue(0xbadc0ffee0ddf00d);
+
+	// We free and reallocate, we should get the same dirty chunk.
+	threadCache.free(ptr);
+	assert(threadCache.alloc(LargeSize, false, false) is ptr);
+	checkValue(0xbadc0ffee0ddf00d);
+
+	// We free and reallocate, but asking for zeroed memory.
+	threadCache.free(ptr);
+	assert(threadCache.alloc(LargeSize, false, true) is ptr);
+	checkValue(0);
+
+	// Cleanup after ourselves.
+	threadCache.free(ptr);
+	threadCache.free(ptr0);
+
+	// Now lets check we zero correctly small allocation.
+	ptr0 = null;
+	ptr = threadCache.alloc(SmallSize, false, true);
+
+	// Make sure this isn't the only allocation on the block.
+	if (isAligned(ptr, BlockSize)) {
+		ptr0 = ptr;
+		ptr = threadCache.alloc(SmallSize, false, true);
+	}
+
+	auto uptr = cast(ulong*) ptr;
+	assert(*uptr == 0);
+
+	*uptr = 0xbadc0ffee0ddf00d;
+	assert(*uptr == 0xbadc0ffee0ddf00d);
+
+	// Now free and reallocate, check we get back the same slot.
+	threadCache.free(ptr);
+	assert(threadCache.alloc(SmallSize, false, false) is ptr);
+	assert(*uptr == 0xbadc0ffee0ddf00d);
+
+	// We free and reallocate, but asking for zeroed memory.
+	threadCache.free(ptr);
+	assert(threadCache.alloc(SmallSize, false, true) is ptr);
+	assert(*uptr == 0);
+
+	// Cleanup after ourselves.
+	threadCache.free(ptr);
+	threadCache.free(ptr0);
 }
 
 unittest getCapacity {
 	// Non-appendable size class 6 (56 bytes)
-	auto nonAppendable = threadCache.alloc(50, false);
+	auto nonAppendable = threadCache.alloc(50, false, false);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 0]) == 0);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 50]) == 0);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 56]) == 56);
@@ -389,7 +473,7 @@ unittest getCapacity {
 	assert(threadCache.getCapacity(tlPtr[0 .. 100]) == 0);
 
 	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
-		auto ptr = threadCache.allocAppendable(size, false);
+		auto ptr = threadCache.allocAppendable(size, false, false);
 		assert(ptr !is null);
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
@@ -430,7 +514,7 @@ unittest getCapacity {
 	assert(threadCache.getCapacity(p0[101 .. 101]) == 0);
 
 	// Realloc.
-	auto p1 = threadCache.allocAppendable(20000, false);
+	auto p1 = threadCache.allocAppendable(20000, false, false);
 	assert(threadCache.getCapacity(p1[0 .. 19999]) == 0);
 	assert(threadCache.getCapacity(p1[0 .. 20000]) == 20480);
 	assert(threadCache.getCapacity(p1[0 .. 20001]) == 0);
@@ -469,7 +553,7 @@ unittest getCapacity {
 
 unittest extendLarge {
 	// Non-appendable size class 6 (56 bytes)
-	auto nonAppendable = threadCache.alloc(50, false);
+	auto nonAppendable = threadCache.alloc(50, false, false);
 	assert(threadCache.getCapacity(nonAppendable[0 .. 50]) == 0);
 
 	// Attempt to extend a non-appendable (always considered fully occupied)
@@ -496,12 +580,12 @@ unittest extendLarge {
 	assert(!threadCache.extend(tlPtr[100 .. 100], 1));
 
 	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
-		auto ptr = threadCache.allocAppendable(size, false);
+		auto ptr = threadCache.allocAppendable(size, false, false);
 		assert(ptr !is null);
 
 		// We make sure we can't reisze the allocation by allocating a dead zone after it.
 		import d.gc.size;
-		auto deadzone = threadCache.alloc(MaxSmallSize + 1, false);
+		auto deadzone = threadCache.alloc(MaxSmallSize + 1, false, false);
 		if (deadzone !is alignUp(ptr + size, PageSize)) {
 			threadCache.free(deadzone);
 			scope(success) threadCache.free(ptr);
@@ -611,7 +695,7 @@ unittest extendLarge {
 
 unittest extendSmall {
 	// Make a small appendable alloc:
-	auto s0 = threadCache.allocAppendable(42, false);
+	auto s0 = threadCache.allocAppendable(42, false, false);
 
 	assert(threadCache.getCapacity(s0[0 .. 42]) == 48);
 	assert(threadCache.extend(s0[0 .. 0], 0));
@@ -627,7 +711,7 @@ unittest extendSmall {
 	assert(threadCache.getCapacity(s0[0 .. 45]) == 48);
 
 	// Make another in same size class:
-	auto s1 = threadCache.allocAppendable(42, false);
+	auto s1 = threadCache.allocAppendable(42, false, false);
 	assert(threadCache.extend(s1[0 .. 42], 1));
 	assert(threadCache.getCapacity(s1[0 .. 43]) == 48);
 
@@ -667,8 +751,10 @@ unittest extendSmall {
 unittest arraySpill {
 	void setAllocationUsedCapacity(void* ptr, size_t usedCapacity) {
 		assert(ptr !is null);
+
 		auto pd = threadCache.getPageDescriptor(ptr);
 		assert(pd.extent !is null);
+
 		if (pd.isSlab()) {
 			auto si = SlabAllocInfo(pd, ptr);
 			si.setUsedCapacity(usedCapacity);
@@ -680,7 +766,7 @@ unittest arraySpill {
 	// Get two allocs of given size guaranteed to be adjacent.
 	void*[2] makeTwoAdjacentAllocs(uint size) {
 		void* alloc() {
-			return threadCache.alloc(size, false);
+			return threadCache.alloc(size, false, false);
 		}
 
 		void*[2] tryPair(void* left, void* right) {
@@ -753,19 +839,19 @@ unittest finalization {
 	}
 
 	// Finalizers for large allocs:
-	auto s0 = threadCache.allocAppendable(16384, false, &destruct);
+	auto s0 = threadCache.allocAppendable(16384, false, false, &destruct);
 	threadCache.destroy(s0);
 	assert(lastKilledAddress == s0);
 	assert(lastKilledUsedCapacity == 16384);
 
 	// Destroy on non-finalized alloc is harmless:
-	auto s1 = threadCache.allocAppendable(20000, false);
+	auto s1 = threadCache.allocAppendable(20000, false, false);
 	auto oldDestroyCount = destroyCount;
 	threadCache.destroy(s1);
 	assert(destroyCount == oldDestroyCount);
 
 	// Finalizers for small allocs:
-	auto s2 = threadCache.allocAppendable(45, false, &destruct);
+	auto s2 = threadCache.allocAppendable(45, false, false, &destruct);
 	assert(threadCache.getCapacity(s2[0 .. 45]) == 56);
 	assert(!threadCache.extend(s2[0 .. 45], 12));
 	assert(threadCache.extend(s2[0 .. 45], 11));
@@ -775,7 +861,7 @@ unittest finalization {
 	assert(lastKilledUsedCapacity == 56);
 
 	// Behaviour of realloc() on small allocs with finalizers:
-	auto s3 = threadCache.allocAppendable(70, false, &destruct);
+	auto s3 = threadCache.allocAppendable(70, false, false, &destruct);
 	assert(threadCache.getCapacity(s3[0 .. 70]) == 72);
 	auto s4 = threadCache.realloc(s3, 70, false);
 	assert(s3 == s4);
