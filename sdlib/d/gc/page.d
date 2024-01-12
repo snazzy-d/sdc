@@ -343,14 +343,14 @@ private:
 
 		auto block = e.block;
 		unregisterBlock(block);
+		scope(success) registerBlock(block);
 
-		auto didGrow = block.growAt(index, delta);
-		if (didGrow) {
-			e.at(e.address, pages, block);
+		if (!block.growAt(index, delta)) {
+			return false;
 		}
 
-		registerBlock(block);
-		return didGrow;
+		e.at(e.address, pages, block);
+		return true;
 	}
 
 	void shrinkAllocImpl(Extent* e, uint index, uint pages, uint delta) {
@@ -362,12 +362,12 @@ private:
 
 		auto block = e.block;
 		unregisterBlock(block);
+		scope(success) registerBlock(block);
 
 		e.at(e.address, pages, block);
-		block.clear(index, delta);
 
+		block.clear(index, delta);
 		assert(!block.empty);
-		registerBlock(block);
 	}
 
 	/**
