@@ -76,6 +76,10 @@ public:
 	void release(void* ptr, uint blocks) shared {
 		assert(blocks > 0, "Invalid number of blocks!");
 
+		// Eagerly clean the block we are returned.
+		import d.gc.memmap;
+		pages_purge(ptr, blocks * BlockSize);
+
 		mutex.lock();
 		scope(exit) mutex.unlock();
 

@@ -23,7 +23,7 @@ private:
 	}
 
 	import d.sync.mutex;
-	Mutex mutex;
+	shared Mutex mutex;
 
 	/**
 	 * We separate dense from sparse allocations.
@@ -267,8 +267,10 @@ private:
 		} else {
 			// If the extent is huge, we need to release the concerned region.
 			if (e.isHuge()) {
-				uint count = (e.size / BlockSize) & uint.max;
-				regionAllocator.release(e.address, count);
+				mutex.unlock();
+				scope(exit) mutex.lock();
+
+				regionAllocator.release(e.address, e.npages / PagesInBlock);
 			}
 
 			registerBlock(block);
@@ -480,12 +482,16 @@ private:
 
 		// We do not manage this block anymore.
 		getAllBlocks(block.dense).remove(block);
-
-		auto pages = getBlockCount(e.size);
-		auto ptr = alignDown(e.address, BlockSize);
-		regionAllocator.release(ptr, pages);
-
 		unusedBlockDescriptors.insert(block);
+
+		mutex.unlock();
+		scope(exit) mutex.lock();
+
+		auto nblocks = alignUp(e.npages, PagesInBlock) / PagesInBlock;
+		assert(nblocks <= uint.max);
+
+		auto ptr = alignDown(e.address, BlockSize);
+		regionAllocator.release(ptr, nblocks & uint.max);
 	}
 
 	/**
@@ -499,16 +505,15 @@ private:
 			return e;
 		}
 
-		auto sharedThis = cast(shared(PageFiller)*) &this;
-
-		sharedThis.mutex.unlock();
-		scope(success) sharedThis.mutex.lock();
+		mutex.unlock();
+		scope(success) mutex.lock();
 
 		auto slot = base.allocSlot();
 		if (slot.address is null) {
 			return null;
 		}
 
+		auto sharedThis = cast(shared(PageFiller)*) &this;
 		return Extent.fromSlot(sharedThis.arena.index, slot);
 	}
 }
