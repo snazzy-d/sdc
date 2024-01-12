@@ -72,7 +72,7 @@ public:
 		auto neededPages = binInfos[sizeClass].npages;
 
 		auto ec = ExtentClass.slab(sizeClass);
-		auto e = allocRun(neededPages, neededPages - 1, ec);
+		auto e = allocSmallRun(neededPages, neededPages - 1, ec);
 		if (unlikely(e is null)) {
 			return null;
 		}
@@ -143,11 +143,12 @@ public:
 			return allocHuge(pages);
 		}
 
+		bool dirty;
 		auto allocClass = getAllocClass(pages);
-		return allocRun(pages, allocClass, ExtentClass.large());
+		return allocRun(pages, allocClass, ExtentClass.large(), dirty);
 	}
 
-	Extent* allocRun(uint pages, uint allocClass, ExtentClass ec) shared {
+	Extent* allocSmallRun(uint pages, uint allocClass, ExtentClass ec) shared {
 		bool dirty;
 		return allocRun(pages, allocClass, ec, dirty);
 	}
