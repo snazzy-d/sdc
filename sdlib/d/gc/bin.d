@@ -18,24 +18,26 @@ struct Bin {
 	import d.gc.extent;
 	PriorityExtentHeap slabs;
 
-	void* alloc(shared(PageFiller)* filler, ref CachedExtentMap emap,
-	            ubyte sizeClass, bool zero) shared {
+	uint batchAllocate(
+		shared(PageFiller)* filler,
+		ref CachedExtentMap emap,
+		ubyte sizeClass,
+		void*[] buffer,
+		size_t slotSize,
+	) shared {
 		import d.gc.sizeclass;
 		assert(sizeClass < ClassCount.Small);
-		assert(&filler.arena.bins[sizeClass] == &this,
+		assert(&filler.arena.bins[sizeClass] is &this,
 		       "Invalid arena or sizeClass!");
 
-		// Load eagerly as prefetching.
 		import d.gc.slab;
-		auto slotSize = binInfos[sizeClass].itemSize;
+		assert(slotSize == binInfos[sizeClass].itemSize, "Invalid slot size!");
 
-		auto ptr = allocSized(filler, emap, sizeClass, slotSize);
-		if (ptr !is null && zero) {
-			import d.gc.slab;
-			memset(ptr, 0, slotSize);
-		}
+		mutex.lock();
+		scope(exit) mutex.unlock();
 
-		return ptr;
+		return (cast(Bin*) &this)
+			.batchAllocateImpl(filler, emap, sizeClass, buffer, slotSize);
 	}
 
 	bool free(void* ptr, PageDescriptor pd) shared {
@@ -55,35 +57,31 @@ struct Bin {
 	}
 
 private:
-	void* allocSized(shared(PageFiller)* filler, ref CachedExtentMap emap,
-	                 ubyte sizeClass, size_t slotSize) shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		return (cast(Bin*) &this)
-			.allocSizedImpl(filler, emap, sizeClass, slotSize);
-	}
-
-	void* allocSizedImpl(shared(PageFiller)* filler, ref CachedExtentMap emap,
-	                     ubyte sizeClass, size_t slotSize) {
+	uint batchAllocateImpl(shared(PageFiller)* filler, ref CachedExtentMap emap,
+	                       ubyte sizeClass, void*[] buffer, size_t slotSize) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto e = getSlab(filler, emap, sizeClass);
-		if (e is null) {
-			return null;
-		}
+		uint total = 0;
 
-		void*[1] buffer = void;
-		auto count = e.batchAllocate(buffer[0 .. 1], slotSize);
-		assert(count > 0);
+		while (total < buffer.length) {
+			auto e = getSlab(filler, emap, sizeClass);
+			if (e is null) {
+				break;
+			}
 
-		// If the slab is full, remove it from the heap.
-		if (e.nfree == 0) {
+			total += e.batchAllocate(buffer[total .. buffer.length], slotSize);
+
+			// If the slab is not full, we are done.
+			if (e.nfree > 0) {
+				break;
+			}
+
+			// The slab is full, remove from the heap.
 			slabs.remove(e);
 		}
 
-		return buffer[0];
+		return total;
 	}
 
 	bool freeImpl(Extent* e, uint index, uint nslots) {

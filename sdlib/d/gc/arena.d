@@ -102,8 +102,24 @@ public:
 		// TODO: in contracts
 		assert(isSmallSize(size));
 
+		import d.gc.slab;
 		auto sizeClass = getSizeClass(size);
-		return bins[sizeClass].alloc(&filler, emap, sizeClass, zero);
+		auto slotSize = binInfos[sizeClass].itemSize;
+
+		void*[1] buffer = void;
+		auto count = bins[sizeClass]
+			.batchAllocate(&filler, emap, sizeClass, buffer[0 .. 1], slotSize);
+		if (unlikely(count == 0)) {
+			return null;
+		}
+
+		auto ptr = buffer[0];
+		if (zero) {
+			import d.gc.slab;
+			memset(ptr, 0, slotSize);
+		}
+
+		return ptr;
 	}
 
 	/**
