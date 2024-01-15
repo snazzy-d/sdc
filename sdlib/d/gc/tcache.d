@@ -13,8 +13,6 @@ private:
 	import d.gc.emap;
 	CachedExtentMap emap;
 
-	const(void*)[][] roots;
-
 public:
 	void* alloc(size_t size, bool containsPointers, bool zero) {
 		if (!isAllocatableSize(size)) {
@@ -224,21 +222,6 @@ public:
 	/**
 	 * GC facilities.
 	 */
-	void addRoots(const void[] range) {
-		auto ptr = cast(void*) roots.ptr;
-
-		// We realloc everytime. It doesn't really matter at this point.
-		roots.ptr = cast(const(void*)[]*)
-			realloc(ptr, (roots.length + 1) * void*[].sizeof, true);
-
-		// Using .ptr to bypass bound checking.
-		import d.gc.range;
-		roots.ptr[roots.length] = makeRange(range);
-
-		// Update the range.
-		roots = roots.ptr[0 .. roots.length + 1];
-	}
-
 	void collect() {
 		import d.thread;
 		__sd_thread_stop_the_world();
@@ -249,10 +232,7 @@ public:
 
 		// TODO: Call into rt.thread to scan stack/statics.
 
-		// Scan the roots.
-		foreach (range; roots) {
-			scan(range);
-		}
+		// TODO: Scan the roots.
 
 		// TODO: Go on and on until all worklists are empty.
 

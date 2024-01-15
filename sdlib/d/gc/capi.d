@@ -43,7 +43,8 @@ void* __sd_gc_realloc(void* ptr, size_t size) {
 }
 
 void __sd_gc_add_roots(const void[] range) {
-	threadCache.addRoots(range);
+	import d.gc.global;
+	gState.addRoots(range);
 }
 
 void __sd_gc_collect() {
