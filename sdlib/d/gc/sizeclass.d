@@ -208,7 +208,7 @@ unittest getSizeClass {
 size_t getSizeFromClass(uint sizeClass) {
 	if (isSmallSizeClass(sizeClass)) {
 		import d.gc.slab;
-		return binInfos[sizeClass].itemSize;
+		return binInfos[sizeClass].slotSize;
 	}
 
 	auto largeSizeClass = sizeClass - ClassCount.Small;
@@ -263,7 +263,7 @@ auto getBinInfos() {
 
 		auto s = (1 << grp) + (ndelta << delta);
 		assert(s < ushort.max);
-		ushort itemSize = s & ushort.max;
+		ushort slotSize = s & ushort.max;
 
 		ubyte shift = delta & 0xff;
 		if (grp == delta) {
@@ -271,10 +271,10 @@ auto getBinInfos() {
 			shift = (delta + tag - 2) & 0xff;
 		}
 
-		auto npages = computePageCount(itemSize, shift);
+		auto npages = computePageCount(slotSize, shift);
 		ushort slots = ((npages << LgPageSize) / s) & ushort.max;
 
-		bins[id] = BinInfo(itemSize, shift, npages, slots);
+		bins[id] = BinInfo(slotSize, shift, npages, slots);
 	});
 
 	return bins;

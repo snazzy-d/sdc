@@ -31,7 +31,7 @@ struct Bin {
 		       "Invalid arena or sizeClass!");
 
 		import d.gc.slab;
-		assert(slotSize == binInfos[sizeClass].itemSize, "Invalid slot size!");
+		assert(slotSize == binInfos[sizeClass].slotSize, "Invalid slot size!");
 
 		mutex.lock();
 		scope(exit) mutex.unlock();

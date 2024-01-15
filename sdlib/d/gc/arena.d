@@ -104,7 +104,7 @@ public:
 
 		import d.gc.slab;
 		auto sizeClass = getSizeClass(size);
-		auto slotSize = binInfos[sizeClass].itemSize;
+		auto slotSize = binInfos[sizeClass].slotSize;
 
 		void*[1] buffer = void;
 		auto count = bins[sizeClass]

@@ -21,7 +21,7 @@ struct SlabAllocGeometry {
 		index = binInfos[pd.sizeClass].computeIndex(offset);
 
 		auto base = ptr - offset;
-		size = binInfos[pd.sizeClass].itemSize;
+		size = binInfos[pd.sizeClass].slotSize;
 		address = base + index * size;
 	}
 }
@@ -340,14 +340,14 @@ unittest packedFreeSpace {
 }
 
 struct BinInfo {
-	ushort itemSize;
+	ushort slotSize;
 	ushort nslots;
 	ubyte npages;
 	ubyte shift;
 	ushort mul;
 
-	this(ushort itemSize, ubyte shift, ubyte npages, ushort nslots) {
-		this.itemSize = itemSize;
+	this(ushort slotSize, ubyte shift, ubyte npages, ushort nslots) {
+		this.slotSize = slotSize;
 		this.nslots = nslots;
 		this.npages = npages;
 		this.shift = (shift + 17) & 0xff;
@@ -363,7 +363,7 @@ struct BinInfo {
 		 * Computed using finddivisor.d
 		 */
 		ushort[4] mulIndices = [32768, 26215, 21846, 18725];
-		auto tag = (itemSize >> shift) & 0x03;
+		auto tag = (slotSize >> shift) & 0x03;
 		this.mul = mulIndices[tag];
 	}
 

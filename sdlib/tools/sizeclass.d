@@ -60,10 +60,10 @@ void printAllSizeClasses() {
 void printBinInfos() {
 	import core.stdc.stdio;
 	printf(
-		"| Size class | Element size | Pages | Slot count | Slack | Multiplier | Shift | Appendable / Destructible | Marks inline | Dense |\n"
+		"| Size class | Slot size | Pages | Slot count | Slack | Multiplier | Shift | Appendable / Destructible | Marks inline | Dense |\n"
 	);
 	printf(
-		"| ---------: | -----------: | ----: | ---------: | ----: | ---------: | ----: | :-----------------------: | :----------: | :---: |\n"
+		"| ---------: | --------: | ----: | ---------: | ----: | ---------: | ----: | :-----------------------: | :----------: | :---: |\n"
 	);
 
 	auto bins = getBinInfos();
@@ -71,10 +71,10 @@ void printBinInfos() {
 		printf(
 			"| %d | %hu | %hhu | %hu | %hu | %hu | %hhu | %c | %c | %c |\n",
 			i,
-			b.itemSize,
+			b.slotSize,
 			b.npages,
 			b.nslots,
-			b.npages * PageSize - b.nslots * b.itemSize,
+			b.npages * PageSize - b.nslots * b.slotSize,
 			b.mul,
 			b.shift,
 			b.supportsMetadata ? 'Y' : 'N',
