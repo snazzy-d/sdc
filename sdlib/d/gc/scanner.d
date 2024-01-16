@@ -46,7 +46,11 @@ public:
 			}
 
 			auto ec = pd.extentClass;
-			if (ec.isLarge()) {
+			if (ec.dense) {
+				markDense(pd, ptr);
+			} else if (ec.isSlab()) {
+				markSparse(pd, ptr);
+			} else {
 				markLarge(pd);
 			}
 		}
@@ -70,6 +74,68 @@ public:
 	}
 
 private:
+	void markDense(PageDescriptor pd, const void* ptr) {
+		import d.gc.slab;
+		auto sg = SlabAllocGeometry(pd, ptr);
+
+		/**
+		 * /!\ This is not thread safe.
+		 * 
+		 * In the context of concurent scans, slots might be
+		 * allocated/deallocated from the slab while we scan.
+		 * It is unclear how to handle this at this time.
+		 */
+		auto e = pd.extent;
+		if (!e.slabData.valueAt(sg.index)) {
+			return;
+		}
+
+		auto ec = pd.extentClass;
+		if (ec.supportsInlineMarking) {
+			if (e.slabMetadataMarks.setBitAtomic(sg.index)) {
+				return;
+			}
+		} else {
+			auto bmp = &e.outlineMarks;
+			if (bmp is null || bmp.setBitAtomic(sg.index)) {
+				return;
+			}
+		}
+
+		if (pd.containsPointers) {
+			addToWorkList(makeRange(sg.address, sg.address + sg.size));
+		}
+	}
+
+	void markSparse(PageDescriptor pd, const void* ptr) {
+		import d.gc.slab;
+		auto sg = SlabAllocGeometry(pd, ptr);
+		auto bit = 0x100 << sg.index;
+		auto cycle = gcCycle;
+
+		auto e = pd.extent;
+		auto old = e.gcWord.load();
+		while ((old & 0xff) != cycle) {
+			if (e.gcWord.casWeak(old, cycle | bit)) {
+				goto Exit;
+			}
+		}
+
+		if (old & bit) {
+			return;
+		}
+
+		old = e.gcWord.fetchOr(bit);
+		if (old & bit) {
+			return;
+		}
+
+	Exit:
+		if (pd.containsPointers) {
+			addToWorkList(makeRange(sg.address, sg.address + sg.size));
+		}
+	}
+
 	void markLarge(PageDescriptor pd) {
 		auto e = pd.extent;
 		auto cycle = gcCycle;
