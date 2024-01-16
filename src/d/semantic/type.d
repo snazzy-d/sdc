@@ -43,12 +43,11 @@ struct TypeVisitor {
 				static if (is(typeof(identified) : Type)) {
 					return identified.qualify(qualifier);
 				} else {
-					import d.ir.error;
+					import d.ir.error, std.format;
 					return getError(
 						identified,
 						i.location,
-						i.toString(pass.context) ~ " ("
-							~ typeid(identified).toString() ~ ") isn't an type"
+						format!"%s isn't a type."(i.toString(pass.context)),
 					).type;
 				}
 			})();
@@ -76,7 +75,7 @@ struct TypeVisitor {
 			buildImplicitCast(pass, size.location, pass.object.getSizeT().type,
 			                  size));
 
-		assert(s <= uint.max, "Array larger than uint.max are not supported");
+		assert(s <= uint.max, "Array larger than uint.max are not supported.");
 		return t.getArray(cast(uint) s, qualifier);
 	}
 
@@ -100,12 +99,12 @@ struct TypeVisitor {
 				} else if (auto v = cast(ValueTemplateParameter) identified) {
 					return Pattern(type, v).getType();
 				} else {
-					import d.ir.error;
+					import d.ir.error, std.format;
 					return getError(
 						identified,
 						ikey.location,
-						ikey.toString(pass.context)
-							~ " isn't an type or an expression"
+						format!"%s isn't an type or an expression."(
+							ikey.toString(pass.context))
 					).type;
 				}
 			})();
