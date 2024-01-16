@@ -45,7 +45,10 @@ public:
 				continue;
 			}
 
-			// TODO: mark.
+			auto ec = pd.extentClass;
+			if (ec.isLarge()) {
+				markLarge(pd);
+			}
 		}
 	}
 
@@ -59,5 +62,53 @@ public:
 		while (cursor > 0) {
 			scan(worklist[--cursor]);
 		}
+	}
+
+private:
+	void markLarge(PageDescriptor pd) {
+		auto e = pd.extent;
+		auto cycle = gcCycle;
+
+		auto old = e.gcWord.load();
+		while (true) {
+			if (old == cycle) {
+				return;
+			}
+
+			if (e.gcWord.casWeak(old, cycle)) {
+				break;
+			}
+		}
+
+		if (pd.containsPointers) {
+			addToWorkList(makeRange(e.address, e.address + e.size));
+		}
+	}
+
+	void ensureWorklistCapacity(uint extras) {
+		auto count = cursor + extras;
+		if (likely(count <= worklist.length)) {
+			return;
+		}
+
+		enum ElementSize = typeof(worklist[0]).sizeof;
+		enum MinWorklistSize = 4 * PageSize;
+
+		auto size = count * ElementSize;
+		if (size < MinWorklistSize) {
+			size = MinWorklistSize;
+		} else {
+			import d.gc.sizeclass;
+			size = getAllocSize(count * ElementSize);
+		}
+
+		import d.gc.tcache;
+		auto ptr = threadCache.realloc(worklist.ptr, size, false);
+		worklist = (cast(const(void*)[]*) ptr)[0 .. size / ElementSize];
+	}
+
+	void addToWorkList(const(void*)[] range) {
+		ensureWorklistCapacity(1);
+		worklist[cursor++] = range;
 	}
 }
