@@ -58,7 +58,7 @@ private:
 	UnusedBlockHeap unusedBlockDescriptors;
 
 	import d.gc.base;
-	Base base;
+	shared Base base;
 
 	import d.gc.region;
 	shared(RegionAllocator)* regionAllocator;
@@ -521,16 +521,23 @@ private:
 			return e;
 		}
 
-		mutex.unlock();
-		scope(success) mutex.lock();
+		{
+			mutex.unlock();
+			scope(success) mutex.lock();
 
-		auto slot = base.allocSlot();
-		if (slot.address is null) {
-			return null;
+			auto slot = base.allocSlot();
+			if (slot.address is null) {
+				goto Exit;
+			}
+
+			auto sharedThis = cast(shared(PageFiller)*) &this;
+			e = Extent.fromSlot(sharedThis.arena.index, slot);
 		}
 
-		auto sharedThis = cast(shared(PageFiller)*) &this;
-		return Extent.fromSlot(sharedThis.arena.index, slot);
+		unusedExtents.insert(e);
+
+	Exit:
+		return unusedExtents.pop();
 	}
 
 	/**
