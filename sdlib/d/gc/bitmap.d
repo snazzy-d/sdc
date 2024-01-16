@@ -186,15 +186,15 @@ public:
 		}
 	}
 
-	void setBitAtomic(uint index) shared {
-		setBitValueAtomic!true(index);
+	bool setBitAtomic(uint index) shared {
+		return setBitValueAtomic!true(index);
 	}
 
-	void clearBitAtomic(uint index) shared {
-		setBitValueAtomic!false(index);
+	bool clearBitAtomic(uint index) shared {
+		return setBitValueAtomic!false(index);
 	}
 
-	void setBitValueAtomic(bool V)(uint index) shared {
+	bool setBitValueAtomic(bool V)(uint index) shared {
 		// FIXME: in contracts.
 		assert(index < N);
 
@@ -203,11 +203,13 @@ public:
 		auto b = ulong(1) << o;
 
 		import sdc.intrinsics;
-		if (V) {
-			fetchOr(&bits[i], b);
+		static if (V) {
+			auto old = fetchOr(&bits[i], b);
 		} else {
-			fetchAnd(&bits[i], ~b);
+			auto old = fetchAnd(&bits[i], ~b);
 		}
+
+		return (old & b) != 0;
 	}
 
 	void setRange(uint index, uint length) {
@@ -607,33 +609,33 @@ unittest setBitAtomic {
 
 	checkBitmap(0, 0, 0, 0);
 
-	atomicBmp.setBitAtomic(0);
+	assert(atomicBmp.setBitAtomic(0) == false);
 	checkBitmap(1, 0, 0, 0);
 
-	// Dobule set does nothing.
-	atomicBmp.setBitAtomic(0);
+	// Double set does nothing.
+	assert(atomicBmp.setBitAtomic(0) == true);
 	checkBitmap(1, 0, 0, 0);
 
-	atomicBmp.setBitAtomic(3);
+	assert(atomicBmp.setBitAtomic(3) == false);
 	checkBitmap(9, 0, 0, 0);
 
-	atomicBmp.setBitAtomic(42);
+	assert(atomicBmp.setBitAtomic(42) == false);
 	checkBitmap(0x0000040000000009, 0, 0, 0);
 
-	atomicBmp.setBitAtomic(63);
+	assert(atomicBmp.setBitAtomic(63) == false);
 	checkBitmap(0x8000040000000009, 0, 0, 0);
 
-	atomicBmp.clearBitAtomic(0);
+	assert(atomicBmp.clearBitAtomic(0) == true);
 	checkBitmap(0x8000040000000008, 0, 0, 0);
 
 	// Double clear does nothing.
-	atomicBmp.clearBitAtomic(0);
+	assert(atomicBmp.clearBitAtomic(0) == false);
 	checkBitmap(0x8000040000000008, 0, 0, 0);
 
-	atomicBmp.setBitAtomic(64);
+	assert(atomicBmp.setBitAtomic(64) == false);
 	checkBitmap(0x8000040000000008, 1, 0, 0);
 
-	atomicBmp.setBitAtomic(255);
+	assert(atomicBmp.setBitAtomic(255) == false);
 	checkBitmap(0x8000040000000008, 1, 0, 0x8000000000000000);
 }
 
