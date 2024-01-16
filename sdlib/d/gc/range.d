@@ -59,7 +59,7 @@ unittest makeRange {
 	}
 }
 
-bool contains(const(void*)[] range, void* ptr) {
+bool contains(const(void*)[] range, const void* ptr) {
 	const void* base = range.ptr;
 	return ptr - base < range.length * PointerSize;
 }
