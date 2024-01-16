@@ -293,17 +293,14 @@ class Variable : ValueSymbol {
  * static Type var = value;
  */
 class GlobalVariable : ValueSymbol {
+	Type type;
 	Constant value;
 
-	this(Location location, Name name, Constant value = null) {
+	this(Location location, Type type, Name name, Constant value = null) {
 		super(location, name);
 
+		this.type = type;
 		this.value = value;
-	}
-
-	@property
-	inout(Type) type() inout {
-		return value.type;
 	}
 
 	override string toString(const Context c) const {

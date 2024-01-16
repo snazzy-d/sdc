@@ -478,10 +478,14 @@ struct SymbolAnalyzer {
 		auto value = getValue(d);
 		assert(value);
 
+		// We peel alias for auto variable as it can lead to
+		// very confusing results, like a template parameter.
+		g.type = d.type.isAuto ? value.type.getCanonical() : value.type;
+
 		assert(g.linkage == Linkage.D, "Only D mangling is implemented.");
 
 		import d.semantic.mangler;
-		auto mangle = TypeMangler(pass).visit(value.type);
+		auto mangle = TypeMangler(pass).visit(g.type);
 		auto name = g.name.toString(context);
 
 		import std.conv;

@@ -234,7 +234,8 @@ struct DeclarationVisitor {
 		}
 
 		if (stc.isStatic) {
-			auto g = new GlobalVariable(d.location, d.name);
+			auto g = new GlobalVariable(d.location, Type.get(BuiltinType.None),
+			                            d.name);
 			return register(d, g, stc);
 		}
 
