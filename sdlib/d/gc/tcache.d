@@ -270,16 +270,27 @@ public:
 		__sd_thread_stop_the_world();
 		scope(exit) __sd_thread_restart_the_world();
 
+		import d.gc.region;
+		auto dataRange = gDataRegionAllocator.computeAddressRange();
+		auto ptrRange = gPointerRegionAllocator.computeAddressRange();
+
+		import d.gc.range;
+		auto managedAddressSpace = merge(dataRange, ptrRange);
+
 		prepareGCCycle();
 
-		// TODO: The set need a range interface or some other way to iterrate.
-		// FIXME: Prepare the GC so it has bitfields for all extent classes.
+		import d.gc.scanner;
+		auto scanner = Scanner(managedAddressSpace, emap);
 
-		// TODO: Call into rt.thread to scan stack/statics.
+		// Scan the roots.
+		import d.gc.global;
+		gState.scanRoots(scanner.scan);
 
-		// TODO: Scan the roots.
+		// Scan the stack and TLS.
+		__sd_thread_scan(scanner.scan);
 
-		// TODO: Go on and on until all worklists are empty.
+		// Go on and on until all worklists are empty.
+		scanner.mark();
 
 		collect();
 	}
@@ -302,35 +313,6 @@ public:
 				a.collect(emap);
 			}
 		}
-	}
-
-	bool scan(const(void*)[] range) {
-		bool newPtr;
-		foreach (ptr; range) {
-			enum PtrMask = ~(AddressSpace - 1);
-			auto iptr = cast(size_t) ptr;
-
-			if (iptr & PtrMask) {
-				// This is not a pointer, move along.
-				// TODO: Replace this with a min-max test.
-				continue;
-			}
-
-			auto pd = maybeGetPageDescriptor(ptr);
-			if (pd.extent is null) {
-				// We have no mapping there.
-				continue;
-			}
-
-			// We have something, mark!
-			newPtr |= true;
-
-			// FIXME: Mark the extent.
-			// FIXME: If the extent may contain pointers,
-			// add the base ptr to the worklist.
-		}
-
-		return newPtr;
 	}
 
 private:

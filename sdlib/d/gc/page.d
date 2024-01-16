@@ -640,8 +640,8 @@ private:
 	void collectImpl(ref CachedExtentMap emap) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		collectDenseAllocation(emap);
-		collectSparseAllocation(emap);
+		collectDenseAllocations(emap);
+		collectSparseAllocations(emap);
 	}
 
 	/**
@@ -664,7 +664,7 @@ private:
 		}
 	}
 
-	void collectDenseAllocation(ref CachedExtentMap emap) {
+	void collectDenseAllocations(ref CachedExtentMap emap) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
@@ -704,7 +704,7 @@ private:
 	/**
 	 * Sparse collection.
 	 */
-	void collectSparseAllocation(ref CachedExtentMap emap) {
+	void collectSparseAllocations(ref CachedExtentMap emap) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		for (auto r = sparseBlocks.range; !r.empty; r.popFront()) {

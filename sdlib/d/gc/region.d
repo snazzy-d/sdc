@@ -62,8 +62,8 @@ private:
 	// Unused region objects.
 	Heap!(Region, unusedRegionCmp) unusedRegions;
 
-	ulong minAddress = AddressSpace;
-	ulong maxAddress = 0;
+	size_t minAddress = AddressSpace;
+	size_t maxAddress = 0;
 
 public:
 	bool acquire(void** addrPtr, uint extraBlocks = 0) shared {
