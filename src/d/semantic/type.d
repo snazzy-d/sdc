@@ -25,7 +25,8 @@ struct TypeVisitor {
 	}
 
 	Type visit(AstType t) {
-		return t.accept(this).qualify(t.qualifier);
+		auto q = add(t.qualifier, qualifier);
+		return t.accept(this).qualify(q);
 	}
 
 	ParamType visit(ParamAstType t) {
@@ -41,7 +42,7 @@ struct TypeVisitor {
 		return
 			IdentifierResolver(pass).build(i).apply!(delegate Type(identified) {
 				static if (is(typeof(identified) : Type)) {
-					return identified.qualify(qualifier);
+					return identified;
 				} else {
 					import d.ir.error, std.format;
 					return getError(
@@ -117,13 +118,12 @@ struct TypeVisitor {
 		ParamType[] paramTypes;
 		paramTypes.length = f.parameters.length;
 
-		auto oldQualifier = qualifier;
-		scope(exit) qualifier = oldQualifier;
-
 		foreach (i; 0 .. ctxCount) {
 			paramTypes[i] = visit(f.parameters[i]);
 		}
 
+		auto oldQualifier = qualifier;
+		scope(exit) qualifier = oldQualifier;
 		qualifier = TypeQualifier.Mutable;
 
 		auto returnType = visit(t.returnType);
@@ -138,7 +138,7 @@ struct TypeVisitor {
 	import d.ast.expression;
 	Type visit(AstExpression e) {
 		import d.semantic.expression;
-		return ExpressionVisitor(pass).visit(e).type.qualify(qualifier);
+		return ExpressionVisitor(pass).visit(e).type;
 	}
 
 	Type visitTypeOfReturn() {
