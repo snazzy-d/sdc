@@ -4,12 +4,20 @@ alias ScanDg = void delegate(const(void*)[] range);
 
 struct GCState {
 private:
+	import d.sync.atomic;
+	Atomic!ubyte cycle;
+
 	import d.sync.mutex;
 	Mutex mutex;
 
 	const(void*)[][] roots;
 
 public:
+	ubyte nextGCCycle() shared {
+		auto c = cycle.fetchAdd(1);
+		return (c + 1) & ubyte.max;
+	}
+
 	void addRoots(const void[] range) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();

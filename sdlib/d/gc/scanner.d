@@ -9,6 +9,7 @@ import d.gc.util;
 
 struct Scanner {
 private:
+	ubyte gcCycle;
 	uint cursor;
 
 	const(void*)[] managedAddressSpace;
@@ -19,7 +20,9 @@ private:
 	CachedExtentMap emap;
 
 public:
-	this(const(void*)[] managedAddressSpace, ref CachedExtentMap emap) {
+	this(ubyte gcCycle, const(void*)[] managedAddressSpace,
+	     ref CachedExtentMap emap) {
+		this.gcCycle = gcCycle;
 		this.managedAddressSpace = managedAddressSpace;
 		this.emap = emap;
 	}

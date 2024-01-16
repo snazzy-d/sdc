@@ -270,6 +270,9 @@ public:
 		__sd_thread_stop_the_world();
 		scope(exit) __sd_thread_restart_the_world();
 
+		import d.gc.global;
+		auto gcCycle = gState.nextGCCycle();
+
 		import d.gc.region;
 		auto dataRange = gDataRegionAllocator.computeAddressRange();
 		auto ptrRange = gPointerRegionAllocator.computeAddressRange();
@@ -280,10 +283,9 @@ public:
 		prepareGCCycle();
 
 		import d.gc.scanner;
-		auto scanner = Scanner(managedAddressSpace, emap);
+		auto scanner = Scanner(gcCycle, managedAddressSpace, emap);
 
 		// Scan the roots.
-		import d.gc.global;
 		gState.scanRoots(scanner.scan);
 
 		// Scan the stack and TLS.
