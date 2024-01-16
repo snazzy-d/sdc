@@ -453,19 +453,11 @@ struct SymbolAnalyzer {
 			: value;
 
 		v.mangle = v.name;
-		if (v.storage == Storage.Static) {
-			assert(v.linkage == Linkage.D, "Only D mangling is implemented.");
 
-			import d.semantic.mangler;
-			auto mangle = TypeMangler(pass).visit(v.type);
-			auto name = v.name.toString(context);
-
-			import std.conv;
-			mangle =
-				"_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
-
-			v.mangle = context.getName(mangle);
-		}
+		assert(
+			v.storage != Storage.Static,
+			"Static variable are not supported anymore, use GlobalVariable."
+		);
 
 		// XXX: Make sure type is at least signed.
 		import d.semantic.sizeof;

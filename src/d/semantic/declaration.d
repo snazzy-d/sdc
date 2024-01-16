@@ -227,16 +227,20 @@ struct DeclarationVisitor {
 
 	void visit(VariableDeclaration d) {
 		auto stc = d.storageClass;
+		auto storage = getStorage(stc);
 
-		if (stc.isEnum) {
-			auto e = new ManifestConstant(d.location, d.name);
-			return register(d, e, stc);
-		}
+		switch (storage) with (Storage) {
+			case Enum:
+				auto e = new ManifestConstant(d.location, d.name);
+				return register(d, e, stc);
 
-		if (stc.isStatic) {
-			auto g = new GlobalVariable(d.location, Type.get(BuiltinType.None),
-			                            d.name);
-			return register(d, g, stc);
+			case Static:
+				auto g = new GlobalVariable(d.location,
+				                            Type.get(BuiltinType.None), d.name);
+				return register(d, g, stc);
+
+			default:
+				break;
 		}
 
 		if (aggregateType == AggregateType.None) {

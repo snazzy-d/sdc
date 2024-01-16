@@ -93,8 +93,6 @@ public:
 			define(t);
 		} else if (auto a = cast(Aggregate) s) {
 			define(a);
-		} else if (auto v = cast(Variable) s) {
-			define(v);
 		} else if (auto g = cast(GlobalVariable) s) {
 			define(g);
 		} else {
@@ -270,105 +268,25 @@ public:
 	}
 
 	LLVMValueRef declare(Variable v) in {
-		assert(v.storage.isGlobal, "locals not supported");
+		assert(v.storage == Storage.Enum, "Only enums are supported.");
 		assert(!v.isFinal);
 		assert(!v.isRef);
 	} do {
 		auto var = globals.get(v, {
-			if (v.storage == Storage.Enum) {
-				import d.llvm.constant;
-				return ConstantGen(&this).visit(v.value);
-			}
-
-			return createVariableStorage(v);
+			import d.llvm.constant;
+			return ConstantGen(&this).visit(v.value);
 		}());
 
 		// Register the variable.
-		globals[v] = var;
-		if (!v.value || v.storage == Storage.Enum) {
-			return var;
-		}
-
-		if (v.inTemplate || mode == Mode.Eager) {
-			if (maybeDefine(v, var)) {
-				LLVMSetLinkage(var, LLVMLinkage.LinkOnceODR);
-			}
-		}
-
-		return var;
+		return globals[v] = var;
 	}
 
 	LLVMValueRef define(Variable v) in {
-		assert(v.storage.isGlobal, "locals not supported");
+		assert(v.storage == Storage.Enum, "Only enums are supported.");
 		assert(!v.isFinal);
 		assert(!v.isRef);
 	} do {
-		auto var = declare(v);
-		if (!v.value || v.storage == Storage.Enum) {
-			return var;
-		}
-
-		if (!maybeDefine(v, var)) {
-			import std.format;
-			assert(
-				LLVMGetLinkage(var) == LLVMLinkage.LinkOnceODR,
-				format!"Variable %s already defined!"(
-					v.mangle.toString(context))
-			);
-
-			LLVMSetLinkage(var, LLVMLinkage.External);
-		}
-
-		return var;
-	}
-
-	bool maybeDefine(Variable v, LLVMValueRef var) in {
-		assert(v.storage.isGlobal, "locals not supported");
-		assert(v.storage != Storage.Enum, "enum do not have a storage");
-		assert(!v.isFinal);
-		assert(!v.isRef);
-	} do {
-		if (LLVMGetInitializer(var)) {
-			return false;
-		}
-
-		import d.llvm.constant;
-		auto value = ConstantGen(&this).visit(v.value);
-
-		// Store the initial value into the global variable.
-		LLVMSetInitializer(var, value);
-		return true;
-	}
-
-	private LLVMValueRef createVariableStorage(Variable v) in {
-		assert(v.storage.isGlobal, "locals not supported");
-		assert(v.storage != Storage.Enum, "enum do not have a storage");
-	} do {
-		auto qualifier = v.type.qualifier;
-
-		import d.llvm.type;
-		auto type = typeGen.visit(v.type);
-
-		// If it is not enum, it must be static.
-		assert(v.storage == Storage.Static);
-		auto var = LLVMAddGlobal(dmodule, type, v.mangle.toStringz(context));
-
-		// Depending on the type qualifier,
-		// make it thread local/ constant or nothing.
-		final switch (qualifier) with (TypeQualifier) {
-			case Mutable, Inout, Const:
-				LLVMSetThreadLocal(var, true);
-				break;
-
-			case Shared, ConstShared:
-				break;
-
-			case Immutable:
-				LLVMSetGlobalConstant(var, true);
-				break;
-		}
-
-		return var;
+		return declare(v);
 	}
 
 	LLVMValueRef declare(GlobalVariable g) {
