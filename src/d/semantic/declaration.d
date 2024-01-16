@@ -227,35 +227,34 @@ struct DeclarationVisitor {
 
 	void visit(VariableDeclaration d) {
 		auto stc = d.storageClass;
-		auto storage = getStorage(stc);
 
-		if (storage == Storage.Enum) {
+		if (stc.isEnum) {
 			auto e = new ManifestConstant(d.location, d.name);
 			return register(d, e, stc);
 		}
 
-		if (storage.isGlobal) {
+		if (stc.isStatic) {
 			auto g = new GlobalVariable(d.location, d.name);
 			return register(d, g, stc);
 		}
 
-		if (aggregateType == AggregateType.None || storage.isGlobal) {
+		if (aggregateType == AggregateType.None) {
 			auto v =
 				new Variable(d.location, Type.get(BuiltinType.None), d.name);
-			v.storage = storage;
+			v.storage = getStorage(stc);
 
 			return register(d, v, stc);
-		} else {
-			auto f = new Field(d.location, fieldIndex,
-			                   Type.get(BuiltinType.None), d.name);
-
-			// Union have all their fields at the same index.
-			if (aggregateType > AggregateType.Union) {
-				fieldIndex++;
-			}
-
-			return register(d, f, stc);
 		}
+
+		auto f = new Field(d.location, fieldIndex, Type.get(BuiltinType.None),
+		                   d.name);
+
+		// Union have all their fields at the same index.
+		if (aggregateType > AggregateType.Union) {
+			fieldIndex++;
+		}
+
+		return register(d, f, stc);
 	}
 
 	void visit(StructDeclaration d) {
