@@ -385,20 +385,13 @@ struct LocalGen {
 		assert(closureCount == 0);
 	}
 
-	LLVMValueRef declare(Variable v) {
-		if (v.storage.isGlobal) {
-			return pass.declare(v);
-		}
-
+	LLVMValueRef declare(Variable v)
+			in(v.storage.isLocal, "globals not supported") {
 		// TODO: Actually just declare here :)
 		return locals.get(v, define(v));
 	}
 
-	LLVMValueRef define(Variable v) in(!v.isFinal) {
-		if (v.storage.isGlobal) {
-			return pass.define(v);
-		}
-
+	LLVMValueRef define(Variable v) in(!v.isFinal && v.storage.isLocal) {
 		import d.llvm.expression;
 		auto value = v.isRef
 			? AddressOfGen(&this).visit(v.value)

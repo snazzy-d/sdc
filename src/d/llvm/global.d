@@ -267,28 +267,6 @@ public:
 		return metadata;
 	}
 
-	LLVMValueRef declare(Variable v) in {
-		assert(v.storage == Storage.Enum, "Only enums are supported.");
-		assert(!v.isFinal);
-		assert(!v.isRef);
-	} do {
-		auto var = globals.get(v, {
-			import d.llvm.constant;
-			return ConstantGen(&this).visit(v.value);
-		}());
-
-		// Register the variable.
-		return globals[v] = var;
-	}
-
-	LLVMValueRef define(Variable v) in {
-		assert(v.storage == Storage.Enum, "Only enums are supported.");
-		assert(!v.isFinal);
-		assert(!v.isRef);
-	} do {
-		return declare(v);
-	}
-
 	LLVMValueRef declare(GlobalVariable g) {
 		auto var = globals.get(g, createStorage(g));
 
