@@ -342,8 +342,8 @@ struct DeclarationVisitor {
 			AstExpression previous;
 			AstExpression one;
 			foreach (vd; d.entries) {
-				auto v = new Variable(vd.location, vd.name);
-				v.visibility = visibility;
+				auto m = new ManifestConstant(vd.location, vd.name);
+				m.visibility = visibility;
 
 				if (!vd.value) {
 					if (previous) {
@@ -360,11 +360,10 @@ struct DeclarationVisitor {
 					}
 				}
 
-				v.storage = Storage.Enum;
 				previous = vd.value;
 
-				addSymbol(v);
-				select(vd, v);
+				addSymbol(m);
+				select(vd, m);
 			}
 		}
 	}
