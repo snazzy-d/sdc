@@ -85,6 +85,14 @@ public:
 		// We agressively JIT all CTFE.
 		return
 			jit!(function Constant(CodeGen pass, Expression e, void[] buffer) {
+				scope(failure) {
+					import std.stdio;
+					stderr.writefln!"Failed to repack expression %s type %s."(
+						e.toString(pass.context),
+						e.type.toString(pass.context)
+					);
+				}
+
 				return JitRepacker(pass, buffer).visit(e.type);
 			})(e);
 	}
