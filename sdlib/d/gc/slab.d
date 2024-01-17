@@ -175,7 +175,7 @@ private:
 
 unittest SlabAllocInfo {
 	import d.gc.base;
-	static Base base;
+	shared Base base;
 	scope(exit) base.clear();
 
 	auto slot = base.allocSlot();
