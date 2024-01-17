@@ -28,14 +28,16 @@ struct InitBuilder {
 	}
 
 	ConstantExpression asExpression(T)(T t) {
-		return new ConstantExpression(location, visit(t));
+		auto c = new ConstantExpression(location, visit(t));
+		static if (is(T : Type)) {
+			c.type = c.type.qualify(t.qualifier);
+		}
+
+		return c;
 	}
 
 	Constant visit(Type t) {
-		auto c = t.accept(this);
-		c.type = c.type.qualify(t.qualifier);
-
-		return c;
+		return t.accept(this);
 	}
 
 	Constant visit(BuiltinType t) {
