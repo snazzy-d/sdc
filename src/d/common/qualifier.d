@@ -126,3 +126,39 @@ enum ParamKind {
 	/// argument itself and is used as if it was a regular slot on the stack.
 	Ref,
 }
+
+struct StorageClass {
+	import std.bitmanip;
+	mixin(bitfields!(
+		// sdfmt off
+		TypeQualifier, "qualifier", 3,
+		Linkage, "linkage", 3,
+		bool, "hasLinkage", 1,
+		Visibility, "visibility", 3,
+		bool, "hasVisibility", 1,
+		bool, "hasQualifier", 1,
+		bool, "isRef", 1,
+		bool, "isStatic", 1,
+		bool, "isEnum", 1,
+		bool, "isFinal", 1,
+		bool, "isAbstract", 1,
+		bool, "isDeprecated", 1,
+		bool, "isNoThrow", 1,
+		bool, "isOverride", 1,
+		bool, "isPure", 1,
+		bool, "isSynchronized", 1,
+		bool, "isGshared", 1,
+		bool, "isProperty", 1,
+		bool, "isNoGC", 1,
+		uint, "", 7,
+		// sdfmt on
+	));
+}
+
+@property
+StorageClass defaultStorageClass() {
+	StorageClass stcs;
+	stcs.visibility = Visibility.Public;
+
+	return stcs;
+}
