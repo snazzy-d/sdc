@@ -421,39 +421,41 @@ unittest valueAt {
 	}
 }
 
-//// Breaks on account of apparent compiler bug:
-// unittest valueAtAtomic {
-// 	static shared Bitmap!256 atomicBmp;
-// 	atomicBmp.bits = [~0x80, ~0x80, ~0x80, ~0x80];
+unittest valueAtAtomic {
+	shared Bitmap!256 atomicBmp;
+	atomicBmp.bits[0] = ~0x80;
+	atomicBmp.bits[1] = ~0x80;
+	atomicBmp.bits[2] = ~0x80;
+	atomicBmp.bits[3] = ~0x80;
 
-// 	foreach (i; 0 .. 7) {
-// 		assert(atomicBmp.valueAtAtomic(i));
-// 	}
+	foreach (i; 0 .. 7) {
+		assert(atomicBmp.valueAtAtomic(i));
+	}
 
-// 	assert(!atomicBmp.valueAtAtomic(7));
+	assert(!atomicBmp.valueAtAtomic(7));
 
-// 	foreach (i; 8 .. 71) {
-// 		assert(atomicBmp.valueAtAtomic(i));
-// 	}
+	foreach (i; 8 .. 71) {
+		assert(atomicBmp.valueAtAtomic(i));
+	}
 
-// 	assert(!atomicBmp.valueAtAtomic(71));
+	assert(!atomicBmp.valueAtAtomic(71));
 
-// 	foreach (i; 72 .. 135) {
-// 		assert(atomicBmp.valueAtAtomic(i));
-// 	}
+	foreach (i; 72 .. 135) {
+		assert(atomicBmp.valueAtAtomic(i));
+	}
 
-// 	assert(!atomicBmp.valueAtAtomic(135));
+	assert(!atomicBmp.valueAtAtomic(135));
 
-// 	foreach (i; 136 .. 199) {
-// 		assert(atomicBmp.valueAtAtomic(i));
-// 	}
+	foreach (i; 136 .. 199) {
+		assert(atomicBmp.valueAtAtomic(i));
+	}
 
-// 	assert(!atomicBmp.valueAtAtomic(199));
+	assert(!atomicBmp.valueAtAtomic(199));
 
-// 	foreach (i; 200 .. 256) {
-// 		assert(atomicBmp.valueAtAtomic(i));
-// 	}
-// }
+	foreach (i; 200 .. 256) {
+		assert(atomicBmp.valueAtAtomic(i));
+	}
+}
 
 unittest setFirst {
 	Bitmap!256 bmp;
@@ -593,48 +595,47 @@ unittest setBit {
 	checkBitmap(0x8000040000000008, 1, 0, 0x8000000000000000);
 }
 
-//// Breaks on account of apparent compiler bug:
-// unittest setBitAtomic {
-// 	static shared Bitmap!256 atomicBmp;
+unittest setBitAtomic {
+	shared Bitmap!256 atomicBmp;
 
-// 	void checkBitmap(ulong a, ulong b, ulong c, ulong d) {
-// 		assert(atomicBmp.bits[0] == a);
-// 		assert(atomicBmp.bits[1] == b);
-// 		assert(atomicBmp.bits[2] == c);
-// 		assert(atomicBmp.bits[3] == d);
-// 	}
+	void checkBitmap(ulong a, ulong b, ulong c, ulong d) {
+		assert(atomicBmp.bits[0] == a);
+		assert(atomicBmp.bits[1] == b);
+		assert(atomicBmp.bits[2] == c);
+		assert(atomicBmp.bits[3] == d);
+	}
 
-// 	checkBitmap(0, 0, 0, 0);
+	checkBitmap(0, 0, 0, 0);
 
-// 	atomicBmp.setBitAtomic(0);
-// 	checkBitmap(1, 0, 0, 0);
+	atomicBmp.setBitAtomic(0);
+	checkBitmap(1, 0, 0, 0);
 
-// 	// Dobule set does nothing.
-// 	atomicBmp.setBitAtomic(0);
-// 	checkBitmap(1, 0, 0, 0);
+	// Dobule set does nothing.
+	atomicBmp.setBitAtomic(0);
+	checkBitmap(1, 0, 0, 0);
 
-// 	atomicBmp.setBitAtomic(3);
-// 	checkBitmap(9, 0, 0, 0);
+	atomicBmp.setBitAtomic(3);
+	checkBitmap(9, 0, 0, 0);
 
-// 	atomicBmp.setBitAtomic(42);
-// 	checkBitmap(0x0000040000000009, 0, 0, 0);
+	atomicBmp.setBitAtomic(42);
+	checkBitmap(0x0000040000000009, 0, 0, 0);
 
-// 	atomicBmp.setBitAtomic(63);
-// 	checkBitmap(0x8000040000000009, 0, 0, 0);
+	atomicBmp.setBitAtomic(63);
+	checkBitmap(0x8000040000000009, 0, 0, 0);
 
-// 	atomicBmp.clearBitAtomic(0);
-// 	checkBitmap(0x8000040000000008, 0, 0, 0);
+	atomicBmp.clearBitAtomic(0);
+	checkBitmap(0x8000040000000008, 0, 0, 0);
 
-// 	// Double clear does nothing.
-// 	atomicBmp.clearBitAtomic(0);
-// 	checkBitmap(0x8000040000000008, 0, 0, 0);
+	// Double clear does nothing.
+	atomicBmp.clearBitAtomic(0);
+	checkBitmap(0x8000040000000008, 0, 0, 0);
 
-// 	atomicBmp.setBitAtomic(64);
-// 	checkBitmap(0x8000040000000008, 1, 0, 0);
+	atomicBmp.setBitAtomic(64);
+	checkBitmap(0x8000040000000008, 1, 0, 0);
 
-// 	atomicBmp.setBitAtomic(255);
-// 	checkBitmap(0x8000040000000008, 1, 0, 0x8000000000000000);
-// }
+	atomicBmp.setBitAtomic(255);
+	checkBitmap(0x8000040000000008, 1, 0, 0x8000000000000000);
+}
 
 unittest setRange {
 	Bitmap!256 bmp;
