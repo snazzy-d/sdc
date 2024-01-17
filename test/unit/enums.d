@@ -1,35 +1,35 @@
 enum {
 	A,
 	B,
-	C = F + B,
-	D,
-	E = 42,
+	C = D + B,
+	D = F - A,
+	E = 40,
 	F,
 }
 
 unittest anonymousEnumValues {
 	assert(A == 0);
 	assert(B == 1);
-	assert(C == 44);
-	assert(D == 45);
-	assert(E == 42);
-	assert(F == 43);
+	assert(C == 42);
+	assert(D == 41);
+	assert(E == 40);
+	assert(F == 41);
 }
 
-enum X {
-	A,
-	B,
-	C = F + B,
-	D,
-	E = 42,
-	F,
+enum Foo {
+	Fizz,
+	Pion,
+	Bar = Baz + Pion,
+	Baz = Buzz - Fizz,
+	Qux = 40,
+	Buzz,
 }
 
 unittest namedEnumValues {
-	assert(X.A == 0);
-	assert(X.B == 1);
-	assert(X.C == 44);
-	assert(X.D == 45);
-	assert(X.E == 42);
-	assert(X.F == 43);
+	assert(Foo.Fizz == 0);
+	assert(Foo.Pion == 1);
+	assert(Foo.Bar == 42);
+	assert(Foo.Baz == 41);
+	assert(Foo.Qux == 40);
+	assert(Foo.Buzz == 41);
 }

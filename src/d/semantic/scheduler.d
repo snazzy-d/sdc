@@ -149,13 +149,13 @@ final class Scheduler {
 	// FIXME: We should consider a generic way to get things in there.
 	// It is clearly not going to scale that way.
 	import d.ast.expression;
-	void schedule(AstExpression dv, Variable v)
-			in(v.step == SemanticPass.Step.Parsed,
+	void schedule(AstExpression e, ManifestConstant m)
+			in(m.step == SemanticPass.Step.Parsed,
 			   "Symbol processing already started.") {
 		auto p = getProcess();
-		p.init(dv, v);
+		p.init(e, m);
 
-		processes[v] = p;
+		processes[m] = p;
 	}
 }
 

@@ -1,17 +1,16 @@
-//T compiles:yes
 //T has-passed:yes
-//T retval:42
-// Test forward reference in enums.
+//T compiles:yes
+//T retval:0
 
-enum Foo {
-	Fizz,
-	Pion,
-	Bar = Baz + Pion,
-	Baz = Buzz - Fizz,
-	Qux = 40,
-	Buzz,
-}
+#line __LINE__
+# line 12 /* With a comment */
+#line // This is a comment
+  34
+#	line 56 __FILE__
+#line 78 "foo.d"
+#line 90 "multi
+line.d"
 
 int main() {
-	return Foo.Bar;
+	return 0;
 }

@@ -703,10 +703,10 @@ class Interface : Aggregate {
  */
 class Enum : ScopeSymbol {
 	Type type;
-	Variable[] entries;
+	ManifestConstant[] entries;
 
 	this(Location location, Scope parentScope, Name name, Type type,
-	     Variable[] entries) {
+	     ManifestConstant[] entries) {
 		super(location, parentScope, name);
 
 		this.type = type;

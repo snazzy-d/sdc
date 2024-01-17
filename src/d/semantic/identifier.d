@@ -467,8 +467,8 @@ struct IdentifierPostProcessor(bool asAlias) {
 			return Identifiable(m);
 		}
 
-		scheduler.require(m, Step.Signed);
-		return Identifiable(new ConstantExpression(location, m.value));
+		scheduler.require(m);
+		return visit(new ConstantExpression(location, m.type, m.value));
 	}
 
 	Identifiable visit(Field f) {

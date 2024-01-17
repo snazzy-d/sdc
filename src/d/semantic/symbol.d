@@ -1017,8 +1017,6 @@ struct SymbolAnalyzer {
 			? Type.get(BuiltinType.Int)
 			: TypeVisitor(pass).visit(d.type);
 
-		auto type = Type.get(e);
-
 		if (e.type.kind != TypeKind.Builtin) {
 			import source.exception, std.format;
 			throw new CompileException(
@@ -1043,67 +1041,64 @@ struct SymbolAnalyzer {
 		assert(e.linkage == Linkage.D || e.linkage == Linkage.C);
 		e.mangle = context.getName("E" ~ manglePrefix);
 
-		Variable previous;
-		foreach (vd; d.entries) {
-			auto location = vd.location;
-			auto v = new Variable(vd.location, type, vd.name, null);
-			v.storage = Storage.Enum;
+		auto entries = processEnumEntries(d.entries);
+		auto type = Type.get(e);
 
-			e.addSymbol(v);
-			e.entries ~= v;
-
-			auto dv = vd.value;
-			scope(success) {
-				pass.scheduler.schedule(dv, v);
-				previous = v;
-			}
-
-			if (dv !is null) {
-				continue;
-			}
-
-			if (previous is null) {
-				v.value = new ConstantExpression(location,
-				                                 new IntegerConstant(0, bt));
-				continue;
-			}
-
-			// XXX: consider using AstExpression and always
-			// follow the same path.
-			scheduler.require(previous, Step.Signed);
-			v.value = new BinaryExpression(
-				location,
-				type,
-				BinaryOp.Add,
-				new VariableExpression(location, previous),
-				new ConstantExpression(location, new IntegerConstant(1, bt))
-			);
+		foreach (m; entries) {
+			m.type = type;
+			e.addSymbol(m);
 		}
 
+		e.entries = entries;
 		e.step = Step.Signed;
 
 		scheduler.require(e.entries);
 		e.step = Step.Processed;
 	}
 
-	void analyze(AstExpression dv, Variable v) in {
-		assert(v.storage == Storage.Enum);
-		assert(v.type.kind == TypeKind.Enum);
-	} do {
-		auto e = v.type.denum;
+	void analyze(AstExpression e, ManifestConstant m)
+			in(m.type.kind == TypeKind.Enum) {
+		m.step = Step.Signed;
 
-		if (dv !is null) {
-			assert(v.value is null);
+		import d.semantic.expression;
+		auto value = ExpressionVisitor(pass).visit(e);
+		m.value = evaluate(value);
+		m.step = Step.Processed;
+	}
 
-			import d.semantic.expression;
-			v.value = ExpressionVisitor(pass).visit(dv);
+	auto processEnumEntries(VariableDeclaration[] vEntries) {
+		ManifestConstant[] entries;
+		AstExpression previous, one;
+
+		foreach (vd; vEntries) {
+			auto location = vd.location;
+			auto m = new ManifestConstant(location, vd.name);
+			entries ~= m;
+
+			auto value = vd.value;
+			scope(success) {
+				scheduler.schedule(value, m);
+				previous = value;
+			}
+
+			if (value !is null) {
+				continue;
+			}
+
+			if (previous is null) {
+				value = new IntegerLiteral(vd.location, 0, BuiltinType.Int);
+				continue;
+			}
+
+			if (one is null) {
+				one = new IntegerLiteral(vd.location, 1, BuiltinType.Int);
+			}
+
+			value = new AstBinaryExpression(location, AstBinaryOp.Add, previous,
+			                                one);
 		}
 
-		assert(v.value);
-		v.step = Step.Signed;
-
-		v.value = new ConstantExpression(v.location, evaluate(v.value));
-		v.step = Step.Processed;
+		return entries;
 	}
 
 	void analyze(TemplateDeclaration d, Template t) {

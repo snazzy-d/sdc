@@ -336,34 +336,41 @@ struct DeclarationVisitor {
 			addSymbol(e);
 			select(d, e);
 		} else {
-			// XXX: Code duplication with symbols. Refactor.
-			import d.ast.expression : AstExpression, AstBinaryExpression,
-			                          AstBinaryOp, IntegerLiteral;
-			AstExpression previous;
-			AstExpression one;
+			// FIXME: The logic here is almost entierely duplicated with
+			//        SymbolAnalyzer.processEnumEntries, but there are subtle
+			//        differences that are not so simple to factor.
+			//        Ideally, we'd like the logic to be combined between both.
+
+			import d.ast.expression : AstExpression;
+			AstExpression previous, one;
+
 			foreach (vd; d.entries) {
 				auto m = new ManifestConstant(vd.location, vd.name);
 				m.visibility = visibility;
 
-				if (!vd.value) {
-					if (previous) {
-						if (!one) {
-							one = new IntegerLiteral(vd.location, 1,
-							                         BuiltinType.Int);
-						}
-
-						vd.value = new AstBinaryExpression(
-							vd.location, AstBinaryOp.Add, previous, one);
-					} else {
-						vd.value =
-							new IntegerLiteral(vd.location, 0, BuiltinType.Int);
-					}
+				scope(success) {
+					addSymbol(m);
+					select(vd, m);
+					previous = vd.value;
 				}
 
-				previous = vd.value;
+				if (vd.value !is null) {
+					continue;
+				}
 
-				addSymbol(m);
-				select(vd, m);
+				import d.ast.expression;
+				if (previous is null) {
+					vd.value =
+						new IntegerLiteral(vd.location, 0, BuiltinType.Int);
+					continue;
+				}
+
+				if (!one) {
+					one = new IntegerLiteral(vd.location, 1, BuiltinType.Int);
+				}
+
+				vd.value = new AstBinaryExpression(vd.location, AstBinaryOp.Add,
+				                                   previous, one);
 			}
 		}
 	}
