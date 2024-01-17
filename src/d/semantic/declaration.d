@@ -235,8 +235,7 @@ struct DeclarationVisitor {
 				return register(d, e, stc);
 
 			case Static:
-				auto g = new GlobalVariable(d.location,
-				                            Type.get(BuiltinType.None), d.name);
+				auto g = new GlobalVariable(d.location, d.name);
 				return register(d, g, stc);
 
 			default:
@@ -244,15 +243,13 @@ struct DeclarationVisitor {
 		}
 
 		if (aggregateType == AggregateType.None) {
-			auto v =
-				new Variable(d.location, Type.get(BuiltinType.None), d.name);
+			auto v = new Variable(d.location, d.name);
 			v.storage = getStorage(stc);
 
 			return register(d, v, stc);
 		}
 
-		auto f = new Field(d.location, fieldIndex, Type.get(BuiltinType.None),
-		                   d.name);
+		auto f = new Field(d.location, fieldIndex, d.name);
 
 		// Union have all their fields at the same index.
 		if (aggregateType > AggregateType.Union) {
@@ -345,9 +342,7 @@ struct DeclarationVisitor {
 			AstExpression previous;
 			AstExpression one;
 			foreach (vd; d.entries) {
-				auto v = new Variable(vd.location, Type.get(BuiltinType.None),
-				                      vd.name);
-
+				auto v = new Variable(vd.location, vd.name);
 				v.visibility = visibility;
 
 				if (!vd.value) {

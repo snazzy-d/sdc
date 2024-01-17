@@ -274,7 +274,7 @@ struct SymbolAnalyzer {
 			}
 
 			auto thisParameter =
-				new Variable(f.location, xtorType, BuiltinName!"this");
+				new Variable(f.location, xtorType, BuiltinName!"this", null);
 
 			params = thisParameter ~ params;
 
@@ -335,8 +335,8 @@ struct SymbolAnalyzer {
 					"thisType must be defined if funtion has a this pointer."
 				);
 
-				auto thisParameter =
-					new Variable(f.location, thisType, BuiltinName!"this");
+				auto thisParameter = new Variable(f.location, thisType,
+				                                  BuiltinName!"this", null);
 
 				params = thisParameter ~ params;
 			}
@@ -363,6 +363,7 @@ struct SymbolAnalyzer {
 				f.location,
 				Type.getContextType(ctxSym).getParamType(ParamKind.Ref),
 				BuiltinName!"__ctx",
+				null,
 			);
 
 			params = contextParameter ~ params;
@@ -491,6 +492,10 @@ struct SymbolAnalyzer {
 	void analyze(VariableDeclaration d, ManifestConstant m) {
 		auto value = getValue(d);
 		assert(value);
+
+		// We peel alias for auto variable as it can lead to
+		// very confusing results, like a template parameter.
+		m.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
 		m.mangle = m.name;
 		m.value = evaluate(value);
@@ -1041,7 +1046,7 @@ struct SymbolAnalyzer {
 		Variable previous;
 		foreach (vd; d.entries) {
 			auto location = vd.location;
-			auto v = new Variable(vd.location, type, vd.name);
+			auto v = new Variable(vd.location, type, vd.name, null);
 			v.storage = Storage.Enum;
 
 			e.addSymbol(v);

@@ -238,8 +238,7 @@ class Variable : ValueSymbol {
 	Expression value;
 	ParamType paramType;
 
-	this(Location location, ParamType paramType, Name name,
-	     Expression value = null) {
+	this(Location location, ParamType paramType, Name name, Expression value) {
 		super(location, name);
 
 		this.value = value;
@@ -247,11 +246,15 @@ class Variable : ValueSymbol {
 		isFinal = paramType.isFinal;
 	}
 
-	this(Location location, Type type, Name name, Expression value = null) {
+	this(Location location, Type type, Name name, Expression value) {
 		super(location, name);
 
 		this.value = value;
 		this.type = type;
+	}
+
+	this(Location location, Name name) {
+		this(location, Type.get(BuiltinType.None), name, null);
 	}
 
 	@property
@@ -296,11 +299,15 @@ class GlobalVariable : ValueSymbol {
 	Type type;
 	Constant value;
 
-	this(Location location, Type type, Name name, Constant value = null) {
+	this(Location location, Type type, Name name, Constant value) {
 		super(location, name);
 
 		this.type = type;
 		this.value = value;
+	}
+
+	this(Location location, Name name) {
+		this(location, Type.get(BuiltinType.None), name, null);
 	}
 
 	override string toString(const Context c) const {
@@ -314,18 +321,19 @@ class GlobalVariable : ValueSymbol {
  * enum Foo = 123;
  */
 class ManifestConstant : ValueSymbol {
+	Type type;
 	Constant value;
 
-	this(Location location, Name name, Constant value = null) {
+	this(Location location, Type type, Name name, Constant value) {
 		super(location, name);
 
+		this.type = type;
 		this.value = value;
 		isFinal = true;
 	}
 
-	@property
-	inout(Type) type() inout {
-		return value.type;
+	this(Location location, Name name) {
+		this(location, Type.get(BuiltinType.None), name, null);
 	}
 
 	override string toString(const Context c) const {
@@ -342,8 +350,7 @@ class Field : ValueSymbol {
 	Constant value;
 	Type type;
 
-	this(Location location, uint index, Type type, Name name,
-	     Constant value = null) {
+	this(Location location, uint index, Type type, Name name, Constant value) {
 		super(location, name);
 
 		this.value = value;
@@ -352,6 +359,10 @@ class Field : ValueSymbol {
 
 		// Always true for fields.
 		this.hasThis = true;
+	}
+
+	this(Location location, uint index, Name name) {
+		this(location, index, Type.get(BuiltinType.None), name, null);
 	}
 
 	@property
