@@ -46,6 +46,15 @@ struct ExpressionGen {
 				break;
 
 			case Shared, ConstShared:
+				auto k = LLVMGetTypeKind(type);
+				if (k != LLVMTypeKind.Integer && k != LLVMTypeKind.Function
+					    && k != LLVMTypeKind.Pointer) {
+					import std.format, std.string;
+					throw new Exception(
+						format!"Cannot generate atomic load for %s"(
+							fromStringz(LLVMPrintTypeToString(type))));
+				}
+
 				import llvm.c.target;
 				LLVMSetAlignment(l, LLVMABIAlignmentOfType(targetData, type));
 				LLVMSetOrdering(l, LLVMAtomicOrdering.SequentiallyConsistent);
@@ -73,9 +82,18 @@ struct ExpressionGen {
 				break;
 
 			case Shared, ConstShared:
+				auto t = LLVMTypeOf(val);
+				auto k = LLVMGetTypeKind(t);
+				if (k != LLVMTypeKind.Integer && k != LLVMTypeKind.Function
+					    && k != LLVMTypeKind.Pointer) {
+					import std.format, std.string;
+					throw new Exception(
+						format!"Cannot generate atomic store for %s"(
+							fromStringz(LLVMPrintTypeToString(t))));
+				}
+
 				import llvm.c.target;
-				LLVMSetAlignment(
-					s, LLVMABIAlignmentOfType(targetData, LLVMTypeOf(val)));
+				LLVMSetAlignment(s, LLVMABIAlignmentOfType(targetData, t));
 				LLVMSetOrdering(s, LLVMAtomicOrdering.SequentiallyConsistent);
 				break;
 
