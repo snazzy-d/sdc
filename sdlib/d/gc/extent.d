@@ -125,7 +125,8 @@ private:
 	void* _pad1;
 
 	struct SlabMetadata {
-		ubyte[32] pad;
+		ubyte[16] pad;
+		shared Bitmap!128 marks;
 		shared Bitmap!256 flags;
 	}
 
@@ -376,6 +377,15 @@ public:
 		assert(index < nslots, "index is out of range!");
 
 		slabMetadataFlags.clearBitAtomic(index);
+	}
+
+	@property
+	ref shared(Bitmap!128) slabMetadataMarks() {
+		assert(isSlab(), "slabMetadataMarks accessed on non slab!");
+		assert(sizeClassSupportsInlineMarking(sizeClass),
+		       "size class not supports inline marking!");
+
+		return _metadata.slabData.slabMetadata.marks;
 	}
 
 	/**
