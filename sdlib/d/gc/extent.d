@@ -126,7 +126,7 @@ private:
 
 	struct SlabMetadata {
 		ubyte[32] pad;
-		shared Bitmap!256 slabMetadataFlags;
+		shared Bitmap!256 flags;
 	}
 
 	union Bitmaps {
@@ -348,7 +348,7 @@ public:
 		assert(sizeClassSupportsMetadata(sizeClass),
 		       "size class not supports slab metadata!");
 
-		return _metadata.slabData.slabMetadata.slabMetadataFlags;
+		return _metadata.slabData.slabMetadata.flags;
 	}
 
 	bool hasMetadata(uint index) {
