@@ -36,6 +36,10 @@ struct ExtentClass {
 		return data != 0;
 	}
 
+	bool isLarge() const {
+		return data == 0;
+	}
+
 	@property
 	ubyte sizeClass() const {
 		// FIXME: in contract.
@@ -69,6 +73,7 @@ struct ExtentClass {
 unittest ExtentClass {
 	auto l = ExtentClass.large();
 	assert(!l.isSlab());
+	assert(l.isLarge());
 	assert(!l.dense);
 	assert(l.sparse);
 	assert(l.supportsMetadata);
@@ -77,6 +82,7 @@ unittest ExtentClass {
 	foreach (ubyte sc; 0 .. ClassCount.Small) {
 		auto s = ExtentClass.slab(sc);
 		assert(s.isSlab());
+		assert(!s.isLarge());
 		assert(s.sizeClass == sc);
 
 		assert(s.dense == isDenseSizeClass(sc));
@@ -168,7 +174,7 @@ private:
 
 		if (extentClass.isSlab()) {
 			import d.gc.slab;
-			bits |= ulong(binInfos[sizeClass].nslots) << FreeSlotsIndex;
+			bits |= ulong(nslots) << FreeSlotsIndex;
 
 			slabData.clear();
 		} else {
@@ -260,16 +266,11 @@ public:
 	}
 
 	@property
-	ubyte sizeClass() const {
-		return extentClass.sizeClass;
-	}
-
-	@property
 	uint nslots() const {
 		assert(isSlab(), "nslots accessed on non slab!");
 
 		import d.gc.slab;
-		return binInfos[sizeClass].nslots;
+		return binInfos[extentClass.sizeClass].nslots;
 	}
 
 	@property
@@ -345,16 +346,14 @@ public:
 
 	@property
 	ref shared(Bitmap!256) slabMetadataFlags() {
-		assert(isSlab(), "slabMetadataFlags accessed on non slab!");
-		assert(sizeClassSupportsMetadata(sizeClass),
+		assert(extentClass.supportsMetadata,
 		       "size class not supports slab metadata!");
 
 		return _metadata.slabData.slabMetadata.flags;
 	}
 
 	bool hasMetadata(uint index) {
-		assert(isSlab(), "hasMetadata accessed on non slab!");
-		assert(sizeClassSupportsMetadata(sizeClass),
+		assert(extentClass.supportsMetadata,
 		       "size class not supports slab metadata!");
 		assert(index < nslots, "index is out of range!");
 
@@ -362,8 +361,7 @@ public:
 	}
 
 	void enableMetadata(uint index) {
-		assert(isSlab(), "hasMetadata accessed on non slab!");
-		assert(sizeClassSupportsMetadata(sizeClass),
+		assert(extentClass.supportsMetadata,
 		       "size class not supports slab metadata!");
 		assert(index < nslots, "index is out of range!");
 
@@ -371,8 +369,7 @@ public:
 	}
 
 	void disableMetadata(uint index) {
-		assert(isSlab(), "hasMetadata accessed on non slab!");
-		assert(sizeClassSupportsMetadata(sizeClass),
+		assert(extentClass.supportsMetadata,
 		       "size class not supports slab metadata!");
 		assert(index < nslots, "index is out of range!");
 
@@ -381,9 +378,9 @@ public:
 
 	@property
 	ref shared(Bitmap!128) slabMetadataMarks() {
-		assert(isSlab(), "slabMetadataMarks accessed on non slab!");
-		assert(sizeClassSupportsInlineMarking(sizeClass),
+		assert(extentClass.supportsInlineMarking,
 		       "size class not supports inline marking!");
+		assert(extentClass.dense, "size class not dense!");
 
 		return _metadata.slabData.slabMetadata.marks;
 	}
@@ -392,7 +389,7 @@ public:
 	 * Large features.
 	 */
 	bool isLarge() const {
-		return !isSlab();
+		return extentClass.isLarge();
 	}
 
 	@property
@@ -564,7 +561,7 @@ unittest allocfree {
 	}
 
 	assert(e.isSlab());
-	assert(e.sizeClass == 0);
+	assert(e.extentClass.sizeClass == 0);
 	assert(e.nfree == 512);
 
 	checkAllocate(e, 0);
