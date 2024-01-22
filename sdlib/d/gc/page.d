@@ -587,7 +587,9 @@ private:
 				}
 
 				auto pd = bem.lookup(i);
-				auto sc = pd.sizeClass;
+				auto e = pd.extent;
+				auto ec = pd.extentClass;
+				auto sc = ec.sizeClass;
 
 				scope(success) {
 					import d.gc.slab;
@@ -595,7 +597,10 @@ private:
 				}
 
 				import d.gc.sizeclass;
-				if (sizeClassSupportsInlineMarking(sc)) {
+				if (ec.supportsInlineMarking) {
+					import d.gc.bitmap;
+					auto bmp = cast(Bitmap!128*) &e.slabMetadataMarks;
+					bmp.clear();
 					continue;
 				}
 
@@ -609,7 +614,7 @@ private:
 				assert(bitmaps.length >= nimble,
 				       "Failed to allocate GC bitmaps.");
 
-				pd.extent.outlineBitmap = bitmaps.ptr;
+				e.outlineBitmap = bitmaps.ptr;
 				bitmaps = bitmaps[nimble .. bitmaps.length];
 			}
 		}
