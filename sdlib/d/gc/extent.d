@@ -124,7 +124,12 @@ public:
 private:
 	Node!Extent _phnode;
 
-	ulong* outlineBitmap;
+	union GCMetadata {
+		ulong* outlineBuffer;
+		shared(Bitmap!128)* outlineBitmap;
+	}
+
+	GCMetadata _gcMetadata;
 
 	// TODO: Reuse this data to do something useful,
 	// like garbage collection :P
@@ -378,11 +383,29 @@ public:
 
 	@property
 	ref shared(Bitmap!128) slabMetadataMarks() {
+		assert(extentClass.dense, "size class not dense!");
 		assert(extentClass.supportsInlineMarking,
 		       "size class not supports inline marking!");
-		assert(extentClass.dense, "size class not dense!");
 
 		return _metadata.slabData.slabMetadata.marks;
+	}
+
+	@property
+	ref ulong* outlineMarksBuffer() {
+		assert(extentClass.dense, "size class not dense!");
+		assert(!extentClass.supportsInlineMarking,
+		       "size class supports inline marking!");
+
+		return _gcMetadata.outlineBuffer;
+	}
+
+	@property
+	ref shared(Bitmap!128) outlineMarks() {
+		assert(extentClass.dense, "size class not dense!");
+		assert(!extentClass.supportsInlineMarking,
+		       "size class supports inline marking!");
+
+		return *_gcMetadata.outlineBitmap;
 	}
 
 	/**

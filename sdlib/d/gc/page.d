@@ -614,7 +614,7 @@ private:
 				assert(bitmaps.length >= nimble,
 				       "Failed to allocate GC bitmaps.");
 
-				e.outlineBitmap = bitmaps.ptr;
+				e.outlineMarksBuffer = bitmaps.ptr;
 				bitmaps = bitmaps[nimble .. bitmaps.length];
 			}
 		}
@@ -648,18 +648,19 @@ private:
 				}
 
 				auto e = pd.extent;
-				if (isAligned(e.outlineBitmap, PageSize)) {
+				if (isAligned(e.outlineMarksBuffer, PageSize)) {
 					enum ExtentIndex = (PageSize / ulong.sizeof) - 1;
-					auto be = *(cast(Extent**) (e.outlineBitmap + ExtentIndex));
+					auto be =
+						(cast(Extent**) e.outlineMarksBuffer)[ExtentIndex];
 
 					// Make sure we have the extent we expect.
-					assert(be.address is cast(void*) e.outlineBitmap);
+					assert(be.address is cast(void*) e.outlineMarksBuffer);
 					assert(be.npages == 1);
 
 					freePagesImpl(be, be.blockIndex, 1);
 				}
 
-				e.outlineBitmap = null;
+				e.outlineMarksBuffer = null;
 			}
 		}
 	}
