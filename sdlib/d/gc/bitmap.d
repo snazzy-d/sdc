@@ -202,11 +202,16 @@ public:
 		auto o = index % NimbleSize;
 		auto b = ulong(1) << o;
 
+		auto old = bits[i];
+		if ((old & b) == V) {
+			return V;
+		}
+
 		import sdc.intrinsics;
 		static if (V) {
-			auto old = fetchOr(&bits[i], b);
+			old = fetchOr(&bits[i], b);
 		} else {
-			auto old = fetchAnd(&bits[i], ~b);
+			old = fetchAnd(&bits[i], ~b);
 		}
 
 		return (old & b) != 0;
