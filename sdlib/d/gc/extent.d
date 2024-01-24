@@ -325,7 +325,7 @@ public:
 			total += nCount;
 		}
 
-		scope(success) bits -= count * FreeSlotsUnit;
+		bits -= count * FreeSlotsUnit;
 		return count;
 	}
 
