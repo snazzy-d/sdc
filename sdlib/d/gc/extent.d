@@ -1,5 +1,7 @@
 module d.gc.extent;
 
+import d.sync.atomic;
+
 import d.gc.base;
 import d.gc.bitmap;
 import d.gc.heap;
@@ -127,6 +129,7 @@ private:
 	union GCMetadata {
 		ulong* outlineBuffer;
 		shared(Bitmap!128)* outlineBitmap;
+		shared Atomic!ulong gcWord;
 	}
 
 	GCMetadata _gcMetadata;
@@ -406,6 +409,13 @@ public:
 		       "size class supports inline marking!");
 
 		return *_gcMetadata.outlineBitmap;
+	}
+
+	@property
+	ref shared(Atomic!ulong) gcWord() {
+		assert(extentClass.sparse, "size class not sparse!");
+
+		return _gcMetadata.gcWord;
 	}
 
 	/**
