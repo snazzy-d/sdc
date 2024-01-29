@@ -1,5 +1,7 @@
 import d.gc.global;
 
+alias ScanDg = bool delegate(const(void*)[] range);
+
 struct GCState {
 private:
 	import d.sync.mutex;
@@ -13,6 +15,13 @@ public:
 		scope(exit) mutex.unlock();
 
 		(cast(GCState*) &this).addRootsImpl(range);
+	}
+
+	void scanRoots(ScanDg scan) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(GCState*) &this).scanRootsImpl(scan);
 	}
 
 private:
@@ -32,6 +41,14 @@ private:
 
 		// Update the range.
 		roots = roots.ptr[0 .. roots.length + 1];
+	}
+
+	void scanRootsImpl(ScanDg scan) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		foreach (range; roots) {
+			scan(range);
+		}
 	}
 }
 
