@@ -6,8 +6,8 @@ extern(C) void __sd_thread_init() {
 	registerTlsSegments();
 }
 
-alias ScanFn = bool delegate(const(void*)[] range);
-extern(C) void __sd_thread_scan(ScanFn scan) {
+alias ScanDg = bool delegate(const(void*)[] range);
+extern(C) void __sd_thread_scan(ScanDg scan) {
 	auto ts = ThreadScanner(scan);
 
 	import d.rt.stack;
@@ -25,9 +25,9 @@ extern(C) void __sd_thread_restart_the_world() {
 private:
 
 struct ThreadScanner {
-	ScanFn scan;
+	ScanDg scan;
 
-	this(ScanFn scan) {
+	this(ScanDg scan) {
 		this.scan = scan;
 	}
 
