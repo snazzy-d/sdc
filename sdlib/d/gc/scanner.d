@@ -84,6 +84,10 @@ public:
 		import d.thread;
 		__sd_global_scan(addToWorkList);
 
+		// Scan the stack and TLS.
+		import d.thread;
+		__sd_thread_scan(addToWorkList);
+
 		// Now send this thread marking!
 		runMark();
 
