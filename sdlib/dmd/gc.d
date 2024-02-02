@@ -80,7 +80,32 @@ void __sd_gc_druntime_qalloc(BlkInfo* result, size_t size, uint bits,
 	}
 
 	// printf("returning pointer %p\n", result.base);
-	result.size = size;
+	//result.size = size;
+
+	if (result.base) {
+		if (appendable) {
+			// figure out the capacity, set it to max, and then use that size
+			// for the caller.
+			auto cap = threadCache.getCapacity(result.base[0 .. size]);
+			if (cap == 0) {
+				result.size = size;
+			} else {
+				assert(threadCache.extend(result.base[0 .. size], cap - size));
+				result.size = cap;
+			}
+		} else {
+			// no good mechanism to look this up, so wing it
+			auto pd = threadCache.getPageDescriptor(result.base);
+			if (pd.isSlab()) {
+				auto si = SlabAllocInfo(pd, result.base);
+				result.size = si.usedCapacity;
+			} else {
+				auto e = pd.extent;
+				result.size = e.usedCapacity;
+			}
+		}
+	}
+
 	result.attr = bits & (BlkAttr.APPENDABLE | BlkAttr.NO_SCAN);
 	//return result;
 }
