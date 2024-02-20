@@ -3,6 +3,9 @@ module d.thread;
 import core.stdc.pthread;
 
 extern(C) void __sd_thread_init() {
+	import d.gc.tcache, d.gc.emap, d.gc.base;
+	threadCache.initialize(&gExtentMap, &gBase);
+
 	registerTlsSegments();
 }
 
