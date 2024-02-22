@@ -13,9 +13,11 @@ import sdc.intrinsics;
 
 alias ClassTree = RBTree!(Region, classAddrRegionCmp, "rbClass");
 alias RangeTree = RBTree!(Region, addrRangeRegionCmp, "rbRange");
+alias DirtTree = RBTree!(Region, dirtAddrRegionCmp, "rbDirt");
 
 alias ClassNode = rbtree.Node!(Region, "rbClass");
 alias RangeNode = rbtree.Node!(Region, "rbRange");
+alias DirtNode = rbtree.Node!(Region, "rbDirt");
 alias PHNode = heap.Node!Region;
 
 // Reserve memory in blocks of 1GB.
@@ -59,6 +61,9 @@ private:
 	ClassTree regionsByClass;
 	RangeTree regionsByRange;
 
+	// Dirty regions only, by dirt (in descending order)
+	DirtTree regionsByDirt;
+
 	// Unused region objects.
 	Heap!(Region, unusedRegionCmp) unusedRegions;
 
@@ -76,10 +81,6 @@ public:
 	void release(void* ptr, uint blocks) shared {
 		assert(blocks > 0, "Invalid number of blocks!");
 
-		// Eagerly clean the block we are returned.
-		import d.gc.memmap;
-		pages_purge(ptr, blocks * BlockSize);
-
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
@@ -91,6 +92,15 @@ public:
 		scope(exit) mutex.unlock();
 
 		return (cast(RegionAllocator*) &this).computeAddressRangeImpl();
+	}
+
+	uint purgeDirtyBlocks(uint blocks) shared {
+		assert(blocks > 0, "Invalid number of blocks!");
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(RegionAllocator*) &this).purgeDirtyBlocksImpl(blocks);
 	}
 
 private:
@@ -116,6 +126,7 @@ private:
 			}
 		} else {
 			regionsByRange.remove(r);
+			unregisterRegionDirt(r);
 		}
 
 		assert(r.address !is null && isAligned(r.address, BlockSize),
@@ -158,6 +169,46 @@ private:
 		registerRegion(r);
 	}
 
+	void registerRegionDirt(Region* r) {
+		assert(r !is null, "Region is null!");
+
+		if (r.dirtyBlockCount > 0) {
+			regionsByDirt.insert(r);
+		}
+	}
+
+	void unregisterRegionDirt(Region* r) {
+		assert(r !is null, "Region is null!");
+
+		if (r.dirtyBlockCount > 0) {
+			regionsByDirt.remove(r);
+		}
+	}
+
+	uint purgeDirtyBlocksImpl(uint blocks) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		blocks = min(blocks, dirtyBlockCount);
+		auto blocksToPurge = blocks;
+
+		Region rr;
+		rr.dirtyBlockCount = uint.max;
+
+		while (blocksToPurge > 0) {
+			auto r = regionsByDirt.extractBestFit(&rr);
+			assert(r !is null,
+			       "Nonzero dirty block count, but there is no dirty region!");
+
+			auto regionBlocksToPurge = min(blocksToPurge, r.dirtyBlockCount);
+			r.purgeDirtyBlocks(regionBlocksToPurge);
+			registerRegionDirt(r);
+			blocksToPurge -= regionBlocksToPurge;
+		}
+
+		dirtyBlockCount -= blocks;
+		return blocks;
+	}
+
 	void registerRegion(Region* r) {
 		assert(r !is null, "Region is null!");
 
@@ -169,6 +220,7 @@ private:
 			}
 
 			regionsByClass.remove(adjacent);
+			unregisterRegionDirt(adjacent);
 
 			// Make sure we keep using the best region.
 			bool needSwap = unusedRegionCmp(r, adjacent) < 0;
@@ -181,6 +233,7 @@ private:
 
 		regionsByClass.insert(r);
 		regionsByRange.insert(r);
+		registerRegionDirt(r);
 	}
 
 	Region* refillAddressSpace(uint extraBlocks) {
@@ -369,6 +422,7 @@ struct Region {
 	struct UsedLinks {
 		ClassNode rbClass;
 		RangeNode rbRange;
+		DirtNode rbDirt;
 	}
 
 	union Links {
@@ -467,6 +521,11 @@ public:
 	}
 
 	@property
+	ref DirtNode rbDirt() {
+		return _links.usedLinks.rbDirt;
+	}
+
+	@property
 	size_t size() const {
 		return blockCount * BlockSize;
 	}
@@ -493,17 +552,6 @@ public:
 		assert(address is (r.address + r.size) || r.address is (address + size),
 		       "Regions are not adjacent!");
 
-		auto left = address < r.address ? &this : r;
-		auto right = address < r.address ? r : &this;
-
-		// Dirt is at all times contiguous within a region, and starts at the bottom.
-		// Given as purging is not yet supported, this invariant always holds.
-		assert(
-			left.dirtyBlockCount == left.blockCount
-				|| right.dirtyBlockCount == 0,
-			"Merge would place dirty blocks in front of clean blocks!"
-		);
-
 		// Copy the dirty bits.
 		// FIXME: We use min to ensures we don't trip an assert
 		// when the region is larger than 1GB.
@@ -513,6 +561,54 @@ public:
 		auto a = min(address, r.address);
 		return at(a, blockCount + r.blockCount,
 		          dirtyBlockCount + r.dirtyBlockCount);
+	}
+
+	Region* purgeDirtyBlocks(uint blocksToPurge) {
+		assert(blocksToPurge <= dirtyBlockCount,
+		       "Region has fewer dirty blocks than requested to purge!");
+		assert(blocksToPurge > 0, "Requested to purge zero blocks!");
+
+		auto startIndex = startOffset;
+		auto endIndex = (startIndex + blockCount) % RefillBlockCount;
+		uint index = endIndex;
+
+		while (blocksToPurge > 0) {
+			bool roll = index <= startIndex;
+
+			// Find the last dirty run
+			auto endDirtRun = dirtyBlocks.findSetBackward(index);
+			if (endDirtRun < 0) {
+				if (roll) {
+					index = RefillBlockCount;
+					continue;
+				}
+
+				break;
+			}
+
+			index = dirtyBlocks.findClearBackward(endDirtRun);
+			auto startDirtRun = index + 1;
+			auto runBlocksToPurge = min(blocksToPurge, endDirtRun - index);
+			startDirtRun = endDirtRun - runBlocksToPurge + 1;
+
+			auto effectiveIndex =
+				startDirtRun + (roll ? RefillBlockCount : 0) - startIndex;
+			assert(effectiveIndex < blockCount, "Purge offset out of range!");
+
+			// Purge.
+			import d.gc.memmap;
+			pages_purge(address + effectiveIndex * BlockSize,
+			            runBlocksToPurge * BlockSize);
+
+			dirtyBlocks.clearRange(startDirtRun, runBlocksToPurge);
+			blocksToPurge -= runBlocksToPurge;
+			dirtyBlockCount -= runBlocksToPurge;
+		}
+
+		assert(blocksToPurge == 0,
+		       "Failed to purge all requested blocks in region!");
+
+		return &this;
 	}
 }
 
@@ -548,6 +644,23 @@ unittest rangeTree {
 ptrdiff_t classAddrRegionCmp(Region* lhs, Region* rhs) {
 	auto l = lhs.bits;
 	auto r = rhs.bits;
+
+	return (l > r) - (l < r);
+}
+
+ptrdiff_t dirtAddrRegionCmp(Region* lhs, Region* rhs) {
+	// Descending order of dirt
+	auto rdirt = lhs.dirtyBlockCount;
+	auto ldirt = rhs.dirtyBlockCount;
+	auto dirtCmp = (ldirt > rdirt) - (ldirt < rdirt);
+
+	if (dirtCmp != 0) {
+		return dirtCmp;
+	}
+
+	// Descending order of address
+	auto r = cast(size_t) lhs.address;
+	auto l = cast(size_t) rhs.address;
 
 	return (l > r) - (l < r);
 }
@@ -609,37 +722,70 @@ unittest trackDirtyBlocks {
 		assert(r.countDirtyBlocksInSubRegion(0, blocks) == dirtyBlocks);
 	}
 
+	// Verify that the currently-dirtiest region has the given attributes.
+	void verifyDirtiestRegion(void* address, uint blocks, uint dirtyBlocks) {
+		Region rr;
+		rr.dirtyBlockCount = uint.max;
+
+		auto r = ra.regionsByDirt.extractBestFit(&rr);
+		assert(r !is null);
+		assert(r.address is address);
+		assert(r.blockCount == blocks);
+		assert(r.dirtyBlockCount == dirtyBlocks);
+		assert(r.countDirtyBlocksInSubRegion(0, blocks) == dirtyBlocks);
+		ra.registerRegionDirt(r);
+	}
+
 	// Initially, there are no dirty blocks.
 	assert(regionAllocator.dirtyBlockCount == 0);
 
 	// Make some dirty regions.
-	freeRun(addresses[0 .. 2]);
-	assert(regionAllocator.dirtyBlockCount == 2);
-	verifyUniqueRegion(addresses[0], 2, 2, 2);
 	freeRun(addresses[4 .. 8]);
-	assert(regionAllocator.dirtyBlockCount == 6);
+	assert(regionAllocator.dirtyBlockCount == 4);
 	verifyUniqueRegion(addresses[4], 4, 4, 4);
+	verifyDirtiestRegion(addresses[4], 4, 4);
+	assert(regionAllocator.purgeDirtyBlocks(2) == 2);
+	verifyUniqueRegion(addresses[4], 4, 4, 2);
+	verifyDirtiestRegion(addresses[4], 4, 2);
 	freeRun(addresses[10 .. 15]);
-	assert(regionAllocator.dirtyBlockCount == 11);
+	assert(regionAllocator.dirtyBlockCount == 7);
 	verifyUniqueRegion(addresses[10], 5, 5, 5);
+	verifyDirtiestRegion(addresses[10], 5, 5);
+	assert(regionAllocator.purgeDirtyBlocks(4) == 4);
+	verifyUniqueRegion(addresses[10], 5, 5, 1);
+	verifyDirtiestRegion(addresses[4], 4, 2);
+	freeRun(addresses[0 .. 2]);
+	assert(regionAllocator.dirtyBlockCount == 5);
+	verifyUniqueRegion(addresses[0], 2, 2, 2);
+	verifyDirtiestRegion(addresses[4], 4, 2);
 
 	// Merge regions and confirm expected effect.
 	freeRun(addresses[8 .. 10]);
-	assert(regionAllocator.dirtyBlockCount == 13);
-	verifyUniqueRegion(addresses[4], 10, 11, 11);
+	assert(regionAllocator.dirtyBlockCount == 7);
+	verifyUniqueRegion(addresses[4], 10, 11, 5);
+	verifyDirtiestRegion(addresses[4], 11, 5);
 	freeRun(addresses[2 .. 4]);
-	assert(regionAllocator.dirtyBlockCount == 15);
-	verifyUniqueRegion(addresses[0], 14, 15, 15);
+	assert(regionAllocator.dirtyBlockCount == 9);
+	verifyUniqueRegion(addresses[0], 14, 15, 9);
+	verifyDirtiestRegion(addresses[0], 15, 9);
+	assert(regionAllocator.purgeDirtyBlocks(3) == 3);
+	assert(regionAllocator.dirtyBlockCount == 6);
 	freeRun(addresses[15 .. 16]);
-	verifyUniqueRegion(addresses[0], 1, RefillBlockCount, 16);
+	assert(regionAllocator.dirtyBlockCount == 7);
+	verifyUniqueRegion(addresses[0], 1, RefillBlockCount, 7);
+	verifyDirtiestRegion(addresses[0], RefillBlockCount, 7);
 
 	// Test dirt behaviour in acquire and release.
 	void* addr0;
 	assert(regionAllocator.acquire(&addr0, 5));
 	assert(addr0 is addresses[5]);
-	assert(regionAllocator.dirtyBlockCount == 10);
-	verifyUniqueRegion(addresses[6], 1, RefillBlockCount - 6, 10);
+	assert(regionAllocator.dirtyBlockCount == 1);
+	verifyUniqueRegion(addresses[6], 1, RefillBlockCount - 6, 1);
+	verifyDirtiestRegion(addresses[6], RefillBlockCount - 6, 1);
 	regionAllocator.release(addresses[0], 6);
-	assert(regionAllocator.dirtyBlockCount == 16);
-	verifyUniqueRegion(addresses[0], 1, RefillBlockCount, 16);
+	assert(regionAllocator.dirtyBlockCount == 7);
+	verifyUniqueRegion(addresses[0], 1, RefillBlockCount, 7);
+	verifyDirtiestRegion(addresses[0], RefillBlockCount, 7);
+	assert(regionAllocator.purgeDirtyBlocks(666) == 7);
+	assert(regionAllocator.dirtyBlockCount == 0);
 }
