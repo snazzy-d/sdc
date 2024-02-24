@@ -13,9 +13,11 @@ import sdc.intrinsics;
 
 alias ClassTree = RBTree!(Region, classAddrRegionCmp, "rbClass");
 alias RangeTree = RBTree!(Region, addrRangeRegionCmp, "rbRange");
+alias DirtTree = RBTree!(Region, dirtAddrRegionCmp, "rbDirt");
 
 alias ClassNode = rbtree.Node!(Region, "rbClass");
 alias RangeNode = rbtree.Node!(Region, "rbRange");
+alias DirtNode = rbtree.Node!(Region, "rbDirt");
 alias PHNode = heap.Node!Region;
 
 // Reserve memory in blocks of 1GB.
@@ -59,6 +61,9 @@ private:
 	ClassTree regionsByClass;
 	RangeTree regionsByRange;
 
+	// Dirty regions only, by dirt (in descending order)
+	DirtTree regionsByDirt;
+
 	// Unused region objects.
 	Heap!(Region, unusedRegionCmp) unusedRegions;
 
@@ -76,10 +81,6 @@ public:
 	void release(void* ptr, uint blocks) shared {
 		assert(blocks > 0, "Invalid number of blocks!");
 
-		// Eagerly clean the block we are returned.
-		import d.gc.memmap;
-		pages_purge(ptr, blocks * BlockSize);
-
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
@@ -91,6 +92,15 @@ public:
 		scope(exit) mutex.unlock();
 
 		return (cast(RegionAllocator*) &this).computeAddressRangeImpl();
+	}
+
+	uint purgeDirtyBlocks(uint blocks) shared {
+		assert(blocks > 0, "Invalid number of blocks!");
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(RegionAllocator*) &this).purgeDirtyBlocksImpl(blocks);
 	}
 
 private:
@@ -116,6 +126,7 @@ private:
 			}
 		} else {
 			regionsByRange.remove(r);
+			unregisterRegionDirt(r);
 		}
 
 		assert(r.address !is null && isAligned(r.address, BlockSize),
@@ -158,6 +169,22 @@ private:
 		registerRegion(r);
 	}
 
+	void registerRegionDirt(Region* r) {
+		assert(r !is null, "Region is null!");
+
+		if (r.dirtyBlockCount > 0) {
+			regionsByDirt.insert(r);
+		}
+	}
+
+	void unregisterRegionDirt(Region* r) {
+		assert(r !is null, "Region is null!");
+
+		if (r.dirtyBlockCount > 0) {
+			regionsByDirt.remove(r);
+		}
+	}
+
 	void registerRegion(Region* r) {
 		assert(r !is null, "Region is null!");
 
@@ -169,6 +196,7 @@ private:
 			}
 
 			regionsByClass.remove(adjacent);
+			unregisterRegionDirt(adjacent);
 
 			// Make sure we keep using the best region.
 			bool needSwap = unusedRegionCmp(r, adjacent) < 0;
@@ -181,6 +209,7 @@ private:
 
 		regionsByClass.insert(r);
 		regionsByRange.insert(r);
+		registerRegionDirt(r);
 	}
 
 	Region* refillAddressSpace(uint extraBlocks) {
@@ -222,6 +251,28 @@ private:
 
 		static assert(Region.sizeof <= ExtentSize, "Unexpected Region size!");
 		return Region.fromSlot(slot);
+	}
+
+	uint purgeDirtyBlocksImpl(uint blocks) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		blocks = min(blocks, dirtyBlockCount);
+		uint blocksPurged = 0;
+
+		Region rr;
+		rr.dirtyBlockCount = uint.max;
+
+		while (blocksPurged < blocks) {
+			auto r = regionsByDirt.extractBestFit(&rr);
+			if (r is null) {
+				break;
+			}
+
+			blocksPurged += r.purgeDirtyBlocks();
+		}
+
+		dirtyBlockCount -= blocksPurged;
+		return blocksPurged;
 	}
 }
 
@@ -369,6 +420,7 @@ struct Region {
 	struct UsedLinks {
 		ClassNode rbClass;
 		RangeNode rbRange;
+		DirtNode rbDirt;
 	}
 
 	union Links {
@@ -467,6 +519,11 @@ public:
 	}
 
 	@property
+	ref DirtNode rbDirt() {
+		return _links.usedLinks.rbDirt;
+	}
+
+	@property
 	size_t size() const {
 		return blockCount * BlockSize;
 	}
@@ -493,17 +550,6 @@ public:
 		assert(address is (r.address + r.size) || r.address is (address + size),
 		       "Regions are not adjacent!");
 
-		auto left = address < r.address ? &this : r;
-		auto right = address < r.address ? r : &this;
-
-		// Dirt is at all times contiguous within a region, and starts at the bottom.
-		// Given as purging is not yet supported, this invariant always holds.
-		assert(
-			left.dirtyBlockCount == left.blockCount
-				|| right.dirtyBlockCount == 0,
-			"Merge would place dirty blocks in front of clean blocks!"
-		);
-
 		// Copy the dirty bits.
 		// FIXME: We use min to ensures we don't trip an assert
 		// when the region is larger than 1GB.
@@ -513,6 +559,19 @@ public:
 		auto a = min(address, r.address);
 		return at(a, blockCount + r.blockCount,
 		          dirtyBlockCount + r.dirtyBlockCount);
+	}
+
+	uint purgeDirtyBlocks() {
+		auto purgedBlocks = dirtyBlockCount;
+
+		// Make the region clean.
+		atClean(address, blockCount);
+
+		// Purge the region wholesale, minimizing system calls
+		import d.gc.memmap;
+		pages_purge(address, blockCount * BlockSize);
+
+		return purgedBlocks;
 	}
 }
 
@@ -548,6 +607,23 @@ unittest rangeTree {
 ptrdiff_t classAddrRegionCmp(Region* lhs, Region* rhs) {
 	auto l = lhs.bits;
 	auto r = rhs.bits;
+
+	return (l > r) - (l < r);
+}
+
+ptrdiff_t dirtAddrRegionCmp(Region* lhs, Region* rhs) {
+	// Descending order of dirt
+	auto rdirt = lhs.dirtyBlockCount;
+	auto ldirt = rhs.dirtyBlockCount;
+	auto dirtCmp = (ldirt > rdirt) - (ldirt < rdirt);
+
+	if (dirtCmp != 0) {
+		return dirtCmp;
+	}
+
+	// Descending order of address
+	auto r = cast(size_t) lhs.address;
+	auto l = cast(size_t) rhs.address;
 
 	return (l > r) - (l < r);
 }
