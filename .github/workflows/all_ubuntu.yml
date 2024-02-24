@@ -14,7 +14,8 @@ jobs:
                 dc: [dmd-beta] # We shoudl use latest, but it's broken, so in the meantime we use beta.
 
         runs-on: ${{ matrix.os }}
-
+        env:
+            USE_LOWMEM: 1
         steps:
             - name: Checkout SDC
               uses: actions/checkout@v2
