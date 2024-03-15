@@ -8,6 +8,8 @@ import d.gc.slab;
 import d.gc.spec;
 import d.gc.util;
 
+import sdc.intrinsics;
+
 ThreadCache threadCache;
 
 struct ThreadCache {
@@ -24,12 +26,11 @@ public:
 			return null;
 		}
 
-		auto arena = chooseArena(containsPointers);
 		if (isSmallSize(size)) {
-			return arena.allocSmall(emap, size, zero);
+			return allocSmall(size, containsPointers, zero);
 		}
 
-		return arena.allocLarge(emap, size, zero);
+		return allocLarge(size, containsPointers, zero);
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers, bool zero,
@@ -43,21 +44,53 @@ public:
 		assert(sizeClassSupportsMetadata(getSizeClass(asize)),
 		       "allocAppendable got size class without metadata support!");
 
-		auto arena = chooseArena(containsPointers);
 		if (isSmallSize(asize)) {
-			auto ptr = arena.allocSmall(emap, asize, zero);
+			auto ptr = allocSmall(asize, containsPointers, zero);
 			auto pd = getPageDescriptor(ptr);
 			auto si = SlabAllocInfo(pd, ptr);
 			si.initializeMetadata(finalizer, size);
 			return ptr;
 		}
 
-		auto ptr = arena.allocLarge(emap, size, zero);
+		auto ptr = allocLarge(size, containsPointers, zero);
 		auto pd = getPageDescriptor(ptr);
 		auto e = pd.extent;
 		e.setUsedCapacity(size);
 		e.setFinalizer(finalizer);
 		return ptr;
+	}
+
+	void* allocSmall(size_t size, bool containsPointers, bool zero) {
+		// TODO: in contracts
+		assert(isSmallSize(size));
+
+		void*[1] buffer = void;
+
+		auto arena = chooseArena(containsPointers);
+		auto count = arena.batchAllocSmall(emap, size, buffer[0 .. 1]);
+		if (unlikely(count == 0)) {
+			return null;
+		}
+
+		auto ptr = buffer[0];
+		if (zero) {
+			import d.gc.slab;
+			auto sizeClass = getSizeClass(size);
+			auto slotSize = binInfos[sizeClass].slotSize;
+
+			import d.gc.slab;
+			memset(ptr, 0, slotSize);
+		}
+
+		return ptr;
+	}
+
+	void* allocLarge(size_t size, bool containsPointers, bool zero) {
+		// TODO: in contracts
+		assert(isAllocatableSize(size));
+
+		auto arena = chooseArena(containsPointers);
+		return arena.allocLarge(emap, size, zero);
 	}
 
 	void free(void* ptr) {

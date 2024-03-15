@@ -103,29 +103,6 @@ public:
 	/**
 	 * Small allocation facilities.
 	 */
-	void* allocSmall(ref CachedExtentMap emap, size_t size, bool zero) shared {
-		// TODO: in contracts
-		assert(isSmallSize(size));
-
-		void*[1] buffer = void;
-		auto count = batchAllocSmall(emap, size, buffer[0 .. 1]);
-		if (unlikely(count == 0)) {
-			return null;
-		}
-
-		auto ptr = buffer[0];
-		if (zero) {
-			import d.gc.slab;
-			auto sizeClass = getSizeClass(size);
-			auto slotSize = binInfos[sizeClass].slotSize;
-
-			import d.gc.slab;
-			memset(ptr, 0, slotSize);
-		}
-
-		return ptr;
-	}
-
 	uint batchAllocSmall(ref CachedExtentMap emap, size_t size,
 	                     void*[] buffer) shared {
 		// TODO: in contracts
