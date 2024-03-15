@@ -66,18 +66,19 @@ public:
 
 		void*[1] buffer = void;
 
+		import d.gc.slab;
+		auto sizeClass = getSizeClass(size);
+		auto slotSize = binInfos[sizeClass].slotSize;
+
 		auto arena = chooseArena(containsPointers);
-		auto count = arena.batchAllocSmall(emap, size, buffer[0 .. 1]);
+		auto count =
+			arena.batchAllocSmall(emap, sizeClass, buffer[0 .. 1], slotSize);
 		if (unlikely(count == 0)) {
 			return null;
 		}
 
 		auto ptr = buffer[0];
 		if (zero) {
-			import d.gc.slab;
-			auto sizeClass = getSizeClass(size);
-			auto slotSize = binInfos[sizeClass].slotSize;
-
 			import d.gc.slab;
 			memset(ptr, 0, slotSize);
 		}

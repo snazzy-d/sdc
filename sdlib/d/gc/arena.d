@@ -103,14 +103,13 @@ public:
 	/**
 	 * Small allocation facilities.
 	 */
-	uint batchAllocSmall(ref CachedExtentMap emap, size_t size,
-	                     void*[] buffer) shared {
+	uint batchAllocSmall(ref CachedExtentMap emap, ubyte sizeClass,
+	                     void*[] buffer, size_t slotSize) shared {
 		// TODO: in contracts
-		assert(isSmallSize(size));
+		assert(isSmallSizeClass(sizeClass));
 
 		import d.gc.slab;
-		auto sizeClass = getSizeClass(size);
-		auto slotSize = binInfos[sizeClass].slotSize;
+		assert(slotSize == binInfos[sizeClass].slotSize, "Invalid slot size!");
 
 		return bins[sizeClass]
 			.batchAllocate(&filler, emap, sizeClass, buffer[0 .. 1], slotSize);
