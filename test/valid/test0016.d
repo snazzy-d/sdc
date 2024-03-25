@@ -1,13 +1,9 @@
 //T compiles:yes
-//T retval:32
 //T has-passed:yes
+// array literals.
 
-int add(int a, int b) {
-	return a + b;
-}
-
-int main() {
-	int function(int, int) f;
-	f = &add;
-	return f(30, 2);
+void main() {
+	byte[] a = [];
+	byte[] b = [1, 2, 3, 4, 5];
+	byte[5] c = [1, 2, 3, 4, 5];
 }
