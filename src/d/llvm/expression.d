@@ -410,10 +410,6 @@ struct ExpressionGen {
 		return LLVMBuildExtractValue(builder, visit(e.expr), e.field.index, "");
 	}
 
-	LLVMValueRef visit(FunctionExpression e) {
-		return declare(e.fun);
-	}
-
 	private static getFunctionType(Type t) {
 		return t.getCanonical().asFunctionType();
 	}

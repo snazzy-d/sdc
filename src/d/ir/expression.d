@@ -628,24 +628,6 @@ class FieldExpression : Expression {
 }
 
 /**
- * IdentifierExpression that as been resolved as a Function.
- * XXX: Deserve to be merged with VariableExpression somehow.
- */
-class FunctionExpression : Expression {
-	Function fun;
-
-	this(Location location, Function fun) {
-		super(location, fun.type.getType());
-
-		this.fun = fun;
-	}
-
-	override string toString(const Context c) const {
-		return fun.name.toString(c);
-	}
-}
-
-/**
  * Delegate from a function + contextes.
  */
 class DelegateExpression : Expression {

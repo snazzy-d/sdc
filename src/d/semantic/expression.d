@@ -377,7 +377,7 @@ public:
 
 	private Expression handleAddressOf(Expression expr) {
 		// For fucked up reasons, &funcname is a special case.
-		if (auto se = cast(FunctionExpression) expr) {
+		if (matchFunction(expr)) {
 			return expr;
 		}
 
@@ -614,7 +614,7 @@ public:
 		}
 
 		auto e = (ctxs.length == 0)
-			? new FunctionExpression(location, f)
+			? new ConstantExpression(location, new FunctionConstant(f))
 			: build!DelegateExpression(location, ctxs, f);
 
 		// If this is not a property, things are straigforward.
@@ -1023,6 +1023,28 @@ public:
 			callCallable(location, findCallable(location, callee, args), args);
 	}
 
+	private static Function matchFunction(Expression e) {
+		if (auto ce = cast(ConstantExpression) e) {
+			if (auto fc = cast(FunctionConstant) ce.value) {
+				return fc.fun;
+			}
+		}
+
+		return null;
+	}
+
+	private static Function matchFunctionOrDelegate(Expression e) {
+		if (auto f = matchFunction(e)) {
+			return f;
+		}
+
+		if (auto dge = cast(DelegateExpression) e) {
+			return dge.method;
+		}
+
+		return null;
+	}
+
 	// XXX: This assume that calable is the right one,
 	// but not all call sites do the check.
 	private Expression callCallable(Location location, Expression callee,
@@ -1044,14 +1066,11 @@ public:
 		// If we don't have enough parameters, try to find default
 		// values in the function declaration.
 		if (args.length < paramTypes.length) {
-			Function fun;
-			if (auto fe = cast(FunctionExpression) callee) {
-				fun = fe.fun;
-			} else if (auto dge = cast(DelegateExpression) callee) {
-				fun = dge.method;
-			} else {
+			Function fun = matchFunctionOrDelegate(callee);
+			if (fun is null) {
 				// Can't find the function, error.
-				return getError(callee, location, "Insuffiscient parameters.");
+				return getError(callee, location,
+				                "Cannot identify called function.");
 			}
 
 			auto start = args.length + f.contexts.length;
@@ -1074,9 +1093,9 @@ public:
 			arg = buildArgument(arg, pt);
 		}
 
-		// If this is an intrinsic, create an intrinsic expression
-		if (auto fe = cast(FunctionExpression) callee) {
-			if (auto i = fe.fun.intrinsicID) {
+		// If this is an intrinsic, create an intrinsic expression.
+		if (auto fun = matchFunction(callee)) {
+			if (auto i = fun.intrinsicID) {
 				return build!IntrinsicExpression(location, returnType.getType(),
 				                                 i, args);
 			}

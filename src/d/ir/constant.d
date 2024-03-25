@@ -194,6 +194,21 @@ class SplatConstant : Constant {
 	}
 }
 
+class FunctionConstant : Constant {
+	import d.ir.symbol;
+	Function fun;
+
+	this(Function fun) {
+		super(fun.type.getType());
+
+		this.fun = fun;
+	}
+
+	override string toString(const Context c) const {
+		return fun.name.toString(c);
+	}
+}
+
 /**
  * typeid(type) expression.
  * 
