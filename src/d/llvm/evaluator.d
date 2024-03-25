@@ -82,19 +82,18 @@ public:
 			return ee.error.constant;
 		}
 
-		// We agressively JIT all CTFE.
-		return
-			jit!(function Constant(CodeGen pass, Expression e, void[] buffer) {
-				scope(failure) {
-					import std.stdio;
-					stderr.writefln!"Failed to repack expression %s type %s."(
-						e.toString(pass.context),
-						e.type.toString(pass.context)
-					);
-				}
+		static Constant repack(CodeGen pass, Expression e, void[] buffer) {
+			scope(failure) {
+				import std.stdio;
+				stderr.writefln!"Failed to repack expression %s type %s."(
+					e.toString(pass.context), e.type.toString(pass.context));
+			}
 
-				return JitRepacker(pass, buffer).visit(e.type);
-			})(e);
+			return JitRepacker(pass, buffer).visit(e.type);
+		}
+
+		// We agressively JIT all CTFE.
+		return jit!repack(e);
 	}
 
 	ulong evalIntegral(Expression e) in {
@@ -108,9 +107,11 @@ public:
 		auto bt = t.builtin;
 		assert(isIntegral(bt) || bt == BuiltinType.Bool);
 	} do {
-		return jit!(function ulong(ulong r) {
+		static ulong repack(ulong r) {
 			return r;
-		}, JitReturn.Direct)(e);
+		}
+
+		return jit!(repack, JitReturn.Direct)(e);
 	}
 
 	string evalString(Expression e) in {
@@ -120,11 +121,13 @@ public:
 		auto et = t.element.getCanonical();
 		assert(et.builtin = BuiltinType.Char);
 	} do {
-		return jit!(function string(CodeGen pass, Expression e, void[] p)
-			in (p.length == string.sizeof) {
-				auto s = *(cast(string*) p.ptr);
-				return s.idup;
-			})(e);
+		static string repack(CodeGen pass, Expression e, void[] p)
+				in(p.length == string.sizeof) {
+			auto s = *(cast(string*) p.ptr);
+			return s.idup;
+		}
+
+		return jit!repack(e);
 	}
 
 	private
