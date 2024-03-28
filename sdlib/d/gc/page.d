@@ -57,6 +57,8 @@ private:
 	UnusedExtentHeap unusedExtents;
 	UnusedBlockHeap unusedBlockDescriptors;
 
+	OutlinedBitmap* outlinedBitmaps;
+
 	import d.gc.base;
 	shared Base base;
 
@@ -543,6 +545,24 @@ private:
 	/**
 	 * GC facilities.
 	 */
+	struct OutlinedBitmap {
+		OutlinedBitmap* next;
+		Extent* extent;
+
+		@property
+		ulong[] bitmaps() {
+			/**
+			 * Bitmaps are storaed on a page. The OutlinedBitmap lives at
+			 * the start of the page, and the bitmaps nimbles come next.
+			 */
+			enum NimbleCount =
+				(PageSize - OutlinedBitmap.sizeof) / ulong.sizeof;
+
+			auto ptr = cast(ulong*) (&this + 1);
+			return ptr[0 .. NimbleCount];
+		}
+	}
+
 	ulong[] allocGCBitmap() {
 		assert(mutex.isHeld(), "Mutex not held!");
 
@@ -558,16 +578,12 @@ private:
 			pages_zero(e.address, e.size);
 		}
 
-		/**
-		 * We sacrifice the last nimble to store a pointer to
-		 * the extent itself. This allows us to skip registering
-		 * the extent in the extent map.
-		 */
-		enum NimbleCount = (PageSize / ulong.sizeof) - 1;
+		auto ob = cast(OutlinedBitmap*) e.address;
+		ob.next = outlinedBitmaps;
+		ob.extent = e;
 
-		auto ptr = cast(ulong*) e.address;
-		ptr[NimbleCount] = cast(ulong) e;
-		return ptr[0 .. NimbleCount];
+		outlinedBitmaps = ob;
+		return ob.bitmaps;
 	}
 
 	void prepareGCCycleImpl(ref CachedExtentMap emap) {
@@ -591,10 +607,12 @@ private:
 				auto ec = pd.extentClass;
 				auto sc = ec.sizeClass;
 
-				scope(success) {
-					import d.gc.slab;
-					i += binInfos[sc].npages;
-				}
+				/**
+				 * Because we might not be touching the first half of the Extent,
+				 * we make sure we don't take a miss and use binInfos instead.
+				 */
+				import d.gc.slab;
+				i += binInfos[sc].npages;
 
 				import d.gc.sizeclass;
 				if (ec.supportsInlineMarking) {
@@ -604,7 +622,6 @@ private:
 					continue;
 				}
 
-				import d.gc.slab;
 				auto nslots = binInfos[sc].nslots;
 				auto nimble = alignUp(nslots, 64) / 64;
 				if (bitmaps.length < nimble) {
@@ -623,6 +640,33 @@ private:
 	void collectImpl(ref CachedExtentMap emap) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
+		collectDenseAllocation(emap);
+		collectSparseAllocation(emap);
+	}
+
+	/**
+	 * Dense collection.
+	 */
+	void collectOutlinedBitmaps() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto ob = outlinedBitmaps;
+		scope(success) outlinedBitmaps = null;
+
+		while (ob !is null) {
+			// We could free and then fetch next, because we are the GC,
+			// but I'd rather avoid this kind of tricks.
+			auto next = ob.next;
+			scope(success) ob = next;
+
+			auto e = ob.extent;
+			freePagesImpl(e, e.blockIndex, 1);
+		}
+	}
+
+	void collectDenseAllocation(ref CachedExtentMap emap) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
 		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
 			auto b = r.front;
 			auto bem = emap.blockLookup(b.address);
@@ -638,29 +682,57 @@ private:
 				auto ec = pd.extentClass;
 				auto sc = ec.sizeClass;
 
-				scope(success) {
-					import d.gc.slab;
-					i += binInfos[sc].npages;
-				}
+				auto e = pd.extent;
+				assert(e !is null);
+
+				auto npages = e.npages;
+				i += npages;
 
 				if (ec.supportsInlineMarking) {
+					// TODO: Collect.
 					continue;
 				}
 
-				auto e = pd.extent;
-				if (isAligned(e.outlineMarksBuffer, PageSize)) {
-					enum ExtentIndex = (PageSize / ulong.sizeof) - 1;
-					auto be =
-						(cast(Extent**) e.outlineMarksBuffer)[ExtentIndex];
+				// TODO: Collect.
+				e.outlineMarksBuffer = null;
+			}
+		}
 
-					// Make sure we have the extent we expect.
-					assert(be.address is cast(void*) e.outlineMarksBuffer);
-					assert(be.npages == 1);
+		collectOutlinedBitmaps();
+	}
 
-					freePagesImpl(be, be.blockIndex, 1);
+	/**
+	 * Sparse collection.
+	 */
+	void collectSparseAllocation(ref CachedExtentMap emap) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		for (auto r = sparseBlocks.range; !r.empty; r.popFront()) {
+			auto b = r.front;
+			auto bem = emap.blockLookup(b.address);
+
+			uint i = 0;
+			while (i < PagesInBlock) {
+				i = b.nextAllocatedPage(i);
+				if (i >= PagesInBlock) {
+					break;
 				}
 
-				e.outlineMarksBuffer = null;
+				auto pd = bem.lookup(i);
+				auto ec = pd.extentClass;
+
+				auto e = pd.extent;
+				assert(e !is null);
+
+				auto npages = e.npages;
+				i += npages;
+
+				if (ec.isLarge()) {
+					// TODO: Collect.
+					continue;
+				}
+
+				// TODO: Collect.
 			}
 		}
 	}
