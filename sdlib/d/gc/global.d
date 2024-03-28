@@ -1,6 +1,6 @@
 import d.gc.global;
 
-alias ScanDg = bool delegate(const(void*)[] range);
+alias ScanDg = void delegate(const(void*)[] range);
 
 struct GCState {
 private:

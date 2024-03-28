@@ -9,7 +9,7 @@ extern(C) void __sd_thread_init() {
 	registerTlsSegments();
 }
 
-alias ScanDg = bool delegate(const(void*)[] range);
+alias ScanDg = void delegate(const(void*)[] range);
 extern(C) void __sd_thread_scan(ScanDg scan) {
 	auto ts = ThreadScanner(scan);
 
@@ -34,13 +34,13 @@ struct ThreadScanner {
 		this.scan = scan;
 	}
 
-	bool scanStack() {
+	void scanStack() {
 		import sdc.intrinsics;
 		auto top = readFramePointer();
 		auto bottom = getStackBottom();
 
 		import d.gc.range;
-		return scan(makeRange(top, bottom));
+		scan(makeRange(top, bottom));
 	}
 }
 

@@ -3,8 +3,8 @@ import d.rt.stack;
 extern(C):
 version(OSX) {
 	// For some reason OSX's symbol get a _ prepended.
-	bool _sd_gc_push_registers(bool delegate());
+	void _sd_gc_push_registers(void delegate());
 	alias __sd_gc_push_registers = _sd_gc_push_registers;
 } else {
-	bool __sd_gc_push_registers(bool delegate());
+	void __sd_gc_push_registers(void delegate());
 }
