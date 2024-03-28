@@ -45,8 +45,11 @@ struct Bin {
 		assert(pd.isSlab(), "Expected a slab!");
 		assert(pd.extent.contains(ptr), "ptr not in slab!");
 
+		auto ec = pd.extentClass;
+		auto sc = ec.sizeClass;
+
 		import d.gc.slab;
-		auto nslots = binInfos[pd.sizeClass].nslots;
+		auto nslots = binInfos[sc].nslots;
 		auto sg = SlabAllocGeometry(pd, ptr);
 		assert(ptr is sg.address);
 

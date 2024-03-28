@@ -148,7 +148,8 @@ public:
 		assert(pd.extent.contains(ptr), "Invalid ptr!");
 		assert(pd.extent.arenaIndex == index, "Invalid arena index!");
 
-		if (unlikely(!pd.isSlab()) || bins[pd.sizeClass].free(ptr, pd)) {
+		auto ec = pd.extentClass;
+		if (unlikely(ec.isLarge()) || bins[ec.sizeClass].free(ptr, pd)) {
 			emap.clear(pd.extent);
 			filler.freePages(pd.extent);
 		}

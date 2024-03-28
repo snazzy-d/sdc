@@ -635,15 +635,15 @@ private:
 				}
 
 				auto pd = bem.lookup(i);
-				auto sc = pd.sizeClass;
+				auto ec = pd.extentClass;
+				auto sc = ec.sizeClass;
 
 				scope(success) {
 					import d.gc.slab;
 					i += binInfos[sc].npages;
 				}
 
-				import d.gc.sizeclass;
-				if (sizeClassSupportsInlineMarking(sc)) {
+				if (ec.supportsInlineMarking) {
 					continue;
 				}
 

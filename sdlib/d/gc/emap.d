@@ -199,12 +199,6 @@ public:
 		auto ec = extentClass;
 		return ec.isSlab();
 	}
-
-	@property
-	ubyte sizeClass() const {
-		auto ec = extentClass;
-		return ec.sizeClass;
-	}
 }
 
 struct BlockExtentMap {
