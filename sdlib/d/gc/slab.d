@@ -31,7 +31,7 @@ private:
 	Extent* e;
 	SlabAllocGeometry sg;
 
-	bool _supportsMetadata = false;
+	bool supportsMetadata = false;
 	bool _hasMetadata = false;
 
 public:
@@ -42,13 +42,8 @@ public:
 		sg = SlabAllocGeometry(pd, ptr);
 
 		auto ec = pd.extentClass;
-		_supportsMetadata = ec.supportsMetadata;
+		supportsMetadata = ec.supportsMetadata;
 		_hasMetadata = ec.supportsMetadata && e.hasMetadata(sg.index);
-	}
-
-	@property
-	auto supportsMetadata() {
-		return _supportsMetadata;
 	}
 
 	@property

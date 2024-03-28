@@ -145,14 +145,21 @@ public:
 
 		auto copySize = size;
 		auto pd = getPageDescriptor(ptr);
+
+		auto ec = pd.extentClass;
 		auto samePointerness = containsPointers == pd.containsPointers;
 
-		if (pd.isSlab()) {
+		if (ec.isSlab()) {
 			auto newSizeClass = getSizeClass(size);
-			auto oldSizeClass = pd.sizeClass;
+			auto oldSizeClass = ec.sizeClass;
+
 			if (samePointerness && newSizeClass == oldSizeClass) {
+				if (!ec.supportsMetadata) {
+					return ptr;
+				}
+
 				auto si = SlabAllocInfo(pd, ptr);
-				if (!si.supportsMetadata || si.setUsedCapacity(size)) {
+				if (si.setUsedCapacity(size)) {
 					return ptr;
 				}
 			}
@@ -161,15 +168,16 @@ public:
 				copySize = getSizeFromClass(oldSizeClass);
 			}
 		} else {
-			auto esize = pd.extent.size;
+			auto e = pd.extent;
+			auto esize = e.size;
 			if (samePointerness && (alignUp(size, PageSize) == esize
-				    || pd.arena.resizeLarge(emap, pd.extent, size))) {
-				pd.extent.setUsedCapacity(size);
+				    || pd.arena.resizeLarge(emap, e, size))) {
+				e.setUsedCapacity(size);
 				return ptr;
 			}
 
 			import d.gc.util;
-			copySize = min(size, pd.extent.usedCapacity);
+			copySize = min(size, e.usedCapacity);
 		}
 
 		auto newPtr = alloc(size, containsPointers, false);
