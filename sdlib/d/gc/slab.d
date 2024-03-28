@@ -28,9 +28,10 @@ struct SlabAllocGeometry {
 
 struct SlabAllocInfo {
 private:
-	SlabAllocGeometry sg;
 	Extent* e;
-	uint nslots;
+	SlabAllocGeometry sg;
+
+	bool _supportsMetadata = false;
 	bool _hasMetadata = false;
 
 public:
@@ -39,13 +40,15 @@ public:
 
 		e = pd.extent;
 		sg = SlabAllocGeometry(pd, ptr);
-		nslots = binInfos[pd.sizeClass].nslots;
-		_hasMetadata = supportsMetadata && e.hasMetadata(sg.index);
+
+		auto ec = pd.extentClass;
+		_supportsMetadata = ec.supportsMetadata;
+		_hasMetadata = ec.supportsMetadata && e.hasMetadata(sg.index);
 	}
 
 	@property
 	auto supportsMetadata() {
-		return nslots <= 256;
+		return _supportsMetadata;
 	}
 
 	@property
