@@ -35,12 +35,13 @@ public:
 
 	void* allocAppendable(size_t size, bool containsPointers, bool zero,
 	                      Finalizer finalizer = null) {
-		if (!isAllocatableSize(size)) {
+		// Reserve bytes for the finalizer if needed.
+		auto asize = size + (finalizer !is null) * PointerSize;
+		if (!isAllocatableSize(asize)) {
 			return null;
 		}
 
-		auto reservedBytes = finalizer is null ? 0 : PointerSize;
-		auto asize = getAllocSize(alignUp(size + reservedBytes, 2 * Quantum));
+		asize = getAllocSize(max(asize, 2 * Quantum));
 		assert(sizeClassSupportsMetadata(getSizeClass(asize)),
 		       "allocAppendable got size class without metadata support!");
 
@@ -891,13 +892,13 @@ unittest finalization {
 
 	// Finalizers for small allocs:
 	auto s2 = tc.allocAppendable(45, false, false, &destruct);
-	assert(tc.getCapacity(s2[0 .. 45]) == 56);
-	assert(!tc.extend(s2[0 .. 45], 12));
-	assert(tc.extend(s2[0 .. 45], 11));
-	assert(tc.getCapacity(s2[0 .. 56]) == 56);
+	assert(tc.getCapacity(s2[0 .. 45]) == 48);
+	assert(!tc.extend(s2[0 .. 45], 4));
+	assert(tc.extend(s2[0 .. 45], 3));
+	assert(tc.getCapacity(s2[0 .. 48]) == 48);
 	tc.destroy(s2);
 	assert(lastKilledAddress == s2);
-	assert(lastKilledUsedCapacity == 56);
+	assert(lastKilledUsedCapacity == 48);
 
 	// Behaviour of realloc() on small allocs with finalizers:
 	auto s3 = tc.allocAppendable(70, false, false, &destruct);
