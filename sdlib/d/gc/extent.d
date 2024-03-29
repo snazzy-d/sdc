@@ -126,9 +126,23 @@ public:
 private:
 	Node!Extent _phnode;
 
+	/**
+	 * The GC metadata field can be interpreted in a couple of ways depending
+	 * on the allocation type:
+	 *  - For dense slabs, if the bit fields do not fit inline in the Extent,
+	 *    we allocate a buffer for the bitmap and we store a pointer to that
+	 *    buffer here.
+	 *  - For large allocations, we store the GC cycle in this field when marking.
+	 *  - For sparse slabs, we store the GC cycle in the lower 8 bits, and turn
+	 *    the higher bits into a bitfield. If the GC cycle is incorrect, then the
+	 *    bitfield can be ignored.
+	 * 
+	 * Using the GC cycle ensures that we do not need to cleanup in between cycles.
+	 * The leftover data are known to be outdated.
+	 */
 	union GCMetadata {
 		ulong* outlineBuffer;
-		shared(Bitmap!128)* outlineBitmap;
+		shared(Bitmap!512)* outlineBitmap;
 		shared Atomic!ulong gcWord;
 	}
 
@@ -138,8 +152,39 @@ private:
 	// like garbage collection :P
 	void* _pad1;
 
+	/**
+	 * When this is a slab, the second part of the Extent is made
+	 * of various bitfields that are interpreted differently depending
+	 * on the number of slots in the slab as follow:
+	 *  - b: Whether the slot is allocated.
+	 *  - f: Whether the slot has metadata.
+	 *  - m: Mark bits for the GC.
+	 * 
+	 *      0      128      256              512
+	 * 512: bbbbbbbb bbbbbbbb bbbbbbbb bbbbbbbb
+	 * 256: bbbbbbbb bbbbbbbb ffffffff ffffffff
+	 * 128: bbbbbbbb mmmmmmmm ffffffff ........
+	 * 
+	 * When a metadata flag is required, but no space is available for
+	 * them in the bitfields, we expect the GC to use the next size class.
+	 * 
+	 * When mark bits are required, but no space is available for them
+	 * a bitfield is allocated on the heap, and a pointer to it is stored
+	 * in the GC metadata.
+	 * 
+	 * When this is a large allocation, we store whether the allocation
+	 * has metadata, and if there is a one, a pointer to the finalizer.
+	 * 
+	 * FIXME: When considering this bitfield and the GC metadata, we have a
+	 *        640 bits budget to play with. Size class 2 contains 170 slots,
+	 *        but currently does not support markign inline. However, even
+	 *        rounding up to the closest mutliple of 64 bits, 192, we only
+	 *        need 576 bits to store occupancy, metatadat flags and mark bits.
+	 *        The data layout would benefit from being reowrked as to allow
+	 *        size class 2 to be marked inline.
+	 */
 	struct SlabMetadata {
-		ubyte[16] pad;
+		ulong[2] pad;
 		shared Bitmap!128 marks;
 		shared Bitmap!256 flags;
 	}
@@ -403,7 +448,7 @@ public:
 	}
 
 	@property
-	ref shared(Bitmap!128) outlineMarks() {
+	ref shared(Bitmap!512) outlineMarks() {
 		assert(extentClass.dense, "size class not dense!");
 		assert(!extentClass.supportsInlineMarking,
 		       "size class supports inline marking!");
