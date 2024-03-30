@@ -804,7 +804,7 @@ unittest allocHuge {
 	auto filler = &arena.filler;
 	filler.regionAllocator = &regionAllocator;
 
-	auto checkAllocPage(uint pages, bool clean) {
+	auto checkAllocPage(uint pages, bool clean, bool huge) {
 		bool dirty;
 		auto e = filler.allocPages(pages, dirty);
 
@@ -812,39 +812,40 @@ unittest allocHuge {
 		assert(e.npages == pages);
 		assert(dirty == !clean);
 
+		assert(e.isHuge() == huge);
 		return e;
 	}
 
 	enum uint AllocSize = PagesInBlock + 1;
 
 	// Allocate a huge extent.
-	auto e0 = checkAllocPage(AllocSize, true);
+	auto e0 = checkAllocPage(AllocSize, true, true);
 
 	// Free the huge extent.
 	auto e0Addr = e0.address;
 	filler.freePages(e0);
 
 	// Reallocating the same run will yield the same memory back.
-	e0 = checkAllocPage(AllocSize, true);
+	e0 = checkAllocPage(AllocSize, true, true);
 	assert(e0.address is e0Addr);
 
 	// Allocate one page on the borrowed block.
-	auto e1 = checkAllocPage(1, true);
+	auto e1 = checkAllocPage(1, true, false);
 	assert(e1.address is e0.address + e0.size);
 
 	// Now, freeing the huge extent will leave a page behind.
 	filler.freePages(e0);
 
 	// Allocating another huge extent will use a new range.
-	auto e2 = checkAllocPage(AllocSize, true);
+	auto e2 = checkAllocPage(AllocSize, true, true);
 	assert(e2.address is alignUp(e1.address, BlockSize));
 
 	// Allocating new small extents fill the borrowed page.
-	auto e3 = checkAllocPage(1, false);
+	auto e3 = checkAllocPage(1, false, false);
 	assert(e3.address is alignDown(e1.address, BlockSize));
 
 	// But allocating just the right size will reuse the region.
-	auto e4 = checkAllocPage(PagesInBlock, true);
+	auto e4 = checkAllocPage(PagesInBlock, true, true);
 	assert(e4.address is e0Addr);
 
 	// Free everything.
@@ -852,4 +853,11 @@ unittest allocHuge {
 	filler.freePages(e2);
 	filler.freePages(e3);
 	filler.freePages(e4);
+
+	// Check boundaries.
+	auto e5 = checkAllocPage(MaxPagesInLargeAlloc, true, false);
+	auto e6 = checkAllocPage(MaxPagesInLargeAlloc + 1, true, true);
+
+	filler.freePages(e5);
+	filler.freePages(e6);
 }
