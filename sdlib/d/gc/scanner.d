@@ -53,14 +53,19 @@ public:
 	}
 
 	void mark() {
-		scope(exit) {
-			import d.gc.tcache;
-			threadCache.free(worklist.ptr);
-			worklist = [];
-		}
+		while (worklist.length > 0) {
+			auto w = worklist;
+			auto i = cursor;
 
-		while (cursor > 0) {
-			scan(worklist[--cursor]);
+			worklist = [];
+			cursor = 0;
+
+			while (i-- > 0) {
+				scan(w[i]);
+			}
+
+			import d.gc.tcache;
+			threadCache.free(w.ptr);
 		}
 	}
 
