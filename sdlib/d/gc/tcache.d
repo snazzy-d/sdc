@@ -578,7 +578,7 @@ unittest getCapacity {
 	assert(p6 !is p5);
 }
 
-unittest extendLarge {
+unittest extendSmall {
 	ThreadCache tc;
 	tc.initialize(&gExtentMap, &gBase);
 
@@ -609,6 +609,64 @@ unittest extendLarge {
 	assert(tc.extend(tlPtr[0 .. 100], 0));
 	assert(!tc.extend(tlPtr[0 .. 100], 1));
 	assert(!tc.extend(tlPtr[100 .. 100], 1));
+
+	// Make a small appendable alloc:
+	auto s0 = tc.allocAppendable(42, false, false);
+
+	assert(tc.getCapacity(s0[0 .. 42]) == 48);
+	assert(tc.extend(s0[0 .. 0], 0));
+	assert(!tc.extend(s0[0 .. 0], 10));
+	assert(!tc.extend(s0[0 .. 41], 10));
+	assert(!tc.extend(s0[1 .. 41], 10));
+	assert(!tc.extend(s0[0 .. 20], 10));
+
+	// Extend:
+	assert(!tc.extend(s0[0 .. 42], 7));
+	assert(!tc.extend(s0[32 .. 42], 7));
+	assert(tc.extend(s0[0 .. 42], 3));
+	assert(tc.getCapacity(s0[0 .. 45]) == 48);
+
+	// Make another in same size class:
+	auto s1 = tc.allocAppendable(42, false, false);
+	assert(tc.extend(s1[0 .. 42], 1));
+	assert(tc.getCapacity(s1[0 .. 43]) == 48);
+
+	// Make sure first alloc not affected:
+	assert(tc.getCapacity(s0[0 .. 45]) == 48);
+
+	// Extend some more:
+	assert(tc.getCapacity(s0[0 .. 42]) == 0);
+	assert(tc.extend(s0[40 .. 45], 2));
+	assert(tc.getCapacity(s0[0 .. 45]) == 0);
+	assert(tc.getCapacity(s0[0 .. 47]) == 48);
+	assert(!tc.extend(s0[0 .. 47], 2));
+	assert(tc.extend(s0[0 .. 47], 1));
+
+	// Decreasing the size of the allocation
+	// should adjust capacity acordingly.
+	auto s2 = tc.realloc(s0, 42, false);
+	assert(s2 is s0);
+	assert(tc.getCapacity(s2[0 .. 42]) == 48);
+
+	// Same is true for increasing:
+	auto s3 = tc.realloc(s2, 45, false);
+	assert(s3 is s2);
+	assert(tc.getCapacity(s3[0 .. 45]) == 48);
+
+	// Increase that results in size class change:
+	auto s4 = tc.realloc(s3, 70, false);
+	assert(s4 !is s3);
+	assert(tc.getCapacity(s4[0 .. 80]) == 80);
+
+	// Decrease:
+	auto s5 = tc.realloc(s4, 60, false);
+	assert(s5 !is s4);
+	assert(tc.getCapacity(s5[0 .. 64]) == 64);
+}
+
+unittest extendLarge {
+	ThreadCache tc;
+	tc.initialize(&gExtentMap, &gBase);
 
 	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
 		auto ptr = tc.allocAppendable(size, false, false);
@@ -722,64 +780,6 @@ unittest extendLarge {
 
 	// Extend by size zero still works, though:
 	assert(tc.extend(p1[0 .. 16384], 0));
-}
-
-unittest extendSmall {
-	ThreadCache tc;
-	tc.initialize(&gExtentMap, &gBase);
-
-	// Make a small appendable alloc:
-	auto s0 = tc.allocAppendable(42, false, false);
-
-	assert(tc.getCapacity(s0[0 .. 42]) == 48);
-	assert(tc.extend(s0[0 .. 0], 0));
-	assert(!tc.extend(s0[0 .. 0], 10));
-	assert(!tc.extend(s0[0 .. 41], 10));
-	assert(!tc.extend(s0[1 .. 41], 10));
-	assert(!tc.extend(s0[0 .. 20], 10));
-
-	// Extend:
-	assert(!tc.extend(s0[0 .. 42], 7));
-	assert(!tc.extend(s0[32 .. 42], 7));
-	assert(tc.extend(s0[0 .. 42], 3));
-	assert(tc.getCapacity(s0[0 .. 45]) == 48);
-
-	// Make another in same size class:
-	auto s1 = tc.allocAppendable(42, false, false);
-	assert(tc.extend(s1[0 .. 42], 1));
-	assert(tc.getCapacity(s1[0 .. 43]) == 48);
-
-	// Make sure first alloc not affected:
-	assert(tc.getCapacity(s0[0 .. 45]) == 48);
-
-	// Extend some more:
-	assert(tc.getCapacity(s0[0 .. 42]) == 0);
-	assert(tc.extend(s0[40 .. 45], 2));
-	assert(tc.getCapacity(s0[0 .. 45]) == 0);
-	assert(tc.getCapacity(s0[0 .. 47]) == 48);
-	assert(!tc.extend(s0[0 .. 47], 2));
-	assert(tc.extend(s0[0 .. 47], 1));
-
-	// Decreasing the size of the allocation
-	// should adjust capacity acordingly.
-	auto s2 = tc.realloc(s0, 42, false);
-	assert(s2 is s0);
-	assert(tc.getCapacity(s2[0 .. 42]) == 48);
-
-	// Same is true for increasing:
-	auto s3 = tc.realloc(s2, 45, false);
-	assert(s3 is s2);
-	assert(tc.getCapacity(s3[0 .. 45]) == 48);
-
-	// Increase that results in size class change:
-	auto s4 = tc.realloc(s3, 70, false);
-	assert(s4 !is s3);
-	assert(tc.getCapacity(s4[0 .. 80]) == 80);
-
-	// Decrease:
-	auto s5 = tc.realloc(s4, 60, false);
-	assert(s5 !is s4);
-	assert(tc.getCapacity(s5[0 .. 64]) == 64);
 }
 
 unittest arraySpill {
