@@ -13,7 +13,7 @@ private:
 	ulong bits;
 
 	import d.gc.bin;
-	Bin[ClassCount.Small] bins;
+	Bin[BinCount] bins;
 
 	import d.gc.page;
 	PageFiller filler;

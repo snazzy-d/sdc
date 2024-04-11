@@ -26,7 +26,7 @@ struct Bin {
 		size_t slotSize,
 	) shared {
 		import d.gc.sizeclass;
-		assert(sizeClass < ClassCount.Small);
+		assert(sizeClass < BinCount, "Invalid size class!");
 		assert(&filler.arena.bins[sizeClass] is &this,
 		       "Invalid arena or sizeClass!");
 

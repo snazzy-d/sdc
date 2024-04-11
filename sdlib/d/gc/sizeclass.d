@@ -42,6 +42,7 @@ enum ClassCount {
 }
 
 enum MaxTinySize = ClassCount.Tiny * Quantum;
+enum BinCount = ClassCount.Small;
 
 // Determine whether given size class is considered 'small' (slab-allocatable).
 bool isSmallSizeClass(uint sizeClass) {
@@ -236,7 +237,7 @@ unittest getSizeFromClass {
 
 auto getBinInfos() {
 	import d.gc.slab;
-	BinInfo[ClassCount.Small] bins;
+	BinInfo[BinCount] bins;
 
 	static ubyte computePageCount(uint size, ubyte shift) {
 		// Try to see if one page is acceptable.

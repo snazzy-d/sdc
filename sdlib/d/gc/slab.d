@@ -399,7 +399,7 @@ struct BinInfo {
 }
 
 import d.gc.sizeclass;
-immutable BinInfo[ClassCount.Small] binInfos = getBinInfos();
+immutable BinInfo[BinCount] binInfos = getBinInfos();
 
 unittest binInfos {
 	foreach (uint sc, bin; binInfos) {
