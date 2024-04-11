@@ -165,6 +165,20 @@ package:
 	void collect(ref CachedExtentMap emap, ubyte gcCycle) shared {
 		filler.collect(emap, gcCycle);
 	}
+
+	void clearBinsForCollection() shared {
+		foreach (i; 0 .. BinCount) {
+			bins[i].clearForCollection();
+		}
+	}
+
+	void combineBinsAfterCollection(
+		ref PriorityExtentHeap[BinCount] collectedSlabs
+	) shared {
+		foreach (i; 0 .. BinCount) {
+			bins[i].combineAfterCollection(collectedSlabs[i]);
+		}
+	}
 }
 
 unittest allocLarge {

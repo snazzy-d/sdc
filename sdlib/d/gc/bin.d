@@ -156,4 +156,31 @@ private:
 		// And use the metadata run.
 		return current;
 	}
+
+/**
+ * GC facilities.
+ */
+package:
+	void clearForCollection() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(Bin*) &this).clearForCollectionImpl();
+	}
+
+	void combineAfterCollection(ref PriorityExtentHeap cSlabs) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(Bin*) &this).combineAfterCollectionImpl(cSlabs);
+	}
+
+private:
+	void clearForCollectionImpl() {
+		slabs.clear();
+	}
+
+	void combineAfterCollectionImpl(ref PriorityExtentHeap cSlabs) {
+		slabs.combine(cSlabs);
+	}
 }

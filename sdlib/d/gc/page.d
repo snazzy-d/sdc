@@ -640,8 +640,17 @@ private:
 	void collectImpl(ref CachedExtentMap emap, ubyte gcCycle) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		collectDenseAllocations(emap);
-		collectSparseAllocations(emap, gcCycle);
+		auto sharedThis = cast(shared(PageFiller)*) &this;
+		sharedThis.arena.clearBinsForCollection();
+
+		import d.gc.sizeclass;
+		PriorityExtentHeap[BinCount] collectedSlabs;
+		auto slabs = collectedSlabs[0 .. BinCount];
+
+		collectDenseAllocations(emap, slabs);
+		collectSparseAllocations(emap, slabs, gcCycle);
+
+		sharedThis.arena.combineBinsAfterCollection(collectedSlabs);
 	}
 
 	/**
@@ -664,7 +673,8 @@ private:
 		}
 	}
 
-	void collectDenseAllocations(ref CachedExtentMap emap) {
+	void collectDenseAllocations(ref CachedExtentMap emap,
+	                             PriorityExtentHeap[] slabs) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
@@ -704,7 +714,8 @@ private:
 	/**
 	 * Sparse collection.
 	 */
-	void collectSparseAllocations(ref CachedExtentMap emap, ubyte gcCycle) {
+	void collectSparseAllocations(ref CachedExtentMap emap,
+	                              PriorityExtentHeap[] slabs, ubyte gcCycle) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		for (auto r = sparseBlocks.range; !r.empty; r.popFront()) {
@@ -736,7 +747,29 @@ private:
 					continue;
 				}
 
-				// TODO: Collect.
+				// If the cycle do not match, all the elements are dead.
+				if ((w & 0xff) != gcCycle) {
+					freeExtentLocked(emap, e);
+					continue;
+				}
+
+				auto oldOccupancy = e.slabData.rawContent[0];
+				auto newOccupancy = oldOccupancy & (w >> 8);
+
+				// The slab is empty.
+				if (newOccupancy == 0) {
+					freeExtentLocked(emap, e);
+					continue;
+				}
+
+				auto count = popCount(oldOccupancy ^ newOccupancy);
+
+				e.slabData.rawContent[0] = newOccupancy;
+				e.bits += count * Extent.FreeSlotsUnit;
+
+				if (e.nfree > 0) {
+					slabs[ec.sizeClass].insert(e);
+				}
 			}
 		}
 	}

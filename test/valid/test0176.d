@@ -18,6 +18,10 @@ class D : C {
 	ulong d;
 }
 
+class P {
+	ulong[60] p;
+}
+
 class L {
 	ulong[4000] l;
 }
@@ -28,6 +32,7 @@ A[S] as;
 A[S] bs;
 A[S] cs;
 A[S] ds;
+P[S / 128] ps;
 L[S / 128] ls;
 
 extern(C) void __sd_gc_free(void* ptr);
@@ -42,6 +47,7 @@ void main() {
 		ds[i] = new D();
 
 		if (i % 128 == 0) {
+			ps[i / 128] = new P();
 			ls[i / 128] = new L();
 		}
 	}
@@ -68,7 +74,10 @@ void main() {
 		ds[i] = new A();
 
 		if (i % 128 == 0) {
+			__sd_gc_free(cast(void*) ps[i / 128]);
 			__sd_gc_free(cast(void*) ls[i / 128]);
+
+			ps[i / 128] = new P();
 			ls[i / 128] = new L();
 		}
 	}
@@ -126,6 +135,12 @@ void main() {
 
 	r1 = __sd_gc_realloc(r0, 35 * 1024 * 1024);
 	assert(r1 !is r0);
+
+	__sd_gc_collect();
+
+	foreach (i; 0 .. S / 128) {
+		ps[i] = null;
+	}
 
 	__sd_gc_collect();
 
