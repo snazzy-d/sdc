@@ -295,7 +295,7 @@ public:
 		// Go on and on until all worklists are empty.
 		scanner.mark();
 
-		collect();
+		collect(gcCycle);
 	}
 
 	void prepareGCCycle() {
@@ -308,12 +308,12 @@ public:
 		}
 	}
 
-	void collect() {
+	void collect(ubyte gcCycle) {
 		foreach (i; 0 .. ArenaCount) {
 			import d.gc.arena;
 			auto a = Arena.getIfInitialized(i);
 			if (a !is null) {
-				a.collect(emap);
+				a.collect(emap, gcCycle);
 			}
 		}
 	}

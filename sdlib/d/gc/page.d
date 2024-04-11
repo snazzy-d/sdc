@@ -206,11 +206,11 @@ public:
 		(cast(PageFiller*) &this).prepareGCCycleImpl(emap);
 	}
 
-	void collect(ref CachedExtentMap emap) shared {
+	void collect(ref CachedExtentMap emap, ubyte gcCycle) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(PageFiller*) &this).collectImpl(emap);
+		(cast(PageFiller*) &this).collectImpl(emap, gcCycle);
 	}
 
 private:
@@ -602,6 +602,8 @@ private:
 
 				auto pd = bem.lookup(i);
 				auto e = pd.extent;
+				assert(e !is null);
+
 				auto ec = pd.extentClass;
 				auto sc = ec.sizeClass;
 
@@ -635,11 +637,11 @@ private:
 		}
 	}
 
-	void collectImpl(ref CachedExtentMap emap) {
+	void collectImpl(ref CachedExtentMap emap, ubyte gcCycle) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		collectDenseAllocations(emap);
-		collectSparseAllocations(emap);
+		collectSparseAllocations(emap, gcCycle);
 	}
 
 	/**
@@ -677,11 +679,11 @@ private:
 				}
 
 				auto pd = bem.lookup(i);
-				auto ec = pd.extentClass;
-				auto sc = ec.sizeClass;
-
 				auto e = pd.extent;
 				assert(e !is null);
+
+				auto ec = pd.extentClass;
+				auto sc = ec.sizeClass;
 
 				auto npages = e.npages;
 				i += npages;
@@ -702,7 +704,7 @@ private:
 	/**
 	 * Sparse collection.
 	 */
-	void collectSparseAllocations(ref CachedExtentMap emap) {
+	void collectSparseAllocations(ref CachedExtentMap emap, ubyte gcCycle) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		for (auto r = sparseBlocks.range; !r.empty; r.popFront()) {
@@ -717,22 +719,37 @@ private:
 				}
 
 				auto pd = bem.lookup(i);
-				auto ec = pd.extentClass;
-
 				auto e = pd.extent;
-				assert(e !is null);
+				assert(e !is null, "GC Metadata leftovers?");
 
 				auto npages = e.npages;
 				i += npages;
 
+				auto w = e.gcWord.load();
+				auto ec = pd.extentClass;
 				if (ec.isLarge()) {
-					// TODO: Collect.
+					if (w != gcCycle) {
+						// We have not marked this extent this cycle.
+						freeExtentLocked(emap, e);
+					}
+
 					continue;
 				}
 
 				// TODO: Collect.
 			}
 		}
+	}
+
+	void freeExtentLocked(ref CachedExtentMap emap, Extent* e) {
+		assert(isAligned(e.address, PageSize), "Invalid extent address!");
+
+		emap.clear(e);
+
+		uint n = e.blockIndex;
+		uint pages = modUp(e.npages, PagesInBlock);
+
+		(cast(PageFiller*) &this).freePagesImpl(e, n, pages);
 	}
 }
 

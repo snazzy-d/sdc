@@ -154,6 +154,7 @@ public:
 		}
 	}
 
+package:
 	/**
 	 * GC facilities.
 	 */
@@ -161,8 +162,8 @@ public:
 		filler.prepareGCCycle(emap);
 	}
 
-	void collect(ref CachedExtentMap emap) shared {
-		filler.collect(emap);
+	void collect(ref CachedExtentMap emap, ubyte gcCycle) shared {
+		filler.collect(emap, gcCycle);
 	}
 }
 

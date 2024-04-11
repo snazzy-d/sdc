@@ -69,6 +69,7 @@ void main() {
 
 		if (i % 128 == 0) {
 			__sd_gc_free(cast(void*) ls[i / 128]);
+			ls[i / 128] = new L();
 		}
 	}
 
@@ -125,6 +126,12 @@ void main() {
 
 	r1 = __sd_gc_realloc(r0, 35 * 1024 * 1024);
 	assert(r1 !is r0);
+
+	__sd_gc_collect();
+
+	foreach (i; 0 .. S / 128) {
+		ls[i] = null;
+	}
 
 	__sd_gc_collect();
 }
