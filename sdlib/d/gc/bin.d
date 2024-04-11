@@ -151,7 +151,7 @@ private:
 		// In which case we release the slab we just allocated.
 		import d.gc.slab;
 		assert(slab.nfree == binInfos[sizeClass].nslots);
-		filler.freeSlab(emap, slab);
+		filler.freeExtent(emap, slab);
 
 		// And use the metadata run.
 		return current;

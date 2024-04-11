@@ -150,8 +150,7 @@ public:
 
 		auto ec = pd.extentClass;
 		if (unlikely(ec.isLarge()) || bins[ec.sizeClass].free(ptr, pd)) {
-			emap.clear(pd.extent);
-			filler.freePages(pd.extent);
+			filler.freeExtent(emap, pd.extent);
 		}
 	}
 

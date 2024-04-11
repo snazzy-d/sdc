@@ -88,13 +88,6 @@ public:
 		return null;
 	}
 
-	void freeSlab(ref CachedExtentMap emap, Extent* e) shared {
-		assert(e.isSlab(), "Expected a slab!");
-
-		emap.clear(e);
-		freePages(e);
-	}
-
 	/**
 	 * Large allocation facilities.
 	 */
@@ -183,6 +176,11 @@ public:
 		scope(exit) mutex.unlock();
 
 		return (cast(PageFiller*) &this).allocHugeImpl(pages, extraBlocks);
+	}
+
+	void freeExtent(ref CachedExtentMap emap, Extent* e) shared {
+		emap.clear(e);
+		freePages(e);
 	}
 
 	void freePages(Extent* e) shared {
