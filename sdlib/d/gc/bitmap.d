@@ -8,7 +8,9 @@ struct Bitmap(uint N) {
 private:
 	enum uint NimbleSize = 8 * ulong.sizeof;
 	enum uint NimbleCount = (N + NimbleSize - 1) / NimbleSize;
-	enum uint DeadBits = NimbleSize * NimbleCount - N;
+
+	static assert(N == NimbleSize * NimbleCount,
+	              "N must be a multiple of 64-bits.");
 
 	ulong[NimbleCount] bits;
 
@@ -102,9 +104,6 @@ public:
 
 		uint ret = countTrailingZeros(current);
 		ret += (i - 1) * NimbleSize;
-		if (DeadBits > 0) {
-			ret = max(ret, N);
-		}
 
 		return ret;
 	}
