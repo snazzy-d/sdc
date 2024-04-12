@@ -199,9 +199,13 @@ public:
 		return aux.isNull() ? root.node : aux.node;
 	}
 
-	void combine(Heap other) {
+	void combine(ref Heap other) {
 		if (other.root.isNull()) {
 			return;
+		}
+
+		scope(success) {
+			other.clear();
 		}
 
 		if (root.isNull()) {
@@ -645,6 +649,25 @@ unittest heap {
 		other.insert(n1);
 	}
 
+	assert(stuffCmp(heap.top, other.top) < 0);
+
 	heap.combine(other);
+	assert(other.empty);
+
+	checkHeap();
+
+	foreach (i; 0 .. stuffs.length / 2) {
+		auto n0 = &stuffs[2 * i];
+		auto n1 = &stuffs[2 * i + 1];
+
+		heap.insert(n1);
+		other.insert(n0);
+	}
+
+	assert(stuffCmp(heap.top, other.top) > 0);
+
+	heap.combine(other);
+	assert(other.empty);
+
 	checkHeap();
 }
