@@ -210,6 +210,7 @@ public:
 
 		if (root.isNull()) {
 			this = other;
+			return;
 		}
 
 		assert(root.node !is other.root.node);
@@ -654,6 +655,10 @@ unittest heap {
 	heap.combine(other);
 	assert(other.empty);
 
+	other.combine(heap);
+	heap.combine(other);
+	assert(other.empty);
+
 	checkHeap();
 
 	foreach (i; 0 .. stuffs.length / 2) {
@@ -666,6 +671,10 @@ unittest heap {
 
 	assert(stuffCmp(heap.top, other.top) > 0);
 
+	heap.combine(other);
+	assert(other.empty);
+
+	other.combine(heap);
 	heap.combine(other);
 	assert(other.empty);
 
