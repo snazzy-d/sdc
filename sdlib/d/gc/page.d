@@ -677,6 +677,8 @@ private:
 	                             PriorityExtentHeap[] slabs) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
+		PriorityExtentHeap deadExtents;
+
 		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
 			auto block = r.front;
 			auto bem = emap.blockLookup(block.address);
@@ -691,9 +693,12 @@ private:
 				auto pd = bem.lookup(i);
 				auto e = pd.extent;
 				assert(e !is null);
+				assert(e.isSlab());
 
 				auto ec = pd.extentClass;
 				auto sc = ec.sizeClass;
+
+				assert(ec.dense);
 
 				auto npages = e.npages;
 				i += npages;
@@ -703,9 +708,40 @@ private:
 					continue;
 				}
 
-				// TODO: Collect.
+				auto bmp = e.outlineMarksBuffer;
 				e.outlineMarksBuffer = null;
+
+				assert(bmp !is null);
+
+				import d.gc.slab;
+				auto nslots = binInfos[sc].nslots;
+				auto nimble = alignUp(nslots, 64) / 64;
+
+				uint count = 0;
+				ulong occupancyMask = 0;
+
+				foreach (i; 0 .. nimble) {
+					auto oldOccupancy = e.slabData.rawContent[i];
+					auto newOccupancy = oldOccupancy & bmp[i];
+
+					occupancyMask |= newOccupancy;
+					count += popCount(oldOccupancy ^ newOccupancy);
+
+					e.slabData.rawContent[i] = newOccupancy;
+				}
+
+				// The slab is empty.
+				if (occupancyMask == 0) {
+					deadExtents.insert(e);
+					continue;
+				}
+
+				e.bits += count * Extent.FreeSlotsUnit;
 			}
+		}
+
+		while (!deadExtents.empty) {
+			freeExtentLocked(emap, deadExtents.pop());
 		}
 
 		collectOutlinedBitmaps();

@@ -149,4 +149,13 @@ void main() {
 	}
 
 	__sd_gc_collect();
+
+	foreach (i; 0 .. S) {
+		as[i] = null;
+		bs[i] = null;
+		cs[i] = null;
+		ds[i] = null;
+	}
+
+	__sd_gc_collect();
 }
