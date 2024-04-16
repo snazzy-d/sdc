@@ -590,12 +590,12 @@ private:
 		ulong[] bitmaps;
 
 		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
-			auto b = r.front;
-			auto bem = emap.blockLookup(b.address);
+			auto block = r.front;
+			auto bem = emap.blockLookup(block.address);
 
 			uint i = 0;
 			while (i < PagesInBlock) {
-				i = b.nextAllocatedPage(i);
+				i = block.nextAllocatedPage(i);
 				if (i >= PagesInBlock) {
 					break;
 				}
@@ -678,12 +678,12 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
-			auto b = r.front;
-			auto bem = emap.blockLookup(b.address);
+			auto block = r.front;
+			auto bem = emap.blockLookup(block.address);
 
 			uint i = 0;
 			while (i < PagesInBlock) {
-				i = b.nextAllocatedPage(i);
+				i = block.nextAllocatedPage(i);
 				if (i >= PagesInBlock) {
 					break;
 				}
@@ -719,12 +719,12 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		for (auto r = sparseBlocks.range; !r.empty; r.popFront()) {
-			auto b = r.front;
-			auto bem = emap.blockLookup(b.address);
+			auto block = r.front;
+			auto bem = emap.blockLookup(block.address);
 
 			uint i = 0;
 			while (i < PagesInBlock) {
-				i = b.nextAllocatedPage(i);
+				i = block.nextAllocatedPage(i);
 				if (i >= PagesInBlock) {
 					break;
 				}
