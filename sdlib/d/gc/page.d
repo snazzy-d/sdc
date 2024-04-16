@@ -718,6 +718,8 @@ private:
 	                              PriorityExtentHeap[] slabs, ubyte gcCycle) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
+		PriorityExtentHeap deadExtents;
+
 		for (auto r = sparseBlocks.range; !r.empty; r.popFront()) {
 			auto block = r.front;
 			auto bem = emap.blockLookup(block.address);
@@ -741,7 +743,7 @@ private:
 				if (ec.isLarge()) {
 					if (w != gcCycle) {
 						// We have not marked this extent this cycle.
-						freeExtentLocked(emap, e);
+						deadExtents.insert(e);
 					}
 
 					continue;
@@ -749,7 +751,7 @@ private:
 
 				// If the cycle do not match, all the elements are dead.
 				if ((w & 0xff) != gcCycle) {
-					freeExtentLocked(emap, e);
+					deadExtents.insert(e);
 					continue;
 				}
 
@@ -758,7 +760,7 @@ private:
 
 				// The slab is empty.
 				if (newOccupancy == 0) {
-					freeExtentLocked(emap, e);
+					deadExtents.insert(e);
 					continue;
 				}
 
@@ -771,6 +773,10 @@ private:
 					slabs[ec.sizeClass].insert(e);
 				}
 			}
+		}
+
+		while (!deadExtents.empty) {
+			freeExtentLocked(emap, deadExtents.pop());
 		}
 	}
 
