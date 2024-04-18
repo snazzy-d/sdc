@@ -703,19 +703,19 @@ private:
 				auto npages = e.npages;
 				i += npages;
 
-				if (ec.supportsInlineMarking) {
-					// TODO: Collect.
-					continue;
-				}
-
-				auto bmp = e.outlineMarksBuffer;
-				e.outlineMarksBuffer = null;
-
-				assert(bmp !is null);
-
 				import d.gc.slab;
 				auto nslots = binInfos[sc].nslots;
 				auto nimble = alignUp(nslots, 64) / 64;
+
+				ulong* bmp;
+				if (ec.supportsInlineMarking) {
+					bmp = cast(ulong*) &e.slabMetadataMarks;
+				} else {
+					bmp = e.outlineMarksBuffer;
+					e.outlineMarksBuffer = null;
+				}
+
+				assert(bmp !is null);
 
 				uint count = 0;
 				ulong occupancyMask = 0;
