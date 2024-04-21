@@ -8,7 +8,7 @@ int main() {
 	__sd_gc_init();
 
 	import d.thread;
-	__sd_thread_init();
+	__sd_thread_create();
 
 	try {
 		return _Dmain();

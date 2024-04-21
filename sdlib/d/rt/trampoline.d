@@ -40,7 +40,12 @@ struct ThreadRunner {
 	}
 }
 
-extern(C) void __sd_thread_init();
+extern(C) void __sd_thread_create();
+extern(C) void __sd_thread_destroy();
+
+void destroyThread(void* dummy) {
+	__sd_thread_destroy();
+}
 
 void* runThread(ThreadRunner* runner) {
 	auto fun = runner.fun;
@@ -48,9 +53,9 @@ void* runThread(ThreadRunner* runner) {
 
 	runner.release();
 
-	import d.gc.capi;
-	__sd_gc_init();
-	__sd_thread_init();
+	// Make sure we clean up after ourselves.
+	scope(exit) __sd_thread_destroy();
+	__sd_thread_create();
 
 	return fun(arg);
 }

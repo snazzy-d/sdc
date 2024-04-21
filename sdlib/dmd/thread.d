@@ -28,7 +28,12 @@ void __sd_thread_restart_the_world() {
 	thread_resumeAll();
 }
 
-void __sd_thread_init() {}
+void __sd_thread_create() {
+	import d.gc.capi;
+	__sd_gc_init();
+}
+
+void __sd_thread_destroy() {}
 
 private:
 

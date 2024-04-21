@@ -1,8 +1,13 @@
 module d.thread;
 
-extern(C) void __sd_thread_init() {
+extern(C) void __sd_thread_create() {
+	import d.gc.capi;
+	__sd_gc_init();
+
 	registerTlsSegments();
 }
+
+extern(C) void __sd_thread_destroy() {}
 
 alias ScanDg = void delegate(const(void*)[] range);
 extern(C) void __sd_thread_scan(ScanDg scan) {
