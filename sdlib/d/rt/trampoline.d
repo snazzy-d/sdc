@@ -7,9 +7,11 @@ alias PthreadFunction = void* function(void*);
 // Hijack the system's pthread_create function so we can register the thread.
 extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
                              PthreadFunction start_routine, void* arg) {
-	auto runner = new ThreadRunner(start_routine, arg);
+	auto runner = ThreadRunner(start_routine, arg);
+	scope(success) runner.waitForRelease();
+
 	return pthread_create_trampoline(thread, attr,
-	                                 cast(PthreadFunction) runThread, runner);
+	                                 cast(PthreadFunction) runThread, &runner);
 }
 
 private:
@@ -18,9 +20,23 @@ struct ThreadRunner {
 	void* arg;
 	void* function(void*) fun;
 
+	import d.sync.mutex;
+	shared Mutex mutex;
+
 	this(void* function(void*) fun, void* arg) {
 		this.arg = arg;
 		this.fun = fun;
+
+		mutex.lock();
+	}
+
+	void release() {
+		mutex.unlock();
+	}
+
+	void waitForRelease() {
+		mutex.lock();
+		release();
 	}
 }
 
@@ -30,11 +46,12 @@ void* runThread(ThreadRunner* runner) {
 	auto fun = runner.fun;
 	auto arg = runner.arg;
 
+	runner.release();
+
 	import d.gc.capi;
 	__sd_gc_init();
-	__sd_gc_free(runner);
-
 	__sd_thread_init();
+
 	return fun(arg);
 }
 
