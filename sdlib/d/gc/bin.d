@@ -41,21 +41,13 @@ struct Bin {
 			.batchAllocateImpl(filler, emap, sizeClass, buffer, slotSize);
 	}
 
-	bool free(void* ptr, PageDescriptor pd) shared {
-		assert(pd.extent !is null, "Extent is null!");
-		assert(pd.isSlab(), "Expected a slab!");
-		assert(pd.extent.contains(ptr), "ptr not in slab!");
-
-		auto se = SlabEntry(pd, ptr);
-		auto nslots = binInfos[se.sizeClass].nslots;
-
-		assert(ptr is se.computeAddress(),
-		       "ptr doesn't match the slot address!");
-
+	uint batchFree(const(void*)[] worklist, PageDescriptor* pds,
+	               Extent** dallocSlabs, ref uint dallocCount) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Bin*) &this).freeImpl(pd.extent, se.index, nslots);
+		return (cast(Bin*) &this)
+			.batchFreeImpl(worklist, pds, dallocSlabs, dallocCount);
 	}
 
 private:
@@ -88,6 +80,43 @@ private:
 		}
 
 		return total;
+	}
+
+	uint batchFreeImpl(const(void*)[] worklist, PageDescriptor* pds,
+	                   Extent** dallocSlabs, ref uint dallocCount) {
+		// FIXME: in contract.
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(worklist.length > 0, "Worklist is empty!");
+
+		uint ndeferred = 0;
+
+		auto a = pds[0].arenaIndex;
+		auto ec = pds[0].extentClass;
+		auto bi = binInfos[ec.sizeClass];
+
+		foreach (i, ptr; worklist) {
+			auto pd = pds[i];
+
+			// This isn't the right arena, move on to the next slot.
+			if (pd.arenaIndex != a) {
+				worklist[ndeferred] = ptr;
+				pds[ndeferred] = pd;
+				ndeferred++;
+				continue;
+			}
+
+			auto e = pd.extent;
+			assert(e.contains(ptr));
+
+			auto offset = pd.computeOffset(ptr);
+			auto index = bi.computeIndex(offset);
+
+			if (freeImpl(e, index, bi.nslots)) {
+				dallocSlabs[dallocCount++] = e;
+			}
+		}
+
+		return ndeferred;
 	}
 
 	bool freeImpl(Extent* e, uint index, uint nslots) {

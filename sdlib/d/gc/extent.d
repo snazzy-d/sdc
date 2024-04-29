@@ -526,6 +526,14 @@ static assert(Extent.sizeof == ExtentAlign, "Unexpected Extent alignment!");
 
 alias PriorityExtentHeap = Heap!(Extent, priorityExtentCmp);
 
+/**
+ * FIXME: We don't want to take into account the number of free slots
+ *        when prioritizing extents. This forces many heaps manipulations
+ *        in the bins for dubbious benefits.
+ *        A better approach would be to prefers older slabs/blocks, which
+ *        are more likely to contain "immortal" elements, and discriminate
+ *        on address to tie break.
+ */
 ptrdiff_t priorityExtentCmp(Extent* lhs, Extent* rhs) {
 	auto l = lhs.bits;
 	auto r = rhs.bits;

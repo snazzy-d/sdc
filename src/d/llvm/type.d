@@ -109,7 +109,7 @@ struct TypeGen {
 			return i8;
 		}
 
-		return buildOpaque(t);
+		return visit(t);
 	}
 
 	LLVMTypeRef visitPointerOf(Type t) {

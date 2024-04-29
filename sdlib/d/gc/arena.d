@@ -115,6 +115,26 @@ public:
 			.batchAllocate(&filler, emap, sizeClass, buffer[0 .. 1], slotSize);
 	}
 
+	uint batchFree(ref CachedExtentMap emap, const(void*)[] worklist,
+	               PageDescriptor* pds) shared {
+		assert(worklist.length > 0, "Worklist is empty!");
+		assert(pds[0].arenaIndex == index, "Erroneous arena index!");
+
+		auto dallocSlabs = cast(Extent**) alloca(worklist.length * PointerSize);
+
+		uint dallocCount = 0;
+		scope(success) if (dallocCount > 0) {
+			foreach (i; 0 .. dallocCount) {
+				// FIXME: batch free to go through the lock once.
+				filler.freeExtent(emap, dallocSlabs[i]);
+			}
+		}
+
+		auto ec = pds[0].extentClass;
+		return bins[ec.sizeClass]
+			.batchFree(worklist, pds, dallocSlabs, dallocCount);
+	}
+
 	/**
 	 * Large allocation facilities.
 	 */
@@ -140,18 +160,12 @@ public:
 		return filler.resizeLarge(emap, e, pages);
 	}
 
-	/**
-	 * Deallocation facility.
-	 */
-	void free(ref CachedExtentMap emap, PageDescriptor pd, void* ptr) shared {
-		assert(pd.extent !is null, "Extent is null!");
-		assert(pd.extent.contains(ptr), "Invalid ptr!");
-		assert(pd.extent.arenaIndex == index, "Invalid arena index!");
+	void freeLarge(ref CachedExtentMap emap, Extent* e) shared {
+		assert(e !is null, "Extent is null!");
+		assert(e.isLarge(), "Expected a large extent!");
+		assert(e.arenaIndex == index, "Invalid arena index!");
 
-		auto ec = pd.extentClass;
-		if (unlikely(ec.isLarge()) || bins[ec.sizeClass].free(ptr, pd)) {
-			filler.freeExtent(emap, pd.extent);
-		}
+		filler.freeExtent(emap, e);
 	}
 
 package:
@@ -215,7 +229,7 @@ unittest allocLarge {
 	assert(pd1.extent.address is ptr1);
 	assert(pd1.extent.npages == 12);
 
-	arena.free(emap, pd0, ptr0);
+	arena.freeLarge(emap, pd0.extent);
 	auto pdf = emap.lookup(ptr0);
 	assert(pdf.extent is null);
 
@@ -236,9 +250,9 @@ unittest allocLarge {
 	assert(pd3.extent.npages == 4);
 
 	// Free everything.
-	arena.free(emap, pd1, ptr1);
-	arena.free(emap, pd2, ptr2);
-	arena.free(emap, pd3, ptr3);
+	arena.freeLarge(emap, pd1.extent);
+	arena.freeLarge(emap, pd2.extent);
+	arena.freeLarge(emap, pd3.extent);
 }
 
 unittest resizeLargeShrink {
@@ -312,10 +326,10 @@ unittest resizeLargeShrink {
 	assert(pd3.extent.address is ptr3);
 	assert(ptr3 is ptr0 + 10 * PageSize);
 
-	arena.free(emap, pd0, ptr0);
-	arena.free(emap, pd1, ptr1);
-	arena.free(emap, pd2, ptr2);
-	arena.free(emap, pd3, ptr3);
+	arena.freeLarge(emap, pd0.extent);
+	arena.freeLarge(emap, pd1.extent);
+	arena.freeLarge(emap, pd2.extent);
+	arena.freeLarge(emap, pd3.extent);
 
 	// Allocate 128 pages:
 	auto ptr4 = makeLargeAlloc(128 * PageSize);
@@ -443,7 +457,7 @@ unittest resizeLargeGrow {
 	checkGrowLarge(e2, 413);
 
 	auto pd1 = emap.lookup(e1.address);
-	arena.free(emap, pd1, e1.address);
+	arena.freeLarge(emap, pd1.extent);
 
 	checkGrowLarge(e0, 44);
 
@@ -457,12 +471,12 @@ unittest resizeLargeGrow {
 	assert(e0.block.full);
 
 	auto pd2 = emap.lookup(e2.address);
-	arena.free(emap, pd2, e2.address);
+	arena.freeLarge(emap, pd2.extent);
 	assert(!e0.block.full);
 
 	checkGrowLarge(e0, 512);
 	assert(e0.block.full);
 
 	auto pd0 = emap.lookup(e0.address);
-	arena.free(emap, pd0, e0.address);
+	arena.freeLarge(emap, pd0.extent);
 }

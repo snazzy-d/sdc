@@ -101,7 +101,28 @@ public:
 		}
 
 		auto pd = getPageDescriptor(ptr);
-		pd.arena.free(emap, pd, ptr);
+		free(pd, ptr);
+	}
+
+	void free(PageDescriptor pd, void* ptr) {
+		if (likely(pd.isSlab())) {
+			freeSmall(pd, ptr);
+		} else {
+			freeLarge(pd);
+		}
+	}
+
+	void freeSmall(PageDescriptor pd, void* ptr) {
+		assert(pd.isSlab(), "Slab expected!");
+
+		auto worklist = (&ptr)[0 .. 1];
+		pd.arena.batchFree(emap, worklist, &pd);
+	}
+
+	void freeLarge(PageDescriptor pd) {
+		assert(!pd.isSlab(), "Slab are not supported!");
+
+		pd.arena.freeLarge(emap, pd.extent);
 	}
 
 	void destroy(void* ptr) {
@@ -112,7 +133,7 @@ public:
 		auto pd = getPageDescriptor(ptr);
 		auto e = pd.extent;
 
-		if (pd.isSlab()) {
+		if (likely(pd.isSlab())) {
 			auto si = SlabAllocInfo(pd, ptr);
 			auto finalizer = si.finalizer;
 			if (finalizer !is null) {
@@ -121,13 +142,15 @@ public:
 
 				finalizer(ptr, si.usedCapacity);
 			}
+
+			freeSmall(pd, ptr);
 		} else {
 			if (e.finalizer !is null) {
 				e.finalizer(ptr, e.usedCapacity);
 			}
-		}
 
-		pd.arena.free(emap, pd, ptr);
+			freeLarge(pd);
+		}
 	}
 
 	void* realloc(void* ptr, size_t size, bool containsPointers) {
@@ -192,7 +215,7 @@ public:
 		}
 
 		memcpy(newPtr, ptr, copySize);
-		pd.arena.free(emap, pd, ptr);
+		free(pd, ptr);
 
 		return newPtr;
 	}
