@@ -3,7 +3,10 @@ module d.gc.bin;
 import d.gc.arena;
 import d.gc.emap;
 import d.gc.page;
+import d.gc.slab;
 import d.gc.spec;
+
+import sdc.intrinsics;
 
 /**
  * A bin is used to keep track of runs of a certain
@@ -29,8 +32,6 @@ struct Bin {
 		assert(sizeClass < BinCount, "Invalid size class!");
 		assert(&filler.arena.bins[sizeClass] is &this,
 		       "Invalid arena or sizeClass!");
-
-		import d.gc.slab;
 		assert(slotSize == binInfos[sizeClass].slotSize, "Invalid slot size!");
 
 		mutex.lock();
@@ -47,8 +48,6 @@ struct Bin {
 
 		auto ec = pd.extentClass;
 		auto sc = ec.sizeClass;
-
-		import d.gc.slab;
 		auto nslots = binInfos[sc].nslots;
 		auto sg = SlabAllocGeometry(pd, ptr);
 		assert(ptr is sg.address);
@@ -69,14 +68,18 @@ private:
 
 		while (total < buffer.length) {
 			auto e = getSlab(filler, emap, sizeClass);
-			if (e is null) {
+			if (unlikely(e is null)) {
 				break;
 			}
 
+			assert(e.nfree > 0);
 			total += e.batchAllocate(buffer[total .. buffer.length], slotSize);
 
 			// If the slab is not full, we are done.
 			if (e.nfree > 0) {
+				// We get away with keeping the slab in the heap while allocating
+				// because we know it is the best slab, and removing free slots
+				// from it only increases its priority.
 				break;
 			}
 
@@ -131,30 +134,38 @@ private:
 			slab = filler.allocSlab(emap, sizeClass);
 		}
 
-		auto current = slabs.top;
-		if (slab is null) {
+		if (unlikely(slab is null)) {
 			// Another thread might have been successful
 			// while we did not hold the lock.
-			return current;
+			return slabs.top;
 		}
 
 		// We may have allocated the slab we need when the lock was released.
-		if (current is null) {
+		if (likely(slabs.top is null)) {
 			slabs.insert(slab);
 			return slab;
 		}
 
-		// If we have, then free the run we just allocated.
+		// We are about to release the freshly allocated slab.
+		// We do not want another thread stealing the slab we intend
+		// to use from under our feets, so we keep it around.
+		auto current = slabs.pop();
+
 		assert(slab !is current);
-		assert(current.nfree > 0);
-
-		// In which case we release the slab we just allocated.
-		import d.gc.slab;
 		assert(slab.nfree == binInfos[sizeClass].nslots);
-		filler.freeExtent(emap, slab);
 
-		// And use the metadata run.
-		return current;
+		{
+			// Release the lock while we release the slab.
+			mutex.unlock();
+			scope(exit) mutex.lock();
+
+			filler.freeExtent(emap, slab);
+		}
+
+		// Now we put it back, which ensure we have at least one
+		// slab available that we can return.
+		slabs.insert(current);
+		return slabs.top;
 	}
 
 /**
