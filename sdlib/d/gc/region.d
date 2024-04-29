@@ -53,8 +53,6 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	uint dirtyBlockCount;
-
 	// Free regions we can allocate from.
 	ClassTree regionsByClass;
 	RangeTree regionsByRange;
@@ -128,20 +126,12 @@ private:
 
 		auto newBlockCount = r.blockCount - totalBlocks;
 		if (newBlockCount == 0) {
-			dirtyBlockCount -= r.dirtyBlockCount;
 			unusedRegions.insert(r);
 			return true;
 		}
 
-		// If we do not use the whole region, we need to keep track
-		// of dirty blocks accurately.
-		auto acquiredDirtyBlocks =
-			r.countDirtyBlocksInSubRegion(0, totalBlocks);
-		dirtyBlockCount -= acquiredDirtyBlocks;
-
-		auto remainingDirtyBlocks = r.dirtyBlockCount - acquiredDirtyBlocks;
 		auto allocSize = totalBlocks * BlockSize;
-		r.at(ptr + allocSize, newBlockCount, remainingDirtyBlocks);
+		r.at(ptr + allocSize, newBlockCount);
 		registerRegion(r);
 
 		return true;
@@ -150,11 +140,8 @@ private:
 	void releaseImpl(void* ptr, uint blocks) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		// Released blocks are considered dirty.
-		dirtyBlockCount += blocks;
-
 		auto r = getOrAllocateRegion();
-		r.atDirty(ptr, blocks);
+		r.at(ptr, blocks);
 		registerRegion(r);
 	}
 
@@ -206,7 +193,7 @@ private:
 
 		// Newly allocated blocks are considered clean.
 		assert(blocks <= uint.max, "blocks does not fit in 32 bits!");
-		return r.atClean(ptr, blocks & uint.max);
+		return r.at(ptr, blocks & uint.max);
 	}
 
 	Region* getOrAllocateRegion() {
@@ -215,13 +202,22 @@ private:
 			return r;
 		}
 
+		static assert(ExtentSize / Region.sizeof == 2,
+		              "Unexpected Region size!");
+
 		auto slot = base.allocSlot();
 		if (slot.address is null) {
 			return null;
 		}
 
-		static assert(Region.sizeof <= ExtentSize, "Unexpected Region size!");
-		return Region.fromSlot(slot);
+		auto r0 = cast(Region*) slot.address;
+		*r0 = Region(null, 0, slot.generation);
+
+		auto r1 = r0 + 1;
+		*r1 = Region(null, 0, slot.generation);
+
+		unusedRegions.insert(r1);
+		return r0;
 	}
 }
 
@@ -234,7 +230,6 @@ unittest acquire_release {
 
 	// To snoop in.
 	auto ra = cast(RegionAllocator*) &regionAllocator;
-	assert(ra.dirtyBlockCount == 0);
 
 	void* addr0;
 	assert(regionAllocator.acquire(&addr0));
@@ -256,7 +251,6 @@ unittest acquire_release {
 	foreach (i; 5 .. RefillBlockCount) {
 		void* addr = addr0 + i * BlockSize;
 		regionAllocator.release(addr, 1);
-		assert(ra.dirtyBlockCount == i - 4);
 	}
 
 	{
@@ -270,7 +264,6 @@ unittest acquire_release {
 	foreach (i; 0 .. 5) {
 		void* addr = addr0 + i * BlockSize;
 		regionAllocator.release(addr, 1);
-		assert(ra.dirtyBlockCount == i + 508);
 	}
 
 	{
@@ -301,23 +294,18 @@ unittest extra_blocks {
 	assert(addr2 is addr1 + 6 * BlockSize);
 
 	// Release 3 blocks. We now have 2 regions.
-	assert(regionAllocator.dirtyBlockCount == 0);
 	regionAllocator.release(addr0, 1);
-	assert(regionAllocator.dirtyBlockCount == 1);
 	regionAllocator.release(addr0 + BlockSize, 2);
-	assert(regionAllocator.dirtyBlockCount == 3);
 
 	// Too big too fit.
 	void* addr3;
 	assert(regionAllocator.acquire(&addr3, 3));
 	assert(addr3 is addr2 + 4 * BlockSize);
-	assert(regionAllocator.dirtyBlockCount == 3);
 
 	// Small enough, so we reuse freed regions.
 	void* addr4;
 	assert(regionAllocator.acquire(&addr4, 2));
 	assert(addr4 is addr0 + 2 * BlockSize);
-	assert(regionAllocator.dirtyBlockCount == 0);
 }
 
 unittest enormous {
@@ -364,7 +352,6 @@ struct Region {
 	enum AllocClassIndex = 56;
 
 	uint blockCount;
-	uint dirtyBlockCount;
 
 	struct UsedLinks {
 		ClassNode rbClass;
@@ -378,46 +365,18 @@ struct Region {
 
 	Links _links;
 
-	import d.gc.bitmap;
-	Bitmap!RefillBlockCount dirtyBlocks;
-
-	this(void* ptr, uint blockCount, ubyte generation = 0,
-	     uint dirtyBlockCount = 0) {
+	this(void* ptr, uint blockCount, ubyte generation = 0) {
 		assert(isAligned(ptr, BlockSize), "Invalid ptr alignment!");
-		assert(dirtyBlockCount <= blockCount,
-		       "Dirty block count exceeds block count!");
 
 		bits = generation | cast(size_t) ptr;
 		bits |= ulong(getFreeSpaceClass(blockCount)) << AllocClassIndex;
 
 		this.blockCount = blockCount;
-		this.dirtyBlockCount = dirtyBlockCount;
 	}
 
 public:
-	Region* at(void* ptr, uint blockCount, uint dirtyBlockCount) {
-		auto oldDirtyBlocks = dirtyBlocks;
-		scope(success) dirtyBlocks = oldDirtyBlocks;
-
-		this = Region(ptr, blockCount, generation, dirtyBlockCount);
-		return &this;
-	}
-
-	Region* atClean(void* ptr, uint blockCount) {
-		at(ptr, blockCount, 0);
-		dirtyBlocks.clear();
-		return &this;
-	}
-
-	Region* atDirty(void* ptr, uint blockCount) {
-		at(ptr, blockCount, blockCount);
-
-		// Make the region dirty.
-		// FIXME: We use min to ensures we don't trip an assert
-		// when the region is larger than 1GB.
-		dirtyBlocks
-			.setRollingRange(startOffset, min(blockCount, RefillBlockCount));
-
+	Region* at(void* ptr, uint blockCount) {
+		this = Region(ptr, blockCount, generation);
 		return &this;
 	}
 
@@ -481,38 +440,12 @@ public:
 		return address <= ptr && ptr < address + size;
 	}
 
-	uint countDirtyBlocksInSubRegion(uint start, uint length) {
-		assert(start <= blockCount);
-		assert(start + length <= blockCount);
-
-		start = (start + startOffset) % RefillBlockCount;
-		return dirtyBlocks.rollingCountBits(start, length);
-	}
-
 	Region* merge(Region* r) {
 		assert(address is (r.address + r.size) || r.address is (address + size),
 		       "Regions are not adjacent!");
 
-		auto left = address < r.address ? &this : r;
-		auto right = address < r.address ? r : &this;
-
-		// Dirt is at all times contiguous within a region, and starts at the bottom.
-		// Given as purging is not yet supported, this invariant always holds.
-		assert(
-			left.dirtyBlockCount == left.blockCount
-				|| right.dirtyBlockCount == 0,
-			"Merge would place dirty blocks in front of clean blocks!"
-		);
-
-		// Copy the dirty bits.
-		// FIXME: We use min to ensures we don't trip an assert
-		// when the region is larger than 1GB.
-		dirtyBlocks.setRollingRangeFrom(r.dirtyBlocks, r.startOffset,
-		                                min(r.blockCount, RefillBlockCount));
-
 		auto a = min(address, r.address);
-		return at(a, blockCount + r.blockCount,
-		          dirtyBlockCount + r.dirtyBlockCount);
+		return at(a, blockCount + r.blockCount);
 	}
 }
 
@@ -562,84 +495,4 @@ ptrdiff_t unusedRegionCmp(Region* lhs, Region* rhs) {
 	r |= cast(size_t) rhs;
 
 	return (l > r) - (l < r);
-}
-
-unittest trackDirtyBlocks {
-	shared Base base;
-	scope(exit) base.clear();
-
-	shared RegionAllocator regionAllocator;
-	regionAllocator.base = &base;
-
-	// To snoop in.
-	auto ra = cast(RegionAllocator*) &regionAllocator;
-
-	void*[16] addresses;
-	foreach (ref addr; addresses) {
-		assert(regionAllocator.acquire(&addr));
-	}
-
-	void freeRun(void*[] addresses) {
-		auto expectedDirtyBlocks = regionAllocator.dirtyBlockCount;
-
-		foreach (addr; addresses) {
-			regionAllocator.release(addr, 1);
-
-			expectedDirtyBlocks++;
-			assert(regionAllocator.dirtyBlockCount == expectedDirtyBlocks);
-
-			Region rr;
-			rr.at(addr, 1, 0);
-			auto r = ra.regionsByRange.find(&rr);
-			assert(r.contains(addr));
-			assert(r.dirtyBlocks.valueAt(rr.startOffset));
-		}
-	}
-
-	// Verify that a region with given block count and dirt exists at address.
-	void verifyUniqueRegion(void* address, uint searchBlocks, uint blocks,
-	                        uint dirtyBlocks) {
-		Region rr;
-		rr.setAllocClass(getAllocClass(searchBlocks));
-		auto r = ra.regionsByClass.bestfit(&rr);
-		assert(r !is null);
-		assert(r.address is address);
-		assert(r.blockCount == blocks);
-		assert(r.dirtyBlockCount == dirtyBlocks);
-		assert(r.countDirtyBlocksInSubRegion(0, blocks) == dirtyBlocks);
-	}
-
-	// Initially, there are no dirty blocks.
-	assert(regionAllocator.dirtyBlockCount == 0);
-
-	// Make some dirty regions.
-	freeRun(addresses[0 .. 2]);
-	assert(regionAllocator.dirtyBlockCount == 2);
-	verifyUniqueRegion(addresses[0], 2, 2, 2);
-	freeRun(addresses[4 .. 8]);
-	assert(regionAllocator.dirtyBlockCount == 6);
-	verifyUniqueRegion(addresses[4], 4, 4, 4);
-	freeRun(addresses[10 .. 15]);
-	assert(regionAllocator.dirtyBlockCount == 11);
-	verifyUniqueRegion(addresses[10], 5, 5, 5);
-
-	// Merge regions and confirm expected effect.
-	freeRun(addresses[8 .. 10]);
-	assert(regionAllocator.dirtyBlockCount == 13);
-	verifyUniqueRegion(addresses[4], 10, 11, 11);
-	freeRun(addresses[2 .. 4]);
-	assert(regionAllocator.dirtyBlockCount == 15);
-	verifyUniqueRegion(addresses[0], 14, 15, 15);
-	freeRun(addresses[15 .. 16]);
-	verifyUniqueRegion(addresses[0], 1, RefillBlockCount, 16);
-
-	// Test dirt behaviour in acquire and release.
-	void* addr0;
-	assert(regionAllocator.acquire(&addr0, 5));
-	assert(addr0 is addresses[5]);
-	assert(regionAllocator.dirtyBlockCount == 10);
-	verifyUniqueRegion(addresses[6], 1, RefillBlockCount - 6, 10);
-	regionAllocator.release(addresses[0], 6);
-	assert(regionAllocator.dirtyBlockCount == 16);
-	verifyUniqueRegion(addresses[0], 1, RefillBlockCount, 16);
 }
