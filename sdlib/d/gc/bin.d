@@ -46,16 +46,16 @@ struct Bin {
 		assert(pd.isSlab(), "Expected a slab!");
 		assert(pd.extent.contains(ptr), "ptr not in slab!");
 
-		auto ec = pd.extentClass;
-		auto sc = ec.sizeClass;
-		auto nslots = binInfos[sc].nslots;
-		auto sg = SlabAllocGeometry(pd, ptr);
-		assert(ptr is sg.address);
+		auto se = SlabEntry(pd, ptr);
+		auto nslots = binInfos[se.sizeClass].nslots;
+
+		assert(ptr is se.computeAddress(),
+		       "ptr doesn't match the slot address!");
 
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Bin*) &this).freeImpl(pd.extent, sg.index, nslots);
+		return (cast(Bin*) &this).freeImpl(pd.extent, se.index, nslots);
 	}
 
 private:

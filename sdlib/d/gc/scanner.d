@@ -76,7 +76,8 @@ public:
 private:
 	void markDense(PageDescriptor pd, const void* ptr) {
 		import d.gc.slab;
-		auto sg = SlabAllocGeometry(pd, ptr);
+		auto se = SlabEntry(pd, ptr);
+		auto index = se.index;
 
 		/**
 		 * /!\ This is not thread safe.
@@ -86,31 +87,31 @@ private:
 		 * It is unclear how to handle this at this time.
 		 */
 		auto e = pd.extent;
-		if (!e.slabData.valueAt(sg.index)) {
+		if (!e.slabData.valueAt(index)) {
 			return;
 		}
 
 		auto ec = pd.extentClass;
 		if (ec.supportsInlineMarking) {
-			if (e.slabMetadataMarks.setBitAtomic(sg.index)) {
+			if (e.slabMetadataMarks.setBitAtomic(index)) {
 				return;
 			}
 		} else {
 			auto bmp = &e.outlineMarks;
-			if (bmp is null || bmp.setBitAtomic(sg.index)) {
+			if (bmp is null || bmp.setBitAtomic(index)) {
 				return;
 			}
 		}
 
 		if (pd.containsPointers) {
-			addToWorkList(makeRange(sg.address, sg.address + sg.size));
+			addToWorkList(se.computeRange());
 		}
 	}
 
 	void markSparse(PageDescriptor pd, const void* ptr) {
 		import d.gc.slab;
-		auto sg = SlabAllocGeometry(pd, ptr);
-		auto bit = 0x100 << sg.index;
+		auto se = SlabEntry(pd, ptr);
+		auto bit = 0x100 << se.index;
 		auto cycle = gcCycle;
 
 		auto e = pd.extent;
@@ -132,7 +133,7 @@ private:
 
 	Exit:
 		if (pd.containsPointers) {
-			addToWorkList(makeRange(sg.address, sg.address + sg.size));
+			addToWorkList(se.computeRange());
 		}
 	}
 

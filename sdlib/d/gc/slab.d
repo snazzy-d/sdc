@@ -8,11 +8,27 @@ import d.gc.util;
 
 enum InvalidBinID = 0xff;
 
-struct SlabAllocGeometry {
-	const void* address;
-	uint size;
-	uint index;
+struct SlabEntry {
+private:
+	/**
+	 * This is a bitfield containing the following elements:
+	 *  - i: The index of the item within the slab.
+	 *  - a: The address of the slab.
+	 *  - s: The size class of the slab.
+	 * 
+	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
+	 * .......i iiiiiiii aaaaaaaa aaaaaaaa aaaaaaaa aaaaaaaa aaaa.... ..ssssss
+	 */
+	ulong bits;
 
+	// Verify our assumptions.
+	static assert(LgAddressSpace <= 48, "Address space too large!");
+	static assert(LgPageSize >= 8, "Not enough space in low bits!");
+
+	// Useful constants for bit manipulations.
+	enum IndexShift = 48;
+
+public:
 	this(PageDescriptor pd, const void* ptr) {
 		assert(pd.isSlab(), "Expected a slab!");
 
@@ -21,18 +37,73 @@ struct SlabAllocGeometry {
 
 		import d.gc.util;
 		auto offset = alignDownOffset(ptr, PageSize) + pd.index * PageSize;
-		index = binInfos[sc].computeIndex(offset);
-
+		auto index = binInfos[sc].computeIndex(offset);
 		auto base = ptr - offset;
-		size = binInfos[sc].slotSize;
-		address = base + index * size;
+
+		bits = sc | ulong(index) << IndexShift | cast(ulong) base;
 	}
+
+	@property
+	uint index() const {
+		return bits >> IndexShift;
+	}
+
+	@property
+	void* base() const {
+		return cast(void*) (bits & PagePointerMask);
+	}
+
+	@property
+	ubyte sizeClass() const {
+		return bits & 0xff;
+	}
+
+	void* computeAddress() const {
+		auto size = binInfos[sizeClass].slotSize;
+		return cast(void*) (base + index * size);
+	}
+
+	const(void*)[] computeRange() const {
+		auto size = binInfos[sizeClass].slotSize;
+		auto address = cast(void**) (base + index * size);
+
+		return address[0 .. size / PointerSize];
+	}
+}
+
+unittest SlabRange {
+	auto pd = PageDescriptor(0x100000000000000a);
+
+	assert(pd.extent is null);
+	assert(pd.index == 1);
+
+	auto ec = pd.extentClass;
+	assert(ec.sizeClass == 9);
+
+	auto ptr = cast(void*) 0x56789abcd123;
+	auto base = cast(void*) 0x56789abcc000;
+	auto slot = cast(void*) 0x56789abcd0e0;
+
+	auto se = SlabEntry(pd, ptr);
+	assert(se.index == 45);
+	assert(se.base is base);
+	assert(se.sizeClass == 9);
+
+	auto addr = se.computeAddress();
+	assert(addr is slot);
+
+	auto r0 = se.computeRange();
+	assert(r0.ptr is cast(const(void*)*) slot);
+	assert(r0.length == 12);
 }
 
 struct SlabAllocInfo {
 private:
 	Extent* e;
-	SlabAllocGeometry sg;
+
+	uint index;
+	uint slotSize;
+	const void* _address;
 
 	bool supportsMetadata = false;
 	bool _hasMetadata = false;
@@ -42,11 +113,15 @@ public:
 		assert(pd.isSlab(), "Expected a slab!");
 
 		e = pd.extent;
-		sg = SlabAllocGeometry(pd, ptr);
+
+		auto se = SlabEntry(pd, ptr);
+		index = se.index;
+		slotSize = binInfos[se.sizeClass].slotSize;
+		_address = se.base + index * slotSize;
 
 		auto ec = pd.extentClass;
 		supportsMetadata = ec.supportsMetadata;
-		_hasMetadata = ec.supportsMetadata && e.hasMetadata(sg.index);
+		_hasMetadata = ec.supportsMetadata && e.hasMetadata(index);
 	}
 
 	@property
@@ -56,17 +131,17 @@ public:
 
 	@property
 	auto address() {
-		return sg.address;
+		return _address;
 	}
 
 	@property
 	size_t slotCapacity() {
-		return sg.size - (finalizerEnabled ? PointerSize : 0);
+		return slotSize - (finalizerEnabled ? PointerSize : 0);
 	}
 
 	@property
 	size_t usedCapacity() {
-		return sg.size - freeSpace;
+		return slotSize - freeSpace;
 	}
 
 	bool setUsedCapacity(size_t size) {
@@ -74,7 +149,7 @@ public:
 			return false;
 		}
 
-		setFreeSpace(sg.size - size);
+		setFreeSpace(slotSize - size);
 		return true;
 	}
 
@@ -94,7 +169,7 @@ public:
 
 		bool hasFinalizer = initialFinalizer !is null;
 		assert(
-			initialUsedCapacity <= sg.size - (hasFinalizer ? PointerSize : 0),
+			initialUsedCapacity <= slotSize - (hasFinalizer ? PointerSize : 0),
 			"Insufficient alloc capacity!"
 		);
 
@@ -102,7 +177,7 @@ public:
 		assert((finalizerValue & AddressMask) == finalizerValue,
 		       "New finalizer pointer is invalid!");
 
-		auto freeSpaceValue = sg.size - initialUsedCapacity;
+		auto freeSpaceValue = slotSize - initialUsedCapacity;
 		bool isLarge = freeSpaceValue > 0x3f;
 		auto finalizerSet = hasFinalizer << 1;
 		ushort native =
@@ -115,7 +190,7 @@ public:
 		// found at the start, rather than end, of the memory that it occupies,
 		// and the freespace (newMetadata) will collide with the finalizer.
 		*finalizerPtr = newMetadata | finalizerValue;
-		e.enableMetadata(sg.index);
+		e.enableMetadata(index);
 		_hasMetadata = true;
 	}
 
@@ -127,11 +202,11 @@ private:
 
 	void setFreeSpace(size_t size) {
 		assert(supportsMetadata, "size class not supports slab metadata!");
-		assert(size <= sg.size, "size exceeds alloc size!");
+		assert(size <= slotSize, "size exceeds slot size!");
 
 		if (size == 0) {
 			if (_hasMetadata) {
-				e.disableMetadata(sg.index);
+				e.disableMetadata(index);
 				_hasMetadata = false;
 			}
 
@@ -140,7 +215,7 @@ private:
 
 		writePackedFreeSpace(freeSpacePtr, size);
 		if (!_hasMetadata) {
-			e.enableMetadata(sg.index);
+			e.enableMetadata(index);
 			_hasMetadata = true;
 		}
 	}
@@ -167,7 +242,7 @@ private:
 
 	@property
 	T* ptrToAllocEnd(T)() {
-		return cast(T*) (sg.address + sg.size - T.sizeof);
+		return cast(T*) (address + slotSize - T.sizeof);
 	}
 
 	alias freeSpacePtr = ptrToAllocEnd!ushort;
@@ -196,7 +271,7 @@ unittest SlabAllocInfo {
 		return SlabAllocInfo(pd, allocAddress);
 	}
 
-	// When metadata is not supported by the size class:
+	// When metadata is not supported by the size class.
 	foreach (size; [1, 6, 8]) {
 		auto sc = getSizeClass(size);
 		assert(!sizeClassSupportsMetadata(sc));
@@ -213,11 +288,11 @@ unittest SlabAllocInfo {
 		}
 	}
 
-	// Finalizers
+	// Finalizers.
 	static void destruct_a(void* ptr, size_t size) {}
 	static void destruct_b(void* ptr, size_t size) {}
 
-	// When metadata is supported by the size class (not exhaustive) :
+	// When metadata is supported by the size class (not exhaustive).
 	foreach (size;
 		[15, 16, 300, 320, 1000, 1024, MaxSmallSize - 1, MaxSmallSize]
 	) {
