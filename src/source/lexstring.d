@@ -65,7 +65,7 @@ mixin template LexStringImpl(Token,
 	 * String literals.
 	 */
 	import source.name;
-	auto lexStrignSuffix(uint begin, Name value) {
+	auto lexStringSuffix(uint begin, Name value) {
 		return lexLiteralSuffix!StringSuffixes(begin, value);
 	}
 
@@ -77,7 +77,7 @@ mixin template LexStringImpl(Token,
 		Name value = decodeLiterals
 			? context.getName(content[start .. stop])
 			: BuiltinName!"";
-		return lexStrignSuffix(begin, value);
+		return lexStringSuffix(begin, value);
 	}
 
 	Token lexRawString(char Delimiter = '`')(uint begin) {
@@ -177,7 +177,7 @@ mixin template LexStringImpl(Token,
 			value = context.getName(decoded);
 		}
 
-		return lexStrignSuffix(begin, value);
+		return lexStringSuffix(begin, value);
 	}
 
 	Token lexString(string s : `"`)() {
