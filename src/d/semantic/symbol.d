@@ -88,8 +88,8 @@ struct SymbolAnalyzer {
 
 		import std.conv;
 		foreach (name; astm.packages) {
-			auto s = name.toString(context);
-			manglePrefix = s.length.to!string() ~ s ~ manglePrefix;
+			auto p = name.toString(context);
+			manglePrefix ~= p.length.to!string() ~ p;
 		}
 
 		auto name = astm.name.toString(context);
