@@ -106,12 +106,13 @@ private:
 			}
 
 			auto e = pd.extent;
-			assert(e.contains(ptr));
+			assert(e.contains(ptr), "ptr not in the Extent!");
 
-			auto offset = pd.computeOffset(ptr);
-			auto index = bi.computeIndex(offset);
+			auto se = SlabEntry(pd, ptr);
+			assert(se.computeAddress() is ptr,
+			       "ptr does not point to the start of the slot!");
 
-			if (freeImpl(e, index, bi.nslots)) {
+			if (freeImpl(e, se.index, bi.nslots)) {
 				dallocSlabs[dallocCount++] = e;
 			}
 		}

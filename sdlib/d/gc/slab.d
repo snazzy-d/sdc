@@ -39,7 +39,9 @@ public:
 		auto index = binInfos[sc].computeIndex(offset);
 		auto base = ptr - offset;
 
-		bits = sc | ulong(index) << IndexShift | cast(ulong) base;
+		bits = sc;
+		bits |= ulong(index) << IndexShift;
+		bits |= (cast(ulong) base) & PagePointerMask;
 	}
 
 	@property
