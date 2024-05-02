@@ -12,6 +12,25 @@ bool unlikely(T)(T val) {
 	return expect(cast(bool) val, false);
 }
 
+ubyte popCount(ubyte n);
+ushort popCount(ushort n);
+uint popCount(uint n);
+ulong popCount(ulong n);
+
+ubyte countLeadingZeros(ubyte n);
+ushort countLeadingZeros(ushort n);
+uint countLeadingZeros(uint n);
+ulong countLeadingZeros(ulong n);
+
+ubyte countTrailingZeros(ubyte n);
+ushort countTrailingZeros(ushort n);
+uint countTrailingZeros(uint n);
+ulong countTrailingZeros(ulong n);
+
+ushort bswap(ushort n);
+uint bswap(uint n);
+ulong bswap(ulong n);
+
 ubyte fetchAdd(ubyte* ptr, ubyte value);
 ushort fetchAdd(ushort* ptr, ushort value);
 uint fetchAdd(uint* ptr, uint value);
@@ -51,25 +70,6 @@ CompareAndSwapResult!ubyte casWeak(ubyte* ptr, ubyte old, ubyte val);
 CompareAndSwapResult!ushort casWeak(ushort* ptr, ushort old, ushort val);
 CompareAndSwapResult!uint casWeak(uint* ptr, uint old, uint val);
 CompareAndSwapResult!ulong casWeak(ulong* ptr, ulong old, ulong val);
-
-ubyte popCount(ubyte n);
-ushort popCount(ushort n);
-uint popCount(uint n);
-ulong popCount(ulong n);
-
-ubyte countLeadingZeros(ubyte n);
-ushort countLeadingZeros(ushort n);
-uint countLeadingZeros(uint n);
-ulong countLeadingZeros(ulong n);
-
-ubyte countTrailingZeros(ubyte n);
-ushort countTrailingZeros(ushort n);
-uint countTrailingZeros(uint n);
-ulong countTrailingZeros(ulong n);
-
-ushort bswap(ushort n);
-uint bswap(uint n);
-ulong bswap(ulong n);
 
 ulong readCycleCounter();
 void* readFramePointer();

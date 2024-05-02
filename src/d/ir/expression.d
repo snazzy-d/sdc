@@ -321,6 +321,10 @@ class CallExpression : Expression {
 enum Intrinsic {
 	None,
 	Expect,
+	PopCount,
+	CountLeadingZeros,
+	CountTrailingZeros,
+	ByteSwap,
 	FetchAdd,
 	FetchSub,
 	FetchAnd,
@@ -328,10 +332,6 @@ enum Intrinsic {
 	FetchXor,
 	CompareAndSwap,
 	CompareAndSwapWeak,
-	PopCount,
-	CountLeadingZeros,
-	CountTrailingZeros,
-	ByteSwap,
 	ReadCycleCounter,
 	ReadFramePointer,
 }

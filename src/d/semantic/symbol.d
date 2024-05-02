@@ -145,6 +145,10 @@ struct SymbolAnalyzer {
 		// Ideally we'd use UDA, but as they are not implemented,
 		// we just bake the magic in the compiler.
 		set(BuiltinName!"expect", Intrinsic.Expect);
+		set(BuiltinName!"popCount", Intrinsic.PopCount);
+		set(BuiltinName!"countLeadingZeros", Intrinsic.CountLeadingZeros);
+		set(BuiltinName!"countTrailingZeros", Intrinsic.CountTrailingZeros);
+		set(BuiltinName!"bswap", Intrinsic.ByteSwap);
 		set(BuiltinName!"fetchAdd", Intrinsic.FetchAdd);
 		set(BuiltinName!"fetchSub", Intrinsic.FetchSub);
 		set(BuiltinName!"fetchAnd", Intrinsic.FetchAnd);
@@ -152,10 +156,6 @@ struct SymbolAnalyzer {
 		set(BuiltinName!"fetchXor", Intrinsic.FetchXor);
 		set(BuiltinName!"cas", Intrinsic.CompareAndSwap);
 		set(BuiltinName!"casWeak", Intrinsic.CompareAndSwapWeak);
-		set(BuiltinName!"popCount", Intrinsic.PopCount);
-		set(BuiltinName!"countLeadingZeros", Intrinsic.CountLeadingZeros);
-		set(BuiltinName!"countTrailingZeros", Intrinsic.CountTrailingZeros);
-		set(BuiltinName!"bswap", Intrinsic.ByteSwap);
 		set(BuiltinName!"readCycleCounter", Intrinsic.ReadCycleCounter);
 		set(BuiltinName!"readFramePointer", Intrinsic.ReadFramePointer);
 	}

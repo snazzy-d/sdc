@@ -38,6 +38,18 @@ struct IntrinsicGen {
 			case Expect:
 				return expect(args);
 
+			case PopCount:
+				return ctpop(args);
+
+			case CountLeadingZeros:
+				return ctlz(args);
+
+			case CountTrailingZeros:
+				return cttz(args);
+
+			case ByteSwap:
+				return bswap(args);
+
 			case FetchAdd:
 				return fetchOp(LLVMAtomicRMWBinOp.Add, args);
 
@@ -58,18 +70,6 @@ struct IntrinsicGen {
 
 			case CompareAndSwapWeak:
 				return cas(true, args);
-
-			case PopCount:
-				return ctpop(args);
-
-			case CountLeadingZeros:
-				return ctlz(args);
-
-			case CountTrailingZeros:
-				return cttz(args);
-
-			case ByteSwap:
-				return bswap(args);
 
 			case ReadCycleCounter:
 				return readCycleCounter(args);
@@ -102,28 +102,6 @@ struct IntrinsicGen {
 
 		return cache[name] =
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
-	}
-
-	LLVMValueRef fetchOp(LLVMAtomicRMWBinOp op, LLVMValueRef[] args)
-			in(args.length == 2, "Invalid argument count") {
-		auto ptr = args[0];
-		auto value = args[1];
-		auto ordering = LLVMAtomicOrdering.SequentiallyConsistent;
-		return LLVMBuildAtomicRMW(builder, op, ptr, value, ordering, false);
-	}
-
-	LLVMValueRef cas(bool weak, LLVMValueRef[] args)
-			in(args.length == 3, "Invalid argument count") {
-		return cas(weak, args[0], args[1], args[2],
-		           LLVMAtomicOrdering.SequentiallyConsistent);
-	}
-
-	LLVMValueRef cas(bool weak, LLVMValueRef ptr, LLVMValueRef old,
-	                 LLVMValueRef val, LLVMAtomicOrdering ordering) {
-		auto i = LLVMBuildAtomicCmpXchg(builder, ptr, old, val, ordering,
-		                                ordering, false);
-		LLVMSetWeak(i, weak);
-		return i;
 	}
 
 	LLVMValueRef ctpop(LLVMValueRef[] args)
@@ -220,6 +198,28 @@ struct IntrinsicGen {
 
 		return cache[name] = LLVMAddFunction(dmodule, name.toStringz(context),
 		                                     getFunctionType(bits));
+	}
+
+	LLVMValueRef fetchOp(LLVMAtomicRMWBinOp op, LLVMValueRef[] args)
+			in(args.length == 2, "Invalid argument count") {
+		auto ptr = args[0];
+		auto value = args[1];
+		auto ordering = LLVMAtomicOrdering.SequentiallyConsistent;
+		return LLVMBuildAtomicRMW(builder, op, ptr, value, ordering, false);
+	}
+
+	LLVMValueRef cas(bool weak, LLVMValueRef[] args)
+			in(args.length == 3, "Invalid argument count") {
+		return cas(weak, args[0], args[1], args[2],
+		           LLVMAtomicOrdering.SequentiallyConsistent);
+	}
+
+	LLVMValueRef cas(bool weak, LLVMValueRef ptr, LLVMValueRef old,
+	                 LLVMValueRef val, LLVMAtomicOrdering ordering) {
+		auto i = LLVMBuildAtomicCmpXchg(builder, ptr, old, val, ordering,
+		                                ordering, false);
+		LLVMSetWeak(i, weak);
+		return i;
 	}
 
 	LLVMValueRef readCycleCounter(LLVMValueRef[] args)

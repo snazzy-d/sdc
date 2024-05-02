@@ -17,24 +17,6 @@ bool unlikely(bool b) {
 	// CHECK: ret i1 [[RET]]
 }
 
-bool doCas(uint* ptr, uint old, uint val) {
-	auto cr = cas(ptr, old, val);
-	return cr.success;
-	// CHECK-LABEL: _D10intrinsics5doCasFMPkkkZb
-	// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg ptr %arg.ptr, i32 %arg.old, i32 %arg.val seq_cst seq_cst, align 4
-	// CHECK: [[RET:%[a-z0-9\.]+]] = extractvalue { i32, i1 } [[CMPXCHG]], 1
-	// CHECK: ret i1 [[RET]]
-}
-
-bool doCasWeak(uint* ptr, uint old, uint val) {
-	auto cr = casWeak(ptr, old, val);
-	return cr.success;
-	// CHECK-LABEL: _D10intrinsics9doCasWeakFMPkkkZb
-	// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg weak ptr %arg.ptr, i32 %arg.old, i32 %arg.val seq_cst seq_cst, align 4
-	// CHECK: [[RET:%[a-z0-9\.]+]] = extractvalue { i32, i1 } [[CMPXCHG]], 1
-	// CHECK: ret i1 [[RET]]
-}
-
 ulong doPopCount(ubyte n1, ushort n2, uint n3, ulong n4) {
 	return popCount(n1) + popCount(n2) + popCount(n3) + popCount(n4);
 	// CHECK-LABEL: _D10intrinsics10doPopCountFMhtkmZm
@@ -72,6 +54,24 @@ ulong doBswap(ushort n1, uint n2, ulong n3) {
 	// CHECK: call i16 @llvm.bswap.i16(i16 {{.*}})
 	// CHECK: call i32 @llvm.bswap.i32(i32 {{.*}})
 	// CHECK: call i64 @llvm.bswap.i64(i64 {{.*}})
+}
+
+bool doCas(uint* ptr, uint old, uint val) {
+	auto cr = cas(ptr, old, val);
+	return cr.success;
+	// CHECK-LABEL: _D10intrinsics5doCasFMPkkkZb
+	// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg ptr %arg.ptr, i32 %arg.old, i32 %arg.val seq_cst seq_cst, align 4
+	// CHECK: [[RET:%[a-z0-9\.]+]] = extractvalue { i32, i1 } [[CMPXCHG]], 1
+	// CHECK: ret i1 [[RET]]
+}
+
+bool doCasWeak(uint* ptr, uint old, uint val) {
+	auto cr = casWeak(ptr, old, val);
+	return cr.success;
+	// CHECK-LABEL: _D10intrinsics9doCasWeakFMPkkkZb
+	// CHECK: [[CMPXCHG:%[a-z0-9\.]+]] = cmpxchg weak ptr %arg.ptr, i32 %arg.old, i32 %arg.val seq_cst seq_cst, align 4
+	// CHECK: [[RET:%[a-z0-9\.]+]] = extractvalue { i32, i1 } [[CMPXCHG]], 1
+	// CHECK: ret i1 [[RET]]
 }
 
 ulong doReadCycleCounter() {
