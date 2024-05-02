@@ -294,7 +294,7 @@ public:
 		return _phnode;
 	}
 
-	bool contains(void* ptr) const {
+	bool contains(const void* ptr) const {
 		return ptr >= address && ptr < address + size;
 	}
 

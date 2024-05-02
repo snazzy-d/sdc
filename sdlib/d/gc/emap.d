@@ -199,6 +199,12 @@ public:
 		auto ec = extentClass;
 		return ec.isSlab();
 	}
+
+	auto computeOffset(const void* ptr) const {
+		assert(isSlab(), "Computing offset is only supported on slabs!");
+
+		return index * PageSize + alignDownOffset(ptr, PageSize);
+	}
 }
 
 struct BlockExtentMap {

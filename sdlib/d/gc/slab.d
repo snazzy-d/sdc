@@ -35,8 +35,7 @@ public:
 		auto ec = pd.extentClass;
 		auto sc = ec.sizeClass;
 
-		import d.gc.util;
-		auto offset = alignDownOffset(ptr, PageSize) + pd.index * PageSize;
+		auto offset = pd.computeOffset(ptr);
 		auto index = binInfos[sc].computeIndex(offset);
 		auto base = ptr - offset;
 
