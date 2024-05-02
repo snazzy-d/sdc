@@ -194,9 +194,12 @@ mixin template LexStringImpl(Token,
 		                                context.getName(error));
 	}
 
-	EscapeSequence lexOctalEscapeSequence(uint begin) {
-		uint r = 0;
-		foreach (i; 0 .. 3) {
+	EscapeSequence lexOctalEscapeSequence(uint begin)
+			in(frontChar >= '0' && frontChar <= '7') {
+		uint r = frontChar - '0';
+		popChar();
+
+		foreach (i; 0 .. 2) {
 			auto c = frontChar;
 			if (c < '0' || c > '7') {
 				break;
@@ -204,7 +207,6 @@ mixin template LexStringImpl(Token,
 
 			popChar();
 			r = (r * 8) | (c - '0');
-			c = frontChar;
 		}
 
 		if (r <= 0xff) {
@@ -270,11 +272,7 @@ mixin template LexStringImpl(Token,
 			case '\'', '"', '\\', '?', '$':
 				break;
 
-			case '0':
-				c = '\0';
-				break;
-
-			case '1': .. case '7':
+			case '0': .. case '7':
 				return lexOctalEscapeSequence(begin);
 
 			case 'a':
@@ -550,22 +548,77 @@ unittest {
 	);
 
 	// Check octal escape sequences.
-	checkLexString(`"\0\1\11\44\77\111\377"`, "\0\x01\x09\x24\x3f\x49\xff");
-	checkLexString(`"\1111\378"`, "\x491\x1f8");
+	checkLexString(`"\11\44\77\111"`, cast(string) [0x9, 0x24, 0x3f, 0x49]);
+	checkLexString(`"\0\00\000\0000"`, cast(string) [0, 0, 0, 0, '0']);
+	checkLexString(`"\1\01\001\0001"`, cast(string) [1, 1, 1, 0, '1']);
+	checkLexString(`"\7\07\007\0007"`, cast(string) [7, 7, 7, 0, '7']);
+
+	checkLexInvalid(`"\8"`, `Expected a valid escape sequence, not '8'.`);
+	checkLexInvalid(`"\9"`, `Expected a valid escape sequence, not '9'.`);
+	checkLexString(`"\08\008\0008"`, cast(string) [0, '8', 0, '8', 0, '8']);
+	checkLexString(`"\09\009\0009"`, cast(string) [0, '9', 0, '9', 0, '9']);
+
+	checkLexString(`"\377"`, cast(string) [0xff]);
+	checkLexString(`"\0377"`, cast(string) [31, '7']);
+	checkLexString(`"\00377"`, cast(string) [3, '7', '7']);
+	checkLexString(`"\000377"`, cast(string) [0, '3', '7', '7']);
+	checkLexString(`"\378"`, cast(string) [31, '8']);
+	checkLexString(`"\0378"`, cast(string) [31, '8']);
+	checkLexString(`"\00378"`, cast(string) [3, '7', '8']);
+	checkLexString(`"\000378"`, cast(string) [0, '3', '7', '8']);
+
 	checkLexInvalid(`"\400"`,
 	                `Escape octal sequence \400 is larger than \377.`);
 
 	checkLexChar(`'\0'`, 0);
-	checkLexChar(`'\1'`, 0x01);
-	checkLexChar(`'\11'`, 0x09);
-	checkLexChar(`'\44'`, 0x24);
-	checkLexChar(`'\77'`, 0x3f);
-	checkLexChar(`'\111'`, 0x49);
-	checkLexChar(`'\377'`, 0xff);
-	checkLexInvalid(`'\1111'`,
+	checkLexChar(`'\00'`, 0);
+	checkLexChar(`'\000'`, 0);
+	checkLexInvalid(`'\0000'`,
+	                "Expected `'` to end character literal, not '0'.");
+
+	checkLexChar(`'\1'`, 1);
+	checkLexChar(`'\01'`, 1);
+	checkLexChar(`'\001'`, 1);
+	checkLexInvalid(`'\0001'`,
 	                "Expected `'` to end character literal, not '1'.");
+
+	checkLexChar(`'\7'`, 7);
+	checkLexChar(`'\07'`, 7);
+	checkLexChar(`'\007'`, 7);
+	checkLexInvalid(`'\0007'`,
+	                "Expected `'` to end character literal, not '7'.");
+
+	checkLexInvalid(`'\8'`, `Expected a valid escape sequence, not '8'.`);
+	checkLexInvalid(`'\08'`, "Expected `'` to end character literal, not '8'.");
+	checkLexInvalid(`'\008'`,
+	                "Expected `'` to end character literal, not '8'.");
+	checkLexInvalid(`'\0008'`,
+	                "Expected `'` to end character literal, not '8'.");
+
+	checkLexInvalid(`'\9'`, `Expected a valid escape sequence, not '9'.`);
+	checkLexInvalid(`'\09'`, "Expected `'` to end character literal, not '9'.");
+	checkLexInvalid(`'\009'`,
+	                "Expected `'` to end character literal, not '9'.");
+	checkLexInvalid(`'\0009'`,
+	                "Expected `'` to end character literal, not '9'.");
+
+	checkLexChar(`'\377'`, 0xff);
+	checkLexInvalid(`'\0377'`,
+	                "Expected `'` to end character literal, not '7'.");
+	checkLexInvalid(`'\00377'`,
+	                "Expected `'` to end character literal, not '7'.");
+	checkLexInvalid(`'\000377'`,
+	                "Expected `'` to end character literal, not '3'.");
+
 	checkLexInvalid(`'\378'`,
 	                "Expected `'` to end character literal, not '8'.");
+	checkLexInvalid(`'\0378'`,
+	                "Expected `'` to end character literal, not '8'.");
+	checkLexInvalid(`'\00378'`,
+	                "Expected `'` to end character literal, not '7'.");
+	checkLexInvalid(`'\000378'`,
+	                "Expected `'` to end character literal, not '3'.");
+
 	checkLexInvalid(`'\400'`,
 	                `Escape octal sequence \400 is larger than \377.`);
 
