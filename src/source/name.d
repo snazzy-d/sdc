@@ -182,7 +182,7 @@ enum Prefill = [
 	"endif", "endswitch", "endcatch", "unreachable",
 	"loop.continue", "loop.test", "loop.body", "loop.exit",
 	// Intrinsics
-	"3sdc10intrinsics", "expect",
+	"3sdc10intrinsics", "expect", "alloca",
 	"popCount", "countLeadingZeros", "countTrailingZeros", "bswap",
 	"fetchAdd","fetchSub","fetchAnd","fetchOr","fetchXor",
 	"cas", "casWeak",

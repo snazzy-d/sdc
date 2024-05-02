@@ -38,6 +38,9 @@ struct IntrinsicGen {
 			case Expect:
 				return expect(args);
 
+			case Alloca:
+				return alloca(args);
+
 			case PopCount:
 				return ctpop(args);
 
@@ -102,6 +105,13 @@ struct IntrinsicGen {
 
 		return cache[name] =
 			LLVMAddFunction(dmodule, name.toStringz(context), type);
+	}
+
+	auto alloca(LLVMValueRef[] args)
+			in(args.length == 1, "Invalid argument count") {
+		auto ptr = LLVMBuildArrayAlloca(builder, i8, args[0], "");
+		LLVMSetAlignment(ptr, 16);
+		return ptr;
 	}
 
 	LLVMValueRef ctpop(LLVMValueRef[] args)

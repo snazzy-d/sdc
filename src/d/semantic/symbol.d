@@ -145,6 +145,7 @@ struct SymbolAnalyzer {
 		// Ideally we'd use UDA, but as they are not implemented,
 		// we just bake the magic in the compiler.
 		set(BuiltinName!"expect", Intrinsic.Expect);
+		set(BuiltinName!"alloca", Intrinsic.Alloca);
 		set(BuiltinName!"popCount", Intrinsic.PopCount);
 		set(BuiltinName!"countLeadingZeros", Intrinsic.CountLeadingZeros);
 		set(BuiltinName!"countTrailingZeros", Intrinsic.CountTrailingZeros);

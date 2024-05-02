@@ -12,6 +12,8 @@ bool unlikely(T)(T val) {
 	return expect(cast(bool) val, false);
 }
 
+void* alloca(size_t size);
+
 ubyte popCount(ubyte n);
 ushort popCount(ushort n);
 uint popCount(uint n);

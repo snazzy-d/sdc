@@ -17,6 +17,17 @@ bool unlikely(bool b) {
 	// CHECK: ret i1 [[RET]]
 }
 
+void doAlloca(size_t s) {
+	auto a = alloca(s);
+
+	static void consume(void*);
+	consume(a);
+	// CHECK-LABEL: _D10intrinsics8doAllocaFMmZv
+	// CHECK: [[PTR:%[a-z0-9\.]+]] = alloca i8, i64 %arg.s, align 16
+	// CHECK: call void @_D10intrinsics8doAlloca7consumeFMPvZv(ptr nonnull [[PTR]])
+	// CHECK: ret void
+}
+
 ulong doPopCount(ubyte n1, ushort n2, uint n3, ulong n4) {
 	return popCount(n1) + popCount(n2) + popCount(n3) + popCount(n4);
 	// CHECK-LABEL: _D10intrinsics10doPopCountFMhtkmZm

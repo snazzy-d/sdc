@@ -321,6 +321,7 @@ class CallExpression : Expression {
 enum Intrinsic {
 	None,
 	Expect,
+	Alloca,
 	PopCount,
 	CountLeadingZeros,
 	CountTrailingZeros,
