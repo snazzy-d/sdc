@@ -181,24 +181,12 @@ public:
 		return start.getLineNumber();
 	}
 
-	uint getStopLineNumber() {
-		return stop.getLineNumber();
-	}
-
 	uint getStartColumn() {
 		return start.getColumn();
 	}
 
-	uint getStopColumn() {
-		return stop.getColumn();
-	}
-
 	uint getStartOffset() {
 		return start.getSourceOffset();
-	}
-
-	uint getStopOffset() {
-		return stop.getSourceOffset();
 	}
 }
 
