@@ -157,7 +157,7 @@ Each thread that allocates memory has a *Thread Local Cache*. Small allocations
 are typically served from the cache, and the cache is refilled in bulk from the
 arena when it runs out. When freeing elements, they are not actually freed, but
 instead put in the thread cache for later reuse. Elements are released in batch
-when the cache grow too large.
+when the cache grows too large.
 
 This mechnism ensures that most of allocations avoid any possible contention and
 are served as fast as possible. In addition, this improves the locality of
