@@ -159,7 +159,7 @@ arena when it runs out. When freeing elements, they are not actually freed, but
 instead put in the thread cache for later reuse. Elements are released in batch
 when the cache grows too large.
 
-This mechnism ensures that most of allocations avoid any possible contention and
-are served as fast as possible. In addition, this improves the locality of
+This mechanism ensures that most of the allocations avoid any possible contention
+and are served as fast as possible. In addition, this improves the locality of
 allocation on a per thread basis as they come from the same batch of
 allocations, which reduces pressure on the TLB.
