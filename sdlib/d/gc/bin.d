@@ -21,7 +21,7 @@ struct Bin {
 	import d.gc.extent;
 	PriorityExtentHeap slabs;
 
-	uint batchAllocate(
+	size_t batchAllocate(
 		shared(PageFiller)* filler,
 		ref CachedExtentMap emap,
 		ubyte sizeClass,
@@ -51,21 +51,27 @@ struct Bin {
 	}
 
 private:
-	uint batchAllocateImpl(shared(PageFiller)* filler, ref CachedExtentMap emap,
-	                       ubyte sizeClass, void*[] buffer, size_t slotSize) {
+	size_t batchAllocateImpl(
+		shared(PageFiller)* filler,
+		ref CachedExtentMap emap,
+		ubyte sizeClass,
+		void*[] buffer,
+		size_t slotSize,
+	) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		uint total = 0;
+		auto size = buffer.length;
+		auto bottom = buffer.ptr;
 
-		while (total < buffer.length) {
+		while (size > 0) {
 			auto e = getSlab(filler, emap, sizeClass);
 			if (unlikely(e is null)) {
 				break;
 			}
 
 			assert(e.nfree > 0);
-			total += e.batchAllocate(buffer[total .. buffer.length], slotSize);
+			size -= e.batchAllocate(bottom[0 .. size], slotSize);
 
 			// If the slab is not full, we are done.
 			if (e.nfree > 0) {
@@ -79,7 +85,18 @@ private:
 			slabs.remove(e);
 		}
 
-		return total;
+		/**
+		 * Note: If we are worried about security, we might want to shuffle
+		 *       our allocations around. This makes the uses of techniques
+		 *       like Heap feng Shui difficult.
+		 *       We do not think it is worth the complication and performance
+		 *       hit in the general case, but something we might want to add
+		 *       in the future for security sensitive applications.
+		 * 
+		 * http://www.phreedom.org/research/heap-feng-shui/heap-feng-shui.html
+		 */
+
+		return size;
 	}
 
 	uint batchFreeImpl(const(void*)[] worklist, PageDescriptor* pds,

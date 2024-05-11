@@ -103,8 +103,8 @@ public:
 	/**
 	 * Small allocation facilities.
 	 */
-	uint batchAllocSmall(ref CachedExtentMap emap, ubyte sizeClass,
-	                     void*[] buffer, size_t slotSize) shared {
+	size_t batchAllocSmall(ref CachedExtentMap emap, ubyte sizeClass,
+	                       void*[] buffer, size_t slotSize) shared {
 		// TODO: in contracts
 		assert(isSmallSizeClass(sizeClass));
 
@@ -112,7 +112,7 @@ public:
 		assert(slotSize == binInfos[sizeClass].slotSize, "Invalid slot size!");
 
 		return bins[sizeClass]
-			.batchAllocate(&filler, emap, sizeClass, buffer[0 .. 1], slotSize);
+			.batchAllocate(&filler, emap, sizeClass, buffer, slotSize);
 	}
 
 	uint batchFree(ref CachedExtentMap emap, const(void*)[] worklist,

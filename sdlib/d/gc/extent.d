@@ -340,7 +340,7 @@ public:
 		assert(isSlab(), "allocate accessed on non slab!");
 		assert(nfree > 0, "Slab is full!");
 
-		void** insert = buffer.ptr;
+		void** insert = buffer.ptr + buffer.length;
 		uint count = min(buffer.length, nfree) & uint.max;
 
 		uint total = 0;
@@ -366,7 +366,7 @@ public:
 				current ^= 1UL << bit;
 
 				auto slot = shift + bit;
-				*(insert++) = address + slot * slotSize;
+				*(--insert) = address + slot * slotSize;
 			}
 
 			slabData.rawContent[n] = ~current;
@@ -684,7 +684,7 @@ unittest batchAllocate {
 	assert(e.nfree == 0);
 
 	foreach (i; 0 .. 512) {
-		assert(i * PointerSize == cast(size_t) buffer[i]);
+		assert(i * PointerSize == cast(size_t) buffer[1023 - i]);
 	}
 
 	// Free half the elements.
@@ -693,11 +693,11 @@ unittest batchAllocate {
 	}
 
 	assert(e.nfree == 256);
-	assert(e.batchAllocate(buffer[512 .. 1024], PointerSize) == 256);
+	assert(e.batchAllocate(buffer[0 .. 512], PointerSize) == 256);
 	assert(e.nfree == 0);
 
 	foreach (i; 0 .. 256) {
-		assert(2 * i * PointerSize == cast(size_t) buffer[512 + i]);
+		assert(2 * i * PointerSize == cast(size_t) buffer[511 - i]);
 	}
 
 	// Free All the element but two in the middle
@@ -711,10 +711,10 @@ unittest batchAllocate {
 	assert(e.nfree == 10);
 
 	foreach (i; 0 .. 255) {
-		assert(i * PointerSize == cast(size_t) buffer[i]);
+		assert(i * PointerSize == cast(size_t) buffer[499 - i]);
 	}
 
-	foreach (i; 0 .. 245) {
-		assert((i + 257) * PointerSize == cast(size_t) buffer[255 + i]);
+	foreach (i; 255 .. 500) {
+		assert((i + 2) * PointerSize == cast(size_t) buffer[499 - i]);
 	}
 }
