@@ -72,9 +72,11 @@ public:
 		auto slotSize = binInfos[sizeClass].slotSize;
 
 		auto arena = chooseArena(containsPointers);
-		auto newSize =
-			arena.batchAllocSmall(emap, sizeClass, buffer[0 .. 1], slotSize);
-		if (unlikely(newSize == 1)) {
+		auto bottom = buffer.ptr;
+		auto top = bottom + buffer.length;
+		auto insert =
+			arena.batchAllocSmall(emap, sizeClass, top, bottom, slotSize);
+		if (unlikely(insert is top)) {
 			return null;
 		}
 

@@ -21,11 +21,12 @@ struct Bin {
 	import d.gc.extent;
 	PriorityExtentHeap slabs;
 
-	size_t batchAllocate(
+	void** batchAllocate(
 		shared(PageFiller)* filler,
 		ref CachedExtentMap emap,
 		ubyte sizeClass,
-		void*[] buffer,
+		void** insert,
+		void** bottom,
 		size_t slotSize,
 	) shared {
 		import d.gc.sizeclass;
@@ -37,8 +38,8 @@ struct Bin {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Bin*) &this)
-			.batchAllocateImpl(filler, emap, sizeClass, buffer, slotSize);
+		return (cast(Bin*) &this).batchAllocateImpl(filler, emap, sizeClass,
+		                                            insert, bottom, slotSize);
 	}
 
 	uint batchFree(const(void*)[] worklist, PageDescriptor* pds,
@@ -51,30 +52,28 @@ struct Bin {
 	}
 
 private:
-	size_t batchAllocateImpl(
+	void** batchAllocateImpl(
 		shared(PageFiller)* filler,
 		ref CachedExtentMap emap,
 		ubyte sizeClass,
-		void*[] buffer,
+		void** insert,
+		void** bottom,
 		size_t slotSize,
 	) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(buffer.length <= uint.max, "Invalid buffer size!");
+		assert(insert > bottom, "Invalid stack boundaries!");
+		assert((insert - bottom) < uint.max, "Invalid stack size!");
 
-		uint nfill = buffer.length & uint.max;
-		auto bottom = buffer.ptr;
-
-		while (nfill > 0) {
+		while (insert > bottom) {
 			auto e = getSlab(filler, emap, sizeClass);
 			if (unlikely(e is null)) {
 				break;
 			}
 
 			assert(e.nfree > 0);
-			auto top = bottom + nfill;
-			auto insert = e.batchAllocate(top, nfill, slotSize);
-			nfill -= (top - insert);
+			uint nfill = (insert - bottom) & uint.max;
+			insert = e.batchAllocate(insert, nfill, slotSize);
 
 			// If the slab is not full, we are done.
 			if (e.nfree > 0) {
@@ -99,7 +98,8 @@ private:
 		 * http://www.phreedom.org/research/heap-feng-shui/heap-feng-shui.html
 		 */
 
-		return nfill;
+		assert(insert >= bottom);
+		return insert;
 	}
 
 	uint batchFreeImpl(const(void*)[] worklist, PageDescriptor* pds,
