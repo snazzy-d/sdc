@@ -60,18 +60,21 @@ private:
 	) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
+		assert(buffer.length <= uint.max, "Invalid buffer size!");
 
-		auto size = buffer.length;
+		uint nfill = buffer.length & uint.max;
 		auto bottom = buffer.ptr;
 
-		while (size > 0) {
+		while (nfill > 0) {
 			auto e = getSlab(filler, emap, sizeClass);
 			if (unlikely(e is null)) {
 				break;
 			}
 
 			assert(e.nfree > 0);
-			size -= e.batchAllocate(bottom[0 .. size], slotSize);
+			auto top = bottom + nfill;
+			auto insert = e.batchAllocate(top, nfill, slotSize);
+			nfill -= (top - insert);
 
 			// If the slab is not full, we are done.
 			if (e.nfree > 0) {
@@ -96,7 +99,7 @@ private:
 		 * http://www.phreedom.org/research/heap-feng-shui/heap-feng-shui.html
 		 */
 
-		return size;
+		return nfill;
 	}
 
 	uint batchFreeImpl(const(void*)[] worklist, PageDescriptor* pds,
