@@ -6,6 +6,7 @@ import d.gc.size;
 import d.gc.sizeclass;
 import d.gc.slab;
 import d.gc.spec;
+import d.gc.tbin;
 import d.gc.util;
 
 import sdc.intrinsics;
@@ -16,9 +17,25 @@ struct ThreadCache {
 private:
 	CachedExtentMap emap;
 
+	ThreadBin[2 * BinCount] bins;
+	void*[ThreadCacheSize] binBuffer;
+
 public:
 	void initialize(shared(ExtentMap)* emap, shared(Base)* base) {
 		this.emap = CachedExtentMap(emap, base);
+
+		uint sp = 0;
+		uint i = 0;
+
+		foreach (s; 0 .. BinCount) {
+			auto capacity = computeThreadBinCapacity(s);
+
+			bins[sp++] = ThreadBin(binBuffer[i .. i + capacity]);
+			i += capacity;
+
+			bins[sp++] = ThreadBin(binBuffer[i .. i + capacity]);
+			i += capacity;
+		}
 	}
 
 	void* alloc(size_t size, bool containsPointers, bool zero) {
@@ -173,6 +190,26 @@ public:
 		return newPtr;
 	}
 
+	void flushCache() {
+		foreach (ref b; bins) {
+			auto current = b._head;
+			auto stop = b.top;
+
+			while (current < stop) {
+				/**
+				 * This is the stupidiest way to do this, but doing this properly
+				 * would require that we leverage batch free and would have made
+				 * the initial solution even bigger.
+				 * 
+				 * FIXME: Batch free.
+				 */
+				free(*(current++));
+			}
+
+			b._head = stop;
+		}
+	}
+
 private:
 	/**
 	 * Small allocations.
@@ -181,28 +218,42 @@ private:
 		// TODO: in contracts
 		assert(isSmallSize(size));
 
-		void*[1] buffer = void;
-
 		import d.gc.slab;
 		auto sizeClass = getSizeClass(size);
 		auto slotSize = binInfos[sizeClass].slotSize;
 
-		auto arena = chooseArena(containsPointers);
-		auto bottom = buffer.ptr;
-		auto top = bottom + buffer.length;
-		auto insert =
-			arena.batchAllocSmall(emap, sizeClass, top, bottom, slotSize);
-		if (unlikely(insert is top)) {
+		auto ptr = allocSmallBin(sizeClass, slotSize, containsPointers);
+		if (unlikely(ptr is null)) {
 			return null;
 		}
 
-		auto ptr = buffer[0];
-		if (zero) {
-			import d.gc.slab;
+		if (unlikely(zero)) {
 			memset(ptr, 0, slotSize);
 		}
 
 		return ptr;
+	}
+
+	void* allocSmallBin(ubyte sizeClass, uint slotSize, bool containsPointers) {
+		assert(slotSize == binInfos[sizeClass].slotSize, "Invalid slot size!");
+
+		auto index = (2 * sizeClass) | containsPointers;
+		auto bin = &bins[index];
+
+		void* ptr;
+		if (likely(bin.allocate(ptr))) {
+			return ptr;
+		}
+
+		// We need to refill the bin.
+		auto arena = chooseArena(containsPointers);
+		bin.refill(arena, emap, sizeClass, slotSize);
+
+		if (bin.allocateEasy(ptr)) {
+			return ptr;
+		}
+
+		return null;
 	}
 
 	void freeSmall(PageDescriptor pd, void* ptr) {
@@ -326,6 +377,10 @@ private:
 
 		// Go on and on until all worklists are empty.
 		scanner.mark();
+
+		// Make sure we flush the cache while it is still valid.
+		// Alternatively, we could mark them all, but this will do for now.
+		flushCache();
 
 		collect(gcCycle);
 	}
@@ -477,10 +532,17 @@ unittest zero {
 	tc.free(ptr0);
 
 	// Now lets check we zero correctly small allocation.
-	ptr0 = null;
+	ptr0 = tc.alloc(SmallSize, false, true);
 	ptr = tc.alloc(SmallSize, false, true);
 
-	// Make sure this isn't the only allocation on the block.
+	// Make sure we keep the slab alive?
+	while (alignDown(ptr, PageSize) !is alignDown(ptr0, PageSize)) {
+		auto old = ptr0;
+		ptr0 = ptr;
+		ptr = tc.alloc(SmallSize, false, true);
+		tc.free(old);
+	}
+
 	if (isAligned(ptr, BlockSize)) {
 		ptr0 = ptr;
 		ptr = tc.alloc(SmallSize, false, true);
@@ -492,14 +554,26 @@ unittest zero {
 	*uptr = 0xbadc0ffee0ddf00d;
 	assert(*uptr == 0xbadc0ffee0ddf00d);
 
-	// Now free and reallocate, check we get back the same slot.
+	static reallocatePtr(ref ThreadCache tc, void* ptr, bool zero) {
+		void* nptr;
+		while (nptr !is ptr) {
+			auto old = nptr;
+			nptr = tc.alloc(SmallSize, false, zero);
+
+			if (old) {
+				tc.free(old);
+			}
+		}
+	}
+
+	// Now free and reallocate.
 	tc.free(ptr);
-	assert(tc.alloc(SmallSize, false, false) is ptr);
+	reallocatePtr(tc, ptr, false);
 	assert(*uptr == 0xbadc0ffee0ddf00d);
 
 	// We free and reallocate, but asking for zeroed memory.
 	tc.free(ptr);
-	assert(tc.alloc(SmallSize, false, true) is ptr);
+	reallocatePtr(tc, ptr, true);
 	assert(*uptr == 0);
 
 	// Cleanup after ourselves.

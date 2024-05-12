@@ -54,6 +54,10 @@ void* __sd_gc_realloc(void* ptr, size_t size) {
 	return threadCache.realloc(ptr, size, true);
 }
 
+void __sd_gc_tl_flush_cache() {
+	threadCache.flushCache();
+}
+
 /**
  * Garbage collection cycles.
  */
