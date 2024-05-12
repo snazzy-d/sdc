@@ -127,17 +127,17 @@ public:
 
 		auto dallocSlabs = cast(Extent**) alloca(worklist.length * PointerSize);
 
-		uint dallocCount = 0;
-		scope(success) if (dallocCount > 0) {
-			foreach (i; 0 .. dallocCount) {
+		uint ndalloc = 0;
+		scope(success) if (ndalloc > 0) {
+			foreach (i; 0 .. ndalloc) {
 				// FIXME: batch free to go through the lock once.
 				filler.freeExtent(emap, dallocSlabs[i]);
 			}
 		}
 
 		auto ec = pds[0].extentClass;
-		return bins[ec.sizeClass]
-			.batchFree(worklist, pds, dallocSlabs, dallocCount);
+		return
+			bins[ec.sizeClass].batchFree(worklist, pds, dallocSlabs, ndalloc);
 	}
 
 	/**

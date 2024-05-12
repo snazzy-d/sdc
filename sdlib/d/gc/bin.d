@@ -43,12 +43,12 @@ struct Bin {
 	}
 
 	uint batchFree(const(void*)[] worklist, PageDescriptor* pds,
-	               Extent** dallocSlabs, ref uint dallocCount) shared {
+	               Extent** dallocSlabs, ref uint ndalloc) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
 		return (cast(Bin*) &this)
-			.batchFreeImpl(worklist, pds, dallocSlabs, dallocCount);
+			.batchFreeImpl(worklist, pds, dallocSlabs, ndalloc);
 	}
 
 private:
@@ -103,7 +103,7 @@ private:
 	}
 
 	uint batchFreeImpl(const(void*)[] worklist, PageDescriptor* pds,
-	                   Extent** dallocSlabs, ref uint dallocCount) {
+	                   Extent** dallocSlabs, ref uint ndalloc) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(worklist.length > 0, "Worklist is empty!");
@@ -113,6 +113,7 @@ private:
 		auto a = pds[0].arenaIndex;
 		auto ec = pds[0].extentClass;
 		auto bi = binInfos[ec.sizeClass];
+		auto nslots = bi.nslots;
 
 		foreach (i, ptr; worklist) {
 			auto pd = pds[i];
@@ -132,37 +133,26 @@ private:
 			assert(se.computeAddress() is ptr,
 			       "ptr does not point to the start of the slot!");
 
-			if (freeImpl(e, se.index, bi.nslots)) {
-				dallocSlabs[dallocCount++] = e;
+			e.free(se.index);
+
+			auto nfree = e.nfree;
+			if (nfree == nslots) {
+				// If we only had one slot, we never got added to the heap.
+				if (nslots > 1) {
+					slabs.remove(e);
+				}
+
+				dallocSlabs[ndalloc++] = e;
+			}
+
+			if (nfree == 1) {
+				// Newly non empty.
+				assert(nslots > 1);
+				slabs.insert(e);
 			}
 		}
 
 		return ndeferred;
-	}
-
-	bool freeImpl(Extent* e, uint index, uint nslots) {
-		// FIXME: in contract.
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		e.free(index);
-
-		auto nfree = e.nfree;
-		if (nfree == nslots) {
-			// If we only had one slot, we never got added to the heap.
-			if (nslots > 1) {
-				slabs.remove(e);
-			}
-
-			return true;
-		}
-
-		if (nfree == 1) {
-			// Newly non empty.
-			assert(nslots > 1);
-			slabs.insert(e);
-		}
-
-		return false;
 	}
 
 	auto getSlab(shared(PageFiller)* filler, ref CachedExtentMap emap,
