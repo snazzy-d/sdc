@@ -28,10 +28,10 @@ with the C API are considered to possibly contain pointers.
 ## Size class
 
 Dalloc separates allocation sizes in classes. Computing size classes in an
-apropriate way is essential: if there aren't enough size classes, we are going to
-see a lot of internal fragmentation - space unused within allocations.
-But if we have too many, we will often be unable to reuse gaps
-between allocations, creating external fragmentation.
+apropriate way is essential: if there aren't enough size classes, we are going
+to see a lot of internal fragmentation - space unused within allocations. But if
+we have too many, we will often be unable to reuse gaps between allocations,
+creating external fragmentation.
 
 Dalloc uses size classes of the form `[4, 5, 6, 7] * 2^n` which provides 2 bits
 of precision. This strategy is similar to the one used by jemalloc, as it turns
@@ -39,17 +39,17 @@ out to be a good tradeoff in practice.
 
 ## Extent and the Extent Map
 
-Each memory allocation is represented by an *Extent*. Each extent runs over a
+Each memory allocation is represented by an _Extent_. Each extent runs over a
 number of 4kb pages. Large allocations are rounded up to the closest number of
 pages.
 
-For small allocations, we use a special kind of Extent called a *Slab*. A Slab
+For small allocations, we use a special kind of Extent called a _Slab_. A Slab
 allocates several slots at once, and contains a bitmap indicating which slots
 are allocated or not.
 
 In order to find an extent from an address, which is required to implement
 `free` and for the marking phase of a garbage collection cycle, we use the
-*Extent Map*. We assume an address space of 48bits in size, and 12 of these are
+_Extent Map_. We assume an address space of 48bits in size, and 12 of these are
 adressing within a page. This leaves us with 36bits to map from an address to an
 Extent.
 
@@ -57,8 +57,8 @@ To do so, we use a 2 level radix tree. The first level is an array of 2^18
 pointers to the next level of the tree. It is initially filled with null
 pointers, which means no physical memory is mapped in the address range. The
 second level is an array of 2^18 page descriptors. The page descriptor contains
-various information about what's in that page, including a pointer to the related
-Extent if apropriate.
+various information about what's in that page, including a pointer to the
+related Extent if apropriate.
 
 The Extent Map is lock-free, so multithreaded applications can employ concurrent
 mark algorithms at full speed.
@@ -108,24 +108,24 @@ Level 1 : 0x003fe
 
 ## Region allocator
 
-At the root of dalloc lies the *Region Allocator*. The Region Allocator
-requests and tracks ranges of address space from the OS.
+At the root of dalloc lies the _Region Allocator_. The Region Allocator requests
+and tracks ranges of address space from the OS.
 
 It requests region of memory from the system by chunks of 1GB or more for
 allocations larger than 1GB. The address space is never returned to the OS, but
 the memory itself can be.
 
-Two Region Allocators are in use: one to track regions that may contain pointers,
-and one for regions that may not. This ensures that we can easily identify the
-address space used for data that contains pointers, and leverage the MMU to do
-write barriers, for instance.
+Two Region Allocators are in use: one to track regions that may contain
+pointers, and one for regions that may not. This ensures that we can easily
+identify the address space used for data that contains pointers, and leverage
+the MMU to do write barriers, for instance.
 
 ## Arenas
 
-Dalloc comes with 4096 pre allocated *Arenas*. Because they are all
+Dalloc comes with 4096 pre allocated _Arenas_. Because they are all
 zero-initialized, they do not take any memory in practice unless they are used.
-Half of the arenas are for allocations that may contain pointers and the other half
-for allocations that may not.
+Half of the arenas are for allocations that may contain pointers and the other
+half for allocations that may not.
 
 Arenas will request blocks (2MB) from the region allocator and allocate ranges
 of 4kb pages from them. Each block used by the arena comes with a page
@@ -146,20 +146,20 @@ way, finding a block from which to allocate can be extremely quick.
 
 For each small size class, the arena contains a bin from which small allocations
 can be done. Each bin contains a pairing heap of all the non-full Slabs of that
-size class that the arena handles. In case a bin runs out of Slabs, a new Slab is
-allocated using the same strategy as large allocations.
+size class that the arena handles. In case a bin runs out of Slabs, a new Slab
+is allocated using the same strategy as large allocations.
 
 ## Thread Cache
 
 **/!\ Thread caches are not fully implemented as this time!**
 
-Each thread that allocates memory has a *Thread Local Cache*. Small allocations
+Each thread that allocates memory has a _Thread Local Cache_. Small allocations
 are typically served from the cache, and the cache is refilled in bulk from the
 arena when it runs out. When freeing elements, they are not actually freed, but
 instead put in the thread cache for later reuse. Elements are released in batch
 when the cache grows too large.
 
-This mechanism ensures that most of the allocations avoid any possible contention
-and are served as fast as possible. In addition, this improves the locality of
-allocation on a per thread basis as they come from the same batch of
+This mechanism ensures that most of the allocations avoid any possible
+contention and are served as fast as possible. In addition, this improves the
+locality of allocation on a per thread basis as they come from the same batch of
 allocations, which reduces pressure on the TLB.
