@@ -831,16 +831,20 @@ unittest arraySpill {
 			return tc.alloc(size, false, false);
 		}
 
-		void*[2] tryPair(void* left, void* right) {
-			assert(left !is null);
-			assert(right !is null);
+		void*[2] tryPair(void* a, void* b) {
+			assert(a !is null);
+			assert(b !is null);
 
-			if (left + size is right) {
-				return [left, right];
+			if (a + size is b) {
+				return [a, b];
 			}
 
-			auto pair = tryPair(right, alloc());
-			tc.free(left);
+			if (b + size is a) {
+				return [b, a];
+			}
+
+			auto pair = tryPair(b, alloc());
+			tc.free(a);
 			return pair;
 		}
 
