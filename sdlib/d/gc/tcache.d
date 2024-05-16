@@ -61,42 +61,6 @@ public:
 		return ptr;
 	}
 
-	void* allocSmall(size_t size, bool containsPointers, bool zero) {
-		// TODO: in contracts
-		assert(isSmallSize(size));
-
-		void*[1] buffer = void;
-
-		import d.gc.slab;
-		auto sizeClass = getSizeClass(size);
-		auto slotSize = binInfos[sizeClass].slotSize;
-
-		auto arena = chooseArena(containsPointers);
-		auto bottom = buffer.ptr;
-		auto top = bottom + buffer.length;
-		auto insert =
-			arena.batchAllocSmall(emap, sizeClass, top, bottom, slotSize);
-		if (unlikely(insert is top)) {
-			return null;
-		}
-
-		auto ptr = buffer[0];
-		if (zero) {
-			import d.gc.slab;
-			memset(ptr, 0, slotSize);
-		}
-
-		return ptr;
-	}
-
-	void* allocLarge(size_t size, bool containsPointers, bool zero) {
-		// TODO: in contracts
-		assert(isAllocatableSize(size));
-
-		auto arena = chooseArena(containsPointers);
-		return arena.allocLarge(emap, size, zero);
-	}
-
 	void free(void* ptr) {
 		if (ptr is null) {
 			return;
@@ -112,19 +76,6 @@ public:
 		} else {
 			freeLarge(pd);
 		}
-	}
-
-	void freeSmall(PageDescriptor pd, void* ptr) {
-		assert(pd.isSlab(), "Slab expected!");
-
-		auto worklist = (&ptr)[0 .. 1];
-		pd.arena.batchFree(emap, worklist, &pd);
-	}
-
-	void freeLarge(PageDescriptor pd) {
-		assert(!pd.isSlab(), "Slab are not supported!");
-
-		pd.arena.freeLarge(emap, pd.extent);
 	}
 
 	void destroy(void* ptr) {
@@ -220,6 +171,62 @@ public:
 		free(pd, ptr);
 
 		return newPtr;
+	}
+
+private:
+	/**
+	 * Small allocations.
+	 */
+	void* allocSmall(size_t size, bool containsPointers, bool zero) {
+		// TODO: in contracts
+		assert(isSmallSize(size));
+
+		void*[1] buffer = void;
+
+		import d.gc.slab;
+		auto sizeClass = getSizeClass(size);
+		auto slotSize = binInfos[sizeClass].slotSize;
+
+		auto arena = chooseArena(containsPointers);
+		auto bottom = buffer.ptr;
+		auto top = bottom + buffer.length;
+		auto insert =
+			arena.batchAllocSmall(emap, sizeClass, top, bottom, slotSize);
+		if (unlikely(insert is top)) {
+			return null;
+		}
+
+		auto ptr = buffer[0];
+		if (zero) {
+			import d.gc.slab;
+			memset(ptr, 0, slotSize);
+		}
+
+		return ptr;
+	}
+
+	void freeSmall(PageDescriptor pd, void* ptr) {
+		assert(pd.isSlab(), "Slab expected!");
+
+		auto worklist = (&ptr)[0 .. 1];
+		pd.arena.batchFree(emap, worklist, &pd);
+	}
+
+	/**
+	 * Large allocations.
+	 */
+	void* allocLarge(size_t size, bool containsPointers, bool zero) {
+		// TODO: in contracts
+		assert(isAllocatableSize(size));
+
+		auto arena = chooseArena(containsPointers);
+		return arena.allocLarge(emap, size, zero);
+	}
+
+	void freeLarge(PageDescriptor pd) {
+		assert(!pd.isSlab(), "Slab are not supported!");
+
+		pd.arena.freeLarge(emap, pd.extent);
 	}
 
 	/**
