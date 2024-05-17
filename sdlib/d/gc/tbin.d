@@ -78,10 +78,12 @@ public:
 	}
 
 	void flush(ref CachedExtentMap emap) {
-		auto stop = top;
-		scope(success) _head = stop;
+		auto n = ncached;
+		auto worklist = _head[0 .. n];
 
-		auto worklist = _head[0 .. stop - _head];
+		_head += n;
+		_low_water = _top;
+
 		auto pds = cast(PageDescriptor*)
 			alloca(worklist.length * PageDescriptor.sizeof);
 
@@ -132,6 +134,16 @@ private:
 	@property
 	void** bottom() const {
 		return adjustLower(_bottom);
+	}
+
+	@property
+	ushort ncached() const {
+		return delta(current, _top) / PointerSize;
+	}
+
+	@property
+	ushort nstashed() const {
+		return delta(_bottom, _available) / PointerSize;
 	}
 
 	/**
