@@ -535,10 +535,15 @@ alias PriorityExtentHeap = Heap!(Extent, priorityExtentCmp);
  *        A better approach would be to prefers older slabs/blocks, which
  *        are more likely to contain "immortal" elements, and discriminate
  *        on address to tie break.
+ * 
+ * Note:
+ * This used to use the bits in the Extent, but now we simply use the address.
+ * This works, contrary to the previous approach which could lead to heap
+ * corrpution, but still not idea. We probably want to target older blocks.
  */
 ptrdiff_t priorityExtentCmp(Extent* lhs, Extent* rhs) {
-	auto l = lhs.bits;
-	auto r = rhs.bits;
+	auto l = cast(size_t) lhs.address;
+	auto r = cast(size_t) rhs.address;
 
 	return (l > r) - (l < r);
 }
@@ -571,6 +576,15 @@ unittest priority {
 	heap.insert(&e1);
 	assert(heap.top is &e1);
 
+	/**
+	 * FIXME: The tests here were based on the use of bits.
+	 *        This can lead to corruption, but simply using
+	 *        the address is not satisfactory.
+	 *        The test was left commented as exemple of what
+	 *        the test for a proper implementation of this
+	 *        function could look like.
+	 */
+	/+
 	// But more allocations is even better!
 	auto e2 = makeExtent(maxPtr, 500);
 	heap.insert(&e2);
@@ -602,6 +616,7 @@ unittest priority {
 	assert(heap.pop() is &e1);
 	assert(heap.pop() is &e0);
 	assert(heap.pop() is null);
+	// +/
 }
 
 alias UnusedExtentHeap = Heap!(Extent, unusedExtentCmp);
