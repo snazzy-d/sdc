@@ -77,6 +77,29 @@ public:
 			arena.batchAllocSmall(emap, sizeClass, _head, available, slotSize);
 	}
 
+	bool freeEasy(void* ptr) {
+		if (unlikely(full)) {
+			return false;
+		}
+
+		*(--_head) = ptr;
+		return true;
+	}
+
+	void free(ref CachedExtentMap emap, PageDescriptor pd, void* ptr) {
+		if (likely(freeEasy(ptr))) {
+			return;
+		}
+
+		/**
+		 * FIXME: Ideally, we'd like to target getting the bin half full instead
+		 *        of flushing it completely. This ensures we don't find ourselves
+		 *        with an almost empty bin.
+		 */
+		flush(emap);
+		freeEasy(ptr);
+	}
+
 	void flush(ref CachedExtentMap emap) {
 		auto n = ncached;
 		auto worklist = _head[0 .. n];

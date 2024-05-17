@@ -37,7 +37,6 @@ L[S / 128] ls;
 
 extern(C) void __sd_gc_free(void* ptr);
 extern(C) void* __sd_gc_realloc(void* ptr, size_t size);
-extern(C) void __sd_gc_tl_flush_cache();
 extern(C) void __sd_gc_collect();
 
 void main() {
@@ -109,7 +108,6 @@ void main() {
 	auto r1 = __sd_gc_realloc(r0, 150);
 	assert(r1 !is r0);
 
-	__sd_gc_tl_flush_cache();
 	r1 = __sd_gc_realloc(r1, 50);
 	assert(r1 is r0);
 

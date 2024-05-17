@@ -248,8 +248,9 @@ private:
 	void freeSmall(PageDescriptor pd, void* ptr) {
 		assert(pd.isSlab(), "Slab expected!");
 
-		auto worklist = (&ptr)[0 .. 1];
-		pd.arena.batchFree(emap, worklist, &pd);
+		auto ec = pd.extentClass;
+		auto index = getBinIndex(ec.sizeClass, pd.containsPointers);
+		bins[index].free(emap, pd, ptr);
 	}
 
 	/**
