@@ -10,9 +10,9 @@ import sdc.intrinsics;
 /**
  * Some thread cache configuration parameters.
  */
-enum ThreadBinSlotsMultiplier = 2;
-enum ThreadBinMaxCapacity = 200;
-enum ThreadBinMinCapacity = 20;
+enum SlotsMultiplier = 2;
+enum MaxCapacity = 200;
+enum MinCapacity = 20;
 
 /**
  * The ThreadBin manages a cache associated with a given size class.
@@ -208,7 +208,7 @@ bool isValidThreadBinCapacity(uint capacity) {
 		return false;
 	}
 
-	return ThreadBinMinCapacity <= capacity && capacity <= ThreadBinMaxCapacity;
+	return MinCapacity <= capacity && capacity <= MaxCapacity;
 }
 
 uint computeThreadBinCapacity(uint sizeClass) {
@@ -216,7 +216,7 @@ uint computeThreadBinCapacity(uint sizeClass) {
 
 	import d.gc.slab;
 	auto nslots = binInfos[sizeClass].nslots;
-	auto capacity = nslots * ThreadBinSlotsMultiplier;
+	auto capacity = nslots * SlotsMultiplier;
 
 	// Ensure the capacity is even.
 	// This simplifies the code in various places because we can
@@ -224,16 +224,13 @@ uint computeThreadBinCapacity(uint sizeClass) {
 	capacity += (capacity % 2);
 
 	// Clamp the capacity to ensure sensible bin size in practice.
-	assert(ThreadBinMinCapacity <= ThreadBinMaxCapacity,
-	       "Inconsistent ThreadBin spec!");
-	assert(isValidThreadBinCapacity(ThreadBinMinCapacity),
-	       "Invalid minimum capacity!");
-	assert(isValidThreadBinCapacity(ThreadBinMaxCapacity),
-	       "Invalid maximum capacity!");
+	assert(MinCapacity <= MaxCapacity, "Inconsistent ThreadBin spec!");
+	assert(isValidThreadBinCapacity(MinCapacity), "Invalid minimum capacity!");
+	assert(isValidThreadBinCapacity(MaxCapacity), "Invalid maximum capacity!");
 
 	import d.gc.util;
-	capacity = max(capacity, ThreadBinMinCapacity);
-	capacity = min(capacity, ThreadBinMaxCapacity);
+	capacity = max(capacity, MinCapacity);
+	capacity = min(capacity, MaxCapacity);
 
 	assert(isValidThreadBinCapacity(capacity), "Invalid computed capacity!");
 	return capacity;
