@@ -26,9 +26,9 @@ enum MinCapacity = 20;
  * The cache is a buffer containing pointers organised as follow:
  * 
  * low address                                        high address
- * |----- returned -----|----- available -----|----- cached -----|
- * ^                    ^                     ^      ^           ^
- * bottom               available             head   low water   top
+ * |----- stashed -----|----- available -----|----- cached -----|
+ * ^                   ^                     ^      ^           ^
+ * bottom              available             head   low water   top
  * 
  * Because the buffer is never larger than 64k, we can store exclusively
  * the lower 16-bits of all the pointer above except one. This ensures
