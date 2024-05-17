@@ -170,7 +170,6 @@ public:
 				return ptr;
 			}
 
-			import d.gc.util;
 			copySize = min(size, e.usedCapacity);
 		}
 
@@ -192,21 +191,7 @@ public:
 
 	void flushCache() {
 		foreach (ref b; bins) {
-			auto current = b._head;
-			auto stop = b.top;
-
-			while (current < stop) {
-				/**
-				 * This is the stupidiest way to do this, but doing this properly
-				 * would require that we leverage batch free and would have made
-				 * the initial solution even bigger.
-				 * 
-				 * FIXME: Batch free.
-				 */
-				free(*(current++));
-			}
-
-			b._head = stop;
+			b.flush(emap);
 		}
 	}
 
@@ -234,10 +219,14 @@ private:
 		return ptr;
 	}
 
+	static uint getBinIndex(ubyte sizeClass, bool containsPointers) {
+		return 2 * sizeClass | containsPointers;
+	}
+
 	void* allocSmallBin(ubyte sizeClass, uint slotSize, bool containsPointers) {
 		assert(slotSize == binInfos[sizeClass].slotSize, "Invalid slot size!");
 
-		auto index = (2 * sizeClass) | containsPointers;
+		auto index = getBinIndex(sizeClass, containsPointers);
 		auto bin = &bins[index];
 
 		void* ptr;
@@ -447,7 +436,6 @@ private:
 	}
 
 	auto maybeGetPageDescriptor(const void* ptr) {
-		import d.gc.util;
 		auto aptr = alignDown(ptr, PageSize);
 		return emap.lookup(aptr);
 	}

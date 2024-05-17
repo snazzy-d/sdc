@@ -77,6 +77,26 @@ public:
 			arena.batchAllocSmall(emap, sizeClass, _head, available, slotSize);
 	}
 
+	void flush(ref CachedExtentMap emap) {
+		auto stop = top;
+		scope(success) _head = stop;
+
+		auto worklist = _head[0 .. stop - _head];
+		auto pds = cast(PageDescriptor*)
+			alloca(worklist.length * PageDescriptor.sizeof);
+
+		foreach (i, ptr; worklist) {
+			import d.gc.util;
+			auto aptr = alignDown(ptr, PageSize);
+			pds[i] = emap.lookup(aptr);
+		}
+
+		while (worklist.length > 0) {
+			auto ndeferred = pds[0].arena.batchFree(emap, worklist, pds);
+			worklist = worklist[0 .. ndeferred];
+		}
+	}
+
 private:
 	@property
 	ushort current() const {
