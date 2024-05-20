@@ -281,8 +281,9 @@ private:
 		if (block.empty) {
 			releaseBlock(e, block);
 		} else {
-			// If the extent is huge, we need to release the concerned region.
-			if (e.isHuge()) {
+			// If the extent is larger than a block,
+			// we need to release the extra region.
+			if (e.npages > PagesInBlock) {
 				mutex.unlock();
 				scope(exit) mutex.lock();
 

@@ -143,6 +143,7 @@ private:
 				}
 
 				dallocSlabs[ndalloc++] = e;
+				continue;
 			}
 
 			if (nfree == 1) {
