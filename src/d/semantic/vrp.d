@@ -238,7 +238,7 @@ public:
 				auto t = getBuiltin(e.type);
 				return getRange(t);
 
-			case IntToBool:
+			case IntToBool, PtrToBool:
 				static doTheDMDMonkeyDance(R)(R r) {
 					return VR(!r.containsZero, r != R(0));
 				}

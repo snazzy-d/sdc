@@ -43,3 +43,20 @@ unittest types {
 	assert(vptr1 - vptr0 == 4);
 	assert(vptr0 - vptr1 == -4);
 }
+
+unittest ptr_to_bool {
+	auto ptr0 = null;
+	assert(!ptr0);
+
+	auto ptr1 = cast(void*) null;
+	assert(!ptr1);
+
+	auto ptr2 = cast(void*) 0x1234567890;
+	assert(ptr2);
+
+	auto ptr3 = cast(void*) 0xffffffffffff;
+	assert(ptr3);
+
+	auto ptr4 = &ptr2;
+	assert(ptr4);
+}

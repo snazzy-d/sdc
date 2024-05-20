@@ -348,6 +348,10 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				assert(0, "Floating point casts are not implemented");
 
 			case Null:
+				if (canConvertToIntegral(bt)) {
+					return CastKind.PtrToInt;
+				}
+
 				return CastKind.Invalid;
 		}
 	}
@@ -360,7 +364,15 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		// It is also possible to cast to integral explicitely.
 		if (isExplicit && to.kind == TypeKind.Builtin) {
-			if (canConvertToIntegral(to.builtin)) {
+			auto bt = to.builtin;
+			if (bt == BuiltinType.Bool) {
+				return CastKind.PtrToBool;
+			}
+
+			// We might want to ensure that the size is right and
+			// refuse to cast if it isn't. This would avoid bugs
+			// due to unintended truncations.
+			if (canConvertToIntegral(bt)) {
 				return CastKind.PtrToInt;
 			}
 		}

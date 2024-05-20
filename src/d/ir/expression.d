@@ -477,6 +477,7 @@ enum CastKind {
 	PtrToInt,
 	Down,
 	IntToBool,
+	PtrToBool,
 	Trunc,
 	UPad,
 	SPad,
@@ -511,6 +512,7 @@ class CastExpression : Expression {
 			case PtrToInt:
 			case Down:
 			case IntToBool:
+			case PtrToBool:
 			case Trunc:
 			case UPad:
 			case SPad:
