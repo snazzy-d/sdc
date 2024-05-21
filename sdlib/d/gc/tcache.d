@@ -24,7 +24,7 @@ __gshared typeof(&__dummy) __sd_destroyBlockCtx;
 void finalizeSlabAllocInfo(ref SlabAllocInfo si)
 {
     auto finalizer = si.finalizer;
-	printf("Checking address %p, with finalizer %p\n", si.address, finalizer);
+	//printf("Checking address %p, with finalizer %p\n", si.address, finalizer);
 	if(finalizer == null)
 		// no finalizer
 		return;

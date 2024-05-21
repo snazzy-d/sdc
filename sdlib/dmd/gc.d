@@ -73,18 +73,19 @@ void __sd_gc_druntime_qalloc(BlkInfo* result, size_t size, uint bits,
 	// all the rest are ignored for now.
 	if (appendable || finalizer !is null) {
         import core.stdc.stdio;
-        printf("In sdc qalloc, with finalizer or appendable: %p\n", finalizer);
+        //printf("In sdc qalloc, with finalizer or appendable: %p\n", finalizer);
 		result.base = threadCache
 			.allocAppendable(size, hasPointers, hasPointers, finalizer);
-        printf("allocated address %p\n", result.base);
+        //printf("allocated address %p\n", result.base);
 	} else {
 		result.base = threadCache.alloc(size, hasPointers, hasPointers);
 	}
 
 	// printf("returning pointer %p\n", result.base);
-	//result.size = size;
+	result.size = size;
 
-	if (result.base) {
+    // note, we may not need this code, and probably shouldn't use it.
+	/*if (result.base) {
 		if (appendable) {
 			// figure out the capacity, set it to max, and then use that size
 			// for the caller.
@@ -106,7 +107,7 @@ void __sd_gc_druntime_qalloc(BlkInfo* result, size_t size, uint bits,
 				result.size = e.usedCapacity;
 			}
 		}
-	}
+	}*/
 
 	result.attr = bits & (BlkAttr.APPENDABLE | BlkAttr.NO_SCAN);
 	//return result;
