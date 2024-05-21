@@ -20,10 +20,9 @@ extern(C) void __dummy(void *, size_t, void *);
 //alias finalizeFn = typeof(&__dummy);
 __gshared typeof(&__dummy) __sd_destroyBlockCtx;
 
-// only call this on SAI with finalizers.
 void finalizeSlabAllocInfo(ref SlabAllocInfo si)
 {
-    auto finalizer = si.finalizer;
+	auto finalizer = si.finalizer;
 	//printf("Checking address %p, with finalizer %p\n", si.address, finalizer);
 	if(finalizer == null)
 		// no finalizer
@@ -41,34 +40,34 @@ void finalizeSlabAllocInfo(ref SlabAllocInfo si)
 
 void finalizeSlab(ref SlabAllocInfo si, void *ptr)
 {
-    auto finalizer = si.finalizer;
-    if (finalizer !is null)
-    {
-        assert(cast(void*) si.address == ptr,
-                "destroy() was invoked on an interior pointer!");
-        if(__sd_destroyBlockCtx !is null)
-            __sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
-        else
-        {
-            alias FinalizerFunctionType =
-                void function(void* ptr, size_t size);
-            (cast(FinalizerFunctionType)finalizer)(ptr, si.usedCapacity);
-        }
-    }
+	auto finalizer = si.finalizer;
+	if (finalizer !is null)
+	{
+		assert(cast(void*) si.address == ptr,
+				"destroy() was invoked on an interior pointer!");
+		if(__sd_destroyBlockCtx !is null)
+			__sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
+		else
+		{
+			alias FinalizerFunctionType =
+				void function(void* ptr, size_t size);
+			(cast(FinalizerFunctionType)finalizer)(ptr, si.usedCapacity);
+		}
+	}
 }
 
 void finalizeExtent(Extent *e, void *ptr)
 {
-    if (e.finalizer !is null) {
-        if(__sd_destroyBlockCtx !is null)
-            __sd_destroyBlockCtx(ptr, e.usedCapacity, e.finalizer);
-        else
-        {
-            alias FinalizerFunctionType =
-                void function(void* ptr, size_t size);
-            (cast(FinalizerFunctionType)e.finalizer)(ptr, e.usedCapacity);
-        }
-    }
+	if (e.finalizer !is null) {
+		if(__sd_destroyBlockCtx !is null)
+			__sd_destroyBlockCtx(ptr, e.usedCapacity, e.finalizer);
+		else
+		{
+			alias FinalizerFunctionType =
+				void function(void* ptr, size_t size);
+			(cast(FinalizerFunctionType)e.finalizer)(ptr, e.usedCapacity);
+		}
+	}
 }
 
 struct ThreadCache {
@@ -170,10 +169,10 @@ public:
 
 		if (likely(pd.isSlab())) {
 			auto si = SlabAllocInfo(pd, ptr);
-            finalizeSlab(si, ptr);
+			finalizeSlab(si, ptr);
 			freeSmall(pd, ptr);
 		} else {
-            finalizeExtent(e, ptr);
+			finalizeExtent(e, ptr);
 			freeLarge(pd);
 		}
 	}
