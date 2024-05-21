@@ -71,10 +71,12 @@ void __sd_gc_druntime_qalloc(BlkInfo* result, size_t size, uint bits,
 	//BlkInfo result;
 
 	// all the rest are ignored for now.
-	if (appendable) {
+	if (appendable || finalizer !is null) {
+        import core.stdc.stdio;
+        printf("In sdc qalloc, with finalizer or appendable: %p\n", finalizer);
 		result.base = threadCache
-			.allocAppendable(size, hasPointers, hasPointers,
-			                 cast(Finalizer) finalizer);
+			.allocAppendable(size, hasPointers, hasPointers, finalizer);
+        printf("allocated address %p\n", result.base);
 	} else {
 		result.base = threadCache.alloc(size, hasPointers, hasPointers);
 	}

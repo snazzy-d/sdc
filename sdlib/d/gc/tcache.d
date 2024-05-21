@@ -8,10 +8,68 @@ import d.gc.slab;
 import d.gc.spec;
 import d.gc.tbin;
 import d.gc.util;
+import d.gc.extent;
 
 import sdc.intrinsics;
 
+import core.stdc.stdio;
+
 ThreadCache threadCache;
+
+extern(C) void __dummy(void *, size_t, void *);
+//alias finalizeFn = typeof(&__dummy);
+__gshared typeof(&__dummy) __sd_destroyBlockCtx;
+
+// only call this on SAI with finalizers.
+void finalizeSlabAllocInfo(ref SlabAllocInfo si)
+{
+    auto finalizer = si.finalizer;
+	printf("Checking address %p, with finalizer %p\n", si.address, finalizer);
+	if(finalizer == null)
+		// no finalizer
+		return;
+
+	if(__sd_destroyBlockCtx !is null)
+		__sd_destroyBlockCtx(cast(void *)si.address, si.usedCapacity - PointerSize, finalizer);
+	else
+	{
+		alias FinalizerFunctionType =
+			void function(void* ptr, size_t size);
+		(cast(FinalizerFunctionType)finalizer)(cast(void *)si.address, si.usedCapacity - PointerSize);
+	}
+}
+
+void finalizeSlab(ref SlabAllocInfo si, void *ptr)
+{
+    auto finalizer = si.finalizer;
+    if (finalizer !is null)
+    {
+        assert(cast(void*) si.address == ptr,
+                "destroy() was invoked on an interior pointer!");
+        if(__sd_destroyBlockCtx !is null)
+            __sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
+        else
+        {
+            alias FinalizerFunctionType =
+                void function(void* ptr, size_t size);
+            (cast(FinalizerFunctionType)finalizer)(ptr, si.usedCapacity);
+        }
+    }
+}
+
+void finalizeExtent(Extent *e, void *ptr)
+{
+    if (e.finalizer !is null) {
+        if(__sd_destroyBlockCtx !is null)
+            __sd_destroyBlockCtx(ptr, e.usedCapacity, e.finalizer);
+        else
+        {
+            alias FinalizerFunctionType =
+                void function(void* ptr, size_t size);
+            (cast(FinalizerFunctionType)e.finalizer)(ptr, e.usedCapacity);
+        }
+    }
+}
 
 struct ThreadCache {
 private:
@@ -112,20 +170,10 @@ public:
 
 		if (likely(pd.isSlab())) {
 			auto si = SlabAllocInfo(pd, ptr);
-			auto finalizer = si.finalizer;
-			if (finalizer !is null) {
-				assert(cast(void*) si.address == ptr,
-				       "destroy() was invoked on an interior pointer!");
-
-				finalizer(ptr, si.usedCapacity);
-			}
-
+            finalizeSlab(si, ptr);
 			freeSmall(pd, ptr);
 		} else {
-			if (e.finalizer !is null) {
-				e.finalizer(ptr, e.usedCapacity);
-			}
-
+            finalizeExtent(e, ptr);
 			freeLarge(pd);
 		}
 	}

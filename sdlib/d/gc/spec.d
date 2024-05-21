@@ -58,4 +58,4 @@ enum ArenaMask = ArenaCount - 1;
 enum PurgePageThresold = 16 * PageSize;
 
 // GC-specific items
-alias Finalizer = void function(void* ptr, size_t size);
+alias Finalizer = void *;//void function(void* ptr, size_t size);
