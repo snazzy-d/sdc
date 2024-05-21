@@ -57,20 +57,15 @@ public:
 	}
 
 	void mark() {
-		while (worklist.length > 0) {
-			auto w = worklist;
-			auto i = cursor;
-
-			worklist = [];
-			cursor = 0;
-
-			while (i-- > 0) {
-				scan(w[i]);
-			}
-
-			import d.gc.tcache;
-			threadCache.free(w.ptr);
+		while (cursor > 0) {
+			scan(worklist[--cursor]);
 		}
+
+		import d.gc.tcache;
+		threadCache.free(worklist.ptr);
+
+		worklist = [];
+		cursor = 0;
 	}
 
 private:
