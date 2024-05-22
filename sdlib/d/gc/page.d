@@ -725,15 +725,14 @@ private:
 					auto oldOccupancy = e.slabData.rawContent[i];
 					auto newOccupancy = oldOccupancy & bmp[i];
 
-					if(ec.supportsMetadata)
-					{
+					if (ec.supportsMetadata) {
 						auto toRemove = oldOccupancy ^ newOccupancy;
 						//import core.stdc.stdio;
 						//printf("checking bits %lx\n", toRemove);
 
 						// run all the finalizers that are set
 						auto baseidx = i * 64;
-						while(toRemove != 0) {
+						while (toRemove != 0) {
 							auto idx = countTrailingZeros(toRemove) + baseidx;
 							//printf("e.address is %p, idx is %ld\n", e.address, idx);
 							auto ptr = e.address + idx * binInfos[sc].slotSize;
@@ -745,7 +744,6 @@ private:
 							toRemove ^= 1UL << idx;
 						}
 					}
-
 
 					occupancyMask |= newOccupancy;
 					count += popCount(oldOccupancy ^ newOccupancy);
