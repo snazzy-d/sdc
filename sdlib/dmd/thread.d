@@ -10,28 +10,23 @@ void thread_resumeAll();
 // cannot call thread_scanAll directly. This requires a hook compiled
 // on the druntime side that forwards to thread_scanAll, and we cannot
 // use delegates (as those are not the same ABI)
-// the context pointer is the SDC-defined object that will run the scan
-// (ThreadScanner).
-void __sd_scanAllThreadsFn(void* start, void* end, void* context) {
-	// cast the context to a pointer to a ThreadScanner
-	(cast(ThreadScanner*) context).scanRange(start, end);
+// the context pointer is just a pass-through for the druntime side, so we
+// type it based on what we are passing.
+alias ScanFn = bool delegate(const(void*)[] range);
+void __sd_scanAllThreadsFn(void* start, void* end, ScanFn* context) {
+	import d.gc.range;
+	(*context)(makeRange(start, end));
 }
 
 //alias ScanAllThreadsFn = void delegate(void*, void*);
 //void thread_scanAll(ScanAllThreadsFn scan);
 
 // defined in druntime. The context pointer gets passed to the scan routine
-void __sd_thread_scanAll(typeof(&__sd_scanAllThreadsFn) scan, void* context);
+void thread_scanAll_C(typeof(&__sd_scanAllThreadsFn) scan, ScanFn* context);
 
 // sdrt API.
-alias ScanFn = bool delegate(const(void*)[] range);
 void __sd_thread_scan(ScanFn scan) {
-	auto ts = ThreadScanner(scan);
-
-	// FIXME: For some reason, this doesn't work
-	// if the literal is passed directly.
-	//auto dg = ts.scanRange;
-	__sd_thread_scanAll(&__sd_scanAllThreadsFn, &ts);
+	thread_scanAll_C(&__sd_scanAllThreadsFn, &scan);
 }
 
 void __sd_thread_stop_the_world() {
@@ -48,18 +43,3 @@ void __sd_thread_create() {
 }
 
 void __sd_thread_destroy() {}
-
-private:
-
-struct ThreadScanner {
-	ScanFn scan;
-
-	this(ScanFn scan) {
-		this.scan = scan;
-	}
-
-	extern(C) void scanRange(void* start, void* stop) {
-		import d.gc.range;
-		scan(makeRange(start, stop));
-	}
-}
