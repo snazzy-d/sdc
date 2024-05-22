@@ -13,20 +13,17 @@ void thread_resumeAll();
 // the context pointer is just a pass-through for the druntime side, so we
 // type it based on what we are passing.
 alias ScanFn = bool delegate(const(void*)[] range);
-void __sd_scanAllThreadsFn(void* start, void* end, ScanFn* context) {
+void __sd_scanAllThreadsFn(ScanFn* context, void* start, void* end) {
 	import d.gc.range;
 	(*context)(makeRange(start, end));
 }
 
-//alias ScanAllThreadsFn = void delegate(void*, void*);
-//void thread_scanAll(ScanAllThreadsFn scan);
-
 // defined in druntime. The context pointer gets passed to the scan routine
-void thread_scanAll_C(typeof(&__sd_scanAllThreadsFn) scan, ScanFn* context);
+void thread_scanAll_C(ScanFn* context, typeof(&__sd_scanAllThreadsFn) scan);
 
 // sdrt API.
 void __sd_thread_scan(ScanFn scan) {
-	thread_scanAll_C(&__sd_scanAllThreadsFn, &scan);
+	thread_scanAll_C(&scan, &__sd_scanAllThreadsFn);
 }
 
 void __sd_thread_stop_the_world() {
