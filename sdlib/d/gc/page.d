@@ -706,6 +706,7 @@ private:
 
 				import d.gc.slab;
 				auto nslots = binInfos[sc].nslots;
+				auto ssize = binInfos[sc].slotSize;
 				auto nimble = alignUp(nslots, 64) / 64;
 
 				ulong* bmp;
@@ -733,15 +734,28 @@ private:
 						// run all the finalizers that are set
 						auto baseidx = i * 64;
 						while (toRemove != 0) {
-							auto idx = countTrailingZeros(toRemove) + baseidx;
-							//printf("e.address is %p, idx is %ld\n", e.address, idx);
-							auto ptr = e.address + idx * binInfos[sc].slotSize;
-							auto sai = SlabAllocInfo(pd, ptr);
-							// call the finalizer on the allocation
-							import d.gc.tcache; // : finalizeSlabAllocInfo;
-							finalizeSlabAllocInfo(sai);
+							uint bit = countTrailingZeros(toRemove);
+							uint idx = cast(uint)(bit + baseidx);
+							if(e.hasMetadata(idx))
+							{
+								// has metadata, check for a finalizer
+								// NOTE: this copies techniques/code from
+								// SlabAllocInfo, but that code starts with a
+								// pointer and gives us info we already have.
+								// So we don't want to do that work again.
+								auto ptr = e.address + idx * ssize;
+								auto fptr = cast(size_t*)(ptr + ssize - PointerSize);
+								enum FinalizerBit = nativeToBigEndian!size_t(0x2);
+								if(*fptr & FinalizerBit)
+								{
+									// call the finalizer
+									auto freeSpace = readPackedFreeSpace((cast(ushort*)fptr) + 3);
+									import d.gc.tcache; // : finalizeFromPointers;
+									finalizeFromPointers(ptr, ssize - freeSpace, cast(void*)((cast(size_t)*fptr) & AddressMask));
+								}
+							}
 							// clear the bit
-							toRemove ^= 1UL << idx;
+							toRemove ^= 1UL << bit;
 						}
 					}
 

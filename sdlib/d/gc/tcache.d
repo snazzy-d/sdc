@@ -20,20 +20,15 @@ extern(C) void __dummy(void*, size_t, void*);
 //alias finalizeFn = typeof(&__dummy);
 __gshared typeof(&__dummy) __sd_destroyBlockCtx;
 
-void finalizeSlabAllocInfo(ref SlabAllocInfo si) {
-	auto finalizer = si.finalizer;
-	//printf("Checking address %p, with finalizer %p\n", si.address, finalizer);
-	if (finalizer == null)
-		// no finalizer
-		return;
+void finalizeFromPointers(void *ptr, size_t usedSpace, void *finalizer) {
+	//printf("Checking address %p, with size %ld and finalizer %p\n", ptr, usedSpace, finalizer);
+	assert(finalizer != null, "trying to call null finalizer!");
 
 	if (__sd_destroyBlockCtx !is null)
-		__sd_destroyBlockCtx(cast(void*) si.address,
-		                     si.usedCapacity - PointerSize, finalizer);
+		__sd_destroyBlockCtx(ptr, usedSpace - PointerSize, finalizer);
 	else {
 		alias FinalizerFunctionType = void function(void* ptr, size_t size);
-		(cast(FinalizerFunctionType) finalizer)(cast(void*) si.address,
-		                                        si.usedCapacity - PointerSize);
+		(cast(FinalizerFunctionType) finalizer)(ptr,  usedSpace - PointerSize);
 	}
 }
 
