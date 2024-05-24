@@ -110,7 +110,7 @@ struct PageDescriptor {
 private:
 	/**
 	 * The extent itself is 7 bits aligned and the address space 48 bits.
-	 * This leaves us with the low 7 bits and the high 16 bits int he extent's
+	 * This leaves us with the low 7 bits and the high 16 bits of the extent's
 	 * pointer to play with.
 	 * 
 	 * We use these bits to pack the following data in the descriptor:
