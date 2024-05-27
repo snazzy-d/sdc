@@ -727,18 +727,16 @@ private:
 					auto newOccupancy = oldOccupancy & bmp[i];
 
 					if (ec.supportsMetadata) {
-						auto toRemove = oldOccupancy ^ newOccupancy;
-						//import core.stdc.stdio;
-						//printf("checking bits %lx\n", toRemove);
+						auto toRemove = (oldOccupancy ^ newOccupancy) & e.slabMetadataFlags.rawNimbleAtomic(cast(uint)i);
+						if (toRemove) {
+							//import core.stdc.stdio;
+							//printf("checking bits %lx\n", toRemove);
 
-						// run all the finalizers that are set
-						auto baseidx = i * 64;
-						while (toRemove != 0) {
-							uint bit = countTrailingZeros(toRemove);
-							uint idx = cast(uint)(bit + baseidx);
-							if(e.hasMetadata(idx))
-							{
-								// has metadata, check for a finalizer
+							// All set bits in toRemove have metadata.
+							auto baseidx = i * 64;
+							while (toRemove != 0) {
+								uint bit = countTrailingZeros(toRemove);
+								uint idx = cast(uint)(bit + baseidx);
 								// NOTE: this copies techniques/code from
 								// SlabAllocInfo, but that code starts with a
 								// pointer and gives us info we already have.
@@ -753,9 +751,9 @@ private:
 									import d.gc.tcache; // : finalizeFromPointers;
 									finalizeFromPointers(ptr, ssize - freeSpace, cast(void*)((cast(size_t)*fptr) & AddressMask));
 								}
+								// clear the bit
+								toRemove ^= 1UL << bit;
 							}
-							// clear the bit
-							toRemove ^= 1UL << bit;
 						}
 					}
 

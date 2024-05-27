@@ -48,6 +48,13 @@ public:
 		return (n & 0x01) != 0;
 	}
 
+	ulong rawNimbleAtomic(uint nimble) shared {
+		// FIXME: in contracts.
+		assert(nimble < NimbleCount);
+
+		return bits[nimble];
+	}
+
 	uint setFirst() {
 		// FIXME: in contract
 		assert(countBits(0, N) < N, "Bitmap is full!");
