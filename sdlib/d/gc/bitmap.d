@@ -203,9 +203,10 @@ public:
 		auto i = index / NimbleSize;
 		auto o = index % NimbleSize;
 		auto b = ulong(1) << o;
+		auto m = V ? b : 0;
 
 		auto old = bits[i];
-		if ((old & b) == V) {
+		if ((old & b) == m) {
 			return V;
 		}
 
