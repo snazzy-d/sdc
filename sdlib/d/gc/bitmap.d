@@ -210,7 +210,6 @@ public:
 			return V;
 		}
 
-		import sdc.intrinsics;
 		static if (V) {
 			old = fetchOr(&bits[i], b);
 		} else {
