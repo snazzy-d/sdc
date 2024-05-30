@@ -15,6 +15,24 @@ private:
 	const(void*)[] managedAddressSpace;
 	const(void*)[][] worklist;
 
+	/**
+	 * It is fairly common to find a number of connected
+	 * allocations on the same slab. For instance, a data
+	 * structure might allocate nodes that are all the same
+	 * size to manage its internal state.
+	 * 
+	 * In order to avoid doign too many round trips in the
+	 * extent map, we simply cache the last page and its
+	 * corresponding page descriptor here and reuse them
+	 * when apropriate.
+	 * 
+	 * FIXME: We would ideally have this as locals variables
+	 *        in the markign code, but the current structure
+	 *        of the code makes it difficult.
+	 */
+	void* lastPage;
+	PageDescriptor lpd;
+
 	// TODO: Use a different caching layer that
 	//       can cache negative results.
 	CachedExtentMap emap;
@@ -36,13 +54,19 @@ public:
 				continue;
 			}
 
+			auto pd = lpd;
 			auto aptr = alignDown(ptr, PageSize);
-			auto pd = emap.lookup(aptr);
+			if (aptr !is lastPage) {
+				pd = emap.lookup(aptr);
 
-			auto e = pd.extent;
-			if (e is null) {
-				// We have no mapping there, move on.
-				continue;
+				auto e = pd.extent;
+				if (e is null) {
+					// We have no mapping here, move on.
+					continue;
+				}
+
+				lastPage = aptr;
+				lpd = pd;
 			}
 
 			auto ec = pd.extentClass;
