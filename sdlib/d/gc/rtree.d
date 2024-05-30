@@ -299,8 +299,8 @@ private:
 		auto c = l2[0];
 		if (likely(c.key == key)) {
 			l2[0] = e;
-			l1[slot] = c;
 
+			l1[slot] = c;
 			return c.leaves;
 		}
 
@@ -310,8 +310,8 @@ private:
 			if (likely(c.key == key)) {
 				l2[i] = l2[i - 1];
 				l2[i - 1] = e;
-				l1[slot] = c;
 
+				l1[slot] = c;
 				return c.leaves;
 			}
 		}
