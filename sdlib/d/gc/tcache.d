@@ -16,44 +16,28 @@ import core.stdc.stdio;
 
 ThreadCache threadCache;
 
-extern(C) void __dummy(void*, size_t, void*);
-//alias finalizeFn = typeof(&__dummy);
-__gshared typeof(&__dummy) __sd_destroyBlockCtx;
-
-void finalizeFromPointers(void *ptr, size_t usedSpace, void *finalizer) {
-	//printf("Checking address %p, with size %ld and finalizer %p\n", ptr, usedSpace, finalizer);
-	assert(finalizer != null, "trying to call null finalizer!");
-
-	if (__sd_destroyBlockCtx !is null)
-		__sd_destroyBlockCtx(ptr, usedSpace - PointerSize, finalizer);
-	else {
-		alias FinalizerFunctionType = void function(void* ptr, size_t size);
-		(cast(FinalizerFunctionType) finalizer)(ptr,  usedSpace - PointerSize);
-	}
+extern(C)
+void __defaultFinalizer(void* ptr, size_t usedSpace, void* finalizer) {
+	alias FinalizerFunctionType = void function(void* ptr, size_t size);
+	(cast(FinalizerFunctionType) finalizer)(ptr, usedSpace);
 }
+
+//alias finalizeFn = typeof(&__dummy);
+__gshared
+typeof(&__defaultFinalizer) __sd_destroyBlockCtx = &__defaultFinalizer;
 
 void finalizeSlab(ref SlabAllocInfo si, void* ptr) {
 	auto finalizer = si.finalizer;
 	if (finalizer !is null) {
 		assert(cast(void*) si.address == ptr,
 		       "destroy() was invoked on an interior pointer!");
-		if (__sd_destroyBlockCtx !is null)
-			__sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
-		else {
-			alias FinalizerFunctionType = void function(void* ptr, size_t size);
-			(cast(FinalizerFunctionType) finalizer)(ptr, si.usedCapacity);
-		}
+		__sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
 	}
 }
 
 void finalizeExtent(Extent* e, void* ptr) {
 	if (e.finalizer !is null) {
-		if (__sd_destroyBlockCtx !is null)
-			__sd_destroyBlockCtx(ptr, e.usedCapacity, e.finalizer);
-		else {
-			alias FinalizerFunctionType = void function(void* ptr, size_t size);
-			(cast(FinalizerFunctionType) e.finalizer)(ptr, e.usedCapacity);
-		}
+		__sd_destroyBlockCtx(ptr, e.usedCapacity, e.finalizer);
 	}
 }
 
