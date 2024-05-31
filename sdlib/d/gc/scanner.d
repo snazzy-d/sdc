@@ -15,24 +15,6 @@ private:
 	const(void*)[] managedAddressSpace;
 	const(void*)[][] worklist;
 
-	/**
-	 * It is fairly common to find a number of connected
-	 * allocations on the same slab. For instance, a data
-	 * structure might allocate nodes that are all the same
-	 * size to manage its internal state.
-	 * 
-	 * In order to avoid doign too many round trips in the
-	 * extent map, we simply cache the last page and its
-	 * corresponding page descriptor here and reuse them
-	 * when apropriate.
-	 * 
-	 * FIXME: We would ideally have this as locals variables
-	 *        in the markign code, but the current structure
-	 *        of the code makes it difficult.
-	 */
-	void* lastPage;
-	PageDescriptor lpd;
-
 	// TODO: Use a different caching layer that
 	//       can cache negative results.
 	CachedExtentMap emap;
@@ -45,19 +27,44 @@ public:
 		this.emap = emap;
 	}
 
-	void scan(const(void*)[] range) {
+	void scanLoop(const(void*)[] range, size_t limit) {
+		size_t scanned = 0;
 		auto ms = managedAddressSpace;
 
-		foreach (ptr; range) {
-			if (!ms.contains(ptr)) {
-				// This is not a pointer, move along.
-				continue;
-			}
+		const(void*)[] lastDenseSlab;
+		PageDescriptor lastDenseSlabPageDescriptor;
 
-			auto pd = lpd;
-			auto aptr = alignDown(ptr, PageSize);
-			if (aptr !is lastPage) {
-				pd = emap.lookup(aptr);
+		import d.gc.slab;
+		BinInfo lastDenseBin;
+
+		while (true) {
+			auto current = range.ptr;
+			auto top = current + range.length;
+
+			scanned += range.length * PointerSize;
+
+			for (; current < top; current++) {
+				auto ptr = *current;
+				if (!ms.contains(ptr)) {
+					// This is not a pointer, move along.
+					continue;
+				}
+
+				if (lastDenseSlab.contains(ptr)) {
+				MarkDense:
+					auto base = cast(void*) lastDenseSlab.ptr;
+					auto offset = ptr - base;
+					auto index = lastDenseBin.computeIndex(offset);
+
+					auto pd = lastDenseSlabPageDescriptor;
+					auto slotSize = lastDenseBin.slotSize;
+
+					markDense(base, index, pd, slotSize);
+					continue;
+				}
+
+				auto aptr = alignDown(ptr, PageSize);
+				auto pd = emap.lookup(aptr);
 
 				auto e = pd.extent;
 				if (e is null) {
@@ -65,25 +72,41 @@ public:
 					continue;
 				}
 
-				lastPage = aptr;
-				lpd = pd;
+				auto ec = pd.extentClass;
+				if (likely(ec.dense)) {
+					lastDenseSlabPageDescriptor = pd;
+					lastDenseBin = binInfos[ec.sizeClass];
+
+					auto base = cast(void**) (aptr - pd.index * PageSize);
+					lastDenseSlab =
+						base[0 .. lastDenseBin.npages * PageSize / PointerSize];
+
+					goto MarkDense;
+				}
+
+				if (ec.isSlab()) {
+					markSparse(pd, ptr);
+				} else {
+					markLarge(pd);
+				}
 			}
 
-			auto ec = pd.extentClass;
-			if (ec.dense) {
-				markDense(pd, ptr);
-			} else if (ec.isSlab()) {
-				markSparse(pd, ptr);
-			} else {
-				markLarge(pd);
+			// In case we reached our limit, we bail. This ensures that
+			// we can scan iterratively.
+			if (cursor == 0 || scanned > limit) {
+				return;
 			}
+
+			range = worklist[--cursor];
 		}
 	}
 
+	void scan(const(void*)[] range) {
+		scanLoop(range, 16 * PageSize);
+	}
+
 	void mark() {
-		while (cursor > 0) {
-			scan(worklist[--cursor]);
-		}
+		scanLoop([], size_t.max);
 
 		import d.gc.tcache;
 		threadCache.free(worklist.ptr);
@@ -93,10 +116,9 @@ public:
 	}
 
 private:
-	void markDense(PageDescriptor pd, const void* ptr) {
-		import d.gc.slab;
-		auto se = SlabEntry(pd, ptr);
-		auto index = se.index;
+	void markDense(const void* base, uint index, PageDescriptor pd,
+	               uint slotSize) {
+		auto e = pd.extent;
 
 		/**
 		 * /!\ This is not thread safe.
@@ -105,7 +127,6 @@ private:
 		 * allocated/deallocated from the slab while we scan.
 		 * It is unclear how to handle this at this time.
 		 */
-		auto e = pd.extent;
 		if (!e.slabData.valueAt(index)) {
 			return;
 		}
@@ -117,13 +138,14 @@ private:
 			}
 		} else {
 			auto bmp = &e.outlineMarks;
-			if (bmp is null || bmp.setBitAtomic(index)) {
+			if (unlikely(bmp is null) || bmp.setBitAtomic(index)) {
 				return;
 			}
 		}
 
 		if (pd.containsPointers) {
-			addToWorkList(se.computeRange());
+			auto slotPtr = cast(void**) (base + index * slotSize);
+			addToWorkList(slotPtr[0 .. slotSize / PointerSize]);
 		}
 	}
 
