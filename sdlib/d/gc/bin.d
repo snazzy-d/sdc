@@ -25,7 +25,7 @@ struct Bin {
 		shared(PageFiller)* filler,
 		ref CachedExtentMap emap,
 		ubyte sizeClass,
-		void** insert,
+		void** top,
 		void** bottom,
 		size_t slotSize,
 	) shared {
@@ -38,8 +38,8 @@ struct Bin {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(Bin*) &this).batchAllocateImpl(filler, emap, sizeClass,
-		                                            insert, bottom, slotSize);
+		return (cast(Bin*) &this)
+			.batchAllocateImpl(filler, emap, sizeClass, top, bottom, slotSize);
 	}
 
 	uint batchFree(const(void*)[] worklist, PageDescriptor* pds,
@@ -56,30 +56,31 @@ private:
 		shared(PageFiller)* filler,
 		ref CachedExtentMap emap,
 		ubyte sizeClass,
-		void** insert,
+		void** top,
 		void** bottom,
 		size_t slotSize,
 	) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(insert > bottom, "Invalid stack boundaries!");
-		assert((insert - bottom) < uint.max, "Invalid stack size!");
+		assert(bottom < top, "Invalid stack boundaries!");
+		assert((top - bottom) < uint.max, "Invalid stack size!");
 
-		while (insert > bottom) {
+		auto insert = bottom;
+		while (insert !is top) {
+			assert(insert < top, "Insert out of bounds!");
+
 			auto e = getSlab(filler, emap, sizeClass);
 			if (unlikely(e is null)) {
 				break;
 			}
 
 			assert(e.nfree > 0);
-			uint nfill = (insert - bottom) & uint.max;
+			uint nfill = (top - insert) & uint.max;
 			insert = e.batchAllocate(insert, nfill, slotSize);
+			assert(bottom <= insert && insert <= top);
 
 			// If the slab is not full, we are done.
 			if (e.nfree > 0) {
-				// We get away with keeping the slab in the heap while allocating
-				// because we know it is the best slab, and removing free slots
-				// from it only increases its priority.
 				break;
 			}
 
@@ -98,8 +99,29 @@ private:
 		 * http://www.phreedom.org/research/heap-feng-shui/heap-feng-shui.html
 		 */
 
-		assert(insert >= bottom);
-		return insert;
+		// We filled the whole stack, done.
+		if (likely(insert is top)) {
+			return bottom;
+		}
+
+		/**
+		 * We could simplify this code by inserting from top to bottom,
+		 * in order to avoid moving all the elements when the stack has not
+		 * been filled.
+		 * 
+		 * However, because we allocate from the best slab to the worse one,
+		 * this would result in a stack that allocate from the worse slab
+		 * before the best ones.
+		 * 
+		 * So we allocate from the bottom to the top, and move the whole stack
+		 * if we did not quite reach the top.
+		 */
+		while (insert > bottom) {
+			*(--top) = *(--insert);
+		}
+
+		assert(bottom <= top);
+		return top;
 	}
 
 	uint batchFreeImpl(const(void*)[] worklist, PageDescriptor* pds,

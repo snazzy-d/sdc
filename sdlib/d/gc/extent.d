@@ -367,7 +367,7 @@ public:
 				current ^= 1UL << bit;
 
 				auto slot = shift + bit;
-				*(--insert) = address + slot * slotSize;
+				*(insert++) = address + slot * slotSize;
 			}
 
 			slabData.rawContent[n] = ~current;
@@ -655,8 +655,8 @@ unittest allocfree {
 
 	static checkAllocate(ref Extent e, uint index) {
 		void*[1] buffer;
-		auto insert = e.batchAllocate(buffer.ptr + 1, 1, PointerSize);
-		assert(insert is buffer.ptr);
+		auto insert = e.batchAllocate(buffer.ptr, 1, PointerSize);
+		assert(insert is buffer.ptr + 1);
 
 		auto expected = index * PointerSize;
 		auto provided = cast(size_t) buffer[0];
@@ -697,30 +697,28 @@ unittest batchAllocate {
 	Extent e;
 	e.at(null, 1, null, ExtentClass.slab(0));
 
-	void*[1025] raw;
-	auto buffer = raw[1 .. 1025];
+	void*[1025] buffer = void;
 
 	auto checkBatchAllocate(void** bottom, uint nfill, uint eCount,
 	                        uint preFree, uint postFree) {
 		auto sentinel = cast(void*) 0xa5a5deadbeef5a5a;
 
-		auto sPtr = bottom - 1;
-		*sPtr = sentinel;
+		auto top = bottom + nfill;
+		*top = sentinel;
 
 		assert(e.nfree == preFree);
 
-		auto top = bottom + nfill;
-		auto insert = e.batchAllocate(top, nfill, PointerSize);
-		assert(*sPtr is sentinel);
+		auto insert = e.batchAllocate(bottom, nfill, PointerSize);
+		assert(*top is sentinel);
 
-		auto count = top - insert;
+		auto count = insert - bottom;
 		assert(count == eCount);
 		assert(e.nfree == postFree);
 	}
 
 	checkBatchAllocate(buffer.ptr, 1024, 512, 512, 0);
 	foreach (i; 0 .. 512) {
-		assert(i * PointerSize == cast(size_t) buffer[1023 - i]);
+		assert(i * PointerSize == cast(size_t) buffer[i]);
 	}
 
 	// Free half the elements.
@@ -730,7 +728,7 @@ unittest batchAllocate {
 
 	checkBatchAllocate(buffer.ptr, 512, 256, 256, 0);
 	foreach (i; 0 .. 256) {
-		assert(2 * i * PointerSize == cast(size_t) buffer[511 - i]);
+		assert(2 * i * PointerSize == cast(size_t) buffer[i]);
 	}
 
 	// Free All the element but two in the middle
@@ -742,10 +740,10 @@ unittest batchAllocate {
 	checkBatchAllocate(buffer.ptr, 500, 500, 510, 10);
 
 	foreach (i; 0 .. 255) {
-		assert(i * PointerSize == cast(size_t) buffer[499 - i]);
+		assert(i * PointerSize == cast(size_t) buffer[i]);
 	}
 
 	foreach (i; 255 .. 500) {
-		assert((i + 2) * PointerSize == cast(size_t) buffer[499 - i]);
+		assert((i + 2) * PointerSize == cast(size_t) buffer[i]);
 	}
 }

@@ -265,7 +265,7 @@ unittest SlabAllocInfo {
 		e.at(block, 1, null, ec);
 
 		void*[512] buffer = void;
-		e.batchAllocate(buffer.ptr + 512, 512, size);
+		e.batchAllocate(buffer.ptr, 512, size);
 
 		auto pd = PageDescriptor(e, ec);
 		auto allocAddress = block + slotIndex * size;
