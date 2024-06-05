@@ -89,24 +89,14 @@ public:
 	}
 
 	private void runLLVMPasses() {
-		import llvm.c.transforms.passManagerBuilder;
-		auto pmb = LLVMPassManagerBuilderCreate();
-		scope(exit) LLVMPassManagerBuilderDispose(pmb);
+		import llvm.c.transforms.passBuilder;
+		auto opts = LLVMCreatePassBuilderOptions();
+		scope(exit) LLVMDisposePassBuilderOptions(opts);
 
-		uint optLevel = optLevel;
-		if (optLevel == 0) {
-			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 0);
-			LLVMPassManagerBuilderSetOptLevel(pmb, 0);
-		} else {
-			LLVMPassManagerBuilderUseInlinerWithThreshold(pmb, 100);
-			LLVMPassManagerBuilderSetOptLevel(pmb, optLevel);
-		}
+		char[12] passes = "default<O?>\0";
+		passes[9] = cast(char) ('0' + optLevel);
 
-		auto pm = LLVMCreatePassManager();
-		scope(exit) LLVMDisposePassManager(pm);
-
-		LLVMPassManagerBuilderPopulateModulePassManager(pmb, pm);
-		LLVMRunPassManager(pm, globalGen.dmodule);
+		LLVMRunPasses(globalGen.dmodule, passes.ptr, targetMachine, opts);
 	}
 
 	private void emitModules(Module[] modules) {

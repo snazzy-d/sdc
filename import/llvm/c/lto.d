@@ -1,9 +1,9 @@
 /*===-- llvm-c/lto.h - LTO Public C Interface ---------------------*- C -*-===*\
 |*                                                                            *|
-|*                     The LLVM Compiler Infrastructure                       *|
-|*                                                                            *|
-|* This file is distributed under the University of Illinois Open Source      *|
-|* License. See LICENSE.TXT for details.                                      *|
+|* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
+|* Exceptions.                                                                *|
+|* See https://llvm.org/LICENSE.txt for license information.                  *|
+|* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception                    *|
 |*                                                                            *|
 |*===----------------------------------------------------------------------===*|
 |*                                                                            *|
@@ -29,7 +29,7 @@ alias lto_bool_t = bool;
  * @{
  */
 
-enum LTO_API_VERSION = 19;
+enum LTO_API_VERSION = 29;
 
 /**
  * \since prior to LTO_API_VERSION=3
@@ -121,12 +121,13 @@ lto_module_is_object_file_for_target(const(char)* path,
                                      const(char)* target_triple_prefix);
 
 /**
- * Checks if a buffer is a loadable object file.
+ * Return true if \p Buffer contains a bitcode file with ObjC code (category
+ * or class) in it.
  *
- * \since prior to LTO_API_VERSION=3
+ * \since LTO_API_VERSION=20
  */
 extern lto_bool_t
-lto_module_is_object_file_in_memory(const(void)* mem, size_t length);
+lto_module_has_objc_category(const(void)* mem, size_t length);
 
 /**
  * Checks if a buffer is a loadable object file.
@@ -174,7 +175,7 @@ lto_module_create_from_memory_with_path(const(void)* mem, size_t length,
                                         const(char)* path);
 
 /**
- * \brief Loads an object file in its own context.
+ * Loads an object file in its own context.
  *
  * Loads an object file in its own LLVMContext.  This function call is
  * thread-safe.  However, modules created this way should not be merged into an
@@ -189,7 +190,7 @@ lto_module_create_in_local_context(const(void)* mem, size_t length,
                                    const(char)* path);
 
 /**
- * \brief Loads an object file in the codegen context.
+ * Loads an object file in the codegen context.
  *
  * Loads an object file into the same context as \c cg.  The module is safe to
  * add using \a lto_codegen_add_module().
@@ -282,6 +283,31 @@ extern const(char)*
 lto_module_get_linkeropts(lto_module_t mod);
 
 /**
+ * If targeting mach-o on darwin, this function gets the CPU type and subtype
+ * that will end up being encoded in the mach-o header. These are the values
+ * that can be found in mach/machine.h.
+ *
+ * \p out_cputype and \p out_cpusubtype must be non-NULL.
+ *
+ * Returns true on error (check lto_get_error_message() for details).
+ *
+ * \since LTO_API_VERSION=27
+ */
+extern lto_bool_t lto_module_get_macho_cputype(lto_module_t mod,
+                                               uint* out_cputype,
+                                               uint* out_cpusubtype);
+
+/**
+ * This function can be used by the linker to check if a given module has
+ * any constructor or destructor functions.
+ *
+ * Returns true if the module has either the @llvm.global_ctors or the
+ * @llvm.global_dtors symbol. Otherwise returns false.
+ *
+ * \since LTO_API_VERSION=29
+ */
+extern lto_bool_t lto_module_has_ctor_dtor(lto_module_t mod);
+/**
  * Diagnostic severity.
  *
  * \since LTO_API_VERSION=7
@@ -302,11 +328,11 @@ enum lto_codegen_diagnostic_severity_t {
  *
  * \since LTO_API_VERSION=7
  */
-typedef void (*lto_diagnostic_handler_t)(
-    lto_codegen_diagnostic_severity_t severity, const char *diag, void *ctxt);
+alias lto_diagnostic_handler_t = void function(
+    lto_codegen_diagnostic_severity_t severity, const(char)* diag, void* ctxt);
 
 /**
- * Set a diagnostic handler and the related context (void *).
+ * Set a diagnostic handler and the related context (void*).
  * This is more general than lto_get_error_message, as the diagnostic handler
  * can be called at anytime within lto.
  *
@@ -314,7 +340,7 @@ typedef void (*lto_diagnostic_handler_t)(
  */
 extern void lto_codegen_set_diagnostic_handler(lto_code_gen_t,
                                                lto_diagnostic_handler_t,
-                                               void *);
+                                               void*);
 
 /**
  * Instantiates a code generator.
@@ -329,7 +355,7 @@ extern lto_code_gen_t
 lto_codegen_create();
 
 /**
- * \brief Instantiate a code generator in its own context.
+ * Instantiate a code generator in its own context.
  *
  * Instantiates a code generator in its own context.  Modules added via \a
  * lto_codegen_add_module() must have all been created in the same context,
@@ -493,15 +519,44 @@ lto_codegen_compile_optimized(lto_code_gen_t cg, size_t* length);
  * \since LTO_API_VERSION=12
  */
 extern unsigned int
-lto_api_version(void);
+lto_api_version();
 
 /**
- * Sets options to help debug codegen bugs.
+ * Parses options immediately, making them available as early as possible. For
+ * example during executing codegen::InitTargetOptionsFromCodeGenFlags. Since
+ * parsing shud only happen once, only one of lto_codegen_debug_options or
+ * lto_set_debug_options should be called.
+ *
+ * This function takes one or more options separated by spaces.
+ * Warning: passing file paths through this function may confuse the argument
+ * parser if the paths contain spaces.
+ *
+ * \since LTO_API_VERSION=28
+ */
+extern void lto_set_debug_options(const(char*)* options, int number);
+
+/**
+ * Sets options to help debug codegen bugs. Since parsing shud only happen once,
+ * only one of lto_codegen_debug_options or lto_set_debug_options
+ * should be called.
+ *
+ * This function takes one or more options separated by spaces.
+ * Warning: passing file paths through this function may confuse the argument
+ * parser if the paths contain spaces.
  *
  * \since prior to LTO_API_VERSION=3
  */
 extern void
 lto_codegen_debug_options(lto_code_gen_t cg, const(char)*);
+
+/**
+ * Same as the previous function, but takes every option separately through an
+ * array.
+ *
+ * \since prior to LTO_API_VERSION=26
+ */
+extern void lto_codegen_debug_options_array(lto_code_gen_t cg,
+                                            const(char*)*, int number);
 
 /**
  * Initializes LLVM disassemblers.
@@ -534,8 +589,59 @@ extern void
 lto_codegen_set_should_embed_uselists(lto_code_gen_t cg,
                                       lto_bool_t ShouldEmbedUselists);
 
+/** Opaque reference to an LTO input file */
+struct LLVMOpaqueLTOInput {};
+alias lto_input_t = LLVMOpaqueLTOInput*;
+
 /**
- * @}
+  * Creates an LTO input file from a buffer. The path
+  * argument is used for diagnotics as this function
+  * otherwise does not know which file the given buffer
+  * is associated with.
+  *
+  * \since LTO_API_VERSION=24
+  */
+extern lto_input_t lto_input_create(const(void)* buffer,
+                                    size_t buffer_size,
+                                    const(char)* path);
+
+/**
+  * Frees all memory internally allocated by the LTO input file.
+  * Upon return the lto_module_t is no longer valid.
+  *
+  * \since LTO_API_VERSION=24
+  */
+extern void lto_input_dispose(lto_input_t input);
+
+/**
+  * Returns the number of dependent library specifiers
+  * for the given LTO input file.
+  *
+  * \since LTO_API_VERSION=24
+  */
+extern unsigned lto_input_get_num_dependent_libraries(lto_input_t input);
+
+/**
+  * Returns the ith dependent library specifier
+  * for the given LTO input file. The returned
+  * string is not null-terminated.
+  *
+  * \since LTO_API_VERSION=24
+  */
+extern const(char)* lto_input_get_dependent_library(lto_input_t input,
+                                                    size_t index,
+                                                    size_t* size);
+
+/**
+ * Returns the list of libcall symbols that can be generated by LTO
+ * that might not be visible from the symbol table of bitcode files.
+ *
+ * \since prior to LTO_API_VERSION=25
+ */
+extern const(char*)* lto_runtime_lib_symbols_list(size_t* size);
+
+/**
+ * @} // endgoup LLVMCLTO
  * @defgroup LLVMCTLTO ThinLTO
  * @ingroup LLVMC
  *
@@ -621,6 +727,29 @@ extern LTOObjectBuffer thinlto_module_get_object(thinlto_code_gen_t cg,
                                                  uint index);
 
 /**
+ * Returns the number of object files produced by the ThinLTO CodeGenerator.
+ *
+ * It usually matches the number of input files, but this is not a guarantee of
+ * the API and may change in future implementation, so the client should not
+ * assume it.
+ *
+ * \since LTO_API_VERSION=21
+ */
+uint thinlto_module_get_num_object_files(thinlto_code_gen_t cg);
+
+/**
+ * Returns the path to the ith object file produced by the ThinLTO
+ * CodeGenerator.
+ *
+ * Client should use \p thinlto_module_get_num_object_files() to get the number
+ * of available objects.
+ *
+ * \since LTO_API_VERSION=21
+ */
+const(char)* thinlto_module_get_object_file(thinlto_code_gen_t cg,
+                                            uint index);
+
+/**
  * Sets which PIC code model to generate.
  * Returns true on error (check lto_get_error_message() for details).
  *
@@ -628,75 +757,6 @@ extern LTOObjectBuffer thinlto_module_get_object(thinlto_code_gen_t cg,
  */
 extern lto_bool_t thinlto_codegen_set_pic_model(thinlto_code_gen_t cg,
                                                 lto_codegen_model);
-
-/**
- * @}
- * @defgroup LLVMCTLTO_CACHING ThinLTO Cache Control
- * @ingroup LLVMCTLTO
- *
- * These entry points control the ThinLTO cache. The cache is intended to
- * support incremental build, and thus needs to be persistent accross build.
- * The client enabled the cache by supplying a path to an existing directory.
- * The code generator will use this to store objects files that may be reused
- * during a subsequent build.
- * To avoid filling the disk space, a few knobs are provided:
- *  - The pruning interval limit the frequency at which the garbage collector
- *    will try to scan the cache directory to prune it from expired entries.
- *    Setting to -1 disable the pruning (default).
- *  - The pruning expiration time indicates to the garbage collector how old an
- *    entry needs to be to be removed.
- *  - Finally, the garbage collector can be instructed to prune the cache till
- *    the occupied space goes below a threshold.
- * @{
- */
-
-/**
- * Sets the path to a directory to use as a cache storage for incremental build.
- * Setting this activates caching.
- *
- * \since LTO_API_VERSION=18
- */
-extern void thinlto_codegen_set_cache_dir(thinlto_code_gen_t cg,
-                                          const(char)* cache_dir);
-
-/**
- * Sets the cache pruning interval (in seconds). A negative value disable the
- * pruning. An unspecified default value will be applied, and a value of 0 will
- * be ignored.
- *
- * \since LTO_API_VERSION=18
- */
-extern void thinlto_codegen_set_cache_pruning_interval(thinlto_code_gen_t cg,
-                                                       int interval);
-
-/**
- * Sets the maximum cache size that can be persistent across build, in terms of
- * percentage of the available space on the the disk. Set to 100 to indicate
- * no limit, 50 to indicate that the cache size will not be left over half the
- * available space. A value over 100 will be reduced to 100, a value of 0 will
- * be ignored. An unspecified default value will be applied.
- *
- * The formula looks like:
- *  AvailableSpace = FreeSpace + ExistingCacheSize
- *  NewCacheSize = AvailableSpace * P/100
- *
- * \since LTO_API_VERSION=18
- */
-extern void thinlto_codegen_set_final_cache_size_relative_to_available_space(
-    thinlto_code_gen_t cg, uint percentage);
-
-/**
- * Sets the expiration (in seconds) for an entry in the cache. An unspecified
- * default value will be applied. A value of 0 will be ignored.
- *
- * \since LTO_API_VERSION=18
- */
-extern void thinlto_codegen_set_cache_entry_expiration(thinlto_code_gen_t cg,
-                                                       uint expiration);
-
-/**
- * @}
- */
 
 /**
  * Sets the path to a directory to use as a storage for temporary bitcode files.
@@ -707,6 +767,17 @@ extern void thinlto_codegen_set_cache_entry_expiration(thinlto_code_gen_t cg,
  */
 extern void thinlto_codegen_set_savetemps_dir(thinlto_code_gen_t cg,
                                               const(char)* save_temps_dir);
+
+/**
+ * Set the path to a directory where to save generated object files. This
+ * path can be used by a linker to request on-disk files instead of in-memory
+ * buffers. When set, results are available through
+ * thinlto_module_get_object_file() instead of thinlto_module_get_object().
+ *
+ * \since LTO_API_VERSION=21
+ */
+void thinlto_set_generated_objects_dir(thinlto_code_gen_t cg,
+                                       const(char)* save_temps_dir);
 
 /**
  * Sets the cpu to generate code for.
@@ -737,7 +808,7 @@ extern void thinlto_codegen_set_codegen_only(thinlto_code_gen_t cg,
  *
  * \since LTO_API_VERSION=18
  */
-extern void thinlto_debug_options(const(char)** options, int number);
+extern void thinlto_debug_options(const(char*)* options, int number);
 
 /**
  * Test if a module has support for ThinLTO linking.
@@ -770,12 +841,101 @@ extern void thinlto_codegen_add_cross_referenced_symbol(thinlto_code_gen_t cg,
                                                         const(char)* name,
                                                         int length);
 
-#ifdef __cplusplus
-}
-#endif
-
 /**
- * @}
+ * @} // endgoup LLVMCTLTO
+ * @defgroup LLVMCTLTO_CACHING ThinLTO Cache Control
+ * @ingroup LLVMCTLTO
+ *
+ * These entry points control the ThinLTO cache. The cache is intended to
+ * support incremental builds, and thus needs to be persistent across builds.
+ * The client enables the cache by supplying a path to an existing directory.
+ * The code generator will use this to store objects files that may be reused
+ * during a subsequent build.
+ * To avoid filling the disk space, a few knobs are provided:
+ *  - The pruning interval limits the frequency at which the garbage collector
+ *    will try to scan the cache directory to prune expired entries.
+ *    Setting to a negative number disables the pruning.
+ *  - The pruning expiration time indicates to the garbage collector how old an
+ *    entry needs to be to be removed.
+ *  - Finally, the garbage collector can be instructed to prune the cache until
+ *    the occupied space goes below a threshold.
+ * @{
  */
 
-#endif /* LLVM_C_LTO_H */
+/**
+ * Sets the path to a directory to use as a cache storage for incremental build.
+ * Setting this activates caching.
+ *
+ * \since LTO_API_VERSION=18
+ */
+extern void thinlto_codegen_set_cache_dir(thinlto_code_gen_t cg,
+                                          const(char)* cache_dir);
+
+/**
+ * Sets the cache pruning interval (in seconds). A negative value disables the
+ * pruning. An unspecified default value will be applied, and a value of 0 will
+ * force prunning to occur.
+ *
+ * \since LTO_API_VERSION=18
+ */
+extern void thinlto_codegen_set_cache_pruning_interval(thinlto_code_gen_t cg,
+                                                       int interval);
+
+/**
+ * Sets the maximum cache size that can be persistent across build, in terms of
+ * percentage of the available space on the disk. Set to 100 to indicate
+ * no limit, 50 to indicate that the cache size will not be left over half the
+ * available space. A value over 100 will be reduced to 100, a value of 0 will
+ * be ignored. An unspecified default value will be applied.
+ *
+ * The formula looks like:
+ *  AvailableSpace = FreeSpace + ExistingCacheSize
+ *  NewCacheSize = AvailableSpace * P/100
+ *
+ * \since LTO_API_VERSION=18
+ */
+extern void thinlto_codegen_set_final_cache_size_relative_to_available_space(
+    thinlto_code_gen_t cg, uint percentage);
+
+/**
+ * Sets the expiration (in seconds) for an entry in the cache. An unspecified
+ * default value will be applied. A value of 0 will be ignored.
+ *
+ * \since LTO_API_VERSION=18
+ */
+extern void thinlto_codegen_set_cache_entry_expiration(thinlto_code_gen_t cg,
+                                                       uint expiration);
+
+/**
+ * Sets the maximum size of the cache directory (in bytes). A value over the
+ * amount of available space on the disk will be reduced to the amount of
+ * available space. An unspecified default value will be applied. A value of 0
+ * will be ignored.
+ *
+ * \since LTO_API_VERSION=22
+ */
+extern void thinlto_codegen_set_cache_size_bytes(thinlto_code_gen_t cg,
+                                                 uint max_size_bytes);
+
+/**
+ * Same as thinlto_codegen_set_cache_size_bytes, except the maximum size is in
+ * megabytes (2^20 bytes).
+ *
+ * \since LTO_API_VERSION=23
+ */
+extern void
+thinlto_codegen_set_cache_size_megabytes(thinlto_code_gen_t cg,
+                                         uint max_size_megabytes);
+
+/**
+ * Sets the maximum number of files in the cache directory. An unspecified
+ * default value will be applied. A value of 0 will be ignored.
+ *
+ * \since LTO_API_VERSION=22
+ */
+extern void thinlto_codegen_set_cache_size_files(thinlto_code_gen_t cg,
+                                                 uint max_size_files);
+
+/**
+ * @} // endgroup LLVMCTLTO_CACHING
+ */

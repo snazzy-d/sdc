@@ -1,9 +1,9 @@
 /*===-- llvm-c/TargetMachine.h - Target Machine Library C Interface - C++ -*-=*\
 |*                                                                            *|
-|*                     The LLVM Compiler Infrastructure                       *|
-|*                                                                            *|
-|* This file is distributed under the University of Illinois Open Source      *|
-|* License. See LICENSE.TXT for details.                                      *|
+|* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
+|* Exceptions.                                                                *|
+|* See https://llvm.org/LICENSE.txt for license information.                  *|
+|* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception                    *|
 |*                                                                            *|
 |*===----------------------------------------------------------------------===*|
 |*                                                                            *|
@@ -18,15 +18,24 @@
 
 module llvm.c.targetMachine;
 
-public import llvm.c.types;
 import llvm.c.target;
+
+public import llvm.c.types;
 
 extern(C) nothrow:
 
-struct __LLVMOpaqueTargetMachine {};
-alias LLVMTargetMachineRef = __LLVMOpaqueTargetMachine*;
-struct __LLVMTarget {};
-alias LLVMTargetRef = __LLVMTarget*;
+
+/**
+ * @addtogroup LLVMCTarget
+ *
+ * @{
+ */
+struct LLVMOpaqueTargetMachineOptions {};
+alias LLVMTargetMachineOptionsRef = LLVMOpaqueTargetMachineOptions*;
+struct LLVMOpaqueTargetMachine {};
+alias LLVMTargetMachineRef = LLVMOpaqueTargetMachine*;
+struct LLVMTarget {};
+alias LLVMTargetRef = LLVMTarget*;
 
 enum LLVMCodeGenOptLevel {
     None,
@@ -40,11 +49,15 @@ enum LLVMRelocMode {
     Static,
     PIC,
     DynamicNoPic,
+    ROPI,
+    RWPI,
+    ROPI_RWPI,
 }
 
 enum LLVMCodeModel {
     Default,
     JITDefault,
+    Tiny,
     Small,
     Kernel,
     Medium,
@@ -54,6 +67,12 @@ enum LLVMCodeModel {
 enum LLVMCodeGenFileType {
     Assembly,
     Object,
+}
+
+enum LLVMGlobalISelAbortMode {
+  Enable,
+  Disable,
+  WithDiag,
 }
 
 /** Returns the first llvm::Target in the registered targets list. */
@@ -88,6 +107,55 @@ LLVMBool LLVMTargetHasTargetMachine(LLVMTargetRef T);
 LLVMBool LLVMTargetHasAsmBackend(LLVMTargetRef T);
 
 /*===-- Target Machine ----------------------------------------------------===*/
+/**
+ * Create a new set of options for an llvm::TargetMachine.
+ *
+ * The returned option structure must be released with
+ * LLVMDisposeTargetMachineOptions() after the call to
+ * LLVMCreateTargetMachineWithOptions().
+ */
+LLVMTargetMachineOptionsRef LLVMCreateTargetMachineOptions();
+
+/**
+ * Dispose of an LLVMTargetMachineOptionsRef instance.
+ */
+void LLVMDisposeTargetMachineOptions(LLVMTargetMachineOptionsRef Options);
+
+void LLVMTargetMachineOptionsSetCPU(LLVMTargetMachineOptionsRef Options,
+                                    const(char)* CPU);
+
+/**
+ * Set the list of features for the target machine.
+ *
+ * \param Features a comma-separated list of features.
+ */
+void LLVMTargetMachineOptionsSetFeatures(LLVMTargetMachineOptionsRef Options,
+                                         const(char)* Features);
+
+void LLVMTargetMachineOptionsSetABI(LLVMTargetMachineOptionsRef Options,
+                                    const(char)* ABI);
+
+void LLVMTargetMachineOptionsSetCodeGenOptLevel(
+    LLVMTargetMachineOptionsRef Options, LLVMCodeGenOptLevel Level);
+
+void LLVMTargetMachineOptionsSetRelocMode(LLVMTargetMachineOptionsRef Options,
+                                          LLVMRelocMode Reloc);
+
+void LLVMTargetMachineOptionsSetCodeModel(LLVMTargetMachineOptionsRef Options,
+                                          LLVMCodeModel CodeModel);
+
+/**
+ * Create a new llvm::TargetMachine.
+ *
+ * \param T the target to create a machine for.
+ * \param Triple a triple describing the target machine.
+ * \param Options additional configuration (see
+ *                LLVMCreateTargetMachineOptions()).
+ */
+LLVMTargetMachineRef
+LLVMCreateTargetMachineWithOptions(LLVMTargetRef T, const(char)* Triple,
+                                   LLVMTargetMachineOptionsRef Options);
+
 /** Creates a new llvm::TargetMachine. See llvm::Target::createTargetMachine */
 LLVMTargetMachineRef LLVMCreateTargetMachine(LLVMTargetRef T,
   const(char)* Triple, const(char)* CPU, const(char)* Features,
@@ -103,17 +171,17 @@ LLVMTargetRef LLVMGetTargetMachineTarget(LLVMTargetMachineRef T);
 /** Returns the triple used creating this target machine. See
   llvm::TargetMachine::getTriple. The result needs to be disposed with
   LLVMDisposeMessage. */
-char *LLVMGetTargetMachineTriple(LLVMTargetMachineRef T);
+char* LLVMGetTargetMachineTriple(LLVMTargetMachineRef T);
 
 /** Returns the cpu used creating this target machine. See
   llvm::TargetMachine::getCPU. The result needs to be disposed with
   LLVMDisposeMessage. */
-char *LLVMGetTargetMachineCPU(LLVMTargetMachineRef T);
+char* LLVMGetTargetMachineCPU(LLVMTargetMachineRef T);
 
 /** Returns the feature string used creating this target machine. See
   llvm::TargetMachine::getFeatureString. The result needs to be disposed with
   LLVMDisposeMessage. */
-char *LLVMGetTargetMachineFeatureString(LLVMTargetMachineRef T);
+char* LLVMGetTargetMachineFeatureString(LLVMTargetMachineRef T);
 
 /** Create a DataLayout based on the targetMachine. */
 LLVMTargetDataRef LLVMCreateTargetDataLayout(LLVMTargetMachineRef T);
@@ -122,11 +190,28 @@ LLVMTargetDataRef LLVMCreateTargetDataLayout(LLVMTargetMachineRef T);
 void LLVMSetTargetMachineAsmVerbosity(LLVMTargetMachineRef T,
                                       LLVMBool VerboseAsm);
 
+/** Enable fast-path instruction selection. */
+void LLVMSetTargetMachineFastISel(LLVMTargetMachineRef T, LLVMBool Enable);
+
+/** Enable global instruction selection. */
+void LLVMSetTargetMachineGlobalISel(LLVMTargetMachineRef T, LLVMBool Enable);
+
+/** Set abort behaviour when global instruction selection fails to lower/select
+ * an instruction. */
+void LLVMSetTargetMachineGlobalISelAbort(LLVMTargetMachineRef T,
+                                         LLVMGlobalISelAbortMode Mode);
+
+/** Enable the MachineOutliner pass. */
+void LLVMSetTargetMachineMachineOutliner(LLVMTargetMachineRef T,
+                                         LLVMBool Enable);
+
 /** Emits an asm or object file for the given module to the filename. This
   wraps several c++ only classes (among them a file stream). Returns any
   error in ErrorMessage. Use LLVMDisposeMessage to dispose the message. */
 LLVMBool LLVMTargetMachineEmitToFile(LLVMTargetMachineRef T, LLVMModuleRef M,
-  const(char)* Filename, LLVMCodeGenFileType codegen, char** ErrorMessage);
+                                     const(char)* Filename,
+                                     LLVMCodeGenFileType codegen,
+                                     char** ErrorMessage);
 
 /** Compile the LLVM IR stored in \p M and store the result in \p OutMemBuf. */
 LLVMBool LLVMTargetMachineEmitToMemoryBuffer(LLVMTargetMachineRef T, LLVMModuleRef M,
@@ -137,5 +222,21 @@ LLVMBool LLVMTargetMachineEmitToMemoryBuffer(LLVMTargetMachineRef T, LLVMModuleR
   disposed with LLVMDisposeMessage. */
 char* LLVMGetDefaultTargetTriple();
 
+/** Normalize a target triple. The result needs to be disposed with
+  LLVMDisposeMessage. */
+char* LLVMNormalizeTargetTriple(const(char)* triple);
+
+/** Get the host CPU as a string. The result needs to be disposed with
+  LLVMDisposeMessage. */
+char* LLVMGetHostCPUName();
+
+/** Get the host CPU's features as a string. The result needs to be disposed
+  with LLVMDisposeMessage. */
+char* LLVMGetHostCPUFeatures();
+
 /** Adds the target-specific analysis passes to the pass manager. */
 void LLVMAddAnalysisPasses(LLVMTargetMachineRef T, LLVMPassManagerRef PM);
+
+/**
+ * @}
+ */

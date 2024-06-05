@@ -62,7 +62,6 @@ final class CodeGen {
 		this.backend = backend;
 
 		llvmCtx = LLVMContextCreate();
-		LLVMContextSetOpaquePointers(llvmCtx, true);
 
 		llvmPtr = LLVMPointerTypeInContext(llvmCtx, 0);
 		llvmNull = LLVMConstNull(llvmPtr);

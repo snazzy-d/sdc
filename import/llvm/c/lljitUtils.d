@@ -1,4 +1,4 @@
-/*===-- llvm-c/BitWriter.h - BitWriter Library C Interface ------*- C++ -*-===*\
+/*===------- llvm-c/LLJITUtils.h - Advanced LLJIT features --------*- C -*-===*\
 |*                                                                            *|
 |* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
 |* Exceptions.                                                                *|
@@ -7,43 +7,40 @@
 |*                                                                            *|
 |*===----------------------------------------------------------------------===*|
 |*                                                                            *|
-|* This header declares the C interface to libLLVMBitWriter.a, which          *|
-|* implements output of the LLVM bitcode format.                              *|
+|* This header declares the C interface for extra utilities to be used with   *|
+|* the LLJIT class from the llvm-c/LLJIT.h header. It requires to following   *|
+|* link libraries in addition to libLLVMOrcJIT.a:                             *|
+|*  - libLLVMOrcDebugging.a                                                   *|
 |*                                                                            *|
 |* Many exotic languages can interoperate with C code but have a harder time  *|
 |* with C++ due to name mangling. So in addition to C, this interface enables *|
 |* tools written in such languages.                                           *|
 |*                                                                            *|
+|* Note: This interface is experimental. It is *NOT* stable, and may be       *|
+|*       changed without warning. Only C API usage documentation is           *|
+|*       provided. See the C++ documentation for all higher level ORC API     *|
+|*       details.                                                             *|
+|*                                                                            *|
 \*===----------------------------------------------------------------------===*/
 
-module llvm.c.bitWriter;
+module llvm.c.lljitUtils;
 
-public import llvm.c.types;
+import llvm.c.lljit;
 
 extern(C) nothrow:
 
 /**
- * @defgroup LLVMCBitWriter Bit Writer
- * @ingroup LLVMC
+ * @defgroup LLVMCExecutionEngineLLJITUtils LLJIT Utilities
+ * @ingroup LLVMCExecutionEngineLLJIT
  *
  * @{
  */
 
-/*===-- Operations on modules ---------------------------------------------===*/
-
-/** Writes a module to the specified path. Returns 0 on success. */
-int LLVMWriteBitcodeToFile(LLVMModuleRef M, const(char) *Path);
-
-/** Writes a module to an open file descriptor. Returns 0 on success. */
-int LLVMWriteBitcodeToFD(LLVMModuleRef M, int FD, int ShouldClose,
-                         int Unbuffered);
-
-/** Deprecated for LLVMWriteBitcodeToFD. Writes a module to an open file
-    descriptor. Returns 0 on success. Closes the Handle. */
-int LLVMWriteBitcodeToFileHandle(LLVMModuleRef M, int Handle);
-
-/** Writes a module to a new memory buffer and returns it. */
-LLVMMemoryBufferRef LLVMWriteBitcodeToMemoryBuffer(LLVMModuleRef M);
+/**
+ * Install the plugin that submits debug objects to the executor. Executors must
+ * expose the llvm_orc_registerJITLoaderGDBWrapper symbol.
+ */
+LLVMErrorRef LLVMOrcLLJITEnableDebugSupport(LLVMOrcLLJITRef J);
 
 /**
  * @}

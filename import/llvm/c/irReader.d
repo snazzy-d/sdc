@@ -1,9 +1,9 @@
 /*===-- llvm-c/IRReader.h - IR Reader C Interface -----------------*- C -*-===*\
 |*                                                                            *|
-|*                     The LLVM Compiler Infrastructure                       *|
-|*                                                                            *|
-|* This file is distributed under the University of Illinois Open Source      *|
-|* License. See LICENSE.TXT for details.                                      *|
+|* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
+|* Exceptions.                                                                *|
+|* See https://llvm.org/LICENSE.txt for license information.                  *|
+|* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception                    *|
 |*                                                                            *|
 |*===----------------------------------------------------------------------===*|
 |*                                                                            *|
@@ -18,6 +18,13 @@ public import llvm.c.types;
 extern(C) nothrow:
 
 /**
+ * @defgroup LLVMCCoreIRReader IR Reader
+ * @ingroup LLVMCCore
+ *
+ * @{
+ */
+
+/**
  * Read LLVM IR from a memory buffer and convert it into an in-memory Module
  * object. Returns 0 on success.
  * Optionally returns a human-readable description of any errors that
@@ -30,3 +37,6 @@ LLVMBool LLVMParseIRInContext(LLVMContextRef ContextRef,
                               LLVMMemoryBufferRef MemBuf, LLVMModuleRef* OutM,
                               char** OutMessage);
 
+/**
+ * @}
+ */

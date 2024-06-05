@@ -1,9 +1,9 @@
 /*===-- llvm-c/Target.h - Target Lib C Iface --------------------*- C++ -*-===*/
 /*                                                                            */
-/*                     The LLVM Compiler Infrastructure                       */
-/*                                                                            */
-/* This file is distributed under the University of Illinois Open Source      */
-/* License. See LICENSE.TXT for details.                                      */
+/* Part of the LLVM Project, under the Apache License v2.0 with LLVM          */
+/* Exceptions.                                                                */
+/* See https://llvm.org/LICENSE.txt for license information.                  */
+/* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception                    */
 /*                                                                            */
 /*===----------------------------------------------------------------------===*/
 /*                                                                            */
@@ -35,29 +35,11 @@ struct __LLVMOpaqueTargetData {};
 alias LLVMTargetDataRef = __LLVMOpaqueTargetData*;
 struct __LLVMOpaqueTargetLibraryInfotData {};
 alias LLVMTargetLibraryInfoRef = __LLVMOpaqueTargetLibraryInfotData*;
-struct __LLVMStructLayout {};
 
+// FIXME: Find the list of targets from the LLVM build in llvm/Config/Targets.def.
 extern(D) string LLVM_TARGET(string delegate(string) nothrow fun) {
   string ret;
-  foreach (str; [
-    "AArch64",
-  /*
-    "ARM",
-    "CellSPU",
-    "CppBackend",
-    "Hexagon",
-    "Mips",
-    "MBlaze",
-    "MSP430",
-    "PowerPC",
-    "PTX",
-    "Sparc",
-  */
-    "X86",
-  /*
-    "XCore",
-  */
-  ]) {
+  foreach (str; ["AArch64", "X86"]) {
     ret ~= fun(str) ~ "\n";
   }
 
@@ -65,39 +47,16 @@ extern(D) string LLVM_TARGET(string delegate(string) nothrow fun) {
 }
 
 /* Declare all of the target-initialization functions that are available. */
-extern(D) mixin(LLVM_TARGET(delegate string(string name) {
-  return "extern(C) void LLVMInitialize" ~ name ~ "TargetInfo();";
-}));
+extern(D) mixin(LLVM_TARGET(name => "extern(C) void LLVMInitialize" ~ name ~ "TargetInfo();"));
 
-extern(D) mixin(LLVM_TARGET(delegate string(string name) {
-  return "extern(C) void LLVMInitialize" ~ name ~ "Target();";
-}));
+extern(D) mixin(LLVM_TARGET(name => "extern(C) void LLVMInitialize" ~ name ~ "Target();"));
 
-extern(D) mixin(LLVM_TARGET(delegate string(string name) {
-  return "extern(C) void LLVMInitialize" ~ name ~ "TargetMC();";
-}));
+extern(D) mixin(LLVM_TARGET(name => "extern(C) void LLVMInitialize" ~ name ~ "TargetMC();"));
 
-
+// FIXME: Find the list of targets from the LLVM build in llvm/Config/AsmPrinters.def.
 extern(D) string LLVM_ASM_PRINTER(string delegate(string) nothrow fun) {
   string ret;
-  foreach (str; [
-    "AArch64",
-  /*
-    "ARM",
-    "CellSPU",
-    "Hexagon",
-    "Mips",
-    "MBlaze",
-    "MSP430",
-    "PowerPC",
-    "PTX",
-    "Sparc",
-  */
-    "X86",
-  /*
-    "XCore",
-  */
-  ]) {
+  foreach (str; ["AArch64", "X86"]) {
     ret ~= fun(str) ~ "\n";
   }
 
@@ -105,21 +64,12 @@ extern(D) string LLVM_ASM_PRINTER(string delegate(string) nothrow fun) {
 }
 
 /* Declare all of the available assembly printer initialization functions. */
-extern(D) mixin(LLVM_ASM_PRINTER(delegate string(string name) {
-  return "extern(C) void LLVMInitialize" ~ name ~ "AsmPrinter();";
-}));
+extern(D) mixin(LLVM_ASM_PRINTER(name => "extern(C) void LLVMInitialize" ~ name ~ "AsmPrinter();"));
 
+// FIXME: Find the list of targets from the LLVM build in llvm/Config/AsmParsers.def.
 extern(D) string LLVM_ASM_PARSER(string delegate(string) nothrow fun) {
   string ret;
-  foreach (str; [
-    "AArch64",
-  /*
-    "ARM",
-    "Mips",
-    "MBlaze",
-  */
-    "X86",
-  ]) {
+  foreach (str; ["AArch64", "X86"]) {
     ret ~= fun(str) ~ "\n";
   }
 
@@ -127,21 +77,12 @@ extern(D) string LLVM_ASM_PARSER(string delegate(string) nothrow fun) {
 }
 
 /* Declare all of the available assembly parser initialization functions. */
-extern(D) mixin(LLVM_ASM_PARSER(delegate string(string name) {
-  return "extern(C) void LLVMInitialize" ~ name ~ "AsmParser();";
-}));
+extern(D) mixin(LLVM_ASM_PARSER(name => "extern(C) void LLVMInitialize" ~ name ~ "AsmParser();"));
 
-extern(D) string LLVM_ASM_DISASSEMBLER(string delegate(string) nothrow fun) {
+// FIXME: Find the list of targets from the LLVM build in llvm/Config/Disassemblers.def.
+extern(D) string LLVM_DISASSEMBLER(string delegate(string) nothrow fun) {
   string ret;
-  foreach (str; [
-    "AArch64",
-  /*
-    "ARM",
-    "Mips",
-    "MBlaze",
-  */
-    "X86",
-  ]) {
+  foreach (str; ["AArch64", "X86"]) {
     ret ~= fun(str) ~ "\n";
   }
 
@@ -149,62 +90,48 @@ extern(D) string LLVM_ASM_DISASSEMBLER(string delegate(string) nothrow fun) {
 }
 
 /* Declare all of the available disassembler initialization functions. */
-extern(D) mixin(LLVM_ASM_PARSER(delegate string(string name) {
-  return "extern(C) void LLVMInitialize" ~ name ~ "Disassembler();";
-}));
+extern(D) mixin(LLVM_DISASSEMBLER(name => "extern(C) void LLVMInitialize" ~ name ~ "Disassembler();"));
 
 /** LLVMInitializeAllTargetInfos - The main program should call this function if
     it wants access to all available targets that LLVM is configured to
     support. */
 static void LLVMInitializeAllTargetInfos() {
-  mixin(LLVM_TARGET(delegate string(string name) {
-    return "LLVMInitialize" ~ name ~ "TargetInfo();";
-  }));
+  mixin(LLVM_TARGET(name => "LLVMInitialize" ~ name ~ "TargetInfo();"));
 }
 
 /** LLVMInitializeAllTargets - The main program should call this function if it
     wants to link in all available targets that LLVM is configured to
     support. */
 static void LLVMInitializeAllTargets() {
-  mixin(LLVM_TARGET(delegate string(string name) {
-    return "LLVMInitialize" ~ name ~ "Target();";
-  }));
+  mixin(LLVM_TARGET(name => "LLVMInitialize" ~ name ~ "Target();"));
 }
 
 /** LLVMInitializeAllTargetMCs - The main program should call this function if
     it wants access to all available target MC that LLVM is configured to
     support. */
 static void LLVMInitializeAllTargetMCs() {
-  mixin(LLVM_TARGET(delegate string(string name) {
-    return "LLVMInitialize" ~ name ~ "TargetMC();";
-  }));
+  mixin(LLVM_TARGET(name => "LLVMInitialize" ~ name ~ "TargetMC();"));
 }
 
 /** LLVMInitializeAllAsmPrinters - The main program should call this function if
     it wants all asm printers that LLVM is configured to support, to make them
     available via the TargetRegistry. */
 static void LLVMInitializeAllAsmPrinters() {
-  mixin(LLVM_ASM_PRINTER(delegate string(string name) {
-    return "LLVMInitialize" ~ name ~ "AsmPrinter();";
-  }));
+  mixin(LLVM_ASM_PRINTER(name => "LLVMInitialize" ~ name ~ "AsmPrinter();"));
 }
 
 /** LLVMInitializeAllAsmParsers - The main program should call this function if
     it wants all asm parsers that LLVM is configured to support, to make them
     available via the TargetRegistry. */
 static void LLVMInitializeAllAsmParsers() {
-  mixin(LLVM_ASM_PARSER(delegate string(string name) {
-    return "LLVMInitialize" ~ name ~ "AsmParser();";
-  }));
+  mixin(LLVM_ASM_PARSER(name => "LLVMInitialize" ~ name ~ "AsmParser();"));
 }
 
 /** LLVMInitializeAllDisassemblers - The main program should call this function
     if it wants all disassemblers that LLVM is configured to support, to make
     them available via the TargetRegistry. */
 static void LLVMInitializeAllDisassemblers() {
-  mixin(LLVM_ASM_DISASSEMBLER(delegate string(string name) {
-    return "LLVMInitialize" ~ name ~ "Disassembler();";
-  }));
+  mixin(LLVM_DISASSEMBLER(name => "LLVMInitialize" ~ name ~ "Disassembler();"));
 }
 
 /** LLVMInitializeNativeTarget - The main program should call this function to
@@ -212,45 +139,36 @@ static void LLVMInitializeAllDisassemblers() {
     for JIT applications to ensure that the target gets linked in correctly. */
 static LLVMBool LLVMInitializeNativeTarget() {
   /* If we have a native target, initialize it to ensure it is linked in. */
+  // FIXME: LLVM_NATIVE_TARGETINFO();
+  //        LLVM_NATIVE_TARGET();
+  //        LLVM_NATIVE_TARGETMC();
   return 1;
 }
-/+
+
 /** LLVMInitializeNativeTargetAsmParser - The main program should call this
     function to initialize the parser for the native target corresponding to the
     host. */
-static inline LLVMBool LLVMInitializeNativeAsmParser() {
-#ifdef LLVM_NATIVE_ASMPARSER
-  LLVM_NATIVE_ASMPARSER();
-  return 0;
-#else
+static LLVMBool LLVMInitializeNativeAsmParser() {
+  // FIXME: Use LLVM_NATIVE_ASMPARSER();
   return 1;
-#endif
 }
 
 /** LLVMInitializeNativeTargetAsmPrinter - The main program should call this
     function to initialize the printer for the native target corresponding to
     the host. */
-static inline LLVMBool LLVMInitializeNativeAsmPrinter() {
-#ifdef LLVM_NATIVE_ASMPRINTER
-  LLVM_NATIVE_ASMPRINTER();
-  return 0;
-#else
+static LLVMBool LLVMInitializeNativeAsmPrinter() {
+  // FIXME: Use LLVM_NATIVE_ASMPRINTER();
   return 1;
-#endif
 }
 
 /** LLVMInitializeNativeTargetDisassembler - The main program should call this
     function to initialize the disassembler for the native target corresponding
     to the host. */
-static inline LLVMBool LLVMInitializeNativeDisassembler() {
-#ifdef LLVM_NATIVE_DISASSEMBLER
-  LLVM_NATIVE_DISASSEMBLER();
-  return 0;
-#else
+static LLVMBool LLVMInitializeNativeDisassembler() {
+  // FIXME: Use LLVM_NATIVE_DISASSEMBLER();
   return 1;
-#endif
 }
-+/
+
 /*===-- Target Data -------------------------------------------------------===*/
 
 /**
@@ -292,7 +210,7 @@ char* LLVMCopyStringRepOfTargetData(LLVMTargetDataRef TD);
 LLVMByteOrdering LLVMByteOrder(LLVMTargetDataRef TD);
 
 /** Returns the pointer size in bytes for a target.
-    See the method llvm::TargetData::getPointerSize. */
+    See the method llvm::DataLayout::getPointerSize. */
 uint LLVMPointerSize(LLVMTargetDataRef TD);
 
 /** Returns the pointer size in bytes for a target for a specified

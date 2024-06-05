@@ -1,9 +1,9 @@
 /*===-- llvm-c/ExecutionEngine.h - ExecutionEngine Lib C Iface --*- C++ -*-===*\
 |*                                                                            *|
-|*                     The LLVM Compiler Infrastructure                       *|
-|*                                                                            *|
-|* This file is distributed under the University of Illinois Open Source      *|
-|* License. See LICENSE.TXT for details.                                      *|
+|* Part of the LLVM Project, under the Apache License v2.0 with LLVM          *|
+|* Exceptions.                                                                *|
+|* See https://llvm.org/LICENSE.txt for license information.                  *|
+|* SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception                    *|
 |*                                                                            *|
 |*===----------------------------------------------------------------------===*|
 |*                                                                            *|
@@ -65,7 +65,7 @@ uint LLVMGenericValueIntWidth(LLVMGenericValueRef GenValRef);
 ulong LLVMGenericValueToInt(LLVMGenericValueRef GenVal,
                             LLVMBool IsSigned);
 
-void *LLVMGenericValueToPointer(LLVMGenericValueRef GenVal);
+void* LLVMGenericValueToPointer(LLVMGenericValueRef GenVal);
 
 double LLVMGenericValueToFloat(LLVMTypeRef TyRef, LLVMGenericValueRef GenVal);
 
@@ -130,12 +130,12 @@ void LLVMFreeMachineCodeForFunction(LLVMExecutionEngineRef EE, LLVMValueRef F);
 void LLVMAddModule(LLVMExecutionEngineRef EE, LLVMModuleRef M);
 
 LLVMBool LLVMRemoveModule(LLVMExecutionEngineRef EE, LLVMModuleRef M,
-                          LLVMModuleRef *OutMod, char **OutError);
+                          LLVMModuleRef *OutMod, char** OutError);
 
 LLVMBool LLVMFindFunction(LLVMExecutionEngineRef EE, const(char)* Name,
                           LLVMValueRef *OutFn);
 
-void *LLVMRecompileAndRelinkFunction(LLVMExecutionEngineRef EE,
+void* LLVMRecompileAndRelinkFunction(LLVMExecutionEngineRef EE,
                                      LLVMValueRef Fn);
 
 LLVMTargetDataRef LLVMGetExecutionEngineTargetData(LLVMExecutionEngineRef EE);
@@ -145,11 +145,16 @@ LLVMGetExecutionEngineTargetMachine(LLVMExecutionEngineRef EE);
 void LLVMAddGlobalMapping(LLVMExecutionEngineRef EE, LLVMValueRef Global,
                           void* Addr);
 
-void *LLVMGetPointerToGlobal(LLVMExecutionEngineRef EE, LLVMValueRef Global);
+void* LLVMGetPointerToGlobal(LLVMExecutionEngineRef EE, LLVMValueRef Global);
 
 ulong LLVMGetGlobalValueAddress(LLVMExecutionEngineRef EE, const(char)* Name);
 
 ulong LLVMGetFunctionAddress(LLVMExecutionEngineRef EE, const(char)* Name);
+
+/// Returns true on error, false on success. If true is returned then the error
+/// message is copied to OutStr and cleared in the ExecutionEngine instance.
+LLVMBool LLVMExecutionEngineGetErrMsg(LLVMExecutionEngineRef EE,
+                                      char** OutError);
 
 /*===-- Operations on memory managers -------------------------------------===*/
 
@@ -182,6 +187,13 @@ LLVMMCJITMemoryManagerRef LLVMCreateSimpleMCJITMemoryManager(
   LLVMMemoryManagerDestroyCallback Destroy);
 
 void LLVMDisposeMCJITMemoryManager(LLVMMCJITMemoryManagerRef MM);
+
+/*===-- JIT Event Listener functions -------------------------------------===*/
+
+LLVMJITEventListenerRef LLVMCreateGDBRegistrationListener();
+LLVMJITEventListenerRef LLVMCreateIntelJITEventListener();
+LLVMJITEventListenerRef LLVMCreateOProfileJITEventListener();
+LLVMJITEventListenerRef LLVMCreatePerfJITEventListener();
 
 /**
  * @}
