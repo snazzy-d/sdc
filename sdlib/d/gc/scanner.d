@@ -73,7 +73,7 @@ public:
 				}
 
 				auto ec = pd.extentClass;
-				if (likely(ec.dense)) {
+				if (ec.dense) {
 					lastDenseSlabPageDescriptor = pd;
 					lastDenseBin = binInfos[ec.sizeClass];
 
@@ -138,7 +138,7 @@ private:
 			}
 		} else {
 			auto bmp = &e.outlineMarks;
-			if (unlikely(bmp is null) || bmp.setBitAtomic(index)) {
+			if (bmp is null || bmp.setBitAtomic(index)) {
 				return;
 			}
 		}
@@ -198,12 +198,7 @@ private:
 		}
 	}
 
-	void ensureWorklistCapacity(uint extras) {
-		auto count = cursor + extras;
-		if (likely(count <= worklist.length)) {
-			return;
-		}
-
+	void increaseWorklistCapacity(uint count) {
 		enum ElementSize = typeof(worklist[0]).sizeof;
 		enum MinWorklistSize = 4 * PageSize;
 
@@ -221,7 +216,11 @@ private:
 	}
 
 	void addToWorkList(const(void*)[] range) {
-		ensureWorklistCapacity(1);
+		auto count = cursor + 1;
+		if (unlikely(count > worklist.length)) {
+			increaseWorklistCapacity(count);
+		}
+
 		worklist[cursor++] = range;
 	}
 }
