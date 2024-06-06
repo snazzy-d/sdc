@@ -3,20 +3,6 @@ module intrinsics;
 
 import sdc.intrinsics;
 
-bool likely(bool b) {
-	return expect(b, true);
-	// CHECK-LABEL: _D10intrinsics6likelyFMbZb
-	// DISABLED-CHECK: [[RET:%[a-z0-9\.]+]] = tail call i1 @llvm.expect.i1(i1 %arg.b, i1 true)
-	// DISABLED-CHECK: ret i1 [[RET]]
-}
-
-bool unlikely(bool b) {
-	return expect(b, false);
-	// CHECK-LABEL: _D10intrinsics8unlikelyFMbZb
-	// DISABLED-CHECK: [[RET:%[a-z0-9\.]+]] = tail call i1 @llvm.expect.i1(i1 %arg.b, i1 false)
-	// DISABLED-CHECK: ret i1 [[RET]]
-}
-
 void doAlloca(size_t s) {
 	auto a = alloca(s);
 

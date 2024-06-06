@@ -38,6 +38,12 @@ struct IntrinsicGen {
 			case Expect:
 				return expect(args);
 
+			case Likely:
+				return likely(args);
+
+			case Unlikely:
+				return unlikely(args);
+
 			case Alloca:
 				return alloca(args);
 
@@ -85,6 +91,16 @@ struct IntrinsicGen {
 	LLVMValueRef expect(LLVMValueRef[] args)
 			in(args.length == 2, "Invalid argument count") {
 		return expect(args[0], args[1]);
+	}
+
+	LLVMValueRef likely(LLVMValueRef[] args)
+			in(args.length == 1, "Invalid argument count") {
+		return expect(args[0], LLVMConstInt(i1, true, false));
+	}
+
+	LLVMValueRef unlikely(LLVMValueRef[] args)
+			in(args.length == 1, "Invalid argument count") {
+		return expect(args[0], LLVMConstInt(i1, false, false));
 	}
 
 	LLVMValueRef expect(LLVMValueRef v, LLVMValueRef e) {

@@ -1,16 +1,8 @@
 module sdc.intrinsics;
 
-bool expect(bool v, bool e) {
-	return v;
-}
-
-bool likely(T)(T val) {
-	return expect(cast(bool) val, true);
-}
-
-bool unlikely(T)(T val) {
-	return expect(cast(bool) val, false);
-}
+bool expect(bool v, bool e);
+bool likely(bool v);
+bool unlikely(bool v);
 
 void* alloca(size_t size);
 
