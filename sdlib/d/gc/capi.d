@@ -79,9 +79,3 @@ void __sd_gc_add_roots(const void[] range) {
 void __sd_gc_add_tls_segment(const void[] range) {
 	threadCache.addTLSSegment(range);
 }
-
-extern(C) void __dummy(void*, size_t, void*);
-
-void __sd_gc_setBlockFinalizer(typeof(&__dummy) fn) {
-	__sd_destroyBlockCtx = fn;
-}

@@ -11,6 +11,8 @@ import d.gc.util;
 
 import sdc.intrinsics;
 
+extern(C) void __sd_destroyBlockCtx(void* ptr, size_t usedSpace, void* finalizer);
+
 struct PageFiller {
 private:
 	@property
@@ -680,9 +682,6 @@ private:
 
 		PriorityExtentHeap deadExtents;
 
-		import d.gc.tcache; // : __sd_destroyBlockCtx;
-		auto finalizerFn = __sd_destroyBlockCtx;
-
 		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
 			auto block = r.front;
 			auto bem = emap.blockLookup(block.address);
@@ -754,7 +753,7 @@ private:
 									// call the finalizer
 									auto freeSpace = readPackedFreeSpace(
 										(cast(ushort*) fptr) + 3);
-									finalizerFn(
+									__sd_destroyBlockCtx(
 										ptr,
 										ssize - freeSpace - PointerSize,
 										cast(void*)

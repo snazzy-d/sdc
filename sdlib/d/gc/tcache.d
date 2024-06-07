@@ -16,30 +16,7 @@ import core.stdc.stdio;
 
 ThreadCache threadCache;
 
-extern(C)
-void __defaultFinalizer(void* ptr, size_t usedSpace, void* finalizer) {
-	alias FinalizerFunctionType = void function(void* ptr, size_t size);
-	(cast(FinalizerFunctionType) finalizer)(ptr, usedSpace);
-}
-
-//alias finalizeFn = typeof(&__dummy);
-__gshared
-typeof(&__defaultFinalizer) __sd_destroyBlockCtx = &__defaultFinalizer;
-
-void finalizeSlab(ref SlabAllocInfo si, void* ptr) {
-	auto finalizer = si.finalizer;
-	if (finalizer !is null) {
-		assert(cast(void*) si.address == ptr,
-		       "destroy() was invoked on an interior pointer!");
-		__sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
-	}
-}
-
-void finalizeExtent(Extent* e, void* ptr) {
-	if (e.finalizer !is null) {
-		__sd_destroyBlockCtx(ptr, e.usedCapacity, e.finalizer);
-	}
-}
+extern(C) void __sd_destroyBlockCtx(void* ptr, size_t usedSpace, void* finalizer);
 
 struct ThreadCache {
 private:
@@ -140,10 +117,18 @@ public:
 
 		if (likely(pd.isSlab())) {
 			auto si = SlabAllocInfo(pd, ptr);
-			finalizeSlab(si, ptr);
+            auto finalizer = si.finalizer;
+			if (finalizer !is null) {
+				assert(cast(void*) si.address == ptr,
+				       "destroy() was invoked on an interior pointer!");
+
+                __sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
+			}
 			freeSmall(pd, ptr);
 		} else {
-			finalizeExtent(e, ptr);
+			if (e.finalizer !is null) {
+				__sd_destroyBlockCtx(ptr, e.usedCapacity, e.finalizer);
+			}
 			freeLarge(pd);
 		}
 	}
