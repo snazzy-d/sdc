@@ -415,6 +415,7 @@ public:
 
 		fbody[entryBlock]
 			.branch(location, skipFirstCond ? bodyBlock : testBlock);
+
 		if (condition) {
 			auto breakLabel = getBreakLabel(location);
 			fbody[testBlock]
@@ -434,7 +435,23 @@ public:
 	) {
 		Expression cond, inc;
 
-		if (condition) {
+		static isTrivialTrue(AstExpression c) {
+			if (c is null) {
+				return true;
+			}
+
+			if (auto b = cast(BooleanLiteral) c) {
+				return b.value;
+			}
+
+			if (auto i = cast(IntegerLiteral) c) {
+				return i.value != 0;
+			}
+
+			return false;
+		}
+
+		if (!isTrivialTrue(condition)) {
 			cond = buildCondition(condition);
 		}
 
@@ -967,27 +984,35 @@ public:
 			msg = buildString(s.message);
 		}
 
-		bool isHalt;
-		if (auto b = cast(BooleanLiteral) s.condition) {
-			isHalt = !b.value;
-		} else if (auto i = cast(IntegerLiteral) s.condition) {
-			isHalt = !i.value;
-		} else if (auto n = cast(NullLiteral) s.condition) {
-			isHalt = true;
+		static isTrivialFalse(AstExpression c) {
+			if (auto b = cast(BooleanLiteral) c) {
+				return !b.value;
+			}
+
+			if (auto i = cast(IntegerLiteral) c) {
+				return !i.value;
+			}
+
+			if (auto n = cast(NullLiteral) c) {
+				return true;
+			}
+
+			return false;
 		}
 
-		if (isHalt) {
+		if (isTrivialFalse(s.condition)) {
 			currentBlock.halt(s.location, msg);
 			return;
 		}
+
+		auto condition = buildCondition(s.condition);
 
 		auto testBlock = currentBlockRef;
 		auto failBlock = startNewBranch(BuiltinName!"assert.fail");
 		currentBlock.halt(s.location, msg);
 
 		auto successBlock = startNewBranch(BuiltinName!"assert.success");
-		fbody[testBlock].branch(s.location, buildCondition(s.condition),
-		                        successBlock, failBlock);
+		fbody[testBlock].branch(s.location, condition, successBlock, failBlock);
 	}
 
 	void visit(ThrowStatement s) {

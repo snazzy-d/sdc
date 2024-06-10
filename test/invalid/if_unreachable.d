@@ -1,4 +1,4 @@
-//T error: unreachable.d:12:1:
+//T error: if_unreachable.d:12:1:
 //T error: This statement is unreachable.
 
 int main() {

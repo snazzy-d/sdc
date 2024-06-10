@@ -32,10 +32,6 @@ struct FutexWaiter {
 					assert(0, "futex operation failed!");
 			}
 		}
-
-		// FIXME: Control flow analysis should be able
-		// to figure this one out.
-		assert(0, "unreachable");
 	}
 
 	void wakeup() shared {
