@@ -97,9 +97,7 @@ private:
 	void lockSlow() shared {
 		// Trusting WTF::WordLock on that one...
 		enum SpinLimit = 40;
-
 		uint spinCount = 0;
-		ThreadData* me = null;
 
 		while (true) {
 			auto current = word.load(MemoryOrder.Relaxed);
@@ -127,58 +125,74 @@ private:
 				continue;
 			}
 
-			// Prepare ourselves to be queued.
-			if (me is null) {
-				me = &threadData;
-			}
-
-			// Ok, we need to park. Take the queue lock.
-			if ((current & QueueLockBit) || !word
-				    .casWeak(current, current | QueueLockBit,
-				             MemoryOrder.Acquire)) {
-				sched_yield();
-				continue;
-			}
-
-			// Add ourselves in the queue.
-			assert(me.next is null, "This thread is already queued!");
-
-			auto tail = cast(ThreadData*) (current & ThreadDataMask);
-			tail = tail is null ? me : tail;
-			me.next = tail.next;
-			tail.next = me;
-
-			// Setup ourselves up for handoff.
-			me.handoff.store(Handoff.None, MemoryOrder.Release);
-
-			// Now we store the updated head. Note that this will release the
-			// queue lock too, but it's okay, by now we are in the queue.
-			word.store(LockBit | cast(size_t) me, MemoryOrder.Release);
-
-			// Wait for the control to be handed back to us.
-			uint handoff;
-			while ((handoff = me.handoff.load(MemoryOrder.Acquire))
-				       == Handoff.None) {
-				me.waiter.block();
-
-				// FIXME: Dequeue ourselves in case of timeout.
-			}
-
-			switch (handoff) {
-				case Handoff.Direct:
-					// We are done.
-					assert(word.load(MemoryOrder.Relaxed) & LockBit,
-					       "Lock not held!");
-					return;
-
-				case Handoff.Barging:
-					// Just try to take the lock again.
-					continue;
-
-				default:
-					assert(0, "Invalid handoff value!");
+			if (park(current) == Handoff.Direct) {
+				assert((&this).isHeld(), "Lock not held!");
+				return;
 			}
 		}
+	}
+
+	uint park(size_t current) shared {
+		assert(current & LockBit, "Lock not held!");
+
+		// Add ourselves in the queue.
+		auto me = &threadData;
+		assert(me.next is null, "This thread is already queued!");
+
+		// Make sure we are setup for handoff.
+		assert(me.handoff.load() == Handoff.None, "Invalid handoff state!");
+
+		// If we can, try try to register atomically.
+		if (current == LockBit) {
+			me.next = me;
+			if (word.casWeak(current, LockBit | cast(size_t) me,
+			                 MemoryOrder.Release)) {
+				return waitForHandoff();
+			}
+
+			me.next = null;
+			return Handoff.Barging;
+		}
+
+		// We cannot register atomically, take the queue lock.
+		if ((current & QueueLockBit) || !word
+			    .casWeak(current, current | QueueLockBit,
+			             MemoryOrder.Acquire)) {
+			sched_yield();
+			return Handoff.Barging;
+		}
+
+		auto tail = cast(ThreadData*) (current & ThreadDataMask);
+		assert(tail !is null, "Fail to short circuit on null tail!");
+
+		me.next = tail.next;
+		tail.next = me;
+
+		// Now we store the updated head. Note that this will release the
+		// queue lock too, but it's okay, by now we are in the queue.
+		word.store(LockBit | cast(size_t) me, MemoryOrder.Release);
+
+		return waitForHandoff();
+	}
+
+	static uint waitForHandoff() {
+		auto me = &threadData;
+
+		// Wait for the control to be handed back to us.
+		uint handoff;
+		while ((handoff = me.handoff.load(MemoryOrder.Acquire))
+			       == Handoff.None) {
+			me.waiter.block();
+
+			// FIXME: Dequeue ourselves in case of timeout.
+		}
+
+		// Setup ourselves up for the next handoff.
+		me.handoff.store(Handoff.None, MemoryOrder.Release);
+
+		assert(handoff == Handoff.Direct || handoff == Handoff.Barging,
+		       "Invalid handoff value!");
+		return handoff;
 	}
 
 	// FIXME: Crashing for some reason.
