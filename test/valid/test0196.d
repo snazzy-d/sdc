@@ -6,19 +6,21 @@
 extern(C) void __sd_gc_collect();
 extern(C) void* __sd_gc_alloc(size_t size);
 
+struct Link {
+	Link* next;
+
+	this(Link* next) {
+		this.next = next;
+	}
+}
+
 void main() {
-	enum CollectCycle = 10000000;
-	size_t n = 11400714819323198485;
+	enum NodeCount = 10000000;
 
 	foreach (loop; 0 .. 20) {
-		foreach (i; 0 .. CollectCycle) {
-			n = n * 6364136223846793005 + 1442695040888963407;
-
-			auto x = (i + 1) << 5;
-			auto m = (x & -x) - 1;
-			auto s = n & m;
-
-			__sd_gc_alloc(s);
+		auto ll = new Link(null);
+		foreach (i; 0 .. NodeCount) {
+			ll = new Link(ll);
 		}
 
 		__sd_gc_collect();

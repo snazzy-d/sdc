@@ -137,7 +137,8 @@ public:
 
 		if (!allowUnreachable) {
 			import source.exception;
-			throw new CompileException(s.location, "Unreachable statement");
+			throw new CompileException(s.location,
+			                           "This statement is unreachable.");
 		}
 
 		startNewBranch(BuiltinName!"unreachable");
