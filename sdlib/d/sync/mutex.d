@@ -68,6 +68,20 @@ public:
 		unlockSlow(Fairness.Fair);
 	}
 
+	bool waitFor(Condition cond) shared {
+		assert((&this).isHeld(), "Mutex not held!");
+
+		while (true) {
+			if (cond.predicate()) {
+				return true;
+			}
+
+			// FIXME: In case of timeout, we want to return false.
+			//        At the moment, timeouts are not supported.
+			unlockAndWait();
+		}
+	}
+
 private:
 	enum Handoff {
 		None,
@@ -163,7 +177,7 @@ private:
 		}
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		assert(tail !is null, "Fail to short circuit on null tail!");
+		assert(tail !is null, "Failed to short circuit on empty queue!");
 
 		me.next = tail.next;
 		tail.next = me;
@@ -202,13 +216,36 @@ private:
 	}
 
 	void unlockSlow(Fairness fair) shared {
+		unlockSlowImpl!false(fair);
+	}
+
+	void unlockAndWait() shared {
+		unlockSlowImpl!true(Fairness.Unfair);
+
+		if (waitForHandoff() == Handoff.Barging) {
+			lock();
+		}
+
+		assert((&this).isHeld(), "Lock not held!");
+	}
+
+	void unlockSlowImpl(bool QueueMe)(Fairness fair) shared {
+		size_t fastUnlock = 0;
+		static if (QueueMe) {
+			auto me = &threadData;
+			assert(me.next is null, "This thread is already queued!");
+
+			me.next = me;
+			fastUnlock = cast(size_t) me;
+		}
+
 		while (true) {
 			auto current = word.load(MemoryOrder.Relaxed);
 			assert(current & LockBit, "Lock not held!");
 
 			// If nobody is parked, just unlock.
 			if (current == LockBit) {
-				if (word.casWeak(current, 0, MemoryOrder.Release)) {
+				if (word.casWeak(current, fastUnlock, MemoryOrder.Release)) {
 					return;
 				}
 
@@ -234,19 +271,34 @@ private:
 		assert(current & QueueLockBit, "Queue lock not held!");
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		assert(tail !is null, "Queue is empty!");
+		assert(tail !is null, "Failed to short circuit on empty queue!");
 
-		// Pop the head.
+		/**
+		 * FIXME: We might end up running through the same conditions
+		 *        again and again with that strategy. A better approach
+		 *        would be to make sure we dequeu at least one non condition
+		 *        thread if there is one, maybe?
+		 */
+		// Pop the head and queue this thread if requested.
 		auto head = tail.next;
-		tail.next = head.next;
+
+		static if (QueueMe) {
+			tail.next = me;
+			me.next = head.next;
+
+			auto newTail = me;
+		} else {
+			tail.next = head.next;
+
+			auto newTail = (head is tail) ? null : tail;
+		}
 
 		/**
 		 * As we update the tail, we also release the queue lock.
 		 * The lock itself is kept is the fair case, or unlocked if
 		 * fairness is not a concern.
 		 */
-		auto newTail = (head == tail) ? 0 : cast(size_t) tail;
-		word.store(newTail | fair, MemoryOrder.Release);
+		word.store(fair | cast(size_t) newTail, MemoryOrder.Release);
 
 		// Make sure our bit trickery remains valid.
 		static assert((Handoff.Barging + Fairness.Fair) == Handoff.Direct);
@@ -255,6 +307,14 @@ private:
 		head.next = null;
 		head.handoff.store(Handoff.Barging + fair, MemoryOrder.Release);
 		head.waiter.wakeup();
+	}
+}
+
+struct Condition {
+	bool delegate() predicate;
+
+	this(bool delegate() predicate) {
+		this.predicate = predicate;
 	}
 }
 
@@ -412,4 +472,89 @@ unittest fairness {
 		pthread_join(ts[i], &ret);
 		printf("\t%4d => %16u\n", i, counts[i]);
 	}
+}
+
+unittest condition {
+	static runThread(void* delegate() dg) {
+		static struct Delegate {
+			void* ctx;
+			void* function(void*) fun;
+		}
+
+		auto x = *(cast(Delegate*) &dg);
+
+		import core.stdc.pthread;
+		pthread_t tid;
+		auto r = pthread_create(&tid, null, x.fun, x.ctx);
+		assert(r == 0, "Failed to create thread!");
+
+		return tid;
+	}
+
+	enum ThreadCount = 1024;
+
+	shared Mutex mutex;
+	uint next = -1;
+
+	auto run(uint i) {
+		void* fun() {
+			bool check0() {
+				return next == i;
+			}
+
+			bool check1() {
+				return next == i;
+			}
+
+			mutex.lock();
+
+			mutex.waitFor(Condition(check0));
+			next++;
+
+			mutex.waitFor(Condition(check1));
+			next--;
+
+			mutex.unlock();
+
+			return null;
+		}
+
+		return runThread(fun);
+	}
+
+	// Start the threads.
+	mutex.lock();
+
+	import core.stdc.pthread;
+	pthread_t[ThreadCount] ts;
+	foreach (i; 0 .. ThreadCount) {
+		ts[i] = run(i);
+	}
+
+	bool reachedReversePoint() {
+		return next == ThreadCount;
+	}
+
+	bool reachedStartPoint() {
+		return next == -1;
+	}
+
+	// Hand things over to the threads.
+	next = 0;
+	mutex.waitFor(Condition(reachedReversePoint));
+
+	next--;
+	mutex.waitFor(Condition(reachedStartPoint));
+
+	mutex.unlock();
+
+	// Now join them all and check next.
+	foreach (i; 0 .. ThreadCount) {
+		void* ret;
+		pthread_join(ts[i], &ret);
+	}
+
+	mutex.lock();
+	assert(next == -1);
+	mutex.unlock();
 }
