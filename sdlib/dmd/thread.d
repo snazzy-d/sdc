@@ -39,4 +39,7 @@ void __sd_thread_create() {
 	__sd_gc_init();
 }
 
-void __sd_thread_destroy() {}
+void __sd_thread_destroy() {
+	import d.gc.capi;
+	__sd_gc_tl_flush_cache();
+}

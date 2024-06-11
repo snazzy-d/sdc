@@ -7,7 +7,10 @@ extern(C) void __sd_thread_create() {
 	registerTlsSegments();
 }
 
-extern(C) void __sd_thread_destroy() {}
+extern(C) void __sd_thread_destroy() {
+	import d.gc.capi;
+	__sd_gc_tl_flush_cache();
+}
 
 alias ScanDg = void delegate(const(void*)[] range);
 extern(C) void __sd_thread_scan(ScanDg scan) {
