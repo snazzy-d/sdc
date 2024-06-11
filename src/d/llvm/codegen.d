@@ -52,15 +52,18 @@ final class CodeGen {
 	LLVMAttributeRef noUnwind;
 	LLVMAttributeRef framePointer;
 
-	// FIXME: We hold a refernece to the backend here so it is not GCed.
+	// FIXME: We hold a reference to the backend here so it is not GCed.
 	// Now that JIT use its own codegen, no reference to the JIT backend
 	// is held if that one goes. The whole thing needs to be refactored
 	// in a way that is more sensible.
 	import d.llvm.backend;
 	LLVMBackend backend;
 
+	import d.llvm.debuginfo;
+	DebugInfoData debugInfoData;
+
 	import d.semantic.semantic;
-	this(SemanticPass sema, string name, LLVMBackend backend,
+	this(SemanticPass sema, Module main, LLVMBackend backend,
 	     LLVMTargetMachineRef targetMachine) {
 		this.context = sema.context;
 		this.scheduler = sema.scheduler;
@@ -84,11 +87,13 @@ final class CodeGen {
 		llvmSlice = LLVMStructTypeInContext(llvmCtx, sliceElements.ptr,
 		                                    sliceElements.length, false);
 
-		import std.string;
-		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
+		auto source = main.location.getFullLocation(context).getSource();
+		auto name = source.getFileName().toStringz();
+		dmodule = LLVMModuleCreateWithNameInContext(name, llvmCtx);
+		LLVMSetIsNewDbgInfoFormat(dmodule, true);
 
-		this.targetData = LLVMCreateTargetDataLayout(targetMachine);
-		LLVMSetModuleDataLayout(dmodule, this.targetData);
+		targetData = LLVMCreateTargetDataLayout(targetMachine);
+		LLVMSetModuleDataLayout(dmodule, targetData);
 
 		const branch_weights = "branch_weights";
 		LLVMValueRef[3] branch_metadata = [
@@ -106,9 +111,15 @@ final class CodeGen {
 		noAlias = getAttribute("noalias");
 		noUnwind = getAttribute("nounwind");
 		framePointer = getAttribute("frame-pointer", "non-leaf");
+
+		if (backend.config.debugBuild) {
+			debugInfoData.create(dmodule, source);
+		}
 	}
 
 	~this() {
+		debugInfoData.dispose();
+
 		LLVMDisposeModule(dmodule);
 		LLVMDisposeTargetData(targetData);
 		LLVMContextDispose(llvmCtx);

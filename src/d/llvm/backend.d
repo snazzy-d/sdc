@@ -20,8 +20,8 @@ private:
 		return globalGen.pass;
 	}
 
-	uint optLevel;
-	string[] linkerPaths;
+	import d.llvm.config;
+	LLVMConfig _config;
 
 	LLVMEvaluator evaluator;
 	LLVMDataLayout dataLayout;
@@ -29,10 +29,14 @@ private:
 	LLVMTargetMachineRef targetMachine;
 
 public:
+	@property
+	auto config() const {
+		return _config;
+	}
+
 	import d.semantic.semantic;
-	this(SemanticPass sema, string name, uint optLevel, string[] linkerPaths) {
-		this.optLevel = optLevel;
-		this.linkerPaths = linkerPaths;
+	this(SemanticPass sema, LLVMConfig config, Module main) {
+		this._config = config;
 
 		import llvm.c.executionEngine;
 		LLVMLinkInMCJIT();
@@ -60,7 +64,7 @@ public:
 			LLVMGetFirstTarget(), triple, "x86-64", "",
 			LLVMCodeGenOptLevel.Default, Reloc, LLVMCodeModel.Default);
 
-		auto pass = new CodeGen(sema, name, this, targetMachine);
+		auto pass = new CodeGen(sema, main, this, targetMachine);
 		globalGen = GlobalGen(pass);
 		dataLayout = new LLVMDataLayout(pass, pass.targetData);
 	}
@@ -91,7 +95,7 @@ public:
 		scope(exit) LLVMDisposePassBuilderOptions(opts);
 
 		char[12] passes = "default<O?>\0";
-		passes[9] = cast(char) ('0' + optLevel);
+		passes[9] = cast(char) ('0' + config.optLevel);
 
 		LLVMRunPasses(globalGen.dmodule, passes.ptr, targetMachine, opts);
 	}
@@ -179,7 +183,7 @@ public:
 	void link(string objFile, string executable) {
 		import std.algorithm, std.array;
 		auto params =
-			linkerPaths.map!(path => " -L" ~ (cast(string) path)).join();
+			config.linkerPaths.map!(path => " -L" ~ (cast(string) path)).join();
 
 		import std.process;
 		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " "

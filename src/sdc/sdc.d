@@ -14,7 +14,8 @@ final class SDC {
 	Module[] modules;
 
 	import sdc.config;
-	this(Context context, string name, Config config, string[] preload = []) {
+	this(Context context, string name, Config config, string[] preload = [],
+	     bool debugBuild = false) {
 		this.context = context;
 
 		import std.algorithm, std.array, std.conv, std.path;
@@ -26,26 +27,31 @@ final class SDC {
 
 		LLVMBackend evBackend;
 
-		import d.semantic.evaluator;
-		Evaluator evb(SemanticPass pass) {
+		import d.llvm.config;
+		auto getEvaluatorBackend(SemanticPass pass) {
 			if (evBackend is null) {
-				evBackend = new LLVMBackend(pass, name, config.optLevel,
-				                            config.linkerPaths);
+				evBackend = new LLVMBackend(pass, LLVMConfig(config, false),
+				                            modules[0]);
 			}
 
-			return evBackend.getEvaluator();
+			return evBackend;
+		}
+
+		import d.semantic.evaluator;
+		Evaluator getEvaluator(SemanticPass pass) {
+			return getEvaluatorBackend(pass).getEvaluator();
 		}
 
 		import d.semantic.datalayout, d.object;
-		DataLayout dlb(ObjectReference) {
-			assert(evBackend !is null);
-			return evBackend.getDataLayout();
+		DataLayout getDataLayout(SemanticPass pass) {
+			return getEvaluatorBackend(pass).getDataLayout();
 		}
 
-		semantic = new SemanticPass(context, includePaths, preload, modules,
-		                            config.enableUnittest, &evb, &dlb);
-		backend = new LLVMBackend(semantic, name, config.optLevel,
-		                          config.linkerPaths);
+		semantic = new SemanticPass(
+			context, includePaths, preload, modules, config.enableUnittest,
+			&getEvaluator, &getDataLayout);
+		backend = new LLVMBackend(semantic, LLVMConfig(config, debugBuild),
+		                          modules[0]);
 	}
 
 	void compile(string filename) {

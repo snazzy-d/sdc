@@ -68,7 +68,7 @@ final class SemanticPass {
 	Name[] versions = getDefaultVersions();
 
 	alias EvaluatorBuilder = Evaluator delegate(SemanticPass);
-	alias DataLayoutBuilder = DataLayout delegate(ObjectReference);
+	alias DataLayoutBuilder = DataLayout delegate(SemanticPass);
 
 	this(
 		Context context,
@@ -94,7 +94,7 @@ final class SemanticPass {
 		this.object = new ObjectReference(obj);
 
 		evaluator = evBuilder(this);
-		dataLayout = dlBuilder(this.object);
+		dataLayout = dlBuilder(this);
 
 		scheduler.require(obj, Step.Populated);
 	}

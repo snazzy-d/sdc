@@ -15,7 +15,7 @@ int run(Context context, string[] args) {
 	conf.buildGlobalConfig("sdconfig", context);
 
 	string[] includePaths, linkerPaths;
-	bool dontLink, generateMain;
+	bool dontLink, debugBuild, generateMain;
 	string outputFile;
 	bool outputLLVM, outputAsm;
 
@@ -28,6 +28,7 @@ int run(Context context, string[] args) {
 		"O",         "Optimization level",  &conf.optLevel,
 		"c",         "Stop before linking", &dontLink,
 		"o",         "Output file",         &outputFile,
+		"g",         "Generate source-level debug information", &debugBuild,
 		"S",         "Stop before assembling and output assembly file", &outputAsm,
 		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM,
 		"main",      "Generate the main function", &generateMain,
@@ -88,7 +89,7 @@ int run(Context context, string[] args) {
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
 	import sdc.sdc;
-	auto c = new SDC(context, files[0], conf, files);
+	auto c = new SDC(context, files[0], conf, files, debugBuild);
 
 	if (generateMain) {
 		c.buildMain();
