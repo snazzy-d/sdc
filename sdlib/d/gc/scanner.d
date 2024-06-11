@@ -9,27 +9,132 @@ import d.gc.util;
 
 struct Scanner {
 private:
-	ubyte gcCycle;
-	uint cursor;
+	import d.sync.mutex;
+	Mutex mutex;
 
-	const(void*)[] managedAddressSpace;
+	uint cursor;
 	const(void*)[][] worklist;
+
+	ubyte _gcCycle;
+	const(void*)[] _managedAddressSpace;
+
+public:
+	this(ubyte gcCycle, const(void*)[] managedAddressSpace) {
+		this._gcCycle = gcCycle;
+		this._managedAddressSpace = managedAddressSpace;
+	}
+
+	@property
+	const(void*)[] managedAddressSpace() shared {
+		return (cast(Scanner*) &this)._managedAddressSpace;
+	}
+
+	@property
+	ubyte gcCycle() shared {
+		return (cast(Scanner*) &this)._gcCycle;
+	}
+
+	void mark() shared {
+		auto worker = Worker(&this);
+
+		// Scan the roots.
+		import d.gc.global;
+		gState.scanRoots(addToWorkList);
+
+		// Scan the stack and TLS.
+		import d.thread;
+		__sd_thread_scan(worker.scan);
+
+		processWorkList(worker);
+
+		import d.gc.tcache;
+		threadCache.free(cast(void*) worklist.ptr);
+	}
+
+	void addToWorkList(const(void*)[] range) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(Scanner*) &this).addToWorkListImpl(range);
+	}
+
+private:
+	void processWorkList(ref Worker worker) shared {
+		const(void*)[] range;
+
+		while (waitForWork(range)) {
+			worker.scan(range);
+		}
+	}
+
+	bool waitForWork(ref const(void*)[] range) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		auto w = (cast(Scanner*) &this);
+		if (w.cursor == 0) {
+			return false;
+		}
+
+		range = w.worklist[--w.cursor];
+		return true;
+	}
+
+	void increaseWorklistCapacity(uint count) {
+		assert(mutex.isHeld(), "mutex not held!");
+
+		enum MinWorklistSize = 4 * PageSize;
+		enum ElementSize = typeof(worklist[0]).sizeof;
+
+		auto size = count * ElementSize;
+		if (size < MinWorklistSize) {
+			size = MinWorklistSize;
+		} else {
+			import d.gc.sizeclass;
+			size = getAllocSize(count * ElementSize);
+		}
+
+		import d.gc.tcache;
+		auto ptr = threadCache.realloc(worklist.ptr, size, false);
+		worklist = (cast(const(void*)[]*) ptr)[0 .. size / ElementSize];
+	}
+
+	void addToWorkListImpl(const(void*)[] range) {
+		assert(mutex.isHeld(), "mutex not held!");
+
+		auto count = cursor + 1;
+		if (unlikely(count > worklist.length)) {
+			increaseWorklistCapacity(count);
+		}
+
+		worklist[cursor++] = range;
+	}
+}
+
+private:
+
+struct Worker {
+private:
+	shared(Scanner)* scanner;
+
+	uint cursor;
+	const(void*)[][17] worklist;
 
 	// TODO: Use a different caching layer that
 	//       can cache negative results.
 	CachedExtentMap emap;
 
 public:
-	this(ubyte gcCycle, const(void*)[] managedAddressSpace,
-	     ref CachedExtentMap emap) {
-		this.gcCycle = gcCycle;
-		this.managedAddressSpace = managedAddressSpace;
-		this.emap = emap;
+	this(shared(Scanner)* scanner) {
+		this.scanner = scanner;
+
+		import d.gc.tcache;
+		this.emap = threadCache.emap;
 	}
 
-	void scanLoop(const(void*)[] range, size_t limit) {
-		size_t scanned = 0;
-		auto ms = managedAddressSpace;
+	void scan(const(void*)[] range) {
+		auto ms = scanner.managedAddressSpace;
+		auto cycle = scanner.gcCycle;
 
 		const(void*)[] lastDenseSlab;
 		PageDescriptor lastDenseSlabPageDescriptor;
@@ -40,8 +145,6 @@ public:
 		while (true) {
 			auto current = range.ptr;
 			auto top = current + range.length;
-
-			scanned += range.length * PointerSize;
 
 			for (; current < top; current++) {
 				auto ptr = *current;
@@ -59,7 +162,15 @@ public:
 					auto pd = lastDenseSlabPageDescriptor;
 					auto slotSize = lastDenseBin.slotSize;
 
-					markDense(base, index, pd, slotSize);
+					if (!markDense(base, index, pd)) {
+						continue;
+					}
+
+					if (pd.containsPointers) {
+						auto slotPtr = cast(void**) (base + index * slotSize);
+						addToWorkList(slotPtr[0 .. slotSize / PointerSize]);
+					}
+
 					continue;
 				}
 
@@ -85,15 +196,15 @@ public:
 				}
 
 				if (ec.isSlab()) {
-					markSparse(pd, ptr);
+					markSparse(pd, ptr, cycle);
 				} else {
-					markLarge(pd);
+					markLarge(pd, cycle);
 				}
 			}
 
 			// In case we reached our limit, we bail. This ensures that
 			// we can scan iterratively.
-			if (cursor == 0 || scanned > limit) {
+			if (cursor == 0) {
 				return;
 			}
 
@@ -101,23 +212,8 @@ public:
 		}
 	}
 
-	void scan(const(void*)[] range) {
-		scanLoop(range, 16 * PageSize);
-	}
-
-	void mark() {
-		scanLoop([], size_t.max);
-
-		import d.gc.tcache;
-		threadCache.free(worklist.ptr);
-
-		worklist = [];
-		cursor = 0;
-	}
-
 private:
-	void markDense(const void* base, uint index, PageDescriptor pd,
-	               uint slotSize) {
+	bool markDense(const void* base, uint index, PageDescriptor pd) {
 		auto e = pd.extent;
 
 		/**
@@ -128,32 +224,28 @@ private:
 		 * It is unclear how to handle this at this time.
 		 */
 		if (!e.slabData.valueAt(index)) {
-			return;
+			return false;
 		}
 
 		auto ec = pd.extentClass;
 		if (ec.supportsInlineMarking) {
 			if (e.slabMetadataMarks.setBitAtomic(index)) {
-				return;
+				return false;
 			}
 		} else {
 			auto bmp = &e.outlineMarks;
 			if (bmp is null || bmp.setBitAtomic(index)) {
-				return;
+				return false;
 			}
 		}
 
-		if (pd.containsPointers) {
-			auto slotPtr = cast(void**) (base + index * slotSize);
-			addToWorkList(slotPtr[0 .. slotSize / PointerSize]);
-		}
+		return true;
 	}
 
-	void markSparse(PageDescriptor pd, const void* ptr) {
+	void markSparse(PageDescriptor pd, const void* ptr, ubyte cycle) {
 		import d.gc.slab;
 		auto se = SlabEntry(pd, ptr);
 		auto bit = 0x100 << se.index;
-		auto cycle = gcCycle;
 
 		auto e = pd.extent;
 		auto old = e.gcWord.load();
@@ -174,14 +266,12 @@ private:
 
 	Exit:
 		if (pd.containsPointers) {
-			addToWorkList(se.computeRange());
+			scanner.addToWorkList(se.computeRange());
 		}
 	}
 
-	void markLarge(PageDescriptor pd) {
+	void markLarge(PageDescriptor pd, ubyte cycle) {
 		auto e = pd.extent;
-		auto cycle = gcCycle;
-
 		auto old = e.gcWord.load();
 		while (true) {
 			if (old == cycle) {
@@ -194,33 +284,22 @@ private:
 		}
 
 		if (pd.containsPointers) {
-			addToWorkList(makeRange(e.address, e.address + e.size));
+			scanner.addToWorkList(makeRange(e.address, e.address + e.size));
 		}
-	}
-
-	void increaseWorklistCapacity(uint count) {
-		enum ElementSize = typeof(worklist[0]).sizeof;
-		enum MinWorklistSize = 4 * PageSize;
-
-		auto size = count * ElementSize;
-		if (size < MinWorklistSize) {
-			size = MinWorklistSize;
-		} else {
-			import d.gc.sizeclass;
-			size = getAllocSize(count * ElementSize);
-		}
-
-		import d.gc.tcache;
-		auto ptr = threadCache.realloc(worklist.ptr, size, false);
-		worklist = (cast(const(void*)[]*) ptr)[0 .. size / ElementSize];
 	}
 
 	void addToWorkList(const(void*)[] range) {
-		auto count = cursor + 1;
-		if (unlikely(count > worklist.length)) {
-			increaseWorklistCapacity(count);
+		if (likely(cursor < worklist.length)) {
+			worklist[cursor++] = range;
+			return;
 		}
 
-		worklist[cursor++] = range;
+		foreach (i; 1 .. worklist.length) {
+			// FIXME: Purge the worklist all at once.
+			scanner.addToWorkList(worklist[i]);
+		}
+
+		cursor = 2;
+		worklist[1] = range;
 	}
 }
