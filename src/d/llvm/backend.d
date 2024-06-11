@@ -34,12 +34,12 @@ public:
 		this.optLevel = optLevel;
 		this.linkerPaths = linkerPaths;
 
+		import llvm.c.executionEngine;
+		LLVMLinkInMCJIT();
+
 		LLVMInitializeX86TargetInfo();
 		LLVMInitializeX86Target();
 		LLVMInitializeX86TargetMC();
-
-		import llvm.c.executionEngine;
-		LLVMLinkInMCJIT();
 		LLVMInitializeX86AsmPrinter();
 
 		version(OSX) {
@@ -57,13 +57,10 @@ public:
 		}
 
 		targetMachine = LLVMCreateTargetMachine(
-			LLVMGetFirstTarget(), triple, "x86-64".ptr, "".ptr,
+			LLVMGetFirstTarget(), triple, "x86-64", "",
 			LLVMCodeGenOptLevel.Default, Reloc, LLVMCodeModel.Default);
 
-		auto td = LLVMCreateTargetDataLayout(targetMachine);
-		scope(exit) LLVMDisposeTargetData(td);
-
-		auto pass = new CodeGen(sema, name, this, td);
+		auto pass = new CodeGen(sema, name, this, targetMachine);
 		globalGen = GlobalGen(pass, name);
 		dataLayout = new LLVMDataLayout(pass, pass.targetData);
 	}

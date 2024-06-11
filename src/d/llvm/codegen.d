@@ -9,6 +9,7 @@ import util.visitor;
 import llvm.c.analysis;
 import llvm.c.core;
 import llvm.c.target;
+import llvm.c.targetMachine;
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
@@ -55,7 +56,7 @@ final class CodeGen {
 
 	import d.semantic.semantic;
 	this(SemanticPass sema, string name, LLVMBackend backend,
-	     LLVMTargetDataRef targetData) {
+	     LLVMTargetMachineRef targetMachine) {
 		this.context = sema.context;
 		this.scheduler = sema.scheduler;
 		this.object = sema.object;
@@ -81,8 +82,8 @@ final class CodeGen {
 		import std.string;
 		dmodule = LLVMModuleCreateWithNameInContext(name.toStringz(), llvmCtx);
 
-		LLVMSetModuleDataLayout(dmodule, targetData);
-		this.targetData = LLVMGetModuleDataLayout(dmodule);
+		this.targetData = LLVMCreateTargetDataLayout(targetMachine);
+		LLVMSetModuleDataLayout(dmodule, this.targetData);
 
 		const branch_weights = "branch_weights";
 		LLVMValueRef[3] branch_metadata = [
@@ -99,6 +100,7 @@ final class CodeGen {
 
 	~this() {
 		LLVMDisposeModule(dmodule);
+		LLVMDisposeTargetData(targetData);
 		LLVMContextDispose(llvmCtx);
 	}
 
