@@ -40,6 +40,11 @@ public:
 		}
 	}
 
+	void destroyThread() {
+		free(tlsSegments.ptr);
+		flushCache();
+	}
+
 	void* alloc(size_t size, bool containsPointers, bool zero) {
 		if (!isAllocatableSize(size)) {
 			return null;

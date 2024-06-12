@@ -31,6 +31,10 @@ void __sd_gc_init() {
 	threadCache.initialize(&gExtentMap, &gBase);
 }
 
+void __sd_gc_destroy_thread() {
+	threadCache.destroyThread();
+}
+
 /**
  * SDC runtime API.
  */

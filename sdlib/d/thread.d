@@ -9,7 +9,7 @@ extern(C) void __sd_thread_create() {
 
 extern(C) void __sd_thread_destroy() {
 	import d.gc.capi;
-	__sd_gc_tl_flush_cache();
+	__sd_gc_destroy_thread();
 }
 
 alias ScanDg = void delegate(const(void*)[] range);
