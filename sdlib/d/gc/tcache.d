@@ -20,6 +20,8 @@ private:
 	ThreadBin[2 * BinCount] bins;
 	void*[ThreadCacheSize] binBuffer;
 
+	const(void*)[][] tlsSegments;
+
 public:
 	void initialize(shared(ExtentMap)* emap, shared(Base)* base) {
 		this.emap = CachedExtentMap(emap, base);
@@ -393,6 +395,20 @@ private:
 				a.collect(emap, gcCycle);
 			}
 		}
+	}
+
+	void addTLSSegment(const void[] range) {
+		auto ptr = cast(void*) tlsSegments.ptr;
+		auto index = tlsSegments.length;
+
+		// We realloc everytime. It doesn't really matter at this point.
+		tlsSegments.ptr = cast(const(void*)[]*)
+			realloc(ptr, (tlsSegments.length + 1) * void*[].sizeof, true);
+		tlsSegments = tlsSegments.ptr[0 .. index + 1];
+
+		// Using .ptr to bypass bound checking.
+		import d.gc.range;
+		tlsSegments[index] = makeRange(range);
 	}
 
 private:

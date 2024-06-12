@@ -69,3 +69,7 @@ void __sd_gc_add_roots(const void[] range) {
 	import d.gc.global;
 	gState.addRoots(range);
 }
+
+void __sd_gc_add_tls_segment(const void[] range) {
+	threadCache.addTLSSegment(range);
+}

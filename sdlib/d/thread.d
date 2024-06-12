@@ -79,30 +79,31 @@ version(linux) {
 	import sys.linux.link;
 
 	void registerTlsSegments() {
-		dl_iterate_phdr(callback, null);
-	}
+		static extern(C)
+		int callback(dl_phdr_info* info, size_t size, void* data) {
+			auto tlsStart = info.dlpi_tls_data;
+			if (tlsStart is null) {
+				// FIXME: make sure this is not lazy initialized or something.
+				return 0;
+			}
 
-	extern(C) int callback(dl_phdr_info* info, size_t size, void* data) {
-		auto tlsStart = info.dlpi_tls_data;
-		if (tlsStart is null) {
-			// FIXME: make sure this is not lazy initialized or something.
+			auto segmentCount = info.dlpi_phnum;
+			foreach (i; 0 .. segmentCount) {
+				auto segment = info.dlpi_phdr[i];
+
+				import sys.linux.elf;
+				if (segment.p_type != PT_TLS) {
+					continue;
+				}
+
+				import d.gc.capi;
+				__sd_gc_add_tls_segment(tlsStart[0 .. segment.p_memsz]);
+			}
+
 			return 0;
 		}
 
-		auto segmentCount = info.dlpi_phnum;
-		foreach (i; 0 .. segmentCount) {
-			auto segment = info.dlpi_phdr[i];
-
-			import sys.linux.elf;
-			if (segment.p_type != PT_TLS) {
-				continue;
-			}
-
-			import d.gc.capi;
-			__sd_gc_add_roots(tlsStart[0 .. segment.p_memsz]);
-		}
-
-		return 0;
+		dl_iterate_phdr(callback, null);
 	}
 }
 
