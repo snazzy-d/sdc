@@ -38,12 +38,12 @@ private:
 
 		auto ptr = cast(void*) roots.ptr;
 		auto index = roots.length;
+		auto length = index + 1;
 
 		// We realloc everytime. It doesn't really matter at this point.
 		import d.gc.tcache;
-		roots.ptr = cast(const(void*)[]*)
-			threadCache.realloc(ptr, (roots.length + 1) * void*[].sizeof, true);
-		roots = roots.ptr[0 .. index + 1];
+		ptr = threadCache.realloc(ptr, length * void*[].sizeof, true);
+		roots = (cast(const(void*)[]*) ptr)[0 .. length];
 
 		import d.gc.range;
 		roots[index] = makeRange(range);

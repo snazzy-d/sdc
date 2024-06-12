@@ -369,6 +369,10 @@ private:
 		// Scan the roots.
 		gState.scanRoots(scanner.scan);
 
+		foreach (s; tlsSegments) {
+			scanner.scan(s);
+		}
+
 		// Scan the stack and TLS.
 		__sd_thread_scan(scanner.scan);
 
@@ -405,11 +409,11 @@ private:
 	void addTLSSegment(const void[] range) {
 		auto ptr = cast(void*) tlsSegments.ptr;
 		auto index = tlsSegments.length;
+		auto length = index + 1;
 
 		// We realloc everytime. It doesn't really matter at this point.
-		tlsSegments.ptr = cast(const(void*)[]*)
-			realloc(ptr, (tlsSegments.length + 1) * void*[].sizeof, true);
-		tlsSegments = tlsSegments.ptr[0 .. index + 1];
+		ptr = realloc(ptr, length * void*[].sizeof, true);
+		tlsSegments = (cast(const(void*)[]*) ptr)[0 .. length];
 
 		// Using .ptr to bypass bound checking.
 		import d.gc.range;
