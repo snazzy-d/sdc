@@ -68,11 +68,11 @@ public:
 		unlockSlow(Fairness.Fair);
 	}
 
-	bool waitFor(Condition cond) shared {
+	bool waitFor(bool delegate() condition) shared {
 		assert((&this).isHeld(), "Mutex not held!");
 
 		while (true) {
-			if (cond.predicate()) {
+			if (condition()) {
 				return true;
 			}
 
@@ -310,14 +310,6 @@ private:
 	}
 }
 
-struct Condition {
-	bool delegate() predicate;
-
-	this(bool delegate() predicate) {
-		this.predicate = predicate;
-	}
-}
-
 unittest locking {
 	static runThread(void* delegate() dg) {
 		static struct Delegate {
@@ -508,10 +500,10 @@ unittest condition {
 
 			mutex.lock();
 
-			mutex.waitFor(Condition(check0));
+			mutex.waitFor(check0);
 			next++;
 
-			mutex.waitFor(Condition(check1));
+			mutex.waitFor(check1);
 			next--;
 
 			mutex.unlock();
@@ -541,10 +533,10 @@ unittest condition {
 
 	// Hand things over to the threads.
 	next = 0;
-	mutex.waitFor(Condition(reachedReversePoint));
+	mutex.waitFor(reachedReversePoint);
 
 	next--;
-	mutex.waitFor(Condition(reachedStartPoint));
+	mutex.waitFor(reachedStartPoint);
 
 	mutex.unlock();
 
