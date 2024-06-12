@@ -367,10 +367,11 @@ private:
 		auto scanner = Scanner(gcCycle, managedAddressSpace, emap);
 
 		// Scan the roots.
-		gState.scanRoots(scanner.scan);
+		gState.scanRoots(scanner.addToWorkList);
 
+		// Scan the TLS segments.
 		foreach (s; tlsSegments) {
-			scanner.scan(s);
+			scanner.addToWorkList(s);
 		}
 
 		// Scan the stack and TLS.
@@ -415,7 +416,6 @@ private:
 		ptr = realloc(ptr, length * void*[].sizeof, true);
 		tlsSegments = (cast(const(void*)[]*) ptr)[0 .. length];
 
-		// Using .ptr to bypass bound checking.
 		import d.gc.range;
 		tlsSegments[index] = makeRange(range);
 	}
