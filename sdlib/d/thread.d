@@ -1,5 +1,13 @@
 module d.thread;
 
+extern(C) void __sd_process_create() {
+	import d.gc.capi;
+	__sd_gc_init();
+
+	registerMutableSegments();
+	registerTlsSegments();
+}
+
 extern(C) void __sd_thread_create() {
 	import d.gc.capi;
 	__sd_gc_init();
@@ -76,11 +84,38 @@ version(linux) {
 		return addr + size;
 	}
 
-	import sys.linux.link;
+	void registerMutableSegments() {
+		import sys.linux.link;
+
+		static extern(C)
+		int __mutable_callback(dl_phdr_info* info, size_t size, void* data) {
+			auto offset = info.dlpi_addr;
+
+			auto segmentCount = info.dlpi_phnum;
+			foreach (i; 0 .. segmentCount) {
+				auto segment = info.dlpi_phdr[i];
+
+				import sys.linux.elf;
+				if (segment.p_type != PT_LOAD || !(segment.p_flags & PF_W)) {
+					continue;
+				}
+
+				import d.gc.capi;
+				auto start = cast(void*) (segment.p_vaddr + offset);
+				__sd_gc_add_roots(start[0 .. segment.p_memsz]);
+			}
+
+			return 0;
+		}
+
+		dl_iterate_phdr(__mutable_callback, null);
+	}
 
 	void registerTlsSegments() {
+		import sys.linux.link;
+
 		static extern(C)
-		int callback(dl_phdr_info* info, size_t size, void* data) {
+		int __tls_callback(dl_phdr_info* info, size_t size, void* data) {
 			auto tlsStart = info.dlpi_tls_data;
 			if (tlsStart is null) {
 				// FIXME: make sure this is not lazy initialized or something.
@@ -103,7 +138,7 @@ version(linux) {
 			return 0;
 		}
 
-		dl_iterate_phdr(callback, null);
+		dl_iterate_phdr(__tls_callback, null);
 	}
 }
 
