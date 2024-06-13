@@ -179,6 +179,22 @@ class AggregateConstant : Constant {
 	}
 }
 
+class UnionConstant : Constant {
+	Constant value;
+
+	import d.ir.symbol;
+	this(Union u, Constant value) {
+		super(Type.get(u));
+
+		this.value = value;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"%s(%s)"(type.dunion.name.toString(c), value.toString(c));
+	}
+}
+
 class SplatConstant : Constant {
 	Constant[] elements;
 

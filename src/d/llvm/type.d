@@ -165,7 +165,7 @@ struct TypeGen {
 		}
 
 		auto hasContext = u.hasContext;
-		assert(!hasContext, "Voldemort union not supported atm");
+		assert(!hasContext, "Voldemort unions are not supported!");
 
 		auto fields = u.fields;
 		bool hasFields = fields.length != 0;
@@ -205,7 +205,7 @@ struct TypeGen {
 
 		import llvm.c.target;
 		assert(LLVMABIAlignmentOfType(targetData, llvmStruct) == dalign,
-		       "union with differing alignement are not supported.");
+		       "Union with differing alignement are not supported.");
 
 		return llvmStruct;
 	}

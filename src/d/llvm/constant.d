@@ -118,6 +118,32 @@ struct ConstantGen {
 		return LLVMConstNamedStruct(t, elts.ptr, cast(uint) elts.length);
 	}
 
+	LLVMValueRef visit(UnionConstant u) {
+		auto t = typeGen.visit(u.type);
+		if (u.value is null) {
+			return LLVMConstNull(t);
+		}
+
+		LLVMValueRef[3] fields;
+		uint elementCount = LLVMCountStructElementTypes(t);
+
+		auto hasContext = u.type.dunion.hasContext;
+		if (hasContext) {
+			fields[0] = llvmNull;
+		}
+
+		fields[hasContext] = visit(u.value);
+
+		auto padIndex = hasContext + 1;
+		if (padIndex < elementCount) {
+			auto pt = LLVMStructGetTypeAtIndex(t, padIndex);
+			fields[padIndex] = LLVMConstNull(pt);
+		}
+
+		return
+			LLVMConstStructInContext(llvmCtx, fields.ptr, elementCount, false);
+	}
+
 	LLVMValueRef visit(SplatConstant s) {
 		import std.algorithm, std.array;
 		auto elts = s.elements.map!(e => visit(e)).array();

@@ -108,9 +108,18 @@ struct InitBuilder {
 	}
 
 	Constant visit(Union u) {
-		// FIXME: Computing this properly would require layout
-		// informations from the backend. Will do for now.
-		return new VoidConstant(Type.get(u));
+		scheduler.require(u, Step.Populated);
+
+		Constant value;
+		if (u.fields.length > 0) {
+			auto f = u.fields[0];
+			scheduler.require(f, Step.Signed);
+
+			// FIXME: If the field has an initializer, we should use that.
+			value = visit(f.type);
+		}
+
+		return new UnionConstant(u, value);
 	}
 
 	Constant visit(Class c) {
