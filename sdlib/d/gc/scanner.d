@@ -12,6 +12,7 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
+	uint activeThreads;
 	uint cursor;
 	const(void*)[][] worklist;
 
@@ -19,7 +20,9 @@ private:
 	const(void*)[] _managedAddressSpace;
 
 public:
-	this(ubyte gcCycle, const(void*)[] managedAddressSpace) {
+	this(uint threadCount, ubyte gcCycle, const(void*)[] managedAddressSpace) {
+		activeThreads = threadCount;
+
 		this._gcCycle = gcCycle;
 		this._managedAddressSpace = managedAddressSpace;
 	}
@@ -35,6 +38,15 @@ public:
 	}
 
 	void mark() shared {
+		import core.stdc.pthread;
+		auto threadCount = activeThreads - 1;
+		auto size = pthread_t.sizeof * threadCount;
+
+		import d.gc.tcache;
+		auto threadsPtr =
+			cast(pthread_t*) threadCache.alloc(size, false, false);
+		auto threads = threadsPtr[0 .. threadCount];
+
 		static void* markThreadEntry(void* ctx) {
 			auto scanner = cast(shared(Scanner*)) ctx;
 			auto worker = Worker(scanner);
@@ -53,6 +65,11 @@ public:
 			return null;
 		}
 
+		// First thing, start the worker threads, so they can do work ASAP.
+		foreach (ref tid; threads) {
+			pthread_create(&tid, null, markThreadEntry, cast(void*) &this);
+		}
+
 		// Scan the roots.
 		import d.gc.global;
 		gState.scanRoots(addToWorkList);
@@ -61,8 +78,14 @@ public:
 		markThreadEntry(cast(void*) &this);
 
 		// We now done, we can free the worklist.
-		import d.gc.tcache;
 		threadCache.free(cast(void*) worklist.ptr);
+
+		foreach (tid; threads) {
+			void* ret;
+			pthread_join(tid, &ret);
+		}
+
+		threadCache.free(threadsPtr);
 	}
 
 	void addToWorkList(const(void*)[] range) shared {
@@ -85,11 +108,28 @@ private:
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
+		activeThreads--;
+
+		/**
+		 * We wait for work to be present in the worklist.
+		 * If there is, then we pick it up and start marking.
+		 *
+		 * Alternatively, if there is no work to do, and the number
+		 * of active thread is 0, then we know no more work is comming
+		 * and we shoudl stop.
+		 */
+		static hasWork(Scanner* w) {
+			return w.cursor != 0 || w.activeThreads == 0;
+		}
+
 		auto w = (cast(Scanner*) &this);
+		mutex.waitFor(w.hasWork);
+
 		if (w.cursor == 0) {
 			return false;
 		}
 
+		activeThreads++;
 		range = w.worklist[--w.cursor];
 		return true;
 	}
