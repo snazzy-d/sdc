@@ -56,6 +56,21 @@ public:
 		auto threads = threadsPtr[0 .. threadCount];
 
 		static void* markThreadEntry(void* ctx) {
+			auto scanner = cast(shared(Scanner*)) ctx;
+			auto worker = Worker(scanner);
+
+			// Scan the registered TLS segments.
+			import d.gc.tcache;
+			foreach (s; threadCache.tlsSegments) {
+				worker.scan(s);
+			}
+
+		import d.gc.tcache;
+		auto threadsPtr =
+			cast(pthread_t*) threadCache.alloc(size, false, false);
+		auto threads = threadsPtr[0 .. threadCount];
+
+		static void* markThreadEntry(void* ctx) {
 			(cast(shared(Scanner*)) ctx).runMark();
 			return null;
 		}
