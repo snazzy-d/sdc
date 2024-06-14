@@ -51,12 +51,6 @@ public:
 			auto scanner = cast(shared(Scanner*)) ctx;
 			auto worker = Worker(scanner);
 
-			// Scan the registered TLS segments.
-			import d.gc.tcache;
-			foreach (s; threadCache.tlsSegments) {
-				worker.scan(s);
-			}
-
 			// Scan the stack and TLS.
 			import d.thread;
 			__sd_thread_scan(worker.scan);
@@ -71,8 +65,8 @@ public:
 		}
 
 		// Scan the roots.
-		import d.gc.global;
-		gState.scanRoots(addToWorkList);
+		import d.thread;
+		__sd_global_scan(addToWorkList);
 
 		// Now send this thread marking!
 		markThreadEntry(cast(void*) &this);

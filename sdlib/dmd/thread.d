@@ -1,5 +1,7 @@
 module dmd.thread;
 
+alias ScanDg = void delegate(const(void*)[] range);
+
 extern(C):
 
 // druntime API.
@@ -12,17 +14,21 @@ void thread_resumeAll();
 // use delegates (as those are not the same ABI)
 // the context pointer is just a pass-through for the druntime side, so we
 // type it based on what we are passing.
-alias ScanFn = bool delegate(const(void*)[] range);
-void __sd_scanAllThreadsFn(ScanFn* context, void* start, void* end) {
+void __sd_scanAllThreadsFn(ScanDg* context, void* start, void* end) {
 	import d.gc.range;
 	(*context)(makeRange(start, end));
 }
 
 // defined in druntime. The context pointer gets passed to the scan routine
-void thread_scanAll_C(ScanFn* context, typeof(&__sd_scanAllThreadsFn) scan);
+void thread_scanAll_C(ScanDg* context, typeof(&__sd_scanAllThreadsFn) scan);
 
 // sdrt API.
-void __sd_thread_scan(ScanFn scan) {
+void __sd_thread_scan(ScanDg scan) {
+	import d.rt.stack;
+	__sd_stack_scan(scan);
+}
+
+void __sd_global_scan(ScanDg scan) {
 	thread_scanAll_C(&scan, &__sd_scanAllThreadsFn);
 }
 
