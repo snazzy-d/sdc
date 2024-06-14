@@ -35,18 +35,32 @@ public:
 	}
 
 	void mark() shared {
-		auto worker = Worker(&this);
+		static void* markThreadEntry(void* ctx) {
+			auto scanner = cast(shared(Scanner*)) ctx;
+			auto worker = Worker(scanner);
+
+			// Scan the registered TLS segments.
+			import d.gc.tcache;
+			foreach (s; threadCache.tlsSegments) {
+				worker.scan(s);
+			}
+
+			// Scan the stack and TLS.
+			import d.thread;
+			__sd_thread_scan(worker.scan);
+
+			scanner.processWorkList(worker);
+			return null;
+		}
 
 		// Scan the roots.
 		import d.gc.global;
 		gState.scanRoots(addToWorkList);
 
-		// Scan the stack and TLS.
-		import d.thread;
-		__sd_thread_scan(worker.scan);
+		// Now send this thread marking!
+		markThreadEntry(cast(void*) &this);
 
-		processWorkList(worker);
-
+		// We now done, we can free the worklist.
 		import d.gc.tcache;
 		threadCache.free(cast(void*) worklist.ptr);
 	}

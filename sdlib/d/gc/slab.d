@@ -61,7 +61,7 @@ public:
 
 	void* computeAddress() const {
 		auto size = binInfos[sizeClass].slotSize;
-		return cast(void*) (base + index * size);
+		return base + index * size;
 	}
 
 	const(void*)[] computeRange() const {

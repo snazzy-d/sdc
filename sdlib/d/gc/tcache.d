@@ -366,11 +366,6 @@ private:
 		import d.gc.scanner;
 		shared(Scanner) scanner = Scanner(gcCycle, managedAddressSpace);
 
-		// Scan the TLS segments.
-		foreach (s; tlsSegments) {
-			scanner.addToWorkList(s);
-		}
-
 		// Go on and on until all worklists are empty.
 		scanner.mark();
 
