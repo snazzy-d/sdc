@@ -11,7 +11,8 @@ import d.gc.util;
 
 import sdc.intrinsics;
 
-extern(C) void __sd_destroyBlockCtx(void* ptr, size_t usedSpace, void* finalizer);
+extern(C)
+void __sd_destroyBlockCtx(void* ptr, size_t usedSpace, void* finalizer);
 
 struct PageFiller {
 private:

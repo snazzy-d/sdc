@@ -109,7 +109,8 @@ void __sd_gc_druntime_qalloc(BlkInfo* result, size_t size, uint bits,
 		}
 	}*/
 
-	result.attr = bits & (BlkAttr.APPENDABLE | BlkAttr.NO_SCAN | BlkAttr.FINALIZE);
+	result.attr =
+		bits & (BlkAttr.APPENDABLE | BlkAttr.NO_SCAN | BlkAttr.FINALIZE);
 	//return result;
 }
 

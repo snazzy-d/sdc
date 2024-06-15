@@ -16,7 +16,8 @@ import core.stdc.stdio;
 
 ThreadCache threadCache;
 
-extern(C) void __sd_destroyBlockCtx(void* ptr, size_t usedSpace, void* finalizer);
+extern(C)
+void __sd_destroyBlockCtx(void* ptr, size_t usedSpace, void* finalizer);
 
 struct ThreadCache {
 private:
@@ -117,18 +118,20 @@ public:
 
 		if (likely(pd.isSlab())) {
 			auto si = SlabAllocInfo(pd, ptr);
-            auto finalizer = si.finalizer;
+			auto finalizer = si.finalizer;
 			if (finalizer !is null) {
 				assert(cast(void*) si.address == ptr,
 				       "destroy() was invoked on an interior pointer!");
 
-                __sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
+				__sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
 			}
+
 			freeSmall(pd, ptr);
 		} else {
 			if (e.finalizer !is null) {
 				__sd_destroyBlockCtx(ptr, e.usedCapacity, e.finalizer);
 			}
+
 			freeLarge(pd);
 		}
 	}
