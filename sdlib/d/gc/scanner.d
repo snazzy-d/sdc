@@ -48,14 +48,7 @@ public:
 		auto threads = threadsPtr[0 .. threadCount];
 
 		static void* markThreadEntry(void* ctx) {
-			auto scanner = cast(shared(Scanner*)) ctx;
-			auto worker = Worker(scanner);
-
-			// Scan the stack and TLS.
-			import d.thread;
-			__sd_thread_scan(worker.scan);
-
-			scanner.processWorkList(worker);
+			(cast(shared(Scanner*)) ctx).runMark();
 			return null;
 		}
 
@@ -69,7 +62,7 @@ public:
 		__sd_global_scan(addToWorkList);
 
 		// Now send this thread marking!
-		markThreadEntry(cast(void*) &this);
+		runMark();
 
 		// We now done, we can free the worklist.
 		threadCache.free(cast(void*) worklist.ptr);
@@ -90,6 +83,16 @@ public:
 	}
 
 private:
+	void runMark() shared {
+		auto worker = Worker(&this);
+
+		// Scan the stack and TLS.
+		import d.thread;
+		__sd_thread_scan(worker.scan);
+
+		processWorkList(worker);
+	}
+
 	void processWorkList(ref Worker worker) shared {
 		const(void*)[] range;
 
