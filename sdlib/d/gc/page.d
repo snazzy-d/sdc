@@ -738,6 +738,10 @@ private:
 				}
 
 				e.bits += count * Extent.FreeSlotsUnit;
+
+				if (e.nfree > 0) {
+					slabs[ec.sizeClass].insert(e);
+				}
 			}
 		}
 
