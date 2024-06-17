@@ -11,8 +11,7 @@ import d.gc.util;
 
 import sdc.intrinsics;
 
-extern(C)
-void __sd_destroyBlockCtx(void* ptr, size_t usedSpace, void* finalizer);
+extern(C) void __sd_run_finalizer(void* ptr, size_t usedSpace, void* finalizer);
 
 struct PageFiller {
 private:
@@ -729,44 +728,46 @@ private:
 					auto oldOccupancy = e.slabData.rawContent[i];
 					auto newOccupancy = oldOccupancy & bmp[i];
 
-					if (ec.supportsMetadata) {
-						auto toRemove = (oldOccupancy ^ newOccupancy)
-							& e.slabMetadataFlags.rawNimbleAtomic(cast(uint) i);
-						if (toRemove) {
-							// All set bits in toRemove have metadata.
-							auto baseidx = i * 64;
-							while (toRemove != 0) {
-								uint bit = countTrailingZeros(toRemove);
-								uint idx = cast(uint) (bit + baseidx);
-								// NOTE: this copies techniques/code from
-								// SlabAllocInfo, but that code starts with a
-								// pointer and gives us info we already have.
-								// So we don't want to do that work again.
-								auto ptr = e.address + idx * ssize;
-								auto fptr =
-									cast(size_t*) (ptr + ssize - PointerSize);
-								enum FinalizerBit =
-									nativeToBigEndian!size_t(0x2);
-								if (*fptr & FinalizerBit) {
-									// call the finalizer
-									auto freeSpace = readPackedFreeSpace(
-										(cast(ushort*) fptr) + 3);
-									__sd_destroyBlockCtx(
-										ptr,
-										ssize - freeSpace - PointerSize,
-										cast(void*)
-											((cast(size_t) *fptr) & AddressMask)
-									);
-								}
-
-								// clear the bit
-								toRemove ^= 1UL << bit;
-							}
-						}
-					}
-
 					occupancyMask |= newOccupancy;
 					count += popCount(oldOccupancy ^ newOccupancy);
+
+					if (!ec.supportsMetadata) {
+						e.slabData.rawContent[i] = newOccupancy;
+						continue;
+					}
+
+					auto toRemove = (oldOccupancy ^ newOccupancy)
+						& e.slabMetadataFlags.rawNimbleAtomic(cast(uint) i);
+					if (toRemove) {
+						// All set bits in toRemove have metadata.
+						auto baseidx = i * 64;
+						while (toRemove != 0) {
+							uint bit = countTrailingZeros(toRemove);
+							uint idx = cast(uint) (bit + baseidx);
+							// NOTE: this copies techniques/code from
+							// SlabAllocInfo, but that code starts with a
+							// pointer and gives us info we already have.
+							// So we don't want to do that work again.
+							auto ptr = e.address + idx * ssize;
+							auto fptr =
+								cast(size_t*) (ptr + ssize - PointerSize);
+							enum FinalizerBit = nativeToBigEndian!size_t(0x2);
+							if (*fptr & FinalizerBit) {
+								// call the finalizer
+								auto freeSpace = readPackedFreeSpace(
+									(cast(ushort*) fptr) + 3);
+								__sd_run_finalizer(
+									ptr,
+									ssize - freeSpace - PointerSize,
+									cast(void*)
+										((cast(size_t) *fptr) & AddressMask)
+								);
+							}
+
+							// clear the bit
+							toRemove &= (toRemove - 1);
+						}
+					}
 
 					e.slabData.rawContent[i] = newOccupancy;
 				}
@@ -827,8 +828,8 @@ private:
 						// check for a finalizer
 						auto f = e.finalizer;
 						if (f !is null) {
-							__sd_destroyBlockCtx(
-								e.address, e.usedCapacity - PointerSize, f);
+							__sd_run_finalizer(e.address,
+							                   e.usedCapacity - PointerSize, f);
 						}
 
 						deadExtents.insert(e);
@@ -870,7 +871,7 @@ private:
 							// call the finalizer
 							auto freeSpace =
 								readPackedFreeSpace((cast(ushort*) fptr) + 3);
-							__sd_destroyBlockCtx(
+							__sd_run_finalizer(
 								ptr,
 								ssize - freeSpace - PointerSize,
 								cast(void*) ((cast(size_t) *fptr) & AddressMask)
