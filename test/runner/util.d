@@ -76,8 +76,8 @@ Options parseArguements(string File, U)(ref U utility, ref string[] args) {
 	Options options;
 
 	version(linux) {
-		import core.sys.posix.unistd;
-		options.jobCount = sysconf(_SC_NPROCESSORS_ONLN);
+		import core.sys.linux.sys.sysinfo;
+		options.jobCount = get_nprocs();
 	}
 
 	import std.getopt;
