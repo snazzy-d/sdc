@@ -733,9 +733,6 @@ private:
 						auto toRemove = (oldOccupancy ^ newOccupancy)
 							& e.slabMetadataFlags.rawNimbleAtomic(cast(uint) i);
 						if (toRemove) {
-							//import core.stdc.stdio;
-							//printf("checking bits %lx\n", toRemove);
-
 							// All set bits in toRemove have metadata.
 							auto baseidx = i * 64;
 							while (toRemove != 0) {
@@ -827,20 +824,63 @@ private:
 				if (ec.isLarge()) {
 					if (w != gcCycle) {
 						// We have not marked this extent this cycle.
+						// check for a finalizer
+						auto f = e.finalizer;
+						if (f !is null) {
+							__sd_destroyBlockCtx(
+								e.address, e.usedCapacity - PointerSize, f);
+						}
+
 						deadExtents.insert(e);
 					}
 
 					continue;
 				}
 
-				// If the cycle do not match, all the elements are dead.
-				if ((w & 0xff) != gcCycle) {
+				// need to know if anything has metadata
+				auto hasMeta = e.slabMetadataFlags.rawNimbleAtomic(0);
+
+				// If the cycle do not match, all the elements are dead. If no
+				// metadata exists, then we can safely clear the whole thing.
+				if (hasMeta == 0 && ((w & 0xff) != gcCycle)) {
 					deadExtents.insert(e);
 					continue;
 				}
 
 				auto oldOccupancy = e.slabData.rawContent[0];
 				auto newOccupancy = oldOccupancy & (w >> 8);
+
+				// need to check dying blocks for finalizers.
+				hasMeta &= (oldOccupancy ^ newOccupancy);
+				if (hasMeta) {
+					import d.gc.slab;
+					auto ssize = binInfos[ec.sizeClass].slotSize;
+					// All set bits in hasMeta have metadata.
+					auto baseidx = i * 64;
+					while (hasMeta != 0) {
+						uint bit = countTrailingZeros(hasMeta);
+						// NOTE: this copies techniques/code from
+						// SlabAllocInfo, but that code starts with a
+						// pointer and gives us info we already have.
+						// So we don't want to do that work again.
+						auto ptr = e.address + bit * ssize;
+						auto fptr = cast(size_t*) (ptr + ssize - PointerSize);
+						enum FinalizerBit = nativeToBigEndian!size_t(0x2);
+						if (*fptr & FinalizerBit) {
+							// call the finalizer
+							auto freeSpace =
+								readPackedFreeSpace((cast(ushort*) fptr) + 3);
+							__sd_destroyBlockCtx(
+								ptr,
+								ssize - freeSpace - PointerSize,
+								cast(void*) ((cast(size_t) *fptr) & AddressMask)
+							);
+						}
+
+						// clear the bit
+						hasMeta ^= 1UL << bit;
+					}
+				}
 
 				// The slab is empty.
 				if (newOccupancy == 0) {

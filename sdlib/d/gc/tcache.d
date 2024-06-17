@@ -123,13 +123,15 @@ public:
 				assert(cast(void*) si.address == ptr,
 				       "destroy() was invoked on an interior pointer!");
 
-				__sd_destroyBlockCtx(ptr, si.usedCapacity, finalizer);
+				__sd_destroyBlockCtx(ptr, si.usedCapacity - PointerSize,
+				                     finalizer);
 			}
 
 			freeSmall(pd, ptr);
 		} else {
 			if (e.finalizer !is null) {
-				__sd_destroyBlockCtx(ptr, e.usedCapacity, e.finalizer);
+				__sd_destroyBlockCtx(ptr, e.usedCapacity - PointerSize,
+				                     e.finalizer);
 			}
 
 			freeLarge(pd);
