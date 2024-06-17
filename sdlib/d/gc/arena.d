@@ -130,14 +130,14 @@ public:
 		uint ndalloc = 0;
 		scope(success) if (ndalloc > 0) {
 			foreach (i; 0 .. ndalloc) {
-				// FIXME: batch free to go through the lock once.
+				// FIXME: batch free to go through the lock once using freeExtentLocked.
 				filler.freeExtent(emap, dallocSlabs[i]);
 			}
 		}
 
 		auto ec = pds[0].extentClass;
-		return
-			bins[ec.sizeClass].batchFree(worklist, pds, dallocSlabs, ndalloc);
+		auto sc = ec.sizeClass;
+		return bins[sc].batchFree(worklist, pds, dallocSlabs, ndalloc);
 	}
 
 	/**

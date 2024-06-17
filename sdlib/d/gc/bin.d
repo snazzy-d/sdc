@@ -239,22 +239,13 @@ package:
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(Bin*) &this).clearForCollectionImpl();
+		(cast(PriorityExtentHeap*) &slabs).clear();
 	}
 
 	void combineAfterCollection(ref PriorityExtentHeap cSlabs) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(Bin*) &this).combineAfterCollectionImpl(cSlabs);
-	}
-
-private:
-	void clearForCollectionImpl() {
-		slabs.clear();
-	}
-
-	void combineAfterCollectionImpl(ref PriorityExtentHeap cSlabs) {
-		slabs.combine(cSlabs);
+		(cast(PriorityExtentHeap*) &slabs).combine(cSlabs);
 	}
 }

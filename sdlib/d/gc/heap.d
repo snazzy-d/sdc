@@ -157,6 +157,8 @@ public:
 	}
 
 	void remove(N* n) {
+		assert(!empty, "Cannot remove from an empty heap!");
+
 		auto ln = Link(n);
 		if (root.node is n) {
 			mergeAux();
