@@ -223,6 +223,29 @@ public:
 		this = h0;
 	}
 
+	void checkIntegrity() {
+		assert(top is root.node);
+
+		static void check(Link root, Link n, Link prev, Link parent) {
+			if (n.isNull()) {
+				return;
+			}
+
+			auto top = root.node;
+			assert(n.node is top || compare(top, n.node) < 0);
+			assert(n.node is top || compare(parent.node, n.node) < 0);
+
+			// /!\ The root's prev is not maintained.
+			assert(prev.isNull() || n.prev.node is prev.node);
+			check(root, n.next, n, parent);
+			check(root, n.child, n, n);
+		}
+
+		// /!\ Passing root as parent to check the aux list is
+		//     made of elements smaller than the root.
+		check(root, root, Link(null), root);
+	}
+
 private:
 	void mergeAux() {
 		auxcount = 0;
@@ -523,35 +546,11 @@ unittest heap {
 		return len - 1;
 	}
 
-	void checkIntegrity() {
-		auto root = heap.root;
-		assert(heap.top is root.node);
-
-		static void check(Link root, Link n, Link prev, Link parent) {
-			if (n.isNull()) {
-				return;
-			}
-
-			auto top = root.node;
-			assert(n.node is top || stuffCmp(top, n.node) < 0);
-			assert(n.node is top || stuffCmp(parent.node, n.node) < 0);
-
-			// /!\ The root's prev is not maintained.
-			assert(prev.isNull() || n.prev.node is prev.node);
-			check(root, n.next, n, parent);
-			check(root, n.child, n, n);
-		}
-
-		// /!\ Passing root as parent to check the aux list is
-		//     made of elements smaller than the root.
-		check(root, root, Link(null), root);
-	}
-
 	void checkHeap() {
 		foreach (i; 0 .. stuffs.length) {
 			auto n = &stuffs[i];
 			assert(heap.pop() is n);
-			checkIntegrity();
+			heap.checkIntegrity();
 		}
 
 		assert(heap.empty);
@@ -564,7 +563,7 @@ unittest heap {
 
 		assert(heap.auxcount == 0);
 		assert(heap.root.node is n);
-		checkIntegrity();
+		heap.checkIntegrity();
 	}
 
 	checkHeap();
@@ -573,7 +572,7 @@ unittest heap {
 	foreach (i; 0 .. stuffs.length) {
 		auto n = &stuffs[i];
 		heap.insert(n);
-		checkIntegrity();
+		heap.checkIntegrity();
 
 		import sdc.intrinsics;
 		assert(computeAuxLength() == popCount(i));
@@ -589,7 +588,7 @@ unittest heap {
 	for (size_t i = stuffs.length; i-- > 1;) {
 		auto n = &stuffs[i];
 		heap.insert(n);
-		checkIntegrity();
+		heap.checkIntegrity();
 	}
 
 	checkHeap();
@@ -598,14 +597,14 @@ unittest heap {
 	foreach (i; 0 .. stuffs.length) {
 		auto n = &stuffs[i];
 		heap.insert(n);
-		checkIntegrity();
+		heap.checkIntegrity();
 
 		import d.gc.util;
 		if (isPow2(i)) {
 			heap.remove(n);
-			checkIntegrity();
+			heap.checkIntegrity();
 			heap.insert(n);
-			checkIntegrity();
+			heap.checkIntegrity();
 		}
 	}
 
@@ -613,28 +612,28 @@ unittest heap {
 	assert(heap.root.node.value == 0);
 	assert(heap.root.child.isNull());
 	heap.remove(&stuffs[0]);
-	checkIntegrity();
+	heap.checkIntegrity();
 	heap.insert(&stuffs[0]);
-	checkIntegrity();
+	heap.checkIntegrity();
 
 	// Now the root has child, we want to check that codepath as well.
 	assert(heap.root.node.value == 0);
 	assert(!heap.root.child.isNull());
 	heap.remove(&stuffs[0]);
-	checkIntegrity();
+	heap.checkIntegrity();
 	heap.insert(&stuffs[0]);
-	checkIntegrity();
+	heap.checkIntegrity();
 
 	// Remove half the nodes.
 	foreach (i; 0 .. stuffs.length / 2) {
 		heap.remove(&stuffs[2 * i + 1]);
-		checkIntegrity();
+		heap.checkIntegrity();
 	}
 
 	foreach (i; 0 .. stuffs.length / 2) {
 		auto n = &stuffs[2 * i];
 		assert(heap.pop() is n);
-		checkIntegrity();
+		heap.checkIntegrity();
 	}
 
 	assert(heap.empty);
