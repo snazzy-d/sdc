@@ -27,6 +27,14 @@ public:
 		this._managedAddressSpace = managedAddressSpace;
 	}
 
+	this(ubyte gcCycle, const(void*)[] managedAddressSpace) {
+		import sys.linux.sysinfo;
+		auto nthreads = get_nprocs();
+		assert(nthreads >= 1, "Expected at least one thread!");
+
+		this(nthreads, gcCycle, managedAddressSpace);
+	}
+
 	@property
 	const(void*)[] managedAddressSpace() shared {
 		return (cast(Scanner*) &this)._managedAddressSpace;
