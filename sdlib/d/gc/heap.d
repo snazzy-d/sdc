@@ -524,27 +524,27 @@ unittest heap {
 	}
 
 	void checkIntegrity() {
-		void check(Link n, Link prev, Link parent) {
+		auto root = heap.root;
+		assert(heap.top is root.node);
+
+		static void check(Link root, Link n, Link prev, Link parent) {
 			if (n.isNull()) {
 				return;
 			}
 
-			assert(n.node is heap.top || stuffCmp(heap.top, n.node) < 0);
-			assert(parent.isNull() || stuffCmp(parent.node, n.node) < 0);
+			auto top = root.node;
+			assert(n.node is top || stuffCmp(top, n.node) < 0);
+			assert(n.node is top || stuffCmp(parent.node, n.node) < 0);
 
 			// /!\ The root's prev is not maintained.
 			assert(prev.isNull() || n.prev.node is prev.node);
-			check(n.next, n, parent);
-			check(n.child, n, n);
+			check(root, n.next, n, parent);
+			check(root, n.child, n, n);
 		}
 
-		auto root = heap.root;
-		check(root, Link(null), Link(null));
-
-		// Check that all elements in the aux list are smaller than the root.
-		if (!root.isNull()) {
-			check(root.next, root, root);
-		}
+		// /!\ Passing root as parent to check the aux list is
+		//     made of elements smaller than the root.
+		check(root, root, Link(null), root);
 	}
 
 	void checkHeap() {
