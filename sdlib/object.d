@@ -8,6 +8,10 @@ version(D_LP64) {
 	alias ptrdiff_t = int;
 }
 
+alias ssize_t = long;
+alias c_long = ssize_t;
+alias c_ulong = size_t;
+
 alias string = immutable(char)[];
 
 extern(C) {
