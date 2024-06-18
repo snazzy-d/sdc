@@ -20,9 +20,26 @@ private:
 
 	CachedExtentMap emap;
 
+	/**
+	 * The bins themselves.
+	 * 
+	 * The thread cache allocates numerous slots that it stores
+	 * in bins. This ensures most allocation can be served from
+	 * bins directly without requiring any kind of lock.
+	 * 
+	 * This also ensure that, when we take the locks, we amortize
+	 * the cost of doing over numerous allocations.
+	 */
 	ThreadBin[2 * BinCount] bins;
 	void*[ThreadCacheSize] binBuffer;
 
+	/**
+	 * Section for fields that are unused for "regular" operations.
+	 * 
+	 * These fields are only necessary for infrequent operation, so we
+	 * segregate them in order to get better locality on the frequently
+	 * used ones.
+	 */
 	const(void*)[][] tlsSegments;
 
 public:

@@ -97,6 +97,9 @@ public:
 		 * us without anything to allocate from.
 		 * A high low water mark indicates a low allocation rate, so we
 		 * flush more when the low water mark is high.
+		 * 
+		 * Note: We ensure that the low water mark never reaches 0.
+		 *       It would make it look like this bin is high allocation.
 		 */
 		auto nretain = (nmax / 2) - (nlowWater / 4);
 		flush(emap, nretain);
