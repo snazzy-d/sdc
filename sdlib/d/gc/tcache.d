@@ -42,6 +42,8 @@ private:
 	 */
 	const(void*)[][] tlsSegments;
 
+	ThreadBinState[2 * BinCount] binStates;
+
 public:
 	void initialize(shared(ExtentMap)* emap, shared(Base)* base) {
 		this.emap = CachedExtentMap(emap, base);
@@ -292,7 +294,7 @@ private:
 
 		// We need to refill the bin.
 		auto arena = chooseArena(containsPointers);
-		bin.refill(arena, emap, sizeClass, slotSize);
+		bin.refill(emap, arena, binStates[index], sizeClass, slotSize);
 
 		if (bin.allocateEasy(ptr)) {
 			return ptr;

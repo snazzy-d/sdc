@@ -71,10 +71,11 @@ public:
 		return allocateImpl!true(ptr);
 	}
 
-	void refill(shared(Arena)* arena, ref CachedExtentMap emap, ubyte sizeClass,
-	            size_t slotSize) {
+	void refill(ref CachedExtentMap emap, shared(Arena)* arena,
+	            ref ThreadBinState state, ubyte sizeClass, size_t slotSize) {
 		_head =
 			arena.batchAllocSmall(emap, sizeClass, _head, available, slotSize);
+		state.refilled = true;
 	}
 
 	bool freeEasy(void* ptr) {
@@ -287,6 +288,10 @@ private:
 		ptr -= delta(bits, current);
 		return cast(void**) ptr;
 	}
+}
+
+struct ThreadBinState {
+	bool refilled;
 }
 
 bool isValidThreadBinCapacity(uint capacity) {
