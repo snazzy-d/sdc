@@ -11,12 +11,16 @@ import d.gc.util;
 
 import sdc.intrinsics;
 
+enum DefaultEventWait = 65536;
+
 ThreadCache threadCache;
 
 struct ThreadCache {
 private:
 	size_t allocated;
+	size_t nextAllocationEvent;
 	size_t deallocated;
+	size_t nextDeallocationEvent;
 
 	CachedExtentMap emap;
 
@@ -42,10 +46,16 @@ private:
 	 */
 	const(void*)[][] tlsSegments;
 
+	static assert(ThreadBinCount < ubyte.max, "Too many thread bin!");
+	ubyte nextBinToRecycle;
+
 	ThreadBinState[ThreadBinCount] binStates;
 
 public:
 	void initialize(shared(ExtentMap)* emap, shared(Base)* base) {
+		nextAllocationEvent = DefaultEventWait;
+		nextDeallocationEvent = DefaultEventWait;
+
 		this.emap = CachedExtentMap(emap, base);
 
 		uint sp = 0;
@@ -351,14 +361,36 @@ private:
 	}
 
 	/**
-	 * Bytes accounting.
+	 * Bytes accounting and bin maintenance.
 	 */
 	void triggerAllocationEvent(size_t bytes) {
 		allocated += bytes;
+
+		if (allocated >= nextAllocationEvent) {
+			recycleNextBin();
+
+			nextAllocationEvent = allocated + DefaultEventWait;
+		}
 	}
 
 	void triggerDeallocationEvent(size_t bytes) {
 		deallocated += bytes;
+
+		if (deallocated >= nextDeallocationEvent) {
+			recycleNextBin();
+
+			nextDeallocationEvent = deallocated + DefaultEventWait;
+		}
+	}
+
+	void recycleNextBin() {
+		auto index = nextBinToRecycle;
+		bins[index].recycle(emap, binStates[index], index / 2);
+
+		nextBinToRecycle++;
+		if (nextBinToRecycle >= ThreadBinCount) {
+			nextBinToRecycle = 0;
+		}
 	}
 
 	/**
