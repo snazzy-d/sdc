@@ -369,8 +369,16 @@ private:
 		// Go on and on until all worklists are empty.
 		scanner.mark();
 
-		// Make sure we flush the cache while it is still valid.
-		// Alternatively, we could mark them all, but this will do for now.
+		/**
+		 * We might have allocated, and therefore refilled the bin
+		 * during the collection process. As a result, slots in the
+		 * bins may not be makred at this point.
+		 * 
+		 * The straightforward way to handle this is simply to flush
+		 * the bins.
+		 * 
+		 * Alternatively, we could make sure the slots are marked.
+		 */
 		flushCache();
 
 		collect(gcCycle);
