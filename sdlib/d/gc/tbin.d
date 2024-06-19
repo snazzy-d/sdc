@@ -92,23 +92,45 @@ public:
 		}
 
 		/**
-		 * FIXME: Ideally, we'd like to target getting the bin half full instead
-		 *        of flushing it completely. This ensures we don't find ourselves
-		 *        with an almost empty bin.
+		 * We do not have enough space in the bin, so start flushing.
+		 * However, we do not want to flush all of it, as it would leave
+		 * us without anything to allocate from.
+		 * A high low water mark indicates a low allocation rate, so we
+		 * flush more when the low water mark is high.
 		 */
-		flush(emap);
+		auto nretain = (nmax / 2) - (nlowWater / 4);
+		flush(emap, nretain);
 		freeEasy(ptr);
 	}
 
 	void flush(ref CachedExtentMap emap) {
-		auto n = ncached;
-		auto worklist = _head[0 .. n];
+		flush(emap, 0);
+	}
 
-		_head += n;
-		_low_water = _top;
+	void flush(ref CachedExtentMap emap, uint nretain) {
+		if (nretain >= ncached) {
+			return;
+		}
 
-		auto pds = cast(PageDescriptor*)
-			alloca(worklist.length * PageDescriptor.sizeof);
+		// We precompute all we need so we can work out of lowal variables.
+		auto newHead = top;
+		auto oldHead = _head;
+		auto base = oldHead + nretain;
+
+		auto nlw = nlowWater;
+		auto nflush = ncached - nretain;
+		assert(nflush <= ncached,
+		       "Cannot flush more elements than are cached!");
+
+		auto worklist = base[0 .. nflush];
+
+		/**
+		 * TODO: Statistically, a lot of the pointers are going to
+		 *       be from the same slab. There are a number of
+		 *       optimizations that can be done based on that fact.
+		 *       We need a batch emap lookup facility.
+		 */
+		auto pds = cast(PageDescriptor*) alloca(nflush * PageDescriptor.sizeof);
 
 		foreach (i, ptr; worklist) {
 			import d.gc.util;
@@ -116,9 +138,24 @@ public:
 			pds[i] = emap.lookup(aptr);
 		}
 
+		// Actually do flush to the arenas.
 		while (worklist.length > 0) {
 			auto ndeferred = pds[0].arena.batchFree(emap, worklist, pds);
-			worklist = worklist[0 .. ndeferred];
+			worklist = base[0 .. ndeferred];
+		}
+
+		// Move the remaining items on top of the stack if necessary.
+		if (nretain > 0) {
+			auto src = base;
+			while (src > oldHead) {
+				*(--newHead) = *(--src);
+			}
+		}
+
+		// Adjust bin markers to reflect the flush.
+		_head = newHead;
+		if (nretain < nlw) {
+			_low_water = current;
 		}
 
 		/**
@@ -129,7 +166,7 @@ public:
 		 *        due to leftover pointers in there.
 		 */
 		auto ptr = bottom;
-		while (ptr < _head) {
+		while (ptr < newHead) {
 			*(ptr++) = null;
 		}
 	}
@@ -177,8 +214,18 @@ private:
 	}
 
 	@property
+	ushort nlowWater() const {
+		return delta(_low_water, _top) / PointerSize;
+	}
+
+	@property
 	ushort nstashed() const {
 		return delta(_bottom, _available) / PointerSize;
+	}
+
+	@property
+	ushort nmax() const {
+		return delta(_bottom, _top) / PointerSize;
 	}
 
 	/**
