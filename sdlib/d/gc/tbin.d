@@ -120,6 +120,18 @@ public:
 			auto ndeferred = pds[0].arena.batchFree(emap, worklist, pds);
 			worklist = worklist[0 .. ndeferred];
 		}
+
+		/**
+		 * FIXME: This shouldn't be necessary, but we currently have no way
+		 *        to ensure the thread cache is not marked as part of the
+		 *        regular TLS marking.
+		 *        In turns, this means we are going to keep garbage alive
+		 *        due to leftover pointers in there.
+		 */
+		auto ptr = bottom;
+		while (ptr < _head) {
+			*(ptr++) = null;
+		}
 	}
 
 private:
