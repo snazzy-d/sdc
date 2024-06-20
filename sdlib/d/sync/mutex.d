@@ -141,20 +141,14 @@ private:
 
 			// Add ourselves in the queue.
 			auto me = &threadData;
-			assert(me.next is null, "This thread is already queued!");
-
-			// Make sure we are setup for handoff.
-			assert(me.handoff.load() == Handoff.None, "Invalid handoff state!");
 
 			// If we can, try try to register atomically.
 			if (current == LockBit) {
-				me.next = me;
-				if (word.casWeak(current, LockBit | cast(size_t) me,
+				if (word.casWeak(current, selfEnqueue(me) | LockBit,
 				                 MemoryOrder.Release)) {
 					goto Handoff;
 				}
 
-				me.next = null;
 				continue;
 			}
 
@@ -166,20 +160,9 @@ private:
 				continue;
 			}
 
-			static enqueue(size_t current, ThreadData* me) {
-				auto tail = cast(ThreadData*) (current & ThreadDataMask);
-				assert(tail !is null,
-				       "Failed to short circuit on empty queue!");
-
-				me.next = tail.next;
-				tail.next = me;
-
-				return cast(size_t) me;
-			}
-
 			// Now we store the updated head. Note that this will release the
 			// queue lock too, but it's okay, by now we are in the queue.
-			word.store(LockBit | enqueue(current, me), MemoryOrder.Release);
+			word.store(enqueue(current, me) | LockBit, MemoryOrder.Release);
 
 		Handoff:
 			if (waitForHandoff() == Handoff.Direct) {
@@ -202,7 +185,7 @@ private:
 		}
 
 		// Setup ourselves up for the next handoff.
-		me.handoff.store(Handoff.None, MemoryOrder.Release);
+		me.handoff.store(Handoff.None, MemoryOrder.Relaxed);
 
 		assert(handoff == Handoff.Direct || handoff == Handoff.Barging,
 		       "Invalid handoff value!");
@@ -230,17 +213,11 @@ private:
 	}
 
 	void unlockSlowImpl(bool QueueMe)(Fairness fair) shared {
-		size_t fastUnlock = 0;
-		static if (QueueMe) {
-			auto me = &threadData;
-			assert(me.next is null, "This thread is already queued!");
+		auto me = &threadData;
+		auto fastUnlock = QueueMe ? selfEnqueue(me) : 0;
 
-			me.next = me;
-			fastUnlock = cast(size_t) me;
-		}
-
+		auto current = word.load(MemoryOrder.Relaxed);
 		while (true) {
-			auto current = word.load(MemoryOrder.Relaxed);
 			assert(current & LockBit, "Lock not held!");
 
 			// If nobody is parked, just unlock.
@@ -255,6 +232,7 @@ private:
 			// If the queue is locked, just wait.
 			if (current & QueueLockBit) {
 				sched_yield();
+				current = word.load(MemoryOrder.Relaxed);
 				continue;
 			}
 
@@ -266,12 +244,9 @@ private:
 			}
 		}
 
-		auto current = word.load(MemoryOrder.Relaxed);
-		assert(current & LockBit, "Lock not held!");
-		assert(current & QueueLockBit, "Queue lock not held!");
-
-		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		assert(tail !is null, "Failed to short circuit on empty queue!");
+		if (QueueMe) {
+			current = enqueue(current, me) | LockBit;
+		}
 
 		/**
 		 * FIXME: We might end up running through the same conditions
@@ -279,34 +254,58 @@ private:
 		 *        would be to make sure we dequeu at least one non condition
 		 *        thread if there is one, maybe?
 		 */
-		// Pop the head and queue this thread if requested.
-		auto head = tail.next;
-
-		static if (QueueMe) {
-			tail.next = me;
-			me.next = head.next;
-
-			auto newTail = me;
-		} else {
-			tail.next = head.next;
-
-			auto newTail = (head is tail) ? null : tail;
-		}
+		ThreadData* head;
 
 		/**
 		 * As we update the tail, we also release the queue lock.
 		 * The lock itself is kept is the fair case, or unlocked if
 		 * fairness is not a concern.
 		 */
-		word.store(fair | cast(size_t) newTail, MemoryOrder.Release);
+		word.store(dequeue(current, head) | fair, MemoryOrder.Release);
 
 		// Make sure our bit trickery remains valid.
 		static assert((Handoff.Barging + Fairness.Fair) == Handoff.Direct);
 
 		// Wake up the blocked thread.
-		head.next = null;
 		head.handoff.store(Handoff.Barging + fair, MemoryOrder.Release);
 		head.waiter.wakeup();
+	}
+
+	static size_t enqueue(size_t current, ThreadData* td) {
+		assert(current & LockBit, "Lock not held!");
+
+		auto tail = cast(ThreadData*) (current & ThreadDataMask);
+		assert(tail !is null, "Failed to short circuit on empty queue!");
+
+		// Make sure we are setup for handoff.
+		assert(td.handoff.load() == Handoff.None, "Invalid handoff state!");
+
+		td.next = tail.next;
+		tail.next = td;
+
+		return cast(size_t) td;
+	}
+
+	static size_t selfEnqueue(ThreadData* td) {
+		// Make sure we are setup for handoff.
+		assert(td.handoff.load() == Handoff.None, "Invalid handoff state!");
+
+		td.next = td;
+
+		return cast(size_t) td;
+	}
+
+	static size_t dequeue(size_t current, ref ThreadData* head) {
+		assert(current & LockBit, "Lock not held!");
+
+		auto tail = cast(ThreadData*) (current & ThreadDataMask);
+		assert(tail !is null, "Failed to short circuit on empty queue!");
+
+		head = tail.next;
+		tail.next = head.next;
+
+		assert(head !is null, "Invalid list!");
+		return head is tail ? 0 : cast(size_t) tail;
 	}
 }
 
