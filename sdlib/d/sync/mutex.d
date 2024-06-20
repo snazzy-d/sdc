@@ -78,7 +78,8 @@ public:
 
 			// FIXME: In case of timeout, we want to return false.
 			//        At the moment, timeouts are not supported.
-			unlockAndWait();
+			WaitParams wp;
+			unlockAndWait(&wp);
 		}
 	}
 
@@ -100,13 +101,16 @@ private:
 	struct ThreadData {
 		// Covered by the queue lock.
 		ThreadData* next;
+		WaitParams* waitParams;
 
-	shared: // FIXME: shared colon block aparently isn't working.
 		shared Waiter waiter;
-		shared Atomic!uint handoff;
 	}
 
 	static ThreadData threadData;
+
+	struct WaitParams {
+		shared Atomic!uint handoff;
+	}
 
 	void lockSlow() shared {
 		// Trusting WTF::WordLock on that one...
@@ -139,12 +143,11 @@ private:
 				continue;
 			}
 
-			// Add ourselves in the queue.
-			auto me = &threadData;
+			WaitParams wp;
 
 			// If we can, try try to register atomically.
 			if (current == LockBit) {
-				if (word.casWeak(current, selfEnqueue(me) | LockBit,
+				if (word.casWeak(current, selfEnqueue(&wp) | LockBit,
 				                 MemoryOrder.Release)) {
 					goto Handoff;
 				}
@@ -162,7 +165,7 @@ private:
 
 			// Now we store the updated head. Note that this will release the
 			// queue lock too, but it's okay, by now we are in the queue.
-			word.store(enqueue(current, me) | LockBit, MemoryOrder.Release);
+			word.store(enqueue(current, &wp) | LockBit, MemoryOrder.Release);
 
 		Handoff:
 			if (waitForHandoff() == Handoff.Direct) {
@@ -174,18 +177,16 @@ private:
 
 	static uint waitForHandoff() {
 		auto me = &threadData;
+		auto wp = &me.waitParams;
 
 		// Wait for the control to be handed back to us.
 		uint handoff;
-		while ((handoff = me.handoff.load(MemoryOrder.Acquire))
+		while ((handoff = wp.handoff.load(MemoryOrder.Acquire))
 			       == Handoff.None) {
 			me.waiter.block();
 
 			// FIXME: Dequeue ourselves in case of timeout.
 		}
-
-		// Setup ourselves up for the next handoff.
-		me.handoff.store(Handoff.None, MemoryOrder.Relaxed);
 
 		assert(handoff == Handoff.Direct || handoff == Handoff.Barging,
 		       "Invalid handoff value!");
@@ -198,12 +199,8 @@ private:
 		Fair = 1,
 	}
 
-	void unlockSlow(Fairness fair) shared {
-		unlockSlowImpl!false(fair);
-	}
-
-	void unlockAndWait() shared {
-		unlockSlowImpl!true(Fairness.Unfair);
+	void unlockAndWait(WaitParams* wp) shared {
+		unlockSlow(Fairness.Unfair, wp);
 
 		if (waitForHandoff() == Handoff.Barging) {
 			lock();
@@ -212,9 +209,8 @@ private:
 		assert((&this).isHeld(), "Lock not held!");
 	}
 
-	void unlockSlowImpl(bool QueueMe)(Fairness fair) shared {
-		auto me = &threadData;
-		auto fastUnlock = QueueMe ? selfEnqueue(me) : 0;
+	void unlockSlow(Fairness fair, WaitParams* wp = null) shared {
+		auto fastUnlock = wp is null ? 0 : selfEnqueue(wp);
 
 		auto current = word.load(MemoryOrder.Relaxed);
 		while (true) {
@@ -244,8 +240,8 @@ private:
 			}
 		}
 
-		if (QueueMe) {
-			current = enqueue(current, me) | LockBit;
+		if (wp !is null) {
+			current = enqueue(current, wp) | LockBit;
 		}
 
 		/**
@@ -267,32 +263,37 @@ private:
 		static assert((Handoff.Barging + Fairness.Fair) == Handoff.Direct);
 
 		// Wake up the blocked thread.
-		head.handoff.store(Handoff.Barging + fair, MemoryOrder.Release);
+		head.waitParams.handoff
+		    .store(Handoff.Barging + fair, MemoryOrder.Release);
 		head.waiter.wakeup();
 	}
 
-	static size_t enqueue(size_t current, ThreadData* td) {
+	static size_t enqueue(size_t current, WaitParams* wp) {
 		assert(current & LockBit, "Lock not held!");
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 
 		// Make sure we are setup for handoff.
-		assert(td.handoff.load() == Handoff.None, "Invalid handoff state!");
+		assert(wp.handoff.load() == Handoff.None, "Invalid handoff state!");
 
-		td.next = tail.next;
-		tail.next = td;
+		auto me = &threadData;
+		me.next = tail.next;
+		tail.next = me;
 
-		return cast(size_t) td;
+		me.waitParams = wp;
+		return cast(size_t) me;
 	}
 
-	static size_t selfEnqueue(ThreadData* td) {
+	static size_t selfEnqueue(WaitParams* wp) {
 		// Make sure we are setup for handoff.
-		assert(td.handoff.load() == Handoff.None, "Invalid handoff state!");
+		assert(wp.handoff.load() == Handoff.None, "Invalid handoff state!");
 
-		td.next = td;
+		auto me = &threadData;
+		me.next = me;
 
-		return cast(size_t) td;
+		me.waitParams = wp;
+		return cast(size_t) me;
 	}
 
 	static size_t dequeue(size_t current, ref ThreadData* head) {
@@ -302,9 +303,9 @@ private:
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 
 		head = tail.next;
-		tail.next = head.next;
-
 		assert(head !is null, "Invalid list!");
+
+		tail.next = head.next;
 		return head is tail ? 0 : cast(size_t) tail;
 	}
 }
