@@ -100,7 +100,8 @@ public:
 		 */
 		auto nretain = (nmax / 2) - (nlowWater / 4);
 		flush(emap, nretain);
-		freeEasy(ptr);
+		auto success = freeEasy(ptr);
+		assert(success, "Unable to free!");
 	}
 
 	void flush(ref CachedExtentMap emap) {
