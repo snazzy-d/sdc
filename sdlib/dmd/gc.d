@@ -3,6 +3,7 @@ module dmd.gc;
 import d.gc.tcache;
 import d.gc.spec;
 import d.gc.slab;
+import d.gc.emap;
 
 extern(C):
 
@@ -138,4 +139,60 @@ BlkInfo __sd_gc_druntime_allocInfo(void* ptr) {
 	}
 
 	return result;
+}
+
+void __sd_getArrayMetadata(void* ptr, void** base, size_t* size,
+                           size_t* flags) {
+	// all blocks are appendable in SDC GC.
+	auto pd = threadCache.maybeGetPageDescriptor(ptr);
+	auto e = pd.extent;
+	if (e) {
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			*base = cast(void*) si.address;
+			*size = si.slotCapacity;
+			*flags = pd.toLeafPayload();
+		} else {
+			*base = e.address;
+			*size = e.size;
+			*flags = pd.toLeafPayload();
+		}
+	}
+}
+
+bool __sd_setArrayUsed(void* ptr, size_t pdData, size_t newUsed,
+                       size_t existingUsed, bool atomic) {
+	auto pd = PageDescriptor(pdData);
+	auto e = pd.extent;
+	if (e) {
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			if (existingUsed == -1 || si.usedCapacity == existingUsed) {
+				si.setUsedCapacity(newUsed);
+				return true;
+			}
+		} else {
+			if (existingUsed == -1 || e.usedCapacity == existingUsed) {
+				e.setUsedCapacity(newUsed);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+size_t __sd_getArrayUsed(void* ptr, size_t pdData, bool atomic) {
+	auto pd = PageDescriptor(pdData);
+	auto e = pd.extent;
+	if (e) {
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			return si.usedCapacity;
+		} else {
+			return e.usedCapacity;
+		}
+	}
+
+	return 0;
 }

@@ -758,7 +758,7 @@ private:
 									(cast(ushort*) fptr) + 3);
 								__sd_run_finalizer(
 									ptr,
-									ssize - freeSpace - PointerSize,
+									ssize - freeSpace,
 									cast(void*)
 										((cast(size_t) *fptr) & AddressMask)
 								);
@@ -828,8 +828,7 @@ private:
 						// check for a finalizer
 						auto f = e.finalizer;
 						if (f !is null) {
-							__sd_run_finalizer(e.address,
-							                   e.usedCapacity - PointerSize, f);
+							__sd_run_finalizer(e.address, e.usedCapacity, f);
 						}
 
 						deadExtents.insert(e);
@@ -873,7 +872,7 @@ private:
 								readPackedFreeSpace((cast(ushort*) fptr) + 3);
 							__sd_run_finalizer(
 								ptr,
-								ssize - freeSpace - PointerSize,
+								ssize - freeSpace,
 								cast(void*) ((cast(size_t) *fptr) & AddressMask)
 							);
 						}
