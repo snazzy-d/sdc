@@ -8,15 +8,10 @@ import d.gc.slab;
 import d.gc.spec;
 import d.gc.tbin;
 import d.gc.util;
-import d.gc.extent;
 
 import sdc.intrinsics;
 
-import core.stdc.stdio;
-
 ThreadCache threadCache;
-
-extern(C) void __sd_run_finalizer(void* ptr, size_t usedSpace, void* finalizer);
 
 struct ThreadCache {
 private:
@@ -108,6 +103,7 @@ public:
 	}
 
 	void destroy(void* ptr) {
+		import d.finalizer;
 		if (ptr is null) {
 			return;
 		}

@@ -3,7 +3,6 @@ module dmd.gc;
 import d.gc.tcache;
 import d.gc.spec;
 import d.gc.slab;
-import d.gc.emap;
 
 extern(C):
 
@@ -58,12 +57,9 @@ struct BlkInfo {
 	uint attr;
 }
 
-// TODO: handle finalizer
 // BlkInfo __sd_gc_druntime_qalloc(size_t size, uint bits, void *finalizer)
 void __sd_gc_druntime_qalloc(BlkInfo* result, size_t size, uint bits,
                              void* finalizer) {
-	//import core.stdc.stdio;
-	//printf("In sdc qalloc, size is %d\n", cast(int)size);
 	bool hasPointers = (bits & BlkAttr.NO_SCAN) == 0;
 	// note, we don't use sdc's appending mechanism for now, but we want to
 	// keep the bit relevant
@@ -73,42 +69,13 @@ void __sd_gc_druntime_qalloc(BlkInfo* result, size_t size, uint bits,
 
 	// all the rest are ignored for now.
 	if (appendable || finalizer !is null) {
-		import core.stdc.stdio;
-		//printf("In sdc qalloc, with finalizer or appendable: %p\n", finalizer);
 		result.base = threadCache
 			.allocAppendable(size, hasPointers, hasPointers, finalizer);
-		//printf("allocated address %p\n", result.base);
 	} else {
 		result.base = threadCache.alloc(size, hasPointers, hasPointers);
 	}
 
-	// printf("returning pointer %p\n", result.base);
 	result.size = size;
-
-	// note, we may not need this code, and probably shouldn't use it.
-	/*if (result.base) {
-		if (appendable) {
-			// figure out the capacity, set it to max, and then use that size
-			// for the caller.
-			auto cap = threadCache.getCapacity(result.base[0 .. size]);
-			if (cap == 0) {
-				result.size = size;
-			} else {
-				assert(threadCache.extend(result.base[0 .. size], cap - size));
-				result.size = cap;
-			}
-		} else {
-			// no good mechanism to look this up, so wing it
-			auto pd = threadCache.getPageDescriptor(result.base);
-			if (pd.isSlab()) {
-				auto si = SlabAllocInfo(pd, result.base);
-				result.size = si.usedCapacity;
-			} else {
-				auto e = pd.extent;
-				result.size = e.usedCapacity;
-			}
-		}
-	}*/
 
 	result.attr =
 		bits & (BlkAttr.APPENDABLE | BlkAttr.NO_SCAN | BlkAttr.FINALIZE);
@@ -139,60 +106,4 @@ BlkInfo __sd_gc_druntime_allocInfo(void* ptr) {
 	}
 
 	return result;
-}
-
-void __sd_getArrayMetadata(void* ptr, void** base, size_t* size,
-                           size_t* flags) {
-	// all blocks are appendable in SDC GC.
-	auto pd = threadCache.maybeGetPageDescriptor(ptr);
-	auto e = pd.extent;
-	if (e) {
-		if (pd.isSlab()) {
-			auto si = SlabAllocInfo(pd, ptr);
-			*base = cast(void*) si.address;
-			*size = si.slotCapacity;
-			*flags = pd.toLeafPayload();
-		} else {
-			*base = e.address;
-			*size = e.size;
-			*flags = pd.toLeafPayload();
-		}
-	}
-}
-
-bool __sd_setArrayUsed(void* ptr, size_t pdData, size_t newUsed,
-                       size_t existingUsed, bool atomic) {
-	auto pd = PageDescriptor(pdData);
-	auto e = pd.extent;
-	if (e) {
-		if (pd.isSlab()) {
-			auto si = SlabAllocInfo(pd, ptr);
-			if (existingUsed == -1 || si.usedCapacity == existingUsed) {
-				si.setUsedCapacity(newUsed);
-				return true;
-			}
-		} else {
-			if (existingUsed == -1 || e.usedCapacity == existingUsed) {
-				e.setUsedCapacity(newUsed);
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
-size_t __sd_getArrayUsed(void* ptr, size_t pdData, bool atomic) {
-	auto pd = PageDescriptor(pdData);
-	auto e = pd.extent;
-	if (e) {
-		if (pd.isSlab()) {
-			auto si = SlabAllocInfo(pd, ptr);
-			return si.usedCapacity;
-		} else {
-			return e.usedCapacity;
-		}
-	}
-
-	return 0;
 }

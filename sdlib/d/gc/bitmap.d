@@ -20,6 +20,11 @@ public:
 		return bits;
 	}
 
+	@property
+	ref const(shared(ulong[NimbleCount])) rawContent() shared {
+		return bits;
+	}
+
 	void clear() {
 		foreach (i; 0 .. NimbleCount) {
 			bits[i] = 0;
@@ -46,13 +51,6 @@ public:
 		auto n = bits[i] >> o;
 
 		return (n & 0x01) != 0;
-	}
-
-	ulong rawNimbleAtomic(uint nimble) shared {
-		// FIXME: in contracts.
-		assert(nimble < NimbleCount);
-
-		return bits[nimble];
 	}
 
 	uint setFirst() {

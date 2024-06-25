@@ -11,8 +11,6 @@ import d.gc.util;
 
 import sdc.intrinsics;
 
-extern(C) void __sd_run_finalizer(void* ptr, size_t usedSpace, void* finalizer);
-
 struct PageFiller {
 private:
 	@property
@@ -708,7 +706,6 @@ private:
 
 				import d.gc.slab;
 				auto nslots = binInfos[sc].nslots;
-				auto ssize = binInfos[sc].slotSize;
 				auto nimble = alignUp(nslots, 64) / 64;
 
 				ulong* bmp;
@@ -731,45 +728,47 @@ private:
 					occupancyMask |= newOccupancy;
 					count += popCount(oldOccupancy ^ newOccupancy);
 
+					scope(exit) e.slabData.rawContent[i] = newOccupancy;
+
 					if (!ec.supportsMetadata) {
-						e.slabData.rawContent[i] = newOccupancy;
 						continue;
 					}
 
 					auto toRemove = (oldOccupancy ^ newOccupancy)
-						& e.slabMetadataFlags.rawNimbleAtomic(cast(uint) i);
-					if (toRemove) {
-						// All set bits in toRemove have metadata.
-						auto baseidx = i * 64;
-						while (toRemove != 0) {
-							uint bit = countTrailingZeros(toRemove);
-							uint idx = cast(uint) (bit + baseidx);
-							// NOTE: this copies techniques/code from
-							// SlabAllocInfo, but that code starts with a
-							// pointer and gives us info we already have.
-							// So we don't want to do that work again.
-							auto ptr = e.address + idx * ssize;
-							auto fptr =
-								cast(size_t*) (ptr + ssize - PointerSize);
-							enum FinalizerBit = nativeToBigEndian!size_t(0x2);
-							if (*fptr & FinalizerBit) {
-								// call the finalizer
-								auto freeSpace = readPackedFreeSpace(
-									(cast(ushort*) fptr) + 3);
-								__sd_run_finalizer(
-									ptr,
-									ssize - freeSpace,
-									cast(void*)
-										((cast(size_t) *fptr) & AddressMask)
-								);
-							}
+						& e.slabMetadataFlags.rawContent[i];
 
-							// clear the bit
-							toRemove &= (toRemove - 1);
-						}
+					if (!toRemove) {
+						continue;
 					}
 
-					e.slabData.rawContent[i] = newOccupancy;
+					// All set bits in toRemove have metadata.
+					auto baseidx = i * 64;
+					auto ssize = binInfos[sc].slotSize;
+					while (toRemove != 0) {
+						uint index =
+							cast(uint) (countTrailingZeros(toRemove) + baseidx);
+						// NOTE: this copies techniques/code from
+						// SlabAllocInfo, but that code starts with a
+						// pointer and gives us info we already have.
+						// So we don't want to do that work again.
+						auto ptr = e.address + index * ssize;
+						auto fptr = cast(size_t*) (ptr + ssize - PointerSize);
+						enum FinalizerBit = nativeToBigEndian!size_t(0x2);
+						if (*fptr & FinalizerBit) {
+							// call the finalizer
+							auto freeSpace =
+								readPackedFreeSpace((cast(ushort*) fptr) + 3);
+							import d.finalizer;
+							__sd_run_finalizer(
+								ptr,
+								ssize - freeSpace,
+								cast(void*) ((cast(size_t) *fptr) & AddressMask)
+							);
+						}
+
+						// clear the bit
+						toRemove &= (toRemove - 1);
+					}
 				}
 
 				// The slab is empty.
@@ -828,6 +827,7 @@ private:
 						// check for a finalizer
 						auto f = e.finalizer;
 						if (f !is null) {
+							import d.finalizer;
 							__sd_run_finalizer(e.address, e.usedCapacity, f);
 						}
 
@@ -838,7 +838,7 @@ private:
 				}
 
 				// need to know if anything has metadata
-				auto hasMeta = e.slabMetadataFlags.rawNimbleAtomic(0);
+				auto hasMeta = e.slabMetadataFlags.rawContent[0];
 
 				// If the cycle do not match, all the elements are dead. If no
 				// metadata exists, then we can safely clear the whole thing.
@@ -858,18 +858,19 @@ private:
 					// All set bits in hasMeta have metadata.
 					auto baseidx = i * 64;
 					while (hasMeta != 0) {
-						uint bit = countTrailingZeros(hasMeta);
+						uint index = countTrailingZeros(hasMeta);
 						// NOTE: this copies techniques/code from
 						// SlabAllocInfo, but that code starts with a
 						// pointer and gives us info we already have.
 						// So we don't want to do that work again.
-						auto ptr = e.address + bit * ssize;
+						auto ptr = e.address + index * ssize;
 						auto fptr = cast(size_t*) (ptr + ssize - PointerSize);
 						enum FinalizerBit = nativeToBigEndian!size_t(0x2);
 						if (*fptr & FinalizerBit) {
 							// call the finalizer
 							auto freeSpace =
 								readPackedFreeSpace((cast(ushort*) fptr) + 3);
+							import d.finalizer;
 							__sd_run_finalizer(
 								ptr,
 								ssize - freeSpace,
@@ -878,7 +879,7 @@ private:
 						}
 
 						// clear the bit
-						hasMeta ^= 1UL << bit;
+						hasMeta ^= 1UL << index;
 					}
 				}
 
