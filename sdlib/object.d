@@ -50,6 +50,7 @@ extern(C) {
 	int __sd_eh_personality(int, int, ulong, void*, void*);
 	void __sd_array_outofbounds(string, int);
 	void* __sd_gc_alloc(size_t);
+	void* __sd_gc_alloc_finalizer(size_t, void*);
 
 	// We should be using some dedicated array API instead of this.
 	void* __sd_gc_array_alloc(size_t size);
