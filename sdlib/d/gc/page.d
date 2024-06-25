@@ -728,47 +728,7 @@ private:
 					occupancyMask |= newOccupancy;
 					count += popCount(oldOccupancy ^ newOccupancy);
 
-					scope(exit) e.slabData.rawContent[i] = newOccupancy;
-
-					if (!ec.supportsMetadata) {
-						continue;
-					}
-
-					auto toRemove = (oldOccupancy ^ newOccupancy)
-						& e.slabMetadataFlags.rawContent[i];
-
-					if (!toRemove) {
-						continue;
-					}
-
-					// All set bits in toRemove have metadata.
-					auto baseidx = i * 64;
-					auto ssize = binInfos[sc].slotSize;
-					while (toRemove != 0) {
-						uint index =
-							cast(uint) (countTrailingZeros(toRemove) + baseidx);
-						// NOTE: this copies techniques/code from
-						// SlabAllocInfo, but that code starts with a
-						// pointer and gives us info we already have.
-						// So we don't want to do that work again.
-						auto ptr = e.address + index * ssize;
-						auto fptr = cast(size_t*) (ptr + ssize - PointerSize);
-						enum FinalizerBit = nativeToBigEndian!size_t(0x2);
-						if (*fptr & FinalizerBit) {
-							// call the finalizer
-							auto freeSpace =
-								readPackedFreeSpace((cast(ushort*) fptr) + 3);
-							import d.finalizer;
-							__sd_run_finalizer(
-								ptr,
-								ssize - freeSpace,
-								cast(void*) ((cast(size_t) *fptr) & AddressMask)
-							);
-						}
-
-						// clear the bit
-						toRemove &= (toRemove - 1);
-					}
+					e.slabData.rawContent[i] = newOccupancy;
 				}
 
 				// The slab is empty.
@@ -837,51 +797,14 @@ private:
 					continue;
 				}
 
-				// need to know if anything has metadata
-				auto hasMeta = e.slabMetadataFlags.rawContent[0];
-
-				// If the cycle do not match, all the elements are dead. If no
-				// metadata exists, then we can safely clear the whole thing.
-				if (hasMeta == 0 && ((w & 0xff) != gcCycle)) {
+				// If the cycle do not match, all the elements are dead.
+				if ((w & 0xff) != gcCycle) {
 					deadExtents.insert(e);
 					continue;
 				}
 
 				auto oldOccupancy = e.slabData.rawContent[0];
 				auto newOccupancy = oldOccupancy & (w >> 8);
-
-				// need to check dying blocks for finalizers.
-				hasMeta &= (oldOccupancy ^ newOccupancy);
-				if (hasMeta) {
-					import d.gc.slab;
-					auto ssize = binInfos[ec.sizeClass].slotSize;
-					// All set bits in hasMeta have metadata.
-					auto baseidx = i * 64;
-					while (hasMeta != 0) {
-						uint index = countTrailingZeros(hasMeta);
-						// NOTE: this copies techniques/code from
-						// SlabAllocInfo, but that code starts with a
-						// pointer and gives us info we already have.
-						// So we don't want to do that work again.
-						auto ptr = e.address + index * ssize;
-						auto fptr = cast(size_t*) (ptr + ssize - PointerSize);
-						enum FinalizerBit = nativeToBigEndian!size_t(0x2);
-						if (*fptr & FinalizerBit) {
-							// call the finalizer
-							auto freeSpace =
-								readPackedFreeSpace((cast(ushort*) fptr) + 3);
-							import d.finalizer;
-							__sd_run_finalizer(
-								ptr,
-								ssize - freeSpace,
-								cast(void*) ((cast(size_t) *fptr) & AddressMask)
-							);
-						}
-
-						// clear the bit
-						hasMeta ^= 1UL << index;
-					}
-				}
 
 				// The slab is empty.
 				if (newOccupancy == 0) {
