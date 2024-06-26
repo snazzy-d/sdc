@@ -103,7 +103,6 @@ public:
 	}
 
 	void destroy(void* ptr) {
-		import d.finalizer;
 		if (ptr is null) {
 			return;
 		}
@@ -118,12 +117,14 @@ public:
 				assert(cast(void*) si.address == ptr,
 				       "destroy() was invoked on an interior pointer!");
 
+				import d.finalizer;
 				__sd_run_finalizer(ptr, si.usedCapacity, finalizer);
 			}
 
 			freeSmall(pd, ptr);
 		} else {
 			if (e.finalizer !is null) {
+				import d.finalizer;
 				__sd_run_finalizer(ptr, e.usedCapacity, e.finalizer);
 			}
 

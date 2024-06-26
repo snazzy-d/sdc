@@ -7,19 +7,21 @@ extern(C) void __sd_gc_collect();
 extern(C) void* __sd_gc_alloc_finalizer(size_t size, void* finalizer);
 
 struct LargeDestructor {
-	int[4000] x; // ensure a large block
+	// ensure a large block
+	int[4000] x;
 
 	static int result;
 
 	~this() {
-		foreach (v; x)
+		foreach (v; x) {
 			result += v;
+		}
 	}
 }
 
 void destroyItem(void* item, size_t size) {
 	assert(size == LargeDestructor.sizeof,
-	       "incorrect size passed to destructor");
+	       "Incorrect size passed to destructor.");
 	(cast(LargeDestructor*) item).__dtor();
 }
 
@@ -33,14 +35,8 @@ void allocateItem() {
 	}
 }
 
-void killstack() {
-	ubyte[1000] buf;
-	memset(buf.ptr, 0xff, buf.length);
-}
-
 void main() {
 	allocateItem();
-	killstack();
 	__sd_gc_collect();
-	assert(LargeDestructor.result == 8038000, "Destructor did not run");
+	assert(LargeDestructor.result == 8038000, "Destructor did not run.");
 }
