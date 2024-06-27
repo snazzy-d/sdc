@@ -290,22 +290,23 @@ private:
 		 *        would be to make sure we dequeu at least one non condition
 		 *        thread if there is one, maybe?
 		 */
-		ThreadData* head;
+		ThreadData* lock;
 
 		/**
 		 * As we update the tail, we also release the queue lock.
 		 * The lock itself is kept is the fair case, or unlocked if
 		 * fairness is not a concern.
 		 */
-		word.store(dequeue(current, head) | fair, MemoryOrder.Release);
+		word.store(dequeue(current, lock) | fair, MemoryOrder.Release);
+		assert(lock !is null, "Expected at least one dequeue!");
 
 		// Make sure our bit trickery remains valid.
 		static assert((Handoff.Barging + Fairness.Fair) == Handoff.Direct);
 
 		// Wake up the blocked thread.
-		head.waitParams.handoff
+		lock.waitParams.handoff
 		    .store(Handoff.Barging + fair, MemoryOrder.Release);
-		head.waiter.wakeup();
+		lock.waiter.wakeup();
 	}
 
 	/**
