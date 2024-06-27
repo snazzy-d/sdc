@@ -268,26 +268,35 @@ private:
 		head.waiter.wakeup();
 	}
 
+	/**
+	 * When the mutex is contended, thread queue to get their turn.
+	 */
 	static size_t enqueue(size_t current, WaitParams* wp) {
 		assert(current & LockBit, "Lock not held!");
 
-		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		assert(tail !is null, "Failed to short circuit on empty queue!");
-
 		// Make sure we are setup for handoff.
-		assert(wp.handoff.load() == Handoff.None, "Invalid handoff state!");
+		wp.handoff.store(Handoff.None, MemoryOrder.Release);
 
 		auto me = &threadData;
-		me.next = tail.next;
-		tail.next = me;
-
 		me.waitParams = wp;
-		return cast(size_t) me;
+
+		auto tail = cast(ThreadData*) (current & ThreadDataMask);
+		return cast(size_t) enqueue(tail, me);
+	}
+
+	static auto enqueue(ThreadData* tail, ThreadData* td) {
+		assert(tail !is null, "Failed to short circuit on empty queue!");
+		assert(td !is null && td !is tail, "Invalid insert!");
+
+		td.next = tail.next;
+		tail.next = td;
+
+		return td;
 	}
 
 	static size_t selfEnqueue(WaitParams* wp) {
 		// Make sure we are setup for handoff.
-		assert(wp.handoff.load() == Handoff.None, "Invalid handoff state!");
+		wp.handoff.store(Handoff.None, MemoryOrder.Release);
 
 		auto me = &threadData;
 		me.next = me;
