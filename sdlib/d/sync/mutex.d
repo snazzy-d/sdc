@@ -163,6 +163,9 @@ private:
 				continue;
 			}
 
+			// Make sure we do have the queue lock.
+			assert(word.load() & QueueLockBit, "Queue lock not acquired!");
+
 			// Now we store the updated head. Note that this will release the
 			// queue lock too, but it's okay, by now we are in the queue.
 			word.store(enqueue(current, &wp) | LockBit, MemoryOrder.Release);
@@ -239,6 +242,9 @@ private:
 				break;
 			}
 		}
+
+		// Make sure we do have the queue lock.
+		assert(word.load() & QueueLockBit, "Queue lock not acquired!");
 
 		if (wp !is null) {
 			current = enqueue(current, wp) | LockBit;
