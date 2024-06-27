@@ -79,6 +79,7 @@ public:
 			// FIXME: In case of timeout, we want to return false.
 			//        At the moment, timeouts are not supported.
 			WaitParams wp;
+			wp.condition = condition;
 			unlockAndWait(&wp);
 		}
 	}
@@ -104,12 +105,45 @@ private:
 		WaitParams* waitParams;
 
 		shared Waiter waiter;
+
+		bool isEquivalentTo(ThreadData* other) const {
+			return waitParams.isEquivalentTo(other.waitParams);
+		}
 	}
 
 	static ThreadData threadData;
 
 	struct WaitParams {
 		shared Atomic!uint handoff;
+
+		bool delegate() condition;
+
+		static bool dgCmp(bool delegate() a, bool delegate() b) {
+			static union U {
+				bool delegate() c;
+				size_t[2] s;
+			}
+
+			U u1, u2;
+			u1.c = a;
+			u2.c = b;
+
+			return u1.s[0] == u2.s[0] && u1.s[1] == u2.s[1];
+		}
+
+		bool isEquivalentTo(WaitParams* other) const {
+			return dgCmp(condition, other.condition);
+		}
+
+		bool isLock() const {
+			bool delegate() nothing;
+			return dgCmp(condition, nothing);
+		}
+
+		bool isCondition() const {
+			bool delegate() nothing;
+			return !dgCmp(condition, nothing);
+		}
 	}
 
 	void lockSlow() shared {
