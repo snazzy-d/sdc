@@ -47,6 +47,8 @@ final class CodeGen {
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 
+	LLVMAttributeRef framePointer;
+
 	// FIXME: We hold a refernece to the backend here so it is not GCed.
 	// Now that JIT use its own codegen, no reference to the JIT backend
 	// is held if that one goes. The whole thing needs to be refactored
@@ -96,6 +98,8 @@ final class CodeGen {
 
 		const prof = "prof";
 		profKindID = LLVMGetMDKindIDInContext(llvmCtx, prof.ptr, prof.length);
+
+		framePointer = getAttribute("frame-pointer", "non-leaf");
 	}
 
 	~this() {
@@ -104,8 +108,16 @@ final class CodeGen {
 		LLVMContextDispose(llvmCtx);
 	}
 
-	auto getAttribute(string name, ulong val = 0) {
+	auto getAttribute(string name, ulong value = 0) {
 		auto id = LLVMGetEnumAttributeKindForName(name.ptr, name.length);
-		return LLVMCreateEnumAttribute(llvmCtx, id, val);
+		return LLVMCreateEnumAttribute(llvmCtx, id, value);
+	}
+
+	auto getAttribute(string name, string value)
+			in(name.length < uint.max, "Name is too long!")
+			in(value.length < uint.max, "Value is too long!") {
+		return LLVMCreateStringAttribute(
+			llvmCtx, name.ptr, cast(uint) name.length, value.ptr,
+			cast(uint) value.length);
 	}
 }

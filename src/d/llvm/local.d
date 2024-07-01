@@ -128,7 +128,10 @@ struct LocalGen {
 			auto name = f.mangle.toStringz(context);
 			auto fun = LLVMGetNamedFunction(dmodule, name);
 			if (!fun) {
-				return globals[f] = LLVMAddFunction(dmodule, name, type);
+				fun = LLVMAddFunction(dmodule, name, type);
+				LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex,
+				                        framePointer);
+				return globals[f] = fun;
 			}
 
 			if ((!f.fbody || LLVMCountBasicBlocks(fun) == 0)
