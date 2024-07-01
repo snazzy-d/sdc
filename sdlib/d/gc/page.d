@@ -784,6 +784,12 @@ private:
 				if (ec.isLarge()) {
 					if (w != gcCycle) {
 						// We have not marked this extent this cycle.
+						auto f = e.finalizer;
+						if (f !is null) {
+							import d.finalizer;
+							__sd_run_finalizer(e.address, e.usedCapacity, f);
+						}
+
 						deadExtents.insert(e);
 					}
 

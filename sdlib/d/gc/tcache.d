@@ -117,13 +117,15 @@ public:
 				assert(cast(void*) si.address == ptr,
 				       "destroy() was invoked on an interior pointer!");
 
-				finalizer(ptr, si.usedCapacity);
+				import d.finalizer;
+				__sd_run_finalizer(ptr, si.usedCapacity, finalizer);
 			}
 
 			freeSmall(pd, ptr);
 		} else {
 			if (e.finalizer !is null) {
-				e.finalizer(ptr, e.usedCapacity);
+				import d.finalizer;
+				__sd_run_finalizer(ptr, e.usedCapacity, e.finalizer);
 			}
 
 			freeLarge(pd);

@@ -46,6 +46,10 @@ void* __sd_gc_array_alloc(size_t size) {
 	return __sd_gc_alloc(size);
 }
 
+void* __sd_gc_alloc_finalizer(size_t size, void* finalizer) {
+	return threadCache.allocAppendable(size, true, false, finalizer);
+}
+
 void __sd_gc_free(void* ptr) {
 	threadCache.free(ptr);
 }
