@@ -89,7 +89,7 @@ final class CodeGen {
 		LLVMValueRef[3] branch_metadata = [
 			LLVMMDStringInContext(llvmCtx, branch_weights.ptr,
 			                      branch_weights.length),
-			LLVMConstInt(i32, 65536, false), LLVMConstInt(i32, 0, false), ];
+			LLVMConstInt(i32, 2000, false), LLVMConstInt(i32, 0, false)];
 
 		unlikelyBranch = LLVMMDNodeInContext(llvmCtx, branch_metadata.ptr,
 		                                     branch_metadata.length);
