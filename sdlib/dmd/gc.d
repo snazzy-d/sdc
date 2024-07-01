@@ -57,12 +57,9 @@ struct BlkInfo {
 	uint attr;
 }
 
-// TODO: handle finalizer
 // BlkInfo __sd_gc_druntime_qalloc(size_t size, uint bits, void *finalizer)
 void __sd_gc_druntime_qalloc(BlkInfo* result, size_t size, uint bits,
                              void* finalizer) {
-	//import core.stdc.stdio;
-	//printf("In sdc qalloc, size is %d\n", cast(int)size);
 	bool hasPointers = (bits & BlkAttr.NO_SCAN) == 0;
 	// note, we don't use sdc's appending mechanism for now, but we want to
 	// keep the bit relevant
@@ -71,17 +68,17 @@ void __sd_gc_druntime_qalloc(BlkInfo* result, size_t size, uint bits,
 	//BlkInfo result;
 
 	// all the rest are ignored for now.
-	if (appendable) {
+	if (appendable || finalizer !is null) {
 		result.base = threadCache
-			.allocAppendable(size, hasPointers, hasPointers,
-			                 cast(Finalizer) finalizer);
+			.allocAppendable(size, hasPointers, hasPointers, finalizer);
 	} else {
 		result.base = threadCache.alloc(size, hasPointers, hasPointers);
 	}
 
-	// printf("returning pointer %p\n", result.base);
 	result.size = size;
-	result.attr = bits & (BlkAttr.APPENDABLE | BlkAttr.NO_SCAN);
+
+	result.attr =
+		bits & (BlkAttr.APPENDABLE | BlkAttr.NO_SCAN | BlkAttr.FINALIZE);
 	//return result;
 }
 
