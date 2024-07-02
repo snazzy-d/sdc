@@ -184,7 +184,7 @@ public:
 		import std.process;
 		auto linkCommand = "gcc -o " ~ escapeShellFileName(executable) ~ " "
 			~ escapeShellFileName(objFile) ~ params
-			~ " -lsdrt -lphobos -lpthread";
+			~ " -lsdrt -lphobos -lpthread -ldl";
 
 		wait(spawnShell(linkCommand));
 	}
