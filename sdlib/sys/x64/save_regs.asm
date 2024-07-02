@@ -3,12 +3,12 @@ global __sd_gc_push_registers
 section .text
 __sd_gc_push_registers:
 ; We could actually make things faster by not pushing the base and stack pointers
-; but this is not performance critical and need to be rock solid.
+; but this is not performance critical and needs to be rock solid.
 ; For some reason, clang seems to use rbp, but gcc rbx (?) so we will do it
 ; the clang way and push rbx to the stack as a parameter.
 	push rbp
 	mov rbp, rsp
-; Not using push to make sure I not messup with stack alignement.
+; Not using push to make sure we do not mess up with stack alignement.
 ; Also sub + mov is usually faster than push (not that it matter much here).
 	sub	rsp, 48
 ; Register r12 to r15 are callee saved so can have live values.
