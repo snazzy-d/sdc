@@ -101,12 +101,14 @@ private:
 	 */
 	struct ThreadData {
 		// Covered by the queue lock.
-		ThreadData* next;
 		WaitParams* waitParams;
+
+		ThreadData* next;
+		ThreadData* skip;
 
 		shared Waiter waiter;
 
-		bool isEquivalentTo(ThreadData* other) const {
+		bool isEquivalentTo(const ThreadData* other) const {
 			return waitParams.isEquivalentTo(other.waitParams);
 		}
 	}
@@ -131,7 +133,7 @@ private:
 			return u1.s[0] == u2.s[0] && u1.s[1] == u2.s[1];
 		}
 
-		bool isEquivalentTo(WaitParams* other) const {
+		bool isEquivalentTo(const WaitParams* other) const {
 			return dgCmp(condition, other.condition);
 		}
 
@@ -327,10 +329,17 @@ private:
 
 	static auto enqueue(ThreadData* tail, ThreadData* td) {
 		assert(tail !is null, "Failed to short circuit on empty queue!");
+		assert(tail.skip is null, "Tail cannot have a skip!");
+
 		assert(td !is null && td !is tail, "Invalid insert!");
 
 		td.next = tail.next;
+		td.skip = null;
 		tail.next = td;
+
+		if (tail.isEquivalentTo(td)) {
+			tail.skip = td;
+		}
 
 		return td;
 	}
@@ -340,9 +349,11 @@ private:
 		wp.handoff.store(Handoff.None, MemoryOrder.Release);
 
 		auto me = &threadData;
-		me.next = me;
-
 		me.waitParams = wp;
+
+		me.next = me;
+		me.skip = null;
+
 		return cast(size_t) me;
 	}
 
@@ -351,6 +362,7 @@ private:
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
 		assert(tail !is null, "Failed to short circuit on empty queue!");
+		assert(tail.skip is null, "Tail cannot have a skip!");
 
 		head = tail.next;
 		assert(head !is null, "Invalid list!");
