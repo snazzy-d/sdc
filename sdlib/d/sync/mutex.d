@@ -55,7 +55,7 @@ public:
 			return;
 		}
 
-		unlockSlow(Fairness.Unfair);
+		unlockSlowUnfair();
 	}
 
 	void unlockFairly() shared {
@@ -65,7 +65,7 @@ public:
 			return;
 		}
 
-		unlockSlow(Fairness.Fair);
+		unlockSlowFair();
 	}
 
 	bool waitFor(bool delegate() condition) shared {
@@ -241,14 +241,8 @@ private:
 		return handoff;
 	}
 
-	// FIXME: Crashing for some reason.
-	enum Fairness /* : bool */ {
-		Unfair = 0,
-		Fair = 1,
-	}
-
 	void unlockAndWait(WaitParams* wp) shared {
-		unlockSlow(Fairness.Unfair, wp);
+		unlockSlowUnfair(wp);
 
 		if (waitForHandoff() == Handoff.Barging) {
 			lock();
@@ -257,7 +251,23 @@ private:
 		assert((&this).isHeld(), "Lock not held!");
 	}
 
-	void unlockSlow(Fairness fair, WaitParams* wp = null) shared {
+	void unlockSlowUnfair(WaitParams* wp = null) shared {
+		unlockSlowImpl!false(wp);
+	}
+
+	void unlockSlowFair() shared {
+		unlockSlowImpl!true(null);
+	}
+
+	void unlockSlowImpl(bool Fair)(WaitParams* wp) shared {
+		if (Fair) {
+			assert(wp is null, "Cannot unlock condition fairly!");
+
+			// Make sure that the optimizer knows that wp is null
+			// when asserts are disabled.
+			wp = null;
+		}
+
 		auto fastUnlock = wp is null ? 0 : selfEnqueue(wp);
 
 		auto current = word.load(MemoryOrder.Relaxed);
@@ -308,15 +318,15 @@ private:
 		 * The lock itself is kept is the fair case, or unlocked if
 		 * fairness is not a concern.
 		 */
-		word.store(dequeue(current, lock) | fair, MemoryOrder.Release);
+		word.store(dequeue(current, lock) | Fair, MemoryOrder.Release);
 		assert(lock !is null, "Expected at least one dequeue!");
 
 		// Make sure our bit trickery remains valid.
-		static assert((Handoff.Barging + Fairness.Fair) == Handoff.Direct);
+		static assert((Handoff.Barging + true) == Handoff.Direct);
 
 		// Wake up the blocked thread.
 		lock.waitParams.handoff
-		    .store(Handoff.Barging + fair, MemoryOrder.Release);
+		    .store(Handoff.Barging + Fair, MemoryOrder.Release);
 		lock.waiter.wakeup();
 	}
 
