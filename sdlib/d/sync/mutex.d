@@ -431,17 +431,27 @@ private:
 		return cast(size_t) dequeueLock(enqueue(tail, wp), wakeList);
 	}
 
-	static ThreadData* dequeueHead(ThreadData* tail, ref ThreadData* head) {
+	static ThreadData* dequeueNext(ThreadData* tail, ThreadData* prev) {
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 		assert(tail.skip is null, "Tail cannot have a skip!");
 
-		head = tail.next;
-		assert(head !is null, "Invalid list!");
+		assert(prev !is null, "Invalid prev!");
+		assert(prev.skip is null, "Prev cannot have a skip!");
 
-		tail.next = head.next;
-		head.next = null;
+		auto n = prev.next;
+		prev.next = n.next;
 
-		return head is tail ? null : tail;
+		if (n is tail) {
+			// We either have an empty list or removed the tail.
+			return prev is n ? null : prev;
+		}
+
+		// The list is not empty.
+		if (prev !is tail) {
+			prev.updateSkip();
+		}
+
+		return tail;
 	}
 
 	static ThreadData* dequeueLock(ThreadData* tail, ref ThreadData* wakeList) {
@@ -452,42 +462,54 @@ private:
 		auto c = tail.next;
 		assert(c !is null, "Invalid list!");
 
-		// One element queue.
-		if (c is p) {
-			c.next = null;
-			wakeList = c;
-			return null;
-		}
-
-		if (c.isLock()) {
-			return dequeueHead(tail, wakeList);
-		}
-
-		auto conditions = c;
+		ThreadData* conditions = null;
 		while (!c.isLock()) {
-			p = c.skipForward();
-			if (p is tail) {
-				// We dequeued everything withotu finding a lock.
-				p.next = null;
+			auto pp = p;
+			auto cn = c.next;
+
+			// Remove c from the queue.
+			tail = dequeueNext(tail, p);
+
+			// Add the condition to the list.
+			c.next = conditions;
+			conditions = c;
+
+			/**
+			 * There are two condition in which we move p forward:
+			 *   1. p and c.next are equivalent and p is now in a
+			 *      middle of a block of equivalent waiters.
+			 *   2. c and cn are part of the same block and once
+			 *      we removed c from it, it needs to be skipped over.
+			 * 
+			 * In other situations, the same p now precedes a new block
+			 * and therefore doesn't needs to be updated.
+			 */
+			auto cs = cn.skipForward();
+			if (p.skip !is null) {
+				p = p.skip = cs;
+			} else if (c.skip !is null) {
+				p = cs;
+			}
+
+			// We reached the end of the queue without finding a lock.
+			if (tail is null || (pp !is tail && p is tail)) {
 				wakeList = conditions;
-				return null;
+				return tail;
 			}
 
 			c = p.next;
-			assert(c !is null, "Invalid list!");
 		}
 
 		assert(p !is null && p.skip is null, "Invalid list!");
 		assert(c !is null && p.next is c, "Invalid list!");
 
-		tail.next = c.next;
+		tail = dequeueNext(tail, p);
+
+		// Add the lock at the head of the wake list.
+		c.next = conditions;
 		wakeList = c;
 
-		// Finish the wake list by putting the lock first.
-		p.next = null;
-		c.next = conditions;
-
-		return c is tail ? null : tail;
+		return tail;
 	}
 }
 
