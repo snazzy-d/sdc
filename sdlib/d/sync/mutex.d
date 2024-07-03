@@ -120,6 +120,31 @@ private:
 			return waitParams.isCondition();
 		}
 
+		ThreadData* skipForward() {
+			auto current = &this;
+
+			auto s = current.skip;
+			if (s is null) {
+				return current;
+			}
+
+			while (s.skip !is null) {
+				auto last = current;
+				current = s;
+				s = s.skip;
+
+				// We update the skip list as we travel it so we can recompute
+				// it faster once we pop td.
+				last.skip = s;
+			}
+
+			// Make sure to skip the whole list at once next time.
+			skip = s;
+
+			assert(s !is null && s.skip is null);
+			return s;
+		}
+
 		void updateSkip() {
 			assert(next !is &this, "Tail's skip must remain null!");
 
@@ -419,31 +444,6 @@ private:
 		return head is tail ? null : tail;
 	}
 
-	static ThreadData* skipForward(ThreadData* td) {
-		auto current = td;
-
-		auto s = current.skip;
-		if (s is null) {
-			return current;
-		}
-
-		while (s.skip !is null) {
-			auto last = current;
-			current = s;
-			s = s.skip;
-
-			// We update the skip list as we travel it so we can recompute
-			// it faster once we pop td.
-			last.skip = s;
-		}
-
-		// Make sure to skip the whole list at once next time.
-		td.skip = s;
-
-		assert(s !is null && s.skip is null);
-		return s;
-	}
-
 	static ThreadData* dequeueLock(ThreadData* tail, ref ThreadData* wakeList) {
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 		assert(tail.skip is null, "Tail cannot have a skip!");
@@ -465,7 +465,7 @@ private:
 
 		auto conditions = c;
 		while (!c.isLock()) {
-			p = skipForward(c);
+			p = c.skipForward();
 			if (p is tail) {
 				// We dequeued everything withotu finding a lock.
 				p.next = null;
