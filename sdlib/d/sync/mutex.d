@@ -112,6 +112,14 @@ private:
 			return waitParams.isEquivalentTo(other.waitParams);
 		}
 
+		bool isLock() const {
+			return waitParams.isLock();
+		}
+
+		bool isCondition() const {
+			return waitParams.isCondition();
+		}
+
 		void updateSkip() {
 			assert(next !is &this, "Tail's skip must remain null!");
 
@@ -311,23 +319,31 @@ private:
 		 *        would be to make sure we dequeu at least one non condition
 		 *        thread if there is one, maybe?
 		 */
-		ThreadData* lock;
+		ThreadData* wakeList;
 
 		/**
 		 * As we update the tail, we also release the queue lock.
 		 * The lock itself is kept is the fair case, or unlocked if
 		 * fairness is not a concern.
 		 */
-		word.store(dequeue(current, lock) | Fair, MemoryOrder.Release);
-		assert(lock !is null, "Expected at least one dequeue!");
+		word.store(dequeue(current, wakeList) | Fair, MemoryOrder.Release);
+		assert(!Fair || wakeList !is null, "Expected at least one dequeue!");
 
 		// Make sure our bit trickery remains valid.
 		static assert((Handoff.Barging + true) == Handoff.Direct);
 
-		// Wake up the blocked thread.
-		lock.waitParams.handoff
-		    .store(Handoff.Barging + Fair, MemoryOrder.Release);
-		lock.waiter.wakeup();
+		// Wake up the blocked threads.
+		auto fair = Fair;
+		while (wakeList !is null) {
+			auto c = wakeList;
+			wakeList = c.next;
+
+			c.waitParams.handoff
+			 .store(Handoff.Barging + fair, MemoryOrder.Release);
+			c.waiter.wakeup();
+
+			fair = false;
+		}
 	}
 
 	/**
@@ -378,6 +394,10 @@ private:
 		assert(current & LockBit, "Lock not held!");
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
+		return cast(size_t) dequeueLock(tail, head);
+	}
+
+	static ThreadData* dequeueHead(ThreadData* tail, ref ThreadData* head) {
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 		assert(tail.skip is null, "Tail cannot have a skip!");
 
@@ -385,7 +405,80 @@ private:
 		assert(head !is null, "Invalid list!");
 
 		tail.next = head.next;
-		return head is tail ? 0 : cast(size_t) tail;
+		head.next = null;
+
+		return head is tail ? null : tail;
+	}
+
+	static ThreadData* skipForward(ThreadData* td) {
+		auto current = td;
+
+		auto s = current.skip;
+		if (s is null) {
+			return current;
+		}
+
+		while (s.skip !is null) {
+			auto last = current;
+			current = s;
+			s = s.skip;
+
+			// We update the skip list as we travel it so we can recompute
+			// it faster once we pop td.
+			last.skip = s;
+		}
+
+		// Make sure to skip the whole list at once next time.
+		td.skip = s;
+
+		assert(s !is null && s.skip is null);
+		return s;
+	}
+
+	static ThreadData* dequeueLock(ThreadData* tail, ref ThreadData* wakeList) {
+		assert(tail !is null, "Failed to short circuit on empty queue!");
+		assert(tail.skip is null, "Tail cannot have a skip!");
+
+		auto p = tail;
+		auto c = tail.next;
+		assert(c !is null, "Invalid list!");
+
+		// One element queue.
+		if (c is p) {
+			c.next = null;
+			wakeList = c;
+			return null;
+		}
+
+		if (c.isLock()) {
+			return dequeueHead(tail, wakeList);
+		}
+
+		auto conditions = c;
+		while (!c.isLock()) {
+			p = skipForward(c);
+			if (p is tail) {
+				// We dequeued everything withotu finding a lock.
+				p.next = null;
+				wakeList = conditions;
+				return null;
+			}
+
+			c = p.next;
+			assert(c !is null, "Invalid list!");
+		}
+
+		assert(p !is null && p.skip is null, "Invalid list!");
+		assert(c !is null && p.next is c, "Invalid list!");
+
+		tail.next = c.next;
+		wakeList = c;
+
+		// Finish the wake list by putting the lock first.
+		p.next = null;
+		c.next = conditions;
+
+		return c is tail ? null : tail;
 	}
 }
 
