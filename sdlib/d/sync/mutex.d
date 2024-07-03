@@ -111,6 +111,15 @@ private:
 		bool isEquivalentTo(const ThreadData* other) const {
 			return waitParams.isEquivalentTo(other.waitParams);
 		}
+
+		void updateSkip() {
+			assert(next !is &this, "Tail's skip must remain null!");
+
+			if (isEquivalentTo(next)) {
+				// Leapfrog one hop if possible.
+				skip = next.skip is null ? next : next.skip;
+			}
+		}
 	}
 
 	static ThreadData threadData;
@@ -335,11 +344,9 @@ private:
 
 		td.next = tail.next;
 		td.skip = null;
-		tail.next = td;
 
-		if (tail.isEquivalentTo(td)) {
-			tail.skip = td;
-		}
+		tail.next = td;
+		tail.updateSkip();
 
 		return td;
 	}
