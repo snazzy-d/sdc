@@ -309,10 +309,6 @@ private:
 		// Make sure we do have the queue lock.
 		assert(word.load() & QueueLockBit, "Queue lock not acquired!");
 
-		if (wp !is null) {
-			current = enqueue(current, wp) | LockBit;
-		}
-
 		/**
 		 * FIXME: We might end up running through the same conditions
 		 *        again and again with that strategy. A better approach
@@ -320,13 +316,18 @@ private:
 		 *        thread if there is one, maybe?
 		 */
 		ThreadData* wakeList;
+		if (wp is null) {
+			current = dequeueLock(current, wakeList);
+		} else {
+			current = dequeueCondition(current, wp, wakeList);
+		}
 
 		/**
 		 * As we update the tail, we also release the queue lock.
 		 * The lock itself is kept is the fair case, or unlocked if
 		 * fairness is not a concern.
 		 */
-		word.store(dequeue(current, wakeList) | Fair, MemoryOrder.Release);
+		word.store(current | Fair, MemoryOrder.Release);
 		assert(!Fair || wakeList !is null, "Expected at least one dequeue!");
 
 		// Make sure our bit trickery remains valid.
@@ -352,29 +353,29 @@ private:
 	static size_t enqueue(size_t current, WaitParams* wp) {
 		assert(current & LockBit, "Lock not held!");
 
+		auto tail = cast(ThreadData*) (current & ThreadDataMask);
+		return cast(size_t) enqueue(tail, wp);
+	}
+
+	static ThreadData* enqueue(ThreadData* tail, WaitParams* wp) {
+		assert(tail !is null, "Failed to short circuit on empty queue!");
+		assert(tail.skip is null, "Tail cannot have a skip!");
+
 		// Make sure we are setup for handoff.
 		wp.handoff.store(Handoff.None, MemoryOrder.Release);
 
 		auto me = &threadData;
 		me.waitParams = wp;
 
-		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		return cast(size_t) enqueue(tail, me);
-	}
+		assert(tail !is me, "Invalid insert!");
 
-	static auto enqueue(ThreadData* tail, ThreadData* td) {
-		assert(tail !is null, "Failed to short circuit on empty queue!");
-		assert(tail.skip is null, "Tail cannot have a skip!");
+		me.next = tail.next;
+		me.skip = null;
 
-		assert(td !is null && td !is tail, "Invalid insert!");
-
-		td.next = tail.next;
-		td.skip = null;
-
-		tail.next = td;
+		tail.next = me;
 		tail.updateSkip();
 
-		return td;
+		return me;
 	}
 
 	static size_t selfEnqueue(WaitParams* wp) {
@@ -390,11 +391,19 @@ private:
 		return cast(size_t) me;
 	}
 
-	static size_t dequeue(size_t current, ref ThreadData* head) {
+	static size_t dequeueLock(size_t current, ref ThreadData* wakeList) {
 		assert(current & LockBit, "Lock not held!");
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		return cast(size_t) dequeueLock(tail, head);
+		return cast(size_t) dequeueLock(tail, wakeList);
+	}
+
+	static size_t dequeueCondition(size_t current, WaitParams* wp,
+	                               ref ThreadData* wakeList) {
+		assert(current & LockBit, "Lock not held!");
+
+		auto tail = cast(ThreadData*) (current & ThreadDataMask);
+		return cast(size_t) dequeueLock(enqueue(tail, wp), wakeList);
 	}
 
 	static ThreadData* dequeueHead(ThreadData* tail, ref ThreadData* head) {
