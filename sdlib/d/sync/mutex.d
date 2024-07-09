@@ -464,13 +464,11 @@ private:
 
 		ThreadData* conditions = null;
 		while (!c.isLock()) {
-			auto pp = p;
-			auto cn = c.next;
-
 			// Remove c from the queue.
 			tail = dequeueNext(tail, p);
 
 			// Add the condition to the list.
+			auto cn = c.next;
 			c.next = conditions;
 			conditions = c;
 
@@ -498,7 +496,7 @@ private:
 			}
 
 			// We reached the end of the queue without finding a lock.
-			if (pp !is tail && p is tail) {
+			if (cs is tail) {
 				wakeList = conditions;
 				return tail;
 			}
