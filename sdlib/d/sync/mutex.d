@@ -501,60 +501,11 @@ private:
 
 		auto p = tail;
 		auto c = tail.next;
-		assert(c !is null, "Invalid list!");
-
-		ThreadData* conditions = null;
-		while (c.isCondition()) {
-			// Remove c from the queue.
-			tail = dequeueAfter(tail, p);
-
-			// Add the condition to the list.
-			auto cn = c.next;
-			c.next = conditions;
-			conditions = c;
-
-			// We removed the last element from the queue without finding a lock.
-			if (tail is null) {
-				wakeList = conditions;
-				return tail;
-			}
-
-			/**
-			 * There are two condition in which we move p forward:
-			 *   1. p and c.next are equivalent and p is now in a
-			 *      middle of a block of equivalent waiters.
-			 *   2. c and cn are part of the same block and once
-			 *      we removed c from it, it needs to be skipped over.
-			 * 
-			 * In other situations, the same p now precedes a new block
-			 * and therefore doesn't needs to be updated.
-			 */
-			auto cs = cn.skipForward();
-			if (p.skip !is null) {
-				p = p.skip = cs;
-			} else if (c.skip !is null) {
-				p = cs;
-			}
-
-			// We reached the end of the queue without finding a lock.
-			if (cs is tail) {
-				wakeList = conditions;
-				return tail;
-			}
-
-			c = p.next;
-		}
-
-		assert(p !is null && p.skip is null, "Invalid list!");
-		assert(c !is null && p.next is c, "Invalid list!");
-		assert(c.isLock(), "Expected a lock!");
 
 		tail = dequeueAfter(tail, p);
 
-		// Add the lock at the head of the wake list.
-		c.next = conditions;
+		c.next = null;
 		wakeList = c;
-
 		return tail;
 	}
 
@@ -575,67 +526,22 @@ private:
 
 		auto p = tail;
 		auto c = tail.next;
-		assert(c !is null, "Invalid list!");
 
-		ThreadData* conditions = null;
-		while (c.isCondition()) {
-			// We do not want to dequeue equivalent conditions.
-			if (c.isEquivalentTo(wp)) {
-				p = c.skipForward();
-				if (p is tail) {
-					wakeList = conditions;
-					return tail;
-				}
-
-				c = p.next;
-				continue;
-			}
-
-			// Remove c from the queue.
-			tail = dequeueAfter!false(tail, p);
-			assert(tail !is null, "Cannot dequeue tail!");
-
-			// Add the condition to the list.
-			auto cn = c.next;
-			c.next = conditions;
-			conditions = c;
-
-			/**
-			 * There are two condition in which we move p forward:
-			 *   1. p and c.next are equivalent and p is now in a
-			 *      middle of a block of equivalent waiters.
-			 *   2. c and cn are part of the same block and once
-			 *      we removed c from it, it needs to be skipped over.
-			 * 
-			 * In other situations, the same p now precedes a new block
-			 * and therefore doesn't needs to be updated.
-			 */
-			auto cs = cn.skipForward();
-			if (p.skip !is null) {
-				p = p.skip = cs;
-			} else if (c.skip !is null) {
-				p = cs;
-			}
-
-			// We reached the end of the queue without finding a lock.
-			if (cs is tail) {
-				wakeList = conditions;
+		if (c.isEquivalentTo(wp)) {
+			p = c.skipForward();
+			if (p is tail) {
+				wakeList = null;
 				return tail;
 			}
 
 			c = p.next;
 		}
 
-		assert(p !is null && p.skip is null, "Invalid list!");
-		assert(c !is null && p.next is c, "Invalid list!");
-		assert(c.isLock(), "Expected a lock!");
-
+		assert(!c.isEquivalentTo(wp), "Invalid list!");
 		tail = dequeueAfter!false(tail, p);
 
-		// Add the lock at the head of the wake list.
-		c.next = conditions;
+		c.next = null;
 		wakeList = c;
-
 		return tail;
 	}
 }
