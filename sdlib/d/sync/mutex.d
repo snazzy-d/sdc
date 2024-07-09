@@ -474,6 +474,12 @@ private:
 			c.next = conditions;
 			conditions = c;
 
+			// We removed the last element from the queue without finding a lock.
+			if (tail is null) {
+				wakeList = conditions;
+				return tail;
+			}
+
 			/**
 			 * There are two condition in which we move p forward:
 			 *   1. p and c.next are equivalent and p is now in a
@@ -492,7 +498,7 @@ private:
 			}
 
 			// We reached the end of the queue without finding a lock.
-			if (tail is null || (pp !is tail && p is tail)) {
+			if (pp !is tail && p is tail) {
 				wakeList = conditions;
 				return tail;
 			}
