@@ -325,7 +325,7 @@ private:
 
 	Exit:
 		if (pd.containsPointers) {
-			scanner.addToWorkList(se.computeRange());
+			addToSharedWorklist(se.computeRange());
 		}
 	}
 
@@ -360,5 +360,16 @@ private:
 
 		cursor = 2;
 		worklist[1] = range;
+	}
+
+	void addToSharedWorklist(const(void*)[] range) {
+		// Make sure we do not starve ourselves. If we do not have
+		// work in advance, then just keep some of it for ourselves.
+		if (cursor == 0) {
+			worklist[cursor++] = range;
+			return;
+		}
+
+		scanner.addToWorkList(range);
 	}
 }
