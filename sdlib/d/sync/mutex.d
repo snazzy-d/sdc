@@ -246,7 +246,8 @@ private:
 
 			// Now we store the updated head. Note that this will release the
 			// queue lock too, but it's okay, by now we are in the queue.
-			word.store(enqueue(current, &wp) | LockBit, MemoryOrder.Release);
+			word.store(enqueueLock(current, &wp) | LockBit,
+			           MemoryOrder.Release);
 
 		Handoff:
 			if (waitForHandoff() == Handoff.Direct) {
@@ -375,34 +376,6 @@ private:
 	/**
 	 * When the mutex is contended, thread queue to get their turn.
 	 */
-	static size_t enqueue(size_t current, WaitParams* wp) {
-		assert(current & LockBit, "Lock not held!");
-
-		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		return cast(size_t) enqueue(tail, wp);
-	}
-
-	static ThreadData* enqueue(ThreadData* tail, WaitParams* wp) {
-		assert(tail !is null, "Failed to short circuit on empty queue!");
-		assert(tail.skip is null, "Tail cannot have a skip!");
-
-		// Make sure we are setup for handoff.
-		wp.handoff.store(Handoff.None, MemoryOrder.Release);
-
-		auto me = &threadData;
-		me.waitParams = wp;
-
-		assert(tail !is me, "Invalid insert!");
-
-		me.next = tail.next;
-		me.skip = null;
-
-		tail.next = me;
-		tail.updateSkip();
-
-		return me;
-	}
-
 	static size_t selfEnqueue(WaitParams* wp) {
 		// Make sure we are setup for handoff.
 		wp.handoff.store(Handoff.None, MemoryOrder.Release);
@@ -416,6 +389,75 @@ private:
 		return cast(size_t) me;
 	}
 
+	static size_t enqueueLock(size_t current, WaitParams* wp) {
+		assert(current & LockBit, "Lock not held!");
+		assert(wp.isLock(), "Expected a lock!");
+
+		auto tail = cast(ThreadData*) (current & ThreadDataMask);
+		return cast(size_t) enqueueLock(tail, wp);
+	}
+
+	static ThreadData* prepend(ThreadData* tail, WaitParams* wp) {
+		assert(tail !is null, "Failed to short circuit on empty queue!");
+		assert(tail.skip is null, "Tail cannot have a skip!");
+
+		// Make sure we are setup for handoff.
+		wp.handoff.store(Handoff.None, MemoryOrder.Release);
+
+		auto me = &threadData;
+		me.waitParams = wp;
+
+		assert(me !is tail, "Invalid insert!");
+
+		me.next = tail.next;
+		tail.next = me;
+
+		me.skip = null;
+		me.updateSkip();
+
+		return tail;
+	}
+
+	static ThreadData* enqueueAfter(ThreadData* tail, ThreadData* prev,
+	                                WaitParams* wp) {
+		assert(tail !is null, "Failed to short circuit on empty queue!");
+		assert(tail.skip is null, "Tail cannot have a skip!");
+
+		assert(prev !is null, "Invalid prev!");
+		assert(prev.skip is null, "Prev cannot have a skip!");
+
+		// Make sure we are setup for handoff.
+		wp.handoff.store(Handoff.None, MemoryOrder.Release);
+
+		auto me = &threadData;
+		me.waitParams = wp;
+
+		assert(me !is tail && me !is prev, "Invalid insert!");
+
+		me.next = prev.next;
+		me.skip = null;
+
+		prev.next = me;
+		prev.updateSkip();
+
+		return prev is tail ? me : tail;
+	}
+
+	static ThreadData* enqueueLock(ThreadData* tail, WaitParams* wp) {
+		assert(tail !is null, "Failed to short circuit on empty queue!");
+		assert(tail.skip is null, "Tail cannot have a skip!");
+
+		assert(wp.isLock(), "Expected a lock!");
+
+		// If this is the highest priority item, prepend.
+		auto head = tail.next;
+		if (head.isCondition()) {
+			return prepend(tail, wp);
+		}
+
+		return enqueueAfter(tail, head.skipForward(), wp);
+	}
+
 	static size_t dequeueLock(size_t current, ref ThreadData* wakeList) {
 		assert(current & LockBit, "Lock not held!");
 
@@ -423,8 +465,8 @@ private:
 		return cast(size_t) dequeueLock(tail, wakeList);
 	}
 
-	static ThreadData* dequeueNext(bool AcceptTail = true)(ThreadData* tail,
-	                                                       ThreadData* prev) {
+	static ThreadData* dequeueAfter(bool AcceptTail = true)(ThreadData* tail,
+	                                                        ThreadData* prev) {
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 		assert(tail.skip is null, "Tail cannot have a skip!");
 
@@ -460,7 +502,7 @@ private:
 		ThreadData* conditions = null;
 		while (!c.isLock()) {
 			// Remove c from the queue.
-			tail = dequeueNext(tail, p);
+			tail = dequeueAfter(tail, p);
 
 			// Add the condition to the list.
 			auto cn = c.next;
@@ -502,7 +544,7 @@ private:
 		assert(p !is null && p.skip is null, "Invalid list!");
 		assert(c !is null && p.next is c, "Invalid list!");
 
-		tail = dequeueNext(tail, p);
+		tail = dequeueAfter(tail, p);
 
 		// Add the lock at the head of the wake list.
 		c.next = conditions;
@@ -524,7 +566,7 @@ private:
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 		assert(tail.skip is null, "Tail cannot have a skip!");
 
-		tail = enqueue(tail, wp);
+		tail = enqueueAfter(tail, tail, wp);
 
 		auto p = tail;
 		auto c = tail.next;
@@ -547,7 +589,7 @@ private:
 			}
 
 			// Remove c from the queue.
-			tail = dequeueNext!false(tail, p);
+			tail = dequeueAfter!false(tail, p);
 			assert(tail !is null, "Cannot dequeue tail!");
 
 			// Add the condition to the list.
@@ -583,7 +625,7 @@ private:
 		assert(p !is null && p.skip is null, "Invalid list!");
 		assert(c !is null && p.next is c, "Invalid list!");
 
-		tail = dequeueNext!false(tail, p);
+		tail = dequeueAfter!false(tail, p);
 
 		// Add the lock at the head of the wake list.
 		c.next = conditions;
