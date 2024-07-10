@@ -108,8 +108,12 @@ private:
 
 		shared Waiter waiter;
 
+		bool isEquivalentTo(const WaitParams* other) const {
+			return waitParams.isEquivalentTo(other);
+		}
+
 		bool isEquivalentTo(const ThreadData* other) const {
-			return waitParams.isEquivalentTo(other.waitParams);
+			return isEquivalentTo(other.waitParams);
 		}
 
 		bool isLock() const {
@@ -500,7 +504,7 @@ private:
 		assert(c !is null, "Invalid list!");
 
 		ThreadData* conditions = null;
-		while (!c.isLock()) {
+		while (c.isCondition()) {
 			// Remove c from the queue.
 			tail = dequeueAfter(tail, p);
 
@@ -543,6 +547,7 @@ private:
 
 		assert(p !is null && p.skip is null, "Invalid list!");
 		assert(c !is null && p.next is c, "Invalid list!");
+		assert(c.isLock(), "Expected a lock!");
 
 		tail = dequeueAfter(tail, p);
 
@@ -573,11 +578,9 @@ private:
 		assert(c !is null, "Invalid list!");
 
 		ThreadData* conditions = null;
-		while (!c.isLock()) {
-			auto cn = c.next;
-
+		while (c.isCondition()) {
 			// We do not want to dequeue equivalent conditions.
-			if (c.isEquivalentTo(tail)) {
+			if (c.isEquivalentTo(wp)) {
 				p = c.skipForward();
 				if (p is tail) {
 					wakeList = conditions;
@@ -593,6 +596,7 @@ private:
 			assert(tail !is null, "Cannot dequeue tail!");
 
 			// Add the condition to the list.
+			auto cn = c.next;
 			c.next = conditions;
 			conditions = c;
 
@@ -624,6 +628,7 @@ private:
 
 		assert(p !is null && p.skip is null, "Invalid list!");
 		assert(c !is null && p.next is c, "Invalid list!");
+		assert(c.isLock(), "Expected a lock!");
 
 		tail = dequeueAfter!false(tail, p);
 
