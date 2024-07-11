@@ -36,8 +36,7 @@ struct RuntimeGen {
 		}
 
 		auto fun = runtimeData.sdGCalloc = declare(pass.object.getGCalloc());
-		LLVMAddAttributeAtIndex(fun, LLVMAttributeReturnIndex,
-		                        getAttribute("noalias"));
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeReturnIndex, noAlias);
 
 		return fun;
 	}
@@ -53,8 +52,7 @@ struct RuntimeGen {
 		}
 
 		auto fun = runtimeData.sdThrow = declare(pass.object.getThrow());
-		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex,
-		                        getAttribute("noreturn"));
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex, noReturn);
 
 		return fun;
 	}
@@ -107,8 +105,8 @@ struct RuntimeGen {
 
 		auto fun =
 			runtimeData.sdAssertFail = declare(pass.object.getAssertFail());
-		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex,
-		                        getAttribute("noreturn"));
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex, noReturn);
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex, noUnwind);
 
 		return fun;
 	}
@@ -120,8 +118,8 @@ struct RuntimeGen {
 
 		auto fun = runtimeData.sdAssertFailMsg =
 			declare(pass.object.getAssertFailMsg());
-		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex,
-		                        getAttribute("noreturn"));
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex, noReturn);
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex, noUnwind);
 
 		return fun;
 	}
@@ -148,8 +146,8 @@ struct RuntimeGen {
 
 		auto fun = runtimeData.sdArrayOutOfBounds =
 			declare(pass.object.getArrayOutOfBounds());
-		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex,
-		                        getAttribute("noreturn"));
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex, noReturn);
+		LLVMAddAttributeAtIndex(fun, LLVMAttributeFunctionIndex, noUnwind);
 
 		return fun;
 	}

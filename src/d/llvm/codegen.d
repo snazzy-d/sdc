@@ -47,6 +47,9 @@ final class CodeGen {
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 
+	LLVMAttributeRef noReturn;
+	LLVMAttributeRef noAlias;
+	LLVMAttributeRef noUnwind;
 	LLVMAttributeRef framePointer;
 
 	// FIXME: We hold a refernece to the backend here so it is not GCed.
@@ -99,6 +102,9 @@ final class CodeGen {
 		const prof = "prof";
 		profKindID = LLVMGetMDKindIDInContext(llvmCtx, prof.ptr, prof.length);
 
+		noReturn = getAttribute("noreturn");
+		noAlias = getAttribute("noalias");
+		noUnwind = getAttribute("nounwind");
 		framePointer = getAttribute("frame-pointer", "non-leaf");
 	}
 
