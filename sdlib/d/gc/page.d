@@ -726,7 +726,8 @@ private:
 					auto newOccupancy = oldOccupancy & bmp[i];
 
 					occupancyMask |= newOccupancy;
-					count += popCount(oldOccupancy ^ newOccupancy);
+					auto toRemove = oldOccupancy ^ newOccupancy;
+					count += popCount(toRemove);
 
 					scope(exit) e.slabData.rawContent[i] = newOccupancy;
 
@@ -734,8 +735,7 @@ private:
 						continue;
 					}
 
-					auto toRemove = (oldOccupancy ^ newOccupancy)
-						& e.slabMetadataFlags.rawContent[i];
+					toRemove &= e.slabMetadataFlags.rawContent[i];
 
 					if (!toRemove) {
 						continue;
@@ -745,15 +745,15 @@ private:
 					auto baseidx = i * 64;
 					auto ssize = binInfos[sc].slotSize;
 					while (toRemove != 0) {
-						uint index =
-							cast(uint) (countTrailingZeros(toRemove) + baseidx);
+						auto index = countTrailingZeros(toRemove) + baseidx;
 						void* ptr = cast(void*) e.address + index * ssize;
 
-						auto metadata = SlabMetadata(ptr, ssize);
-						if (metadata.hasFinalizer) {
+						auto metadata = SlotMetadata.fromBlock(ptr, ssize);
+						auto finalizer = metadata.finalizer;
+						if (finalizer) {
 							import d.finalizer;
 							__sd_run_finalizer(ptr, ssize - metadata.freeSpace,
-							                   metadata.finalizer);
+							                   finalizer);
 						}
 
 						toRemove &= (toRemove - 1);

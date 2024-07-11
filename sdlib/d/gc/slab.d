@@ -98,46 +98,50 @@ unittest SlabRange {
 	assert(r0.length == 12);
 }
 
-// encapsulate metadata reading, and private setting.
-struct SlabMetadata {
-	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
-
-	this(void* slabBlockStart, size_t slotSize) {
-		endPtr = slabBlockStart + slotSize;
+struct SlotMetadata {
+private:
+	struct FreeSpaceData {
+		private ushort[size_t.sizeof / ushort.sizeof - 1] _pad1;
+		ushort freeSpace;
 	}
 
+	union Data {
+		size_t finalizerData;
+		FreeSpaceData freeSpaceData;
+	}
+
+	static assert(Data.sizeof == size_t.sizeof);
+
+	Data data;
+
+	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
+
+public:
 	@property
 	ushort freeSpace() {
-		return readPackedFreeSpace(freeSpacePtr);
+		return readPackedFreeSpace(&data.freeSpaceData.freeSpace);
+	}
+
+	void setFreeSpace(size_t size) {
+		assert(size > 0, "Attempt to set a slot metadata size of 0!");
+
+		writePackedFreeSpace(&data.freeSpaceData.freeSpace, size);
 	}
 
 	@property
 	Finalizer finalizer() {
-		size_t finalizerData = *finalizerPtr;
-
-		if (!(finalizerData & FinalizerBit)) {
-			return null;
-		}
-
-		return cast(Finalizer) (finalizerData & AddressMask);
+		return (data.finalizerData & FinalizerBit)
+			? cast(Finalizer) (data.finalizerData & AddressMask)
+			: null;
 	}
 
 	@property
 	bool hasFinalizer() {
-		return (*finalizerPtr & FinalizerBit) != 0;
+		return (data.finalizerData & FinalizerBit) != 0;
 	}
 
-private:
-	void* endPtr; // pointer to the end of the slab slot
-
-	@property
-	size_t* finalizerPtr() {
-		return (cast(size_t*) endPtr - 1);
-	}
-
-	@property
-	ushort* freeSpacePtr() {
-		return (cast(ushort*) endPtr - 1);
+	static SlotMetadata* fromBlock(void* ptr, size_t slotSize) {
+		return cast(SlotMetadata*) (ptr + slotSize) - 1;
 	}
 }
 
@@ -174,9 +178,9 @@ public:
 	}
 
 	@property
-	SlabMetadata metadata() {
-		assert(_hasMetadata, "Attempt to get metadata on a non-metadata slab!");
-		return SlabMetadata(cast(void*) address, slotSize);
+	SlotMetadata* slotMetadata() {
+		assert(_hasMetadata, "Attempt to get metadata on a non-metadata slot!");
+		return SlotMetadata.fromBlock(cast(void*) address, slotSize);
 	}
 
 	@property
@@ -205,14 +209,7 @@ public:
 
 	@property
 	Finalizer finalizer() {
-		// workaround lvalue limitation in compiler
-		//return _hasMetadata ? metadata.finalizer : null;
-		if (!_hasMetadata) {
-			return null;
-		}
-
-		auto md = metadata;
-		return md.finalizer;
+		return _hasMetadata ? slotMetadata.finalizer : null;
 	}
 
 	void initializeMetadata(Finalizer initialFinalizer,
@@ -243,24 +240,14 @@ public:
 		// found at the start, rather than end, of the memory that it occupies,
 		// and the freespace (newMetadata) will collide with the finalizer.
 		_hasMetadata = true;
-		// workaround lvalue limitation in compiler
-		//*metadata.finalizerPtr = newMetadata | finalizerValue;
-		auto md = metadata;
-		*md.finalizerPtr = newMetadata | finalizerValue;
+		slotMetadata.data.finalizerData = newMetadata | finalizerValue;
 		e.enableMetadata(index);
 	}
 
 private:
 	@property
 	size_t freeSpace() {
-		// workaround lvalue limitation in compiler
-		//return _hasMetadata ? metadata.freeSpace : 0;
-		if (!_hasMetadata) {
-			return 0;
-		}
-
-		auto md = metadata;
-		return md.freeSpace;
+		return _hasMetadata ? slotMetadata.freeSpace : 0;
 	}
 
 	void setFreeSpace(size_t size) {
@@ -281,10 +268,7 @@ private:
 			_hasMetadata = true;
 		}
 
-		// workaround lvalue limitation in compiler
-		//writePackedFreeSpace(metadata.freeSpacePtr, size);
-		auto md = metadata;
-		writePackedFreeSpace(md.freeSpacePtr, size);
+		slotMetadata.setFreeSpace(size);
 	}
 
 	@property
@@ -303,14 +287,7 @@ private:
 		//    (float, random/compressed data) then we're still at 50/50.
 		// We should expect to find a zero in there the VAST majority of the time.
 
-		// workaround lvalue limitation in compiler
-		//return _hasMetadata && metadata.hasFinalizer;
-		if (!_hasMetadata) {
-			return false;
-		}
-
-		auto md = metadata;
-		return md.hasFinalizer;
+		return _hasMetadata && slotMetadata.hasFinalizer;
 	}
 }
 
