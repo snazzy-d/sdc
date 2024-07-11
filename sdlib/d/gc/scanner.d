@@ -83,11 +83,15 @@ public:
 		threadCache.free(threadsPtr);
 	}
 
-	void addToWorkList(const(void*)[] range) shared {
+	void addToWorkList(const(void*)[][] ranges) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(Scanner*) &this).addToWorkListImpl(range);
+		(cast(Scanner*) &this).addToWorkListImpl(ranges);
+	}
+
+	void addToWorkList(const(void*)[] range) shared {
+		addToWorkList((&range)[0 .. 1]);
 	}
 
 private:
@@ -139,8 +143,13 @@ private:
 		return true;
 	}
 
-	void increaseWorklistCapacity(uint count) {
+	void ensureWorklistCapacity(size_t count) {
 		assert(mutex.isHeld(), "mutex not held!");
+		assert(count < uint.max, "Cannot reserve this much capacity!");
+
+		if (likely(count <= worklist.length)) {
+			return;
+		}
 
 		enum MinWorklistSize = 4 * PageSize;
 		enum ElementSize = typeof(worklist[0]).sizeof;
@@ -158,15 +167,15 @@ private:
 		worklist = (cast(const(void*)[]*) ptr)[0 .. size / ElementSize];
 	}
 
-	void addToWorkListImpl(const(void*)[] range) {
+	void addToWorkListImpl(const(void*)[][] ranges) {
 		assert(mutex.isHeld(), "mutex not held!");
+		assert(ranges.length < uint.max, "Cannot add this many ranges!");
 
-		auto count = cursor + 1;
-		if (unlikely(count > worklist.length)) {
-			increaseWorklistCapacity(count);
+		ensureWorklistCapacity(cursor + ranges.length);
+
+		foreach (r; ranges) {
+			worklist[cursor++] = r;
 		}
-
-		worklist[cursor++] = range;
 	}
 }
 
@@ -353,10 +362,9 @@ private:
 			return;
 		}
 
-		foreach (i; 1 .. worklist.length) {
-			// FIXME: Purge the worklist all at once.
-			scanner.addToWorkList(worklist[i]);
-		}
+		// Flush the current worklist except the first element in it
+		// so we do not starve this worker.
+		scanner.addToWorkList(worklist[1 .. worklist.length]);
 
 		cursor = 2;
 		worklist[1] = range;
