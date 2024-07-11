@@ -825,8 +825,11 @@ private:
 					continue;
 				}
 
-				// If the cycle do not match, all the elements are dead.
-				if ((w & 0xff) != gcCycle) {
+				auto hasMeta = e.slabMetadataFlags.rawContent[0];
+
+				// If the cycle do not match, all the elements are dead. If no
+				// metadata exists, then we can safely clear the whole thing.
+				if (hasMeta == 0 && (w & 0xff) != gcCycle) {
 					deadExtents.insert(e);
 					continue;
 				}
@@ -834,13 +837,36 @@ private:
 				auto oldOccupancy = e.slabData.rawContent[0];
 				auto newOccupancy = oldOccupancy & (w >> 8);
 
+				// need to check dying blocks for finalizers
+				auto toRemove = oldOccupancy ^ newOccupancy;
+				hasMeta &= toRemove;
+
+				if (hasMeta) {
+					import d.gc.slab;
+					auto ssize = binInfos[ec.sizeClass].slotSize;
+					while (hasMeta != 0) {
+						auto index = countTrailingZeros(hasMeta);
+						auto ptr = e.address + index * ssize;
+
+						auto metadata = SlotMetadata.fromBlock(ptr, ssize);
+						auto finalizer = metadata.finalizer;
+						if (finalizer) {
+							import d.finalizer;
+							__sd_run_finalizer(ptr, ssize - metadata.freeSpace,
+							                   finalizer);
+						}
+
+						hasMeta &= (hasMeta - 1);
+					}
+				}
+
 				// The slab is empty.
 				if (newOccupancy == 0) {
 					deadExtents.insert(e);
 					continue;
 				}
 
-				auto count = popCount(oldOccupancy ^ newOccupancy);
+				auto count = popCount(toRemove);
 
 				e.slabData.rawContent[0] = newOccupancy;
 				e.bits += count * Extent.FreeSlotsUnit;
