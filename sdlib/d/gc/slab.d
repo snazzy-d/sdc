@@ -98,6 +98,49 @@ unittest SlabRange {
 	assert(r0.length == 12);
 }
 
+// encapsulate metadata reading, and private setting.
+struct SlabMetadata {
+	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
+
+	this(void* slabBlockStart, size_t slotSize) {
+		endPtr = slabBlockStart + slotSize;
+	}
+
+	@property
+	ushort freeSpace() {
+		return readPackedFreeSpace(freeSpacePtr);
+	}
+
+	@property
+	Finalizer finalizer() {
+		size_t finalizerData = *finalizerPtr;
+
+		if (!(finalizerData & FinalizerBit)) {
+			return null;
+		}
+
+		return cast(Finalizer) (finalizerData & AddressMask);
+	}
+
+	@property
+	bool hasFinalizer() {
+		return (*finalizerPtr & FinalizerBit) != 0;
+	}
+
+private:
+	void* endPtr; // pointer to the end of the slab slot
+
+	@property
+	size_t* finalizerPtr() {
+		return (cast(size_t*) endPtr - 1);
+	}
+
+	@property
+	ushort* freeSpacePtr() {
+		return (cast(ushort*) endPtr - 1);
+	}
+}
+
 struct SlabAllocInfo {
 private:
 	Extent* e;
@@ -131,6 +174,12 @@ public:
 	}
 
 	@property
+	SlabMetadata metadata() {
+		assert(_hasMetadata, "Attempt to get metadata on a non-metadata slab!");
+		return SlabMetadata(cast(void*) address, slotSize);
+	}
+
+	@property
 	auto address() {
 		return _address;
 	}
@@ -156,11 +205,14 @@ public:
 
 	@property
 	Finalizer finalizer() {
-		if (!finalizerEnabled) {
+		// workaround lvalue limitation in compiler
+		//return _hasMetadata ? metadata.finalizer : null;
+		if (!_hasMetadata) {
 			return null;
 		}
 
-		return cast(Finalizer) cast(void*) (*finalizerPtr & AddressMask);
+		auto md = metadata;
+		return md.finalizer;
 	}
 
 	void initializeMetadata(Finalizer initialFinalizer,
@@ -190,15 +242,25 @@ public:
 		// On a big-endian machine, the unused high 16 bits of a pointer will be
 		// found at the start, rather than end, of the memory that it occupies,
 		// and the freespace (newMetadata) will collide with the finalizer.
-		*finalizerPtr = newMetadata | finalizerValue;
-		e.enableMetadata(index);
 		_hasMetadata = true;
+		// workaround lvalue limitation in compiler
+		//*metadata.finalizerPtr = newMetadata | finalizerValue;
+		auto md = metadata;
+		*md.finalizerPtr = newMetadata | finalizerValue;
+		e.enableMetadata(index);
 	}
 
 private:
 	@property
 	size_t freeSpace() {
-		return _hasMetadata ? readPackedFreeSpace(freeSpacePtr) : 0;
+		// workaround lvalue limitation in compiler
+		//return _hasMetadata ? metadata.freeSpace : 0;
+		if (!_hasMetadata) {
+			return 0;
+		}
+
+		auto md = metadata;
+		return md.freeSpace;
 	}
 
 	void setFreeSpace(size_t size) {
@@ -214,14 +276,16 @@ private:
 			return;
 		}
 
-		writePackedFreeSpace(freeSpacePtr, size);
 		if (!_hasMetadata) {
 			e.enableMetadata(index);
 			_hasMetadata = true;
 		}
-	}
 
-	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
+		// workaround lvalue limitation in compiler
+		//writePackedFreeSpace(metadata.freeSpacePtr, size);
+		auto md = metadata;
+		writePackedFreeSpace(md.freeSpacePtr, size);
+	}
 
 	@property
 	bool finalizerEnabled() {
@@ -238,16 +302,16 @@ private:
 		// 5) If there is something else in there, that is not heavily biased
 		//    (float, random/compressed data) then we're still at 50/50.
 		// We should expect to find a zero in there the VAST majority of the time.
-		return hasMetadata && (*finalizerPtr & FinalizerBit);
-	}
 
-	@property
-	T* ptrToAllocEnd(T)() {
-		return cast(T*) (address + slotSize - T.sizeof);
-	}
+		// workaround lvalue limitation in compiler
+		//return _hasMetadata && metadata.hasFinalizer;
+		if (!_hasMetadata) {
+			return false;
+		}
 
-	alias freeSpacePtr = ptrToAllocEnd!ushort;
-	alias finalizerPtr = ptrToAllocEnd!size_t;
+		auto md = metadata;
+		return md.hasFinalizer;
+	}
 }
 
 unittest SlabAllocInfo {

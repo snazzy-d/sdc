@@ -20,6 +20,11 @@ public:
 		return bits;
 	}
 
+	@property
+	ref const(shared(ulong[NimbleCount])) rawContent() shared {
+		return bits;
+	}
+
 	void clear() {
 		foreach (i; 0 .. NimbleCount) {
 			bits[i] = 0;

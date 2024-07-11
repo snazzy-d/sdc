@@ -728,7 +728,36 @@ private:
 					occupancyMask |= newOccupancy;
 					count += popCount(oldOccupancy ^ newOccupancy);
 
-					e.slabData.rawContent[i] = newOccupancy;
+					scope(exit) e.slabData.rawContent[i] = newOccupancy;
+
+					if (!ec.supportsMetadata) {
+						continue;
+					}
+
+					auto toRemove = (oldOccupancy ^ newOccupancy)
+						& e.slabMetadataFlags.rawContent[i];
+
+					if (!toRemove) {
+						continue;
+					}
+
+					// All set bits in toRemove have metadata.
+					auto baseidx = i * 64;
+					auto ssize = binInfos[sc].slotSize;
+					while (toRemove != 0) {
+						uint index =
+							cast(uint) (countTrailingZeros(toRemove) + baseidx);
+						void* ptr = cast(void*) e.address + index * ssize;
+
+						auto metadata = SlabMetadata(ptr, ssize);
+						if (metadata.hasFinalizer) {
+							import d.finalizer;
+							__sd_run_finalizer(ptr, ssize - metadata.freeSpace,
+							                   metadata.finalizer);
+						}
+
+						toRemove &= (toRemove - 1);
+					}
 				}
 
 				// The slab is empty.
