@@ -674,6 +674,25 @@ private:
 		}
 	}
 
+	void callSlabFinalizers(size_t slotSize, void* base, size_t slotBits) {
+		// All set bits in slotBits have metadata.
+		while (slotBits != 0) {
+			auto index = countTrailingZeros(slotBits);
+			void* ptr = base + index * slotSize;
+
+			import d.gc.slab;
+			auto metadata = SlotMetadata.fromBlock(ptr, slotSize);
+			auto finalizer = metadata.finalizer;
+			if (finalizer) {
+				import d.finalizer;
+				__sd_run_finalizer(ptr, slotSize - metadata.freeSpace,
+				                   finalizer);
+			}
+
+			slotBits &= (slotBits - 1);
+		}
+	}
+
 	void collectDenseAllocations(ref CachedExtentMap emap,
 	                             PriorityExtentHeap[] slabs) {
 		assert(mutex.isHeld(), "Mutex not held!");
@@ -729,7 +748,7 @@ private:
 					auto toRemove = oldOccupancy ^ newOccupancy;
 					count += popCount(toRemove);
 
-					scope(exit) e.slabData.rawContent[i] = newOccupancy;
+					scope(success) e.slabData.rawContent[i] = newOccupancy;
 
 					if (!ec.supportsMetadata) {
 						continue;
@@ -737,26 +756,12 @@ private:
 
 					toRemove &= e.slabMetadataFlags.rawContent[i];
 
-					if (!toRemove) {
-						continue;
-					}
-
-					// All set bits in toRemove have metadata.
-					auto baseidx = i * 64;
-					auto ssize = binInfos[sc].slotSize;
-					while (toRemove != 0) {
-						auto index = countTrailingZeros(toRemove) + baseidx;
-						void* ptr = cast(void*) e.address + index * ssize;
-
-						auto metadata = SlotMetadata.fromBlock(ptr, ssize);
-						auto finalizer = metadata.finalizer;
-						if (finalizer) {
-							import d.finalizer;
-							__sd_run_finalizer(ptr, ssize - metadata.freeSpace,
-							                   finalizer);
-						}
-
-						toRemove &= (toRemove - 1);
+					if (toRemove) {
+						import d.gc.slab;
+						auto ssize = binInfos[sc].slotSize;
+						callSlabFinalizers(
+							ssize, cast(void*) e.address + (i * 64 * ssize),
+							toRemove);
 					}
 				}
 
@@ -837,27 +842,14 @@ private:
 				auto oldOccupancy = e.slabData.rawContent[0];
 				auto newOccupancy = oldOccupancy & (w >> 8);
 
-				// need to check dying blocks for finalizers
+				// Need to check dying blocks for finalizers.
 				auto toRemove = oldOccupancy ^ newOccupancy;
 				hasMeta &= toRemove;
 
 				if (hasMeta) {
 					import d.gc.slab;
-					auto ssize = binInfos[ec.sizeClass].slotSize;
-					while (hasMeta != 0) {
-						auto index = countTrailingZeros(hasMeta);
-						auto ptr = e.address + index * ssize;
-
-						auto metadata = SlotMetadata.fromBlock(ptr, ssize);
-						auto finalizer = metadata.finalizer;
-						if (finalizer) {
-							import d.finalizer;
-							__sd_run_finalizer(ptr, ssize - metadata.freeSpace,
-							                   finalizer);
-						}
-
-						hasMeta &= (hasMeta - 1);
-					}
+					callSlabFinalizers(binInfos[ec.sizeClass].slotSize,
+					                   e.address, hasMeta);
 				}
 
 				// The slab is empty.

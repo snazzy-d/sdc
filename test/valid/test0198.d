@@ -5,6 +5,7 @@
 
 extern(C) void __sd_gc_collect();
 extern(C) void* __sd_gc_alloc_finalizer(size_t size, void* finalizer);
+extern(C) void* __sd_gc_tl_flush_cache();
 
 static int destructorSum;
 struct SlabDestructor(size_t size) {
@@ -75,6 +76,7 @@ void main() {
 	auto ptr = __sd_gc_alloc_finalizer(16, null);
 
 	allocateItems();
+	__sd_gc_tl_flush_cache();
 	__sd_gc_collect();
 	enum sumOfAllSizes = 16 + 24 + 32 + 40 + 48 + 56 + 64 + 80 + 96 + 112 + 128
 		+ 160 + 192 + 224 + 256 + 320 + 384 + 448 + 512 + 640 + 768 + 896 + 1024

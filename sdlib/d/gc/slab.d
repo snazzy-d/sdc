@@ -117,6 +117,10 @@ private:
 	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
 
 public:
+	static SlotMetadata* fromBlock(void* ptr, size_t slotSize) {
+		return cast(SlotMetadata*) (ptr + slotSize) - 1;
+	}
+
 	@property
 	ushort freeSpace() {
 		return readPackedFreeSpace(&data.freeSpaceData.freeSpace);
@@ -130,7 +134,7 @@ public:
 
 	@property
 	Finalizer finalizer() {
-		return (data.finalizerData & FinalizerBit)
+		return hasFinalizer
 			? cast(Finalizer) (data.finalizerData & AddressMask)
 			: null;
 	}
@@ -138,10 +142,6 @@ public:
 	@property
 	bool hasFinalizer() {
 		return (data.finalizerData & FinalizerBit) != 0;
-	}
-
-	static SlotMetadata* fromBlock(void* ptr, size_t slotSize) {
-		return cast(SlotMetadata*) (ptr + slotSize) - 1;
 	}
 }
 
@@ -175,12 +175,6 @@ public:
 	@property
 	auto hasMetadata() {
 		return _hasMetadata;
-	}
-
-	@property
-	SlotMetadata* slotMetadata() {
-		assert(_hasMetadata, "Attempt to get metadata on a non-metadata slot!");
-		return SlotMetadata.fromBlock(cast(void*) address, slotSize);
 	}
 
 	@property
@@ -239,12 +233,17 @@ public:
 		// On a big-endian machine, the unused high 16 bits of a pointer will be
 		// found at the start, rather than end, of the memory that it occupies,
 		// and the freespace (newMetadata) will collide with the finalizer.
-		_hasMetadata = true;
 		slotMetadata.data.finalizerData = newMetadata | finalizerValue;
 		e.enableMetadata(index);
+		_hasMetadata = true;
 	}
 
 private:
+	@property
+	SlotMetadata* slotMetadata() {
+		return SlotMetadata.fromBlock(cast(void*) address, slotSize);
+	}
+
 	@property
 	size_t freeSpace() {
 		return _hasMetadata ? slotMetadata.freeSpace : 0;
@@ -263,12 +262,11 @@ private:
 			return;
 		}
 
+		slotMetadata.setFreeSpace(size);
 		if (!_hasMetadata) {
 			e.enableMetadata(index);
 			_hasMetadata = true;
 		}
-
-		slotMetadata.setFreeSpace(size);
 	}
 
 	@property
