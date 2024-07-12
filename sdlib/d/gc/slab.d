@@ -101,7 +101,7 @@ unittest SlabRange {
 struct SlotMetadata {
 private:
 	struct FreeSpaceData {
-		private ushort[size_t.sizeof / ushort.sizeof - 1] _pad1;
+		ushort[size_t.sizeof / ushort.sizeof - 1] _pad;
 		ushort freeSpace;
 	}
 
@@ -109,8 +109,6 @@ private:
 		size_t finalizerData;
 		FreeSpaceData freeSpaceData;
 	}
-
-	static assert(Data.sizeof == size_t.sizeof);
 
 	Data data;
 
@@ -144,6 +142,9 @@ public:
 		return (data.finalizerData & FinalizerBit) != 0;
 	}
 }
+
+static assert(SlotMetadata.sizeof == size_t.sizeof,
+              "SlotMetadata must fit in size_t!");
 
 struct SlabAllocInfo {
 private:

@@ -674,22 +674,29 @@ private:
 		}
 	}
 
-	void callSlabFinalizers(size_t slotSize, void* base, size_t slotBits) {
-		// All set bits in slotBits have metadata.
-		while (slotBits != 0) {
-			auto index = countTrailingZeros(slotBits);
-			void* ptr = base + index * slotSize;
+	static void finalizeSlabNimble(size_t nimbleBits, int sizeClass,
+	                               Extent* extent, size_t indexOffset) {
+		if (nimbleBits == 0) {
+			return;
+		}
 
-			import d.gc.slab;
-			auto metadata = SlotMetadata.fromBlock(ptr, slotSize);
+		import d.gc.slab;
+		auto ssize = binInfos[sizeClass].slotSize;
+		void* nimbleBase = extent.address + indexOffset * ssize;
+
+		// All set bits in nimbleBits have metadata.
+		while (nimbleBits != 0) {
+			auto index = countTrailingZeros(nimbleBits);
+			void* ptr = nimbleBase + index * ssize;
+
+			auto metadata = SlotMetadata.fromBlock(ptr, ssize);
 			auto finalizer = metadata.finalizer;
 			if (finalizer) {
 				import d.finalizer;
-				__sd_run_finalizer(ptr, slotSize - metadata.freeSpace,
-				                   finalizer);
+				__sd_run_finalizer(ptr, ssize - metadata.freeSpace, finalizer);
 			}
 
-			slotBits &= (slotBits - 1);
+			nimbleBits &= (nimbleBits - 1);
 		}
 	}
 
@@ -754,15 +761,9 @@ private:
 						continue;
 					}
 
-					toRemove &= e.slabMetadataFlags.rawContent[i];
-
-					if (toRemove) {
-						import d.gc.slab;
-						auto ssize = binInfos[sc].slotSize;
-						callSlabFinalizers(
-							ssize, cast(void*) e.address + (i * 64 * ssize),
-							toRemove);
-					}
+					finalizeSlabNimble(
+						toRemove & e.slabMetadataFlags.rawContent[i], sc, e,
+						i * 64);
 				}
 
 				// The slab is empty.
@@ -830,27 +831,22 @@ private:
 					continue;
 				}
 
-				auto hasMeta = e.slabMetadataFlags.rawContent[0];
+				auto slotsWithMeta = e.slabMetadataFlags.rawContent[0];
 
 				// If the cycle do not match, all the elements are dead. If no
 				// metadata exists, then we can safely clear the whole thing.
-				if (hasMeta == 0 && (w & 0xff) != gcCycle) {
+				if (slotsWithMeta == 0 && (w & 0xff) != gcCycle) {
 					deadExtents.insert(e);
 					continue;
 				}
 
 				auto oldOccupancy = e.slabData.rawContent[0];
 				auto newOccupancy = oldOccupancy & (w >> 8);
-
-				// Need to check dying blocks for finalizers.
 				auto toRemove = oldOccupancy ^ newOccupancy;
-				hasMeta &= toRemove;
 
-				if (hasMeta) {
-					import d.gc.slab;
-					callSlabFinalizers(binInfos[ec.sizeClass].slotSize,
-					                   e.address, hasMeta);
-				}
+				// Call any finalizers on dying slots.
+				finalizeSlabNimble(slotsWithMeta & toRemove, ec.sizeClass, e,
+				                   0);
 
 				// The slab is empty.
 				if (newOccupancy == 0) {
