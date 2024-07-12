@@ -48,11 +48,8 @@ public:
 	void mark() shared {
 		import core.stdc.pthread;
 		auto threadCount = activeThreads - 1;
-		auto size = pthread_t.sizeof * threadCount;
-
-		import d.gc.tcache;
 		auto threadsPtr =
-			cast(pthread_t*) threadCache.alloc(size, false, false);
+			cast(pthread_t*) alloca(pthread_t.sizeof * threadCount);
 		auto threads = threadsPtr[0 .. threadCount];
 
 		static void* markThreadEntry(void* ctx) {
@@ -73,14 +70,13 @@ public:
 		runMark();
 
 		// We now done, we can free the worklist.
+		import d.gc.tcache;
 		threadCache.free(cast(void*) worklist.ptr);
 
 		foreach (tid; threads) {
 			void* ret;
 			pthread_join(tid, &ret);
 		}
-
-		threadCache.free(threadsPtr);
 	}
 
 	void addToWorkList(const(void*)[][] ranges) shared {
