@@ -78,6 +78,16 @@ void __sd_gc_add_roots(const void[] range) {
 	gState.addRoots(range);
 }
 
+void __sd_gc_add_roots_ptr(const void* ptr, size_t length) {
+	import d.gc.global;
+	gState.addRoots(ptr[0 .. length]);
+}
+
+void __sd_gc_remove_roots(const void* ptr) {
+	import d.gc.global;
+	gState.removeRoots(ptr);
+}
+
 void __sd_gc_add_tls_segment(const void[] range) {
 	threadCache.addTLSSegment(range);
 }

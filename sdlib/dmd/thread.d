@@ -7,6 +7,7 @@ extern(C):
 // druntime API.
 void thread_suspendAll();
 void thread_resumeAll();
+void thread_scanAll_C(ScanDg* context, typeof(&__sd_scanAllThreadsFn) scan);
 
 // note, we must interface with DMD using extern(C) calls, so we
 // cannot call thread_scanAll directly. This requires a hook compiled
@@ -19,16 +20,17 @@ void __sd_scanAllThreadsFn(ScanDg* context, void* start, void* end) {
 	(*context)(makeRange(start, end));
 }
 
-// defined in druntime. The context pointer gets passed to the scan routine
-void thread_scanAll_C(ScanDg* context, typeof(&__sd_scanAllThreadsFn) scan);
-
 // sdrt API.
 void __sd_thread_scan(ScanDg scan) {
-	import d.rt.stack;
-	__sd_stack_scan(scan);
+	// When druntime is being used, all thread scanning is done by
+	// thread_scanAll_C, and not via SDC's thread scanning.
 }
 
 void __sd_global_scan(ScanDg scan) {
+	import d.gc.global;
+	// Scan all registered roots and ranges.
+	gState.scanRoots(scan);
+
 	thread_scanAll_C(&scan, &__sd_scanAllThreadsFn);
 }
 
