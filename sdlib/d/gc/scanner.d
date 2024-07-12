@@ -98,12 +98,7 @@ private:
 		import d.thread;
 		__sd_thread_scan(worker.scan);
 
-		processWorkList(worker);
-	}
-
-	void processWorkList(ref Worker worker) shared {
 		const(void*)[] range;
-
 		while (waitForWork(range)) {
 			worker.scan(range);
 		}
