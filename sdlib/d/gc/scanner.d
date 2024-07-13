@@ -98,13 +98,12 @@ private:
 		import d.thread;
 		__sd_thread_scan(worker.scan);
 
-		const(void*)[] range;
-		while (waitForWork(range)) {
-			worker.scan(range);
+		while (waitForWork(worker)) {
+			worker.scan();
 		}
 	}
 
-	bool waitForWork(ref const(void*)[] range) shared {
+	bool waitForWork(ref Worker worker) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
@@ -130,7 +129,13 @@ private:
 		}
 
 		activeThreads++;
-		range = w.worklist[--w.cursor];
+
+		auto stop = w.cursor;
+		auto start = stop - 1;
+
+		w.cursor = start;
+		worker.refill(w.worklist[start .. stop]);
+
 		return true;
 	}
 
@@ -193,6 +198,25 @@ public:
 
 		import d.gc.tcache;
 		this.emap = threadCache.emap;
+	}
+
+	void refill(const(void*)[][] ranges) {
+		assert(cursor == 0, "Refilling a worker that is not empty!");
+
+		cursor = cast(uint) ranges.length;
+		assert(cursor > 0 && cursor <= MaxRefill, "Invalid refill amount!");
+
+		foreach (i, r; ranges) {
+			worklist[i] = r;
+		}
+	}
+
+	void scan() {
+		if (cursor > 0) {
+			scan(worklist[--cursor]);
+		}
+
+		assert(cursor == 0, "Scan left elements in the worklist!");
 	}
 
 	void scan(const(void*)[] range) {
