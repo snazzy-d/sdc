@@ -674,15 +674,15 @@ private:
 		}
 	}
 
-	static void finalizeSlabNimble(size_t nimbleBits, int sizeClass,
-	                               Extent* extent, size_t indexOffset) {
+	static void finalizeSlabNimble(size_t nimbleBits, int sizeClass, void* base,
+	                               size_t nimbleIndex) {
 		if (nimbleBits == 0) {
 			return;
 		}
 
 		import d.gc.slab;
 		auto ssize = binInfos[sizeClass].slotSize;
-		void* nimbleBase = extent.address + indexOffset * ssize;
+		void* nimbleBase = base + (nimbleIndex * 64 * ssize);
 
 		// All set bits in nimbleBits have metadata.
 		while (nimbleBits != 0) {
@@ -752,8 +752,8 @@ private:
 					auto newOccupancy = oldOccupancy & bmp[i];
 
 					occupancyMask |= newOccupancy;
-					auto toRemove = oldOccupancy ^ newOccupancy;
-					count += popCount(toRemove);
+					auto evicted = oldOccupancy ^ newOccupancy;
+					count += popCount(evicted);
 
 					scope(success) e.slabData.rawContent[i] = newOccupancy;
 
@@ -761,9 +761,10 @@ private:
 						continue;
 					}
 
-					finalizeSlabNimble(
-						toRemove & e.slabMetadataFlags.rawContent[i], sc, e,
-						i * 64);
+					auto evictedWithMetadata =
+						evicted & e.slabMetadataFlags.rawContent[i];
+
+					finalizeSlabNimble(evictedWithMetadata, sc, e.address, i);
 				}
 
 				// The slab is empty.
@@ -842,11 +843,11 @@ private:
 
 				auto oldOccupancy = e.slabData.rawContent[0];
 				auto newOccupancy = oldOccupancy & (w >> 8);
-				auto toRemove = oldOccupancy ^ newOccupancy;
+				auto evicted = oldOccupancy ^ newOccupancy;
+				auto evictedWithMeta = slotsWithMeta & evicted;
 
 				// Call any finalizers on dying slots.
-				finalizeSlabNimble(slotsWithMeta & toRemove, ec.sizeClass, e,
-				                   0);
+				finalizeSlabNimble(evictedWithMeta, ec.sizeClass, e.address, 0);
 
 				// The slab is empty.
 				if (newOccupancy == 0) {
@@ -854,7 +855,7 @@ private:
 					continue;
 				}
 
-				auto count = popCount(toRemove);
+				auto count = popCount(evicted);
 
 				e.slabData.rawContent[0] = newOccupancy;
 				e.bits += count * Extent.FreeSlotsUnit;
