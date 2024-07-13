@@ -87,6 +87,8 @@ public:
 	}
 
 	void addToWorkList(const(void*)[] range) shared {
+		assert(range.length > 0, "Cannot add empty range to the worklist!");
+
 		addToWorkList((&range)[0 .. 1]);
 	}
 
@@ -165,12 +167,14 @@ private:
 
 	void addToWorkListImpl(const(void*)[][] ranges) {
 		assert(mutex.isHeld(), "mutex not held!");
-		assert(ranges.length < uint.max, "Cannot add this many ranges!");
+		assert(0 < ranges.length && ranges.length < uint.max,
+		       "Invalid ranges count!");
 
 		auto capacity = cursor + ranges.length;
 		ensureWorklistCapacity(capacity);
 
 		foreach (r; ranges) {
+			assert(r.length > 0, "Cannot add empty range to the worklist!");
 			worklist[cursor++] = r;
 		}
 	}
@@ -179,7 +183,7 @@ private:
 private:
 
 struct Worker {
-	enum WorkListCapacity = 17;
+	enum WorkListCapacity = 16;
 	enum MaxRefill = 1;
 
 private:
@@ -401,6 +405,28 @@ private:
 	}
 
 	void splitAndAddToWorklist(const(void*)[] range) {
+		assert(isAligned(range.ptr, PageSize),
+		       "Range is not aligned properly!");
+		assert(isAligned(range.length, PointerInPage),
+		       "Range has invalid size!");
+
+		// Make sure we do not starve ourselves. If we do not have
+		// work in advance, then just keep some of it for ourselves.
+		if (cursor < MaxRefill) {
+			auto nslices = range.length / PointerInPage;
+			auto nreserved = min(nslices, MaxRefill - cursor);
+
+			cursor = MaxRefill;
+			foreach (i; 0 .. nreserved) {
+				worklist[MaxRefill - i - 1] = range[0 .. PointerInPage];
+				range = range[PointerInPage .. range.length];
+			}
+
+			if (range.length == 0) {
+				return;
+			}
+		}
+
 		scanner.addToWorkList(range);
 	}
 }
