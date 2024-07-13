@@ -329,6 +329,20 @@ private:
 		return true;
 	}
 
+	void addToWorkList(const(void*)[] range) {
+		if (likely(cursor < WorkListCapacity)) {
+			worklist[cursor++] = range;
+			return;
+		}
+
+		// Flush the current worklist except the first element in it
+		// so we do not starve this worker.
+		scanner.addToWorkList(worklist[MaxRefill .. WorkListCapacity]);
+
+		cursor = MaxRefill + 1;
+		worklist[MaxRefill] = range;
+	}
+
 	void markSparse(PageDescriptor pd, const void* ptr, ubyte cycle) {
 		import d.gc.slab;
 		auto se = SlabEntry(pd, ptr);
@@ -357,6 +371,17 @@ private:
 		}
 	}
 
+	void addToSharedWorklist(const(void*)[] range) {
+		// Make sure we do not starve ourselves. If we do not have
+		// work in advance, then just keep some of it for ourselves.
+		if (cursor < MaxRefill) {
+			worklist[cursor++] = range;
+			return;
+		}
+
+		scanner.addToWorkList(range);
+	}
+
 	void markLarge(PageDescriptor pd, ubyte cycle) {
 		auto e = pd.extent;
 		auto old = e.gcWord.load();
@@ -371,32 +396,11 @@ private:
 		}
 
 		if (pd.containsPointers) {
-			scanner.addToWorkList(makeRange(e.address, e.address + e.size));
+			splitAndAddToWorklist(makeRange(e.address, e.address + e.size));
 		}
 	}
 
-	void addToWorkList(const(void*)[] range) {
-		if (likely(cursor < WorkListCapacity)) {
-			worklist[cursor++] = range;
-			return;
-		}
-
-		// Flush the current worklist except the first element in it
-		// so we do not starve this worker.
-		scanner.addToWorkList(worklist[MaxRefill .. WorkListCapacity]);
-
-		cursor = MaxRefill + 1;
-		worklist[MaxRefill] = range;
-	}
-
-	void addToSharedWorklist(const(void*)[] range) {
-		// Make sure we do not starve ourselves. If we do not have
-		// work in advance, then just keep some of it for ourselves.
-		if (cursor < MaxRefill) {
-			worklist[cursor++] = range;
-			return;
-		}
-
+	void splitAndAddToWorklist(const(void*)[] range) {
 		scanner.addToWorkList(range);
 	}
 }
