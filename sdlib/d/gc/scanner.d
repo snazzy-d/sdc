@@ -378,7 +378,7 @@ private:
 	void addToSharedWorklist(const(void*)[] range) {
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
-		if (cursor < MaxRefill) {
+		if (cursor == 0) {
 			worklist[cursor++] = range;
 			return;
 		}
@@ -412,16 +412,11 @@ private:
 
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
-		if (cursor < MaxRefill) {
-			auto nslices = range.length / PointerInPage;
-			auto nreserved = min(nslices, MaxRefill - cursor);
+		if (cursor == 0) {
+			cursor = 1;
+			worklist[0] = range[0 .. PointerInPage];
 
-			cursor = MaxRefill;
-			foreach (i; 0 .. nreserved) {
-				worklist[MaxRefill - i - 1] = range[0 .. PointerInPage];
-				range = range[PointerInPage .. range.length];
-			}
-
+			range = range[PointerInPage .. range.length];
 			if (range.length == 0) {
 				return;
 			}
