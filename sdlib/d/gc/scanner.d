@@ -341,10 +341,10 @@ private:
 
 		// Flush the current worklist except the first element in it
 		// so we do not starve this worker.
-		scanner.addToWorkList(worklist[MaxRefill .. WorkListCapacity]);
+		scanner.addToWorkList(worklist[0 .. WorkListCapacity]);
 
-		cursor = MaxRefill + 1;
-		worklist[MaxRefill] = range;
+		cursor = 1;
+		worklist[0] = range;
 	}
 
 	void markSparse(PageDescriptor pd, const void* ptr, ubyte cycle) {
