@@ -162,7 +162,8 @@ private:
 		assert(mutex.isHeld(), "mutex not held!");
 		assert(ranges.length < uint.max, "Cannot add this many ranges!");
 
-		ensureWorklistCapacity(cursor + ranges.length);
+		auto capacity = cursor + ranges.length;
+		ensureWorklistCapacity(capacity);
 
 		foreach (r; ranges) {
 			worklist[cursor++] = r;
@@ -173,11 +174,14 @@ private:
 private:
 
 struct Worker {
+	enum WorkListCapacity = 17;
+	enum MaxRefill = 1;
+
 private:
 	shared(Scanner)* scanner;
 
 	uint cursor;
-	const(void*)[][17] worklist;
+	const(void*)[][WorkListCapacity] worklist;
 
 	// TODO: Use a different caching layer that
 	//       can cache negative results.
@@ -249,7 +253,7 @@ public:
 
 					auto base = cast(void**) (aptr - pd.index * PageSize);
 					lastDenseSlab =
-						base[0 .. lastDenseBin.npages * PageSize / PointerSize];
+						base[0 .. lastDenseBin.npages * PointerInPage];
 
 					goto MarkDense;
 				}
@@ -348,23 +352,23 @@ private:
 	}
 
 	void addToWorkList(const(void*)[] range) {
-		if (likely(cursor < worklist.length)) {
+		if (likely(cursor < WorkListCapacity)) {
 			worklist[cursor++] = range;
 			return;
 		}
 
 		// Flush the current worklist except the first element in it
 		// so we do not starve this worker.
-		scanner.addToWorkList(worklist[1 .. worklist.length]);
+		scanner.addToWorkList(worklist[MaxRefill .. WorkListCapacity]);
 
-		cursor = 2;
-		worklist[1] = range;
+		cursor = MaxRefill + 1;
+		worklist[MaxRefill] = range;
 	}
 
 	void addToSharedWorklist(const(void*)[] range) {
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
-		if (cursor == 0) {
+		if (cursor < MaxRefill) {
 			worklist[cursor++] = range;
 			return;
 		}

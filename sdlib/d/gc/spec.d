@@ -29,6 +29,8 @@ enum LgPageSize = 12;
 enum PageSize = One << LgPageSize;
 enum PageMask = PageSize - 1;
 
+enum uint PointerInPage = PageSize / PointerSize;
+
 // Block size.
 enum LgBlockSize = 21;
 enum BlockSize = One << LgBlockSize;
