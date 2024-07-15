@@ -98,6 +98,54 @@ unittest SlabRange {
 	assert(r0.length == 12);
 }
 
+struct SlotMetadata {
+private:
+	struct FreeSpaceData {
+		ushort[size_t.sizeof / ushort.sizeof - 1] _pad;
+		ushort freeSpace;
+	}
+
+	union Data {
+		size_t finalizerData;
+		FreeSpaceData freeSpaceData;
+	}
+
+	Data data;
+
+	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
+
+public:
+	static SlotMetadata* fromBlock(void* ptr, size_t slotSize) {
+		return cast(SlotMetadata*) (ptr + slotSize) - 1;
+	}
+
+	@property
+	ushort freeSpace() {
+		return readPackedFreeSpace(&data.freeSpaceData.freeSpace);
+	}
+
+	void setFreeSpace(size_t size) {
+		assert(size > 0, "Attempt to set a slot metadata size of 0!");
+
+		writePackedFreeSpace(&data.freeSpaceData.freeSpace, size);
+	}
+
+	@property
+	Finalizer finalizer() {
+		return hasFinalizer
+			? cast(Finalizer) (data.finalizerData & AddressMask)
+			: null;
+	}
+
+	@property
+	bool hasFinalizer() {
+		return (data.finalizerData & FinalizerBit) != 0;
+	}
+}
+
+static assert(SlotMetadata.sizeof == size_t.sizeof,
+              "SlotMetadata must fit in size_t!");
+
 struct SlabAllocInfo {
 private:
 	Extent* e;
@@ -156,11 +204,7 @@ public:
 
 	@property
 	Finalizer finalizer() {
-		if (!finalizerEnabled) {
-			return null;
-		}
-
-		return cast(Finalizer) cast(void*) (*finalizerPtr & AddressMask);
+		return _hasMetadata ? slotMetadata.finalizer : null;
 	}
 
 	void initializeMetadata(Finalizer initialFinalizer,
@@ -190,15 +234,20 @@ public:
 		// On a big-endian machine, the unused high 16 bits of a pointer will be
 		// found at the start, rather than end, of the memory that it occupies,
 		// and the freespace (newMetadata) will collide with the finalizer.
-		*finalizerPtr = newMetadata | finalizerValue;
+		slotMetadata.data.finalizerData = newMetadata | finalizerValue;
 		e.enableMetadata(index);
 		_hasMetadata = true;
 	}
 
 private:
 	@property
+	SlotMetadata* slotMetadata() {
+		return SlotMetadata.fromBlock(cast(void*) address, slotSize);
+	}
+
+	@property
 	size_t freeSpace() {
-		return _hasMetadata ? readPackedFreeSpace(freeSpacePtr) : 0;
+		return _hasMetadata ? slotMetadata.freeSpace : 0;
 	}
 
 	void setFreeSpace(size_t size) {
@@ -214,14 +263,12 @@ private:
 			return;
 		}
 
-		writePackedFreeSpace(freeSpacePtr, size);
+		slotMetadata.setFreeSpace(size);
 		if (!_hasMetadata) {
 			e.enableMetadata(index);
 			_hasMetadata = true;
 		}
 	}
-
-	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
 
 	@property
 	bool finalizerEnabled() {
@@ -238,16 +285,9 @@ private:
 		// 5) If there is something else in there, that is not heavily biased
 		//    (float, random/compressed data) then we're still at 50/50.
 		// We should expect to find a zero in there the VAST majority of the time.
-		return hasMetadata && (*finalizerPtr & FinalizerBit);
-	}
 
-	@property
-	T* ptrToAllocEnd(T)() {
-		return cast(T*) (address + slotSize - T.sizeof);
+		return _hasMetadata && slotMetadata.hasFinalizer;
 	}
-
-	alias freeSpacePtr = ptrToAllocEnd!ushort;
-	alias finalizerPtr = ptrToAllocEnd!size_t;
 }
 
 unittest SlabAllocInfo {

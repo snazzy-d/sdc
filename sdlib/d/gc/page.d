@@ -674,6 +674,32 @@ private:
 		}
 	}
 
+	static void finalizeSlabNimble(size_t nimbleBits, int sizeClass, void* base,
+	                               size_t nimbleIndex) {
+		if (nimbleBits == 0) {
+			return;
+		}
+
+		import d.gc.slab;
+		auto ssize = binInfos[sizeClass].slotSize;
+		void* nimbleBase = base + (nimbleIndex * 64 * ssize);
+
+		// All set bits in nimbleBits have metadata.
+		while (nimbleBits != 0) {
+			auto index = countTrailingZeros(nimbleBits);
+			void* ptr = nimbleBase + index * ssize;
+
+			auto metadata = SlotMetadata.fromBlock(ptr, ssize);
+			auto finalizer = metadata.finalizer;
+			if (finalizer) {
+				import d.finalizer;
+				__sd_run_finalizer(ptr, ssize - metadata.freeSpace, finalizer);
+			}
+
+			nimbleBits &= (nimbleBits - 1);
+		}
+	}
+
 	void collectDenseAllocations(ref CachedExtentMap emap,
 	                             PriorityExtentHeap[] slabs) {
 		assert(mutex.isHeld(), "Mutex not held!");
@@ -726,9 +752,19 @@ private:
 					auto newOccupancy = oldOccupancy & bmp[i];
 
 					occupancyMask |= newOccupancy;
-					count += popCount(oldOccupancy ^ newOccupancy);
+					auto evicted = oldOccupancy ^ newOccupancy;
+					count += popCount(evicted);
 
-					e.slabData.rawContent[i] = newOccupancy;
+					scope(success) e.slabData.rawContent[i] = newOccupancy;
+
+					if (!ec.supportsMetadata) {
+						continue;
+					}
+
+					auto evictedWithMetadata =
+						evicted & e.slabMetadataFlags.rawContent[i];
+
+					finalizeSlabNimble(evictedWithMetadata, sc, e.address, i);
 				}
 
 				// The slab is empty.
@@ -796,14 +832,22 @@ private:
 					continue;
 				}
 
-				// If the cycle do not match, all the elements are dead.
-				if ((w & 0xff) != gcCycle) {
+				auto slotsWithMeta = e.slabMetadataFlags.rawContent[0];
+
+				// If the cycle do not match, all the elements are dead. If no
+				// metadata exists, then we can safely clear the whole thing.
+				if (slotsWithMeta == 0 && (w & 0xff) != gcCycle) {
 					deadExtents.insert(e);
 					continue;
 				}
 
 				auto oldOccupancy = e.slabData.rawContent[0];
 				auto newOccupancy = oldOccupancy & (w >> 8);
+				auto evicted = oldOccupancy ^ newOccupancy;
+				auto evictedWithMeta = slotsWithMeta & evicted;
+
+				// Call any finalizers on dying slots.
+				finalizeSlabNimble(evictedWithMeta, ec.sizeClass, e.address, 0);
 
 				// The slab is empty.
 				if (newOccupancy == 0) {
@@ -811,7 +855,7 @@ private:
 					continue;
 				}
 
-				auto count = popCount(oldOccupancy ^ newOccupancy);
+				auto count = popCount(evicted);
 
 				e.slabData.rawContent[0] = newOccupancy;
 				e.bits += count * Extent.FreeSlotsUnit;
