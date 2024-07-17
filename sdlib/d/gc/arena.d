@@ -147,17 +147,11 @@ public:
 		return filler.allocLarge(emap, pages, zero);
 	}
 
-	bool resizeLarge(ref CachedExtentMap emap, Extent* e, size_t size) shared {
+	bool resizeLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
 		assert(e !is null, "Extent is null!");
 		assert(e.isLarge(), "Expected a large extent!");
 		assert(e.arenaIndex == index, "Invalid arena index!");
 
-		if (size <= MaxSmallSize) {
-			// This would create a small allocation.
-			return false;
-		}
-
-		uint pages = getPageCount(size);
 		return filler.resizeLarge(emap, e, pages);
 	}
 
@@ -295,10 +289,10 @@ unittest resizeLargeShrink {
 	assert(pd1.extent.npages == 20);
 
 	// Growing by zero is allowed:
-	assert(arena.resizeLarge(emap, pd0.extent, 35 * PageSize));
+	assert(arena.resizeLarge(emap, pd0.extent, 35));
 
 	// Shrink no. 0 down to 10 pages:
-	assert(arena.resizeLarge(emap, pd0.extent, 10 * PageSize));
+	assert(arena.resizeLarge(emap, pd0.extent, 10));
 	assert(pd0.extent.address is ptr0);
 	assert(pd0.extent.npages == 10);
 	auto pd0xx = emap.lookup(ptr0);
@@ -354,16 +348,16 @@ unittest resizeLargeShrink {
 	assert(pd6.extent.block.full);
 
 	// Shrink first alloc:
-	assert(arena.resizeLarge(emap, pd4.extent, 96 * PageSize));
+	assert(arena.resizeLarge(emap, pd4.extent, 96));
 	assert(pd4.extent.npages == 96);
 	assert(!pd6.extent.block.full);
 
 	// Shrink second alloc:
-	assert(arena.resizeLarge(emap, pd5.extent, 128 * PageSize));
+	assert(arena.resizeLarge(emap, pd5.extent, 128));
 	assert(pd5.extent.npages == 128);
 
 	// Shrink third alloc:
-	assert(arena.resizeLarge(emap, pd6.extent, 64 * PageSize));
+	assert(arena.resizeLarge(emap, pd6.extent, 64));
 	assert(pd6.extent.npages == 64);
 
 	// Allocate 128 pages, should go after second alloc:
@@ -423,7 +417,7 @@ unittest resizeLargeGrow {
 	}
 
 	void checkGrowLarge(Extent* e, uint pages) {
-		assert(arena.resizeLarge(emap, e, pages * PageSize));
+		assert(arena.resizeLarge(emap, e, pages));
 		assert(e.npages == pages);
 
 		// Confirm that the page after the end of the extent is not included in the map:
@@ -448,11 +442,11 @@ unittest resizeLargeGrow {
 	assert(e2.address == e1.address + e1.size);
 
 	// Grow by 0 is always permitted:
-	assert(arena.resizeLarge(emap, e0, 35 * PageSize));
+	assert(arena.resizeLarge(emap, e0, 35));
 
 	// Prohibited grow (not enough space) :
-	assert(!arena.resizeLarge(emap, e0, 36 * PageSize));
-	assert(!arena.resizeLarge(emap, e2, 414 * PageSize));
+	assert(!arena.resizeLarge(emap, e0, 36));
+	assert(!arena.resizeLarge(emap, e2, 414));
 
 	// Grow:
 	checkGrowLarge(e2, 413);
@@ -463,9 +457,9 @@ unittest resizeLargeGrow {
 	checkGrowLarge(e0, 44);
 
 	// Prohibited grow (not enough space) :
-	assert(!arena.resizeLarge(emap, e0, uint.max * PageSize));
-	assert(!arena.resizeLarge(emap, e0, 9999 * PageSize));
-	assert(!arena.resizeLarge(emap, e0, 100 * PageSize));
+	assert(!arena.resizeLarge(emap, e0, uint.max));
+	assert(!arena.resizeLarge(emap, e0, 9999));
+	assert(!arena.resizeLarge(emap, e0, 100));
 
 	// Grow:
 	checkGrowLarge(e0, 99);

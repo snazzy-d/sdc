@@ -182,9 +182,8 @@ public:
 			}
 		} else {
 			auto e = pd.extent;
-			auto esize = e.size;
-			if (samePointerness && (alignUp(size, PageSize) == esize
-				    || pd.arena.resizeLarge(emap, e, size))) {
+			if (samePointerness && size > MaxSmallSize
+				    && pd.arena.resizeLarge(emap, e, getPageCount(size))) {
 				e.setUsedCapacity(size);
 				return ptr;
 			}
@@ -343,8 +342,8 @@ private:
 		}
 
 		auto newCapacity = e.usedCapacity + size;
-		if ((e.size < newCapacity)
-			    && !pd.arena.resizeLarge(emap, e, newCapacity)) {
+		auto pages = getPageCount(newCapacity);
+		if ((e.npages < pages) && !pd.arena.resizeLarge(emap, e, pages)) {
 			return false;
 		}
 
