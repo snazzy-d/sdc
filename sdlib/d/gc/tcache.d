@@ -54,7 +54,8 @@ public:
 			return allocSmall(size, containsPointers, zero);
 		}
 
-		return allocLarge(size, containsPointers, zero);
+		auto pages = getPageCount(size);
+		return allocLarge(pages, containsPointers, zero);
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers, bool zero,
@@ -81,7 +82,8 @@ public:
 			return ptr;
 		}
 
-		auto ptr = allocLarge(size, containsPointers, zero);
+		auto pages = getPageCount(size);
+		auto ptr = allocLarge(pages, containsPointers, zero);
 		if (unlikely(ptr is null)) {
 			return null;
 		}
@@ -273,12 +275,9 @@ private:
 	/**
 	 * Large allocations.
 	 */
-	void* allocLarge(size_t size, bool containsPointers, bool zero) {
-		// TODO: in contracts
-		assert(isAllocatableSize(size));
-
+	void* allocLarge(uint pages, bool containsPointers, bool zero) {
 		auto arena = chooseArena(containsPointers);
-		return arena.allocLarge(emap, size, zero);
+		return arena.allocLarge(emap, pages, zero);
 	}
 
 	void freeLarge(PageDescriptor pd) {
