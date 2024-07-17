@@ -185,12 +185,29 @@ public:
 			}
 		} else {
 			auto e = pd.extent;
-			if (samePointerness && size > MaxSmallSize
-				    && pd.arena.resizeLarge(emap, e, getPageCount(size))) {
+			if (samePointerness && size > MaxSmallSize) {
+				auto epages = e.npages;
+				auto npages = getPageCount(size);
+
+				if (epages < npages) {
+					if (!pd.arena.growLarge(emap, e, npages)) {
+						goto LargeResizeFailed;
+					}
+
+					allocated += (npages - epages) * PageSize;
+				} else if (epages > npages) {
+					if (!pd.arena.shrinkLarge(emap, e, npages)) {
+						goto LargeResizeFailed;
+					}
+
+					deallocated += (epages - npages) * PageSize;
+				}
+
 				e.setUsedCapacity(size);
 				return ptr;
 			}
 
+		LargeResizeFailed:
 			copySize = min(size, e.usedCapacity);
 		}
 
@@ -758,47 +775,86 @@ unittest getCapacity {
 	assert(tc.getCapacity(p0[100 .. 101]) == 0);
 	assert(tc.getCapacity(p0[101 .. 101]) == 0);
 
-	// Realloc.
-	auto p1 = tc.allocAppendable(20000, false, false);
-	assert(tc.getCapacity(p1[0 .. 19999]) == 0);
-	assert(tc.getCapacity(p1[0 .. 20000]) == 20480);
-	assert(tc.getCapacity(p1[0 .. 20001]) == 0);
-
-	// Decreasing the size of the allocation
-	// should adjust capacity acordingly.
-	auto p2 = tc.realloc(p1, 19999, false);
-	assert(p2 is p1);
-
-	assert(tc.getCapacity(p2[0 .. 19999]) == 20480);
-	assert(tc.getCapacity(p2[0 .. 20000]) == 0);
-	assert(tc.getCapacity(p2[0 .. 20001]) == 0);
-
-	// Increasing the size of the allocation increases capacity.
-	auto p3 = tc.realloc(p2, 20001, false);
-	assert(p3 is p2);
-
-	assert(tc.getCapacity(p3[0 .. 19999]) == 0);
-	assert(tc.getCapacity(p3[0 .. 20000]) == 0);
-	assert(tc.getCapacity(p3[0 .. 20001]) == 20480);
-
-	// This realloc happens in-place:
-	auto p4 = tc.realloc(p3, 16000, false);
-	assert(p4 is p3);
-	assert(tc.getCapacity(p4[0 .. 16000]) == 16384);
-
-	// This one similarly happens in-place:
-	auto p5 = tc.realloc(p4, 20000, false);
-	assert(p5 is p4);
-	assert(tc.getCapacity(p5[0 .. 20000]) == 20480);
-
-	// Realloc from large to small size class results in new allocation:
-	auto p6 = tc.realloc(p5, 100, false);
-	assert(p6 !is p5);
-
 	// Cleanup after ourselves.
 	tc.free(nonAppendable);
 	tc.free(p0);
-	tc.free(p6);
+}
+
+unittest realloc {
+	ThreadCache tc;
+	tc.initialize(&gExtentMap, &gBase);
+
+	size_t allocated = 0;
+	size_t deallocated = 0;
+
+	void checkAllocatedByteTracking() {
+		assert(tc.allocated == allocated);
+		assert(tc.deallocated == deallocated);
+	}
+
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		checkAllocatedByteTracking();
+		assert(tc.allocated == tc.deallocated);
+	}
+
+	// Realloc.
+	auto p0 = tc.allocAppendable(20000, false, false);
+	auto asize = getPageCount(20000) * PageSize;
+	allocated += asize;
+	checkAllocatedByteTracking();
+
+	assert(tc.getCapacity(p0[0 .. 19999]) == 0);
+	assert(tc.getCapacity(p0[0 .. 20000]) == 20480);
+	assert(tc.getCapacity(p0[0 .. 20001]) == 0);
+
+	// Decreasing the size of the allocation
+	// should adjust capacity acordingly.
+	auto p1 = tc.realloc(p0, 19999, false);
+	assert(p1 is p0);
+
+	assert(tc.getCapacity(p1[0 .. 19999]) == 20480);
+	assert(tc.getCapacity(p1[0 .. 20000]) == 0);
+	assert(tc.getCapacity(p1[0 .. 20001]) == 0);
+
+	// Increasing the size of the allocation increases capacity.
+	auto p2 = tc.realloc(p1, 20001, false);
+	assert(p2 is p1);
+
+	assert(tc.getCapacity(p2[0 .. 19999]) == 0);
+	assert(tc.getCapacity(p2[0 .. 20000]) == 0);
+	assert(tc.getCapacity(p2[0 .. 20001]) == 20480);
+
+	// This realloc happens in-place when they shrink a large alloc.
+	auto p3 = tc.realloc(p2, 16000, false);
+	assert(p3 is p2);
+	assert(tc.getCapacity(p3[0 .. 16000]) == 16384);
+
+	deallocated += PageSize;
+	checkAllocatedByteTracking();
+
+	// The also happen in-place when extending
+	// if there is room for it in the block.
+	auto p4 = tc.realloc(p3, 20000, false);
+	assert(p4 is p3);
+	assert(tc.getCapacity(p4[0 .. 20000]) == 20480);
+
+	allocated += PageSize;
+	checkAllocatedByteTracking();
+
+	// Realloc from large to small size class results in new allocation.
+	auto p5 = tc.realloc(p4, 100, false);
+	assert(p5 !is p4);
+
+	allocated += 112;
+	deallocated += 5 * PageSize;
+	checkAllocatedByteTracking();
+
+	// Cleanup after ourselves.
+	tc.free(p5);
+	deallocated += 112;
+	checkAllocatedByteTracking();
 }
 
 unittest extendSmall {

@@ -112,37 +112,13 @@ public:
 		return e.address;
 	}
 
-	bool resizeLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
-		assert(e !is null, "Extent is null!");
-		assert(e.isLarge(), "Expected a large extent!");
-		assert(e.arenaIndex == arena.index, "Invalid arena!");
-
-		// The resize must fit in a block.
-		uint currentPageCount = e.npages;
-		if (pages > PagesInBlock || currentPageCount >= PagesInBlock) {
-			return false;
-		}
-
-		if (pages == currentPageCount) {
-			return true;
-		}
-
-		if (pages > currentPageCount) {
-			return growLarge(emap, e, pages);
-		}
-
-		shrinkLarge(emap, e, pages);
-		return true;
-	}
-
 	bool growLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
 		assert(e !is null, "Extent is null!");
 		assert(e.isLarge(), "Expected a large extent!");
 		assert(pages > e.npages, "Invalid page count!");
 
 		uint currentPages = e.npages;
-		if (pages > PagesInBlock || pages < currentPages
-			    || currentPages >= PagesInBlock) {
+		if (pages > PagesInBlock || currentPages >= PagesInBlock) {
 			return false;
 		}
 
@@ -165,20 +141,29 @@ public:
 		}
 
 		// We failed to map the new pages, unwind!
-		shrinkLarge(emap, e, currentPages);
+		bool success = shrinkLarge(emap, e, currentPages);
+		assert(success,
+		       "Failed to shrink back the extent to its original size!");
+
 		return false;
 	}
 
-	void shrinkLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
+	bool shrinkLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
+		assert(e !is null, "Extent is null!");
 		assert(e.isLarge(), "Expected a large extent!");
-		assert(!e.isHuge(), "Does not support huge!");
 		assert(pages > 0 && pages < e.npages, "Invalid page count!");
 
-		uint delta = e.npages - pages;
+		uint currentPages = e.npages;
+		if (currentPages >= PagesInBlock) {
+			return false;
+		}
+
+		uint delta = currentPages - pages;
 		uint index = e.blockIndex + pages;
 
 		emap.clear(e.address + pages * PageSize, delta);
 		shrinkAlloc(e, index, pages, delta);
+		return true;
 	}
 
 	/**
