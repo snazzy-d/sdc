@@ -71,6 +71,10 @@ public:
 
 		if (isSmallSize(asize)) {
 			auto ptr = allocSmall(asize, containsPointers, zero);
+			if (unlikely(ptr is null)) {
+				return null;
+			}
+
 			auto pd = getPageDescriptor(ptr);
 			auto si = SlabAllocInfo(pd, ptr);
 			si.initializeMetadata(finalizer, size);
@@ -78,6 +82,10 @@ public:
 		}
 
 		auto ptr = allocLarge(size, containsPointers, zero);
+		if (unlikely(ptr is null)) {
+			return null;
+		}
+
 		auto pd = getPageDescriptor(ptr);
 		auto e = pd.extent;
 		e.setUsedCapacity(size);
