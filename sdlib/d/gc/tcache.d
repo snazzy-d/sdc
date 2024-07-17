@@ -15,6 +15,8 @@ ThreadCache threadCache;
 
 struct ThreadCache {
 private:
+	size_t allocated;
+
 	CachedExtentMap emap;
 
 	ThreadBin[2 * BinCount] bins;
@@ -234,6 +236,7 @@ private:
 			memset(ptr, 0, slotSize);
 		}
 
+		allocated += slotSize;
 		return ptr;
 	}
 
@@ -276,7 +279,13 @@ private:
 	 */
 	void* allocLarge(uint pages, bool containsPointers, bool zero) {
 		auto arena = chooseArena(containsPointers);
-		return arena.allocLarge(emap, pages, zero);
+		auto ptr = arena.allocLarge(emap, pages, zero);
+		if (unlikely(ptr is null)) {
+			return null;
+		}
+
+		allocated += pages * PageSize;
+		return ptr;
 	}
 
 	void freeLarge(PageDescriptor pd) {
@@ -496,6 +505,46 @@ unittest nonAllocatableSizes {
 	assert(tc.alloc(MaxAllocationSize + 1, false, false) is null);
 	assert(tc.allocAppendable(0, false, false) is null);
 	assert(tc.allocAppendable(MaxAllocationSize + 1, false, false) is null);
+}
+
+unittest trackAllocatedBytes {
+	ThreadCache tc;
+
+	tc.initialize(&gExtentMap, &gBase);
+
+	size_t expected = 0;
+
+	// Check that small allocations are accounted for.
+	foreach (size; 1 .. MaxSmallSize + 1) {
+		auto ptr0 = tc.alloc(size, false, false);
+		scope(exit) tc.free(ptr0);
+
+		expected += getAllocSize(size);
+		assert(tc.allocated == expected);
+
+		auto ptr1 = tc.allocAppendable(size, false, false);
+		scope(exit) tc.free(ptr1);
+
+		expected += getAllocSize(max(size, 2 * Quantum));
+		assert(tc.allocated == expected);
+	}
+
+	// Check that large allocations are accounted for.
+	for (size_t size = MaxSmallSize + 1; size < 12345; size += 97) {
+		auto asize = getPageCount(size) * PageSize;
+
+		auto ptr0 = tc.alloc(size, false, false);
+		scope(exit) tc.free(ptr0);
+
+		expected += asize;
+		assert(tc.allocated == expected);
+
+		auto ptr1 = tc.allocAppendable(size, false, false);
+		scope(exit) tc.free(ptr1);
+
+		expected += asize;
+		assert(tc.allocated == expected);
+	}
 }
 
 unittest zero {
