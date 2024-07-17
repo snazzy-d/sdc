@@ -16,6 +16,7 @@ ThreadCache threadCache;
 struct ThreadCache {
 private:
 	size_t allocated;
+	size_t deallocated;
 
 	CachedExtentMap emap;
 
@@ -270,7 +271,10 @@ private:
 		assert(pd.isSlab(), "Slab expected!");
 
 		auto ec = pd.extentClass;
-		auto index = getBinIndex(ec.sizeClass, pd.containsPointers);
+		auto sc = ec.sizeClass;
+		deallocated += binInfos[sc].slotSize;
+
+		auto index = getBinIndex(sc, pd.containsPointers);
 		bins[index].free(emap, pd, ptr);
 	}
 
@@ -291,7 +295,9 @@ private:
 	void freeLarge(PageDescriptor pd) {
 		assert(!pd.isSlab(), "Slab are not supported!");
 
-		pd.arena.freeLarge(emap, pd.extent);
+		auto e = pd.extent;
+		deallocated += e.npages * PageSize;
+		pd.arena.freeLarge(emap, e);
 	}
 
 	/**
@@ -516,34 +522,41 @@ unittest trackAllocatedBytes {
 
 	// Check that small allocations are accounted for.
 	foreach (size; 1 .. MaxSmallSize + 1) {
-		auto ptr0 = tc.alloc(size, false, false);
-		scope(exit) tc.free(ptr0);
-
 		expected += getAllocSize(size);
+
+		auto ptr0 = tc.alloc(size, false, false);
 		assert(tc.allocated == expected);
 
-		auto ptr1 = tc.allocAppendable(size, false, false);
-		scope(exit) tc.free(ptr1);
+		tc.free(ptr0);
+		assert(tc.deallocated == expected);
 
 		expected += getAllocSize(max(size, 2 * Quantum));
+
+		auto ptr1 = tc.allocAppendable(size, false, false);
 		assert(tc.allocated == expected);
+
+		tc.free(ptr1);
+		assert(tc.deallocated == expected);
 	}
 
 	// Check that large allocations are accounted for.
 	for (size_t size = MaxSmallSize + 1; size < 12345; size += 97) {
 		auto asize = getPageCount(size) * PageSize;
+		expected += asize;
 
 		auto ptr0 = tc.alloc(size, false, false);
-		scope(exit) tc.free(ptr0);
+		assert(tc.allocated == expected);
+
+		tc.free(ptr0);
+		assert(tc.deallocated == expected);
 
 		expected += asize;
-		assert(tc.allocated == expected);
 
 		auto ptr1 = tc.allocAppendable(size, false, false);
-		scope(exit) tc.free(ptr1);
-
-		expected += asize;
 		assert(tc.allocated == expected);
+
+		tc.free(ptr1);
+		assert(tc.deallocated == expected);
 	}
 }
 
