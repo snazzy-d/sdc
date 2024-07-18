@@ -512,6 +512,13 @@ private:
 unittest nonAllocatableSizes {
 	ThreadCache tc;
 
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		assert(tc.allocated == 0);
+		assert(tc.allocated == tc.deallocated);
+	}
+
 	// Prohibited sizes of allocations
 	assert(tc.alloc(0, false, false) is null);
 	assert(tc.alloc(MaxAllocationSize + 1, false, false) is null);
@@ -578,6 +585,12 @@ unittest zero {
 
 	ThreadCache tc;
 	tc.initialize(&gExtentMap, &gBase);
+
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		assert(tc.allocated == tc.deallocated);
+	}
 
 	// Check that zeroing large allocations works as expected.
 	void* ptr0 = null;
@@ -678,6 +691,12 @@ unittest getCapacity {
 	ThreadCache tc;
 	tc.initialize(&gExtentMap, &gBase);
 
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		assert(tc.allocated == tc.deallocated);
+	}
+
 	// Non-appendable size class 6 (56 bytes)
 	auto nonAppendable = tc.alloc(50, false, false);
 	assert(tc.getCapacity(nonAppendable[0 .. 0]) == 0);
@@ -775,6 +794,11 @@ unittest getCapacity {
 	// Realloc from large to small size class results in new allocation:
 	auto p6 = tc.realloc(p5, 100, false);
 	assert(p6 !is p5);
+
+	// Cleanup after ourselves.
+	tc.free(nonAppendable);
+	tc.free(p0);
+	tc.free(p6);
 }
 
 unittest extendSmall {
@@ -1038,6 +1062,12 @@ unittest arraySpill {
 	ThreadCache tc;
 	tc.initialize(&gExtentMap, &gBase);
 
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		assert(tc.allocated == tc.deallocated);
+	}
+
 	void setAllocationUsedCapacity(void* ptr, size_t usedCapacity) {
 		assert(ptr !is null);
 
@@ -1123,6 +1153,12 @@ unittest arraySpill {
 unittest finalization {
 	ThreadCache tc;
 	tc.initialize(&gExtentMap, &gBase);
+
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		assert(tc.allocated == tc.deallocated);
+	}
 
 	// Faux destructor which simply records most recent kill:
 	static size_t lastKilledUsedCapacity = 0;
