@@ -356,10 +356,16 @@ private:
 			return false;
 		}
 
+		auto epages = e.npages;
 		auto newCapacity = e.usedCapacity + size;
-		auto pages = getPageCount(newCapacity);
-		if ((e.npages < pages) && !pd.arena.resizeLarge(emap, e, pages)) {
-			return false;
+
+		auto npages = getPageCount(newCapacity);
+		if (epages < npages) {
+			if (!pd.arena.growLarge(emap, e, npages)) {
+				return false;
+			}
+
+			allocated += (npages - epages) * PageSize;
 		}
 
 		e.setUsedCapacity(newCapacity);
@@ -515,10 +521,16 @@ unittest nonAllocatableSizes {
 
 unittest trackAllocatedBytes {
 	ThreadCache tc;
-
 	tc.initialize(&gExtentMap, &gBase);
 
 	size_t expected = 0;
+
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		assert(tc.allocated == expected);
+		assert(tc.allocated == tc.deallocated);
+	}
 
 	// Check that small allocations are accounted for.
 	foreach (size; 1 .. MaxSmallSize + 1) {
@@ -769,9 +781,16 @@ unittest extendSmall {
 	ThreadCache tc;
 	tc.initialize(&gExtentMap, &gBase);
 
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		assert(tc.allocated == tc.deallocated);
+	}
+
 	// Non-appendable size class 6 (56 bytes)
 	auto nonAppendable = tc.alloc(50, false, false);
 	assert(tc.getCapacity(nonAppendable[0 .. 50]) == 0);
+	assert(tc.allocated == 56);
 
 	// Attempt to extend a non-appendable (always considered fully occupied)
 	assert(!tc.extend(nonAppendable[50 .. 50], 1));
@@ -797,8 +816,9 @@ unittest extendSmall {
 	assert(!tc.extend(tlPtr[0 .. 100], 1));
 	assert(!tc.extend(tlPtr[100 .. 100], 1));
 
-	// Make a small appendable alloc:
+	// Check that small appendable alloc can be extended.
 	auto s0 = tc.allocAppendable(42, false, false);
+	assert(tc.allocated == 104);
 
 	assert(tc.getCapacity(s0[0 .. 42]) == 48);
 	assert(tc.extend(s0[0 .. 0], 0));
@@ -807,21 +827,20 @@ unittest extendSmall {
 	assert(!tc.extend(s0[1 .. 41], 10));
 	assert(!tc.extend(s0[0 .. 20], 10));
 
-	// Extend:
 	assert(!tc.extend(s0[0 .. 42], 7));
 	assert(!tc.extend(s0[32 .. 42], 7));
 	assert(tc.extend(s0[0 .. 42], 3));
 	assert(tc.getCapacity(s0[0 .. 45]) == 48);
 
-	// Make another in same size class:
+	// Check that there are no interferences.
 	auto s1 = tc.allocAppendable(42, false, false);
+	assert(tc.allocated == 152);
+
 	assert(tc.extend(s1[0 .. 42], 1));
 	assert(tc.getCapacity(s1[0 .. 43]) == 48);
-
-	// Make sure first alloc not affected:
 	assert(tc.getCapacity(s0[0 .. 45]) == 48);
 
-	// Extend some more:
+	// Extend to the maximum.
 	assert(tc.getCapacity(s0[0 .. 42]) == 0);
 	assert(tc.extend(s0[40 .. 45], 2));
 	assert(tc.getCapacity(s0[0 .. 45]) == 0);
@@ -834,37 +853,81 @@ unittest extendSmall {
 	auto s2 = tc.realloc(s0, 42, false);
 	assert(s2 is s0);
 	assert(tc.getCapacity(s2[0 .. 42]) == 48);
+	assert(tc.allocated == 152);
 
-	// Same is true for increasing:
+	// Increasing the size of the allocation
+	// should adjust capacity too.
 	auto s3 = tc.realloc(s2, 45, false);
 	assert(s3 is s2);
 	assert(tc.getCapacity(s3[0 .. 45]) == 48);
+	assert(tc.allocated == 152);
 
-	// Increase that results in size class change:
+	// Increasing the size past what's supported by
+	// the size class will cause a reallocation.
 	auto s4 = tc.realloc(s3, 70, false);
 	assert(s4 !is s3);
 	assert(tc.getCapacity(s4[0 .. 80]) == 80);
+	assert(tc.allocated == 232);
+	assert(tc.deallocated == 48);
 
-	// Decrease:
+	// Decreasing the size of the allocation so that
+	// it drops down to a lower size class also causes
+	// a reallocation.
 	auto s5 = tc.realloc(s4, 60, false);
 	assert(s5 !is s4);
 	assert(tc.getCapacity(s5[0 .. 64]) == 64);
+	assert(tc.allocated == 296);
+	assert(tc.deallocated == 128);
+
+	// Cleanup after ourselves.
+	tc.free(nonAppendable);
+	tc.free(s1);
+	tc.free(s5);
 }
 
 unittest extendLarge {
 	ThreadCache tc;
 	tc.initialize(&gExtentMap, &gBase);
 
+	size_t allocated = 0;
+	size_t deallocated = 0;
+
+	void checkAllocatedByteTracking() {
+		assert(tc.allocated == allocated);
+		assert(tc.deallocated == deallocated);
+	}
+
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		checkAllocatedByteTracking();
+		assert(tc.allocated == tc.deallocated);
+	}
+
+	enum DeadZoneSize = getPageCount(MaxSmallSize + 1) * PageSize;
+
 	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
+		// Make sure we keep track of all allocations.
+		scope(exit) checkAllocatedByteTracking();
+
 		auto ptr = tc.allocAppendable(size, false, false);
 		assert(ptr !is null);
 
+		auto asize = getPageCount(size) * PageSize;
+		allocated += asize + DeadZoneSize;
+
 		// We make sure we can't reisze the allocation by allocating a dead zone after it.
 		import d.gc.size;
-		auto deadzone = tc.alloc(MaxSmallSize + 1, false, false);
+		auto deadzone = tc.alloc(DeadZoneSize, false, false);
 		if (deadzone !is alignUp(ptr + size, PageSize)) {
 			tc.free(deadzone);
-			scope(success) tc.free(ptr);
+			deallocated += DeadZoneSize;
+
+			scope(success) {
+				tc.free(ptr);
+				deallocated += asize;
+			}
+
 			return allocAppendableWithCapacity(size, usedCapacity);
 		}
 
@@ -880,93 +943,95 @@ unittest extendLarge {
 	assert(tc.getCapacity(p0[0 .. 100]) == 16384);
 
 	// Attempt to extend valid slices with capacity 0.
-	// (See getCapacity tests.)
+	// See getCapacity tests.
 	assert(tc.extend(p0[0 .. 0], 0));
 	assert(!tc.extend(p0[0 .. 0], 50));
 	assert(!tc.extend(p0[0 .. 99], 50));
 	assert(!tc.extend(p0[1 .. 99], 50));
 	assert(!tc.extend(p0[0 .. 50], 50));
 
-	// Extend by size zero is permitted but has no effect:
+	// Extend by size zero is permitted but has no effect.
 	assert(tc.extend(p0[100 .. 100], 0));
 	assert(tc.extend(p0[0 .. 100], 0));
 	assert(tc.getCapacity(p0[0 .. 100]) == 16384);
 	assert(tc.extend(p0[50 .. 100], 0));
 	assert(tc.getCapacity(p0[50 .. 100]) == 16334);
 
-	// Attempt extend with insufficient space (one byte too many) :
+	// Attempt extend with insufficient space.
 	assert(tc.getCapacity(p0[100 .. 100]) == 16284);
 	assert(!tc.extend(p0[0 .. 100], 16285));
 	assert(!tc.extend(p0[50 .. 100], 16285));
 
-	// Extending to the limit (one less than above) succeeds:
+	// Extending to the limit succeeds.
 	assert(tc.extend(p0[50 .. 100], 16284));
 
-	// Now we're full, and can extend only by zero:
+	// Now we're full, and can extend only by zero.
 	assert(tc.extend(p0[0 .. 16384], 0));
 	assert(!tc.extend(p0[0 .. 16384], 1));
 
 	// Unless we clear the deadzone, in which case we can extend again.
-	tc.free(p0 + 16384);
+	tc.free(p0 + DeadZoneSize);
+	deallocated += DeadZoneSize;
+	checkAllocatedByteTracking();
+
 	assert(tc.extend(p0[0 .. 16384], 1));
 	assert(tc.getCapacity(p0[0 .. 16385]) == 16384 + PageSize);
 
-	// Make another appendable alloc:
+	allocated += PageSize;
+	checkAllocatedByteTracking();
+
+	// Check extensions of slices.
 	auto p1 = allocAppendableWithCapacity(16384, 100);
 	assert(tc.getCapacity(p1[0 .. 100]) == 16384);
 
-	// Valid extend :
 	assert(tc.extend(p1[0 .. 100], 50));
 	assert(tc.getCapacity(p1[100 .. 150]) == 16284);
 	assert(tc.extend(p1[0 .. 150], 0));
 
-	// Capacity of old slice becomes 0:
 	assert(tc.getCapacity(p1[0 .. 100]) == 0);
-
-	// The only permitted extend is by 0:
 	assert(tc.extend(p1[0 .. 100], 0));
-
-	// Capacity of a slice including the original and the extension:
 	assert(tc.getCapacity(p1[0 .. 150]) == 16384);
 
-	// Extend the upper half:
+	// Extent the upper half.
 	assert(tc.extend(p1[125 .. 150], 100));
 	assert(tc.getCapacity(p1[150 .. 250]) == 16234);
 
-	// Original's capacity becomes 0:
 	assert(tc.getCapacity(p1[125 .. 150]) == 0);
 	assert(tc.extend(p1[125 .. 150], 0));
 
-	// Capacity of a slice including original and extended:
 	assert(tc.extend(p1[125 .. 250], 0));
 	assert(tc.getCapacity(p1[125 .. 250]) == 16259);
-
-	// Capacity of earlier slice elongated to cover the extensions :
 	assert(tc.getCapacity(p1[0 .. 250]) == 16384);
 
-	// Extend a zero-size slice existing at the start of the free space:
+	// Extend at the very end of the slice.
 	assert(tc.extend(p1[250 .. 250], 200));
 	assert(tc.getCapacity(p1[250 .. 450]) == 16134);
 
-	// Capacity of the old slice is now 0:
 	assert(tc.getCapacity(p1[0 .. 250]) == 0);
-
-	// Capacity of a slice which includes the original and the extension:
 	assert(tc.getCapacity(p1[0 .. 450]) == 16384);
 
-	// Extend so as to fill up all but one byte of free space:
+	// Extend up to all the available space.
 	assert(tc.extend(p1[0 .. 450], 15933));
 	assert(tc.getCapacity(p1[16383 .. 16383]) == 1);
-
-	// Extend, filling up last byte of free space:
 	assert(tc.extend(p1[16383 .. 16383], 1));
 	assert(tc.getCapacity(p1[0 .. 16384]) == 16384);
 
-	// Attempt to extend, but we're full:
+	// When full, we can't extend any more.
 	assert(!tc.extend(p1[0 .. 16384], 1));
-
-	// Extend by size zero still works, though:
 	assert(tc.extend(p1[0 .. 16384], 0));
+
+	// Deallocate everything.
+	tc.free(p0);
+	deallocated += 5 * PageSize;
+	checkAllocatedByteTracking();
+
+	tc.free(p1 + DeadZoneSize);
+	deallocated += DeadZoneSize;
+	checkAllocatedByteTracking();
+
+	tc.free(p1);
+	deallocated += 4 * PageSize;
+	checkAllocatedByteTracking();
 }
 
 unittest arraySpill {

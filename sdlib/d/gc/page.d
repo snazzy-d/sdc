@@ -135,6 +135,52 @@ public:
 		return true;
 	}
 
+	bool growLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
+		assert(e !is null, "Extent is null!");
+		assert(e.isLarge(), "Expected a large extent!");
+		assert(pages > e.npages, "Invalid page count!");
+
+		uint currentPages = e.npages;
+		if (pages > PagesInBlock || pages < currentPages
+			    || currentPages >= PagesInBlock) {
+			return false;
+		}
+
+		auto n = e.blockIndex;
+		if (n + pages > PagesInBlock) {
+			return false;
+		}
+
+		uint index = n + currentPages;
+		uint delta = pages - currentPages;
+
+		if (!growAlloc(e, index, pages, delta)) {
+			return false;
+		}
+
+		auto pd = PageDescriptor(e, ExtentClass.large());
+		auto endPtr = e.address + currentPages * PageSize;
+		if (likely(emap.map(endPtr, delta, pd.next(currentPages)))) {
+			return true;
+		}
+
+		// We failed to map the new pages, unwind!
+		shrinkLarge(emap, e, currentPages);
+		return false;
+	}
+
+	void shrinkLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
+		assert(e.isLarge(), "Expected a large extent!");
+		assert(!e.isHuge(), "Does not support huge!");
+		assert(pages > 0 && pages < e.npages, "Invalid page count!");
+
+		uint delta = e.npages - pages;
+		uint index = e.blockIndex + pages;
+
+		emap.clear(e.address + pages * PageSize, delta);
+		shrinkAlloc(e, index, pages, delta);
+	}
+
 	/**
 	 * Allocate and free Pages.
 	 */
@@ -299,47 +345,6 @@ private:
 	/**
 	 * Large allocation resizing facilities, private implementation.
 	 */
-	bool growLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
-		assert(e.isLarge(), "Expected a large extent!");
-		assert(!e.isHuge(), "Does not support huge!");
-		assert(pages > e.npages, "Invalid page count!");
-
-		auto n = e.blockIndex;
-		if (n + pages > PagesInBlock) {
-			return false;
-		}
-
-		uint currentPages = e.npages;
-		uint index = n + currentPages;
-		uint delta = pages - currentPages;
-
-		if (!growAlloc(e, index, pages, delta)) {
-			return false;
-		}
-
-		auto pd = PageDescriptor(e, ExtentClass.large());
-		auto endPtr = e.address + currentPages * PageSize;
-		if (likely(emap.map(endPtr, delta, pd.next(currentPages)))) {
-			return true;
-		}
-
-		// We failed to map the new pages, unwind!
-		shrinkLarge(emap, e, currentPages);
-		return false;
-	}
-
-	void shrinkLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
-		assert(e.isLarge(), "Expected a large extent!");
-		assert(!e.isHuge(), "Does not support huge!");
-		assert(pages > 0 && pages < e.npages, "Invalid page count!");
-
-		uint delta = e.npages - pages;
-		uint index = e.blockIndex + pages;
-
-		emap.clear(e.address + pages * PageSize, delta);
-		shrinkAlloc(e, index, pages, delta);
-	}
-
 	bool growAlloc(Extent* e, uint index, uint pages, uint delta) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();

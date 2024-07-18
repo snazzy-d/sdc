@@ -155,6 +155,15 @@ public:
 		return filler.resizeLarge(emap, e, pages);
 	}
 
+	bool growLarge(ref CachedExtentMap emap, Extent* e, uint pages) shared {
+		assert(e !is null, "Extent is null!");
+		assert(e.isLarge(), "Expected a large extent!");
+		assert(e.arenaIndex == index, "Invalid arena index!");
+		assert(pages > e.npages, "Invalid page count!");
+
+		return filler.growLarge(emap, e, pages);
+	}
+
 	void freeLarge(ref CachedExtentMap emap, Extent* e) shared {
 		assert(e !is null, "Extent is null!");
 		assert(e.isLarge(), "Expected a large extent!");
@@ -388,7 +397,7 @@ unittest resizeLargeShrink {
 	assert(pd9.extent.block.full);
 }
 
-unittest resizeLargeGrow {
+unittest growLarge {
 	import d.gc.arena;
 	shared Arena arena;
 
@@ -417,7 +426,7 @@ unittest resizeLargeGrow {
 	}
 
 	void checkGrowLarge(Extent* e, uint pages) {
-		assert(arena.resizeLarge(emap, e, pages));
+		assert(arena.growLarge(emap, e, pages));
 		assert(e.npages == pages);
 
 		// Confirm that the page after the end of the extent is not included in the map:
@@ -434,21 +443,17 @@ unittest resizeLargeGrow {
 		}
 	}
 
-	// Make three allocations:
 	auto e0 = makeLargeAlloc(35);
 	auto e1 = makeLargeAlloc(64);
 	assert(e1.address == e0.address + e0.size);
 	auto e2 = makeLargeAlloc(128);
 	assert(e2.address == e1.address + e1.size);
 
-	// Grow by 0 is always permitted:
-	assert(arena.resizeLarge(emap, e0, 35));
+	// We cannot grow if there isn't enough space.
+	assert(!arena.growLarge(emap, e0, 36));
+	assert(!arena.growLarge(emap, e2, 414));
 
-	// Prohibited grow (not enough space) :
-	assert(!arena.resizeLarge(emap, e0, 36));
-	assert(!arena.resizeLarge(emap, e2, 414));
-
-	// Grow:
+	// But we can if there is space left.
 	checkGrowLarge(e2, 413);
 
 	auto pd1 = emap.lookup(e1.address);
@@ -456,12 +461,13 @@ unittest resizeLargeGrow {
 
 	checkGrowLarge(e0, 44);
 
-	// Prohibited grow (not enough space) :
-	assert(!arena.resizeLarge(emap, e0, uint.max));
-	assert(!arena.resizeLarge(emap, e0, 9999));
-	assert(!arena.resizeLarge(emap, e0, 100));
+	// There are 99 pages left after e0.
+	// Anything larger than this will fail.
+	assert(!arena.growLarge(emap, e0, uint.max));
+	assert(!arena.growLarge(emap, e0, 9999));
+	assert(!arena.growLarge(emap, e0, 100));
 
-	// Grow:
+	// Grow to take over the 99 remaining pages.
 	checkGrowLarge(e0, 99);
 	assert(e0.block.full);
 
