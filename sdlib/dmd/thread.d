@@ -22,8 +22,15 @@ void __sd_scanAllThreadsFn(ScanDg* context, void* start, void* end) {
 
 // sdrt API.
 void __sd_thread_scan(ScanDg scan) {
-	// When druntime is being used, all thread scanning is done by
-	// thread_scanAll_C, and not via SDC's thread scanning.
+	/**
+	 * Note, this is needed, even though druntime will pass in the thread
+	 * stacks to scan. The thread calling the collect will have its stack
+	 * passed in and added to the worklist (see scanner.d), but by the time the
+	 * stack is scanned, it may no longer have the saved registers. Therefore,
+	 * we need to scan the registers now.
+	 */
+	import d.rt.stack;
+	__sd_stack_scan(scan);
 }
 
 void __sd_global_scan(ScanDg scan) {
