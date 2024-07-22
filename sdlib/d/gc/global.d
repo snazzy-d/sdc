@@ -18,7 +18,7 @@ public:
 		return (c + 1) & ubyte.max;
 	}
 
-    /**
+	/**
      * Add a block of scannable data as a root to possible GC memory. This
      * range will be scanned on proper alignment boundaries if it potentially
      * could contain pointers.
@@ -35,7 +35,7 @@ public:
 		(cast(GCState*) &this).addRootsImpl(range);
 	}
 
-    /**
+	/**
      * Remove the root (if present) that begins with the given pointer.
      */
 	void removeRoots(const void* ptr) shared {
@@ -84,6 +84,7 @@ private:
 			if (cast(void*) roots[i].ptr == ptr) {
 				auto length = roots.length - 1;
 				roots[i] = roots[length];
+				roots[length] = [];
 				import d.gc.tcache;
 				auto newRoots = threadCache
 					.realloc(roots.ptr, length * void*[].sizeof, true);
