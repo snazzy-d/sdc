@@ -213,13 +213,13 @@ public:
 						goto LargeResizeFailed;
 					}
 
-					allocated += (npages - epages) * PageSize;
+					triggerAllocationEvent((npages - epages) * PageSize);
 				} else if (epages > npages) {
 					if (!pd.arena.shrinkLarge(emap, e, npages)) {
 						goto LargeResizeFailed;
 					}
 
-					deallocated += (epages - npages) * PageSize;
+					triggerDeallocationEvent((epages - npages) * PageSize);
 				}
 
 				e.setUsedCapacity(size);
@@ -273,7 +273,7 @@ private:
 			memset(ptr, 0, slotSize);
 		}
 
-		allocated += slotSize;
+		triggerAllocationEvent(slotSize);
 		return ptr;
 	}
 
@@ -308,10 +308,10 @@ private:
 
 		auto ec = pd.extentClass;
 		auto sc = ec.sizeClass;
-		deallocated += binInfos[sc].slotSize;
-
 		auto index = getBinIndex(sc, pd.containsPointers);
+
 		bins[index].free(emap, pd, ptr);
+		triggerDeallocationEvent(binInfos[sc].slotSize);
 	}
 
 	/**
@@ -324,7 +324,7 @@ private:
 			return null;
 		}
 
-		allocated += pages * PageSize;
+		triggerAllocationEvent(pages * PageSize);
 		return ptr;
 	}
 
@@ -332,8 +332,21 @@ private:
 		assert(!pd.isSlab(), "Slab are not supported!");
 
 		auto e = pd.extent;
-		deallocated += e.npages * PageSize;
+		auto npages = e.npages;
+
 		pd.arena.freeLarge(emap, e);
+		triggerDeallocationEvent(npages * PageSize);
+	}
+
+	/**
+	 * Bytes accounting.
+	 */
+	void triggerAllocationEvent(size_t bytes) {
+		allocated += bytes;
+	}
+
+	void triggerDeallocationEvent(size_t bytes) {
+		deallocated += bytes;
 	}
 
 	/**
@@ -401,7 +414,7 @@ private:
 				return false;
 			}
 
-			allocated += (npages - epages) * PageSize;
+			triggerAllocationEvent((npages - epages) * PageSize);
 		}
 
 		e.setUsedCapacity(newCapacity);
