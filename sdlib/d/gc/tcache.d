@@ -30,7 +30,7 @@ private:
 	 * This also ensure that, when we take the locks, we amortize
 	 * the cost of doing over numerous allocations.
 	 */
-	ThreadBin[2 * BinCount] bins;
+	ThreadBin[ThreadBinCount] bins;
 	void*[ThreadCacheSize] binBuffer;
 
 	/**
@@ -42,7 +42,7 @@ private:
 	 */
 	const(void*)[][] tlsSegments;
 
-	ThreadBinState[2 * BinCount] binStates;
+	ThreadBinState[ThreadBinCount] binStates;
 
 public:
 	void initialize(shared(ExtentMap)* emap, shared(Base)* base) {

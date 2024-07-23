@@ -14,6 +14,8 @@ enum SlotsMultiplier = 2;
 enum MaxCapacity = 200;
 enum MinCapacity = 20;
 
+enum ThreadBinCount = 2 * BinCount;
+
 /**
  * The ThreadBin manages a cache associated with a given size class.
  * 
