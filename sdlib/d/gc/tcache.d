@@ -310,7 +310,7 @@ private:
 		auto sc = ec.sizeClass;
 		auto index = getBinIndex(sc, pd.containsPointers);
 
-		bins[index].free(emap, pd, ptr);
+		bins[index].free(emap, ptr);
 		triggerDeallocationEvent(binInfos[sc].slotSize);
 	}
 

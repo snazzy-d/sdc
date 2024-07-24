@@ -99,7 +99,7 @@ public:
 		return true;
 	}
 
-	void free(ref CachedExtentMap emap, PageDescriptor pd, void* ptr) {
+	void free(ref CachedExtentMap emap, void* ptr) {
 		if (likely(freeEasy(ptr))) {
 			return;
 		}
