@@ -90,7 +90,7 @@ public:
 		state.refilled = true;
 	}
 
-	bool freeEasy(void* ptr) {
+	bool free(void* ptr) {
 		if (unlikely(full)) {
 			return false;
 		}
@@ -99,11 +99,7 @@ public:
 		return true;
 	}
 
-	void free(ref CachedExtentMap emap, void* ptr) {
-		if (likely(freeEasy(ptr))) {
-			return;
-		}
-
+	void flushToFree(ref CachedExtentMap emap) {
 		/**
 		 * We do not have enough space in the bin, so start flushing.
 		 * However, we do not want to flush all of it, as it would leave
@@ -116,11 +112,9 @@ public:
 		 */
 		auto nretain = (nmax / 2) - (nlowWater / 4);
 		flush(emap, nretain);
-		auto success = freeEasy(ptr);
-		assert(success, "Unable to free!");
 	}
 
-	void flush(ref CachedExtentMap emap) {
+	void fullFlush(ref CachedExtentMap emap) {
 		flush(emap, 0);
 	}
 

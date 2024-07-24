@@ -248,7 +248,7 @@ public:
 
 	void flushCache() {
 		foreach (ref b; bins) {
-			b.flush(emap);
+			b.fullFlush(emap);
 		}
 	}
 
@@ -308,10 +308,22 @@ private:
 
 		auto ec = pd.extentClass;
 		auto sc = ec.sizeClass;
-		auto index = getBinIndex(sc, pd.containsPointers);
 
-		bins[index].free(emap, ptr);
+		// We trigger the deallocation event first as it might
+		// recycle the bin we are interested in, which increase
+		// our chances that free works.
 		triggerDeallocationEvent(binInfos[sc].slotSize);
+
+		auto index = getBinIndex(sc, pd.containsPointers);
+		auto bin = &bins[index];
+		if (likely(bin.free(ptr))) {
+			return;
+		}
+
+		bin.flushToFree(emap);
+
+		auto success = bin.free(ptr);
+		assert(success, "Unable to free!");
 	}
 
 	/**
