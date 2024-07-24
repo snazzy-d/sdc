@@ -75,8 +75,18 @@ public:
 
 	void refill(ref CachedExtentMap emap, shared(Arena)* arena,
 	            ref ThreadBinState state, ubyte sizeClass, size_t slotSize) {
-		_head =
-			arena.batchAllocSmall(emap, sizeClass, _head, available, slotSize);
+		auto nfill = nmax >> state.fillShift;
+		assert(nfill > 0);
+
+		/**
+		 * TODO: We should pass available in addition to nfill to batchAllocSmall.
+		 *       This would ensure batchAllocSmall has some wiggle room to provide
+		 *       as many slots as possible without allocating new slabs.
+		 */
+		auto insert = _head - nfill;
+		assert(available <= insert);
+
+		_head = arena.batchAllocSmall(emap, sizeClass, _head, insert, slotSize);
 		state.refilled = true;
 	}
 
@@ -294,6 +304,7 @@ private:
 
 struct ThreadBinState {
 	bool refilled;
+	ubyte fillShift;
 }
 
 bool isValidThreadBinCapacity(uint capacity) {
@@ -473,4 +484,46 @@ unittest addresses {
 	tbin._head = ptr2 + 50;
 	assert(!tbin.empty);
 	assert(tbin.full);
+}
+
+unittest refill {
+	import d.gc.arena;
+	shared Arena arena;
+
+	auto base = &arena.base;
+	scope(exit) arena.base.clear();
+
+	import d.gc.emap;
+	static shared ExtentMap emapStorage;
+	auto emap = CachedExtentMap(&emapStorage, base);
+
+	import d.gc.region;
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = base;
+
+	arena.filler.regionAllocator = &regionAllocator;
+
+	enum BinSize = 200;
+
+	for (ubyte shift = 0; (BinSize >> shift) > 0; shift++) {
+		// Setup the bin.
+		void*[BinSize] buffer;
+		auto tbin = ThreadBin(buffer[0 .. BinSize]);
+		assert(tbin.empty);
+
+		// Setup the state.
+		ThreadBinState state;
+		state.fillShift = shift;
+
+		import d.gc.slab;
+		enum SizeClass = 0;
+		auto slotSize = binInfos[SizeClass].slotSize;
+
+		// Refill without shift willr efill the whole bin.
+		tbin.refill(emap, &arena, state, SizeClass, slotSize);
+
+		assert(state.refilled, "Thread bin not refilled!");
+		assert(tbin.ncached == BinSize >> shift,
+		       "Invalid cached element count!");
+	}
 }
