@@ -320,7 +320,7 @@ private:
 			return;
 		}
 
-		bin.flushToFree(emap);
+		bin.flushToFree(emap, binStates[index]);
 
 		auto success = bin.free(ptr);
 		assert(success, "Unable to free!");

@@ -75,7 +75,7 @@ public:
 
 	void refill(ref CachedExtentMap emap, shared(Arena)* arena,
 	            ref ThreadBinState state, ubyte sizeClass, size_t slotSize) {
-		auto nfill = nmax >> state.fillShift;
+		auto nfill = state.getFill(nmax);
 		assert(nfill > 0);
 
 		/**
@@ -99,7 +99,14 @@ public:
 		return true;
 	}
 
-	void flushToFree(ref CachedExtentMap emap) {
+	void flushToFree(ref CachedExtentMap emap, ref ThreadBinState state) {
+		/**
+		 * When we use free explicitely, we want to make sure we have room
+		 * left in the bin to accomodate further freed elements, even in case
+		 * where we refill.
+		 */
+		state.onFlush();
+
 		/**
 		 * We do not have enough space in the bin, so start flushing.
 		 * However, we do not want to flush all of it, as it would leave
@@ -298,7 +305,25 @@ private:
 
 struct ThreadBinState {
 	bool refilled;
+	bool flushed;
 	ubyte fillShift;
+
+	uint getFill(ushort nmax) const {
+		return nmax >> fillShift;
+	}
+
+	bool onFlush() {
+		if (flushed) {
+			return false;
+		}
+
+		flushed = true;
+		if (fillShift == 0) {
+			fillShift++;
+		}
+
+		return true;
+	}
 }
 
 bool isValidThreadBinCapacity(uint capacity) {
@@ -520,4 +545,33 @@ unittest refill {
 		assert(tbin.ncached == BinSize >> shift,
 		       "Invalid cached element count!");
 	}
+}
+
+unittest flushed {
+	enum BinSize = 200;
+
+	// Setup the state.
+	ThreadBinState state;
+	assert(!state.flushed, "Thread bin flushed!");
+	assert(state.getFill(BinSize) == BinSize, "Unexpected fill!");
+
+	// When we flush, we reduce the max fill.
+	state.onFlush();
+
+	assert(state.flushed, "Thread bin not flushed!");
+	assert(state.getFill(BinSize) == BinSize / 2, "Unexpected fill!");
+
+	// On repeat, nothing happens.
+	state.onFlush();
+
+	assert(state.flushed, "Thread bin not flushed!");
+	assert(state.getFill(BinSize) == BinSize / 2, "Unexpected fill!");
+
+	// When flushed is cleared, we redo, but never
+	// reduce fill to less than half the bin.
+	state.flushed = false;
+	state.onFlush();
+
+	assert(state.flushed, "Thread bin not flushed!");
+	assert(state.getFill(BinSize) == BinSize / 2, "Unexpected fill!");
 }
