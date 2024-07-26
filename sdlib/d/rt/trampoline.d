@@ -8,10 +8,18 @@ alias PthreadFunction = void* function(void*);
 extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
                              PthreadFunction start_routine, void* arg) {
 	auto runner = ThreadRunner(start_routine, arg);
-	scope(success) runner.waitForRelease();
 
-	return pthread_create_trampoline(thread, attr,
-	                                 cast(PthreadFunction) runThread, &runner);
+	auto result =
+		pthread_create_trampoline(thread, attr, cast(PthreadFunction) runThread,
+		                          &runner);
+
+	if (result == 0) {
+		runner.waitForRelease();
+	} else {
+		runner.release();
+	}
+
+	return result;
 }
 
 private:
