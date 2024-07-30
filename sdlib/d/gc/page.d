@@ -664,30 +664,41 @@ private:
 		}
 	}
 
-	static void finalizeSlabNimble(size_t nimbleBits, int sizeClass, void* base,
-	                               size_t nimbleIndex) {
-		if (nimbleBits == 0) {
+	static
+	void finalizeSlabNimble(ulong evicted, ulong metadataFlags, int sizeClass,
+	                        Extent* e, size_t nimbleIndex) {
+		auto toFinalize = evicted & metadataFlags;
+		if (toFinalize == 0) {
 			return;
 		}
 
 		import d.gc.slab;
-		auto ssize = binInfos[sizeClass].slotSize;
-		void* nimbleBase = base + (nimbleIndex * 64 * ssize);
+		auto slotSize = binInfos[sizeClass].slotSize;
+		void* nimbleBase = e.address + (nimbleIndex * 64 * slotSize);
 
-		// All set bits in nimbleBits have metadata.
-		while (nimbleBits != 0) {
-			auto index = countTrailingZeros(nimbleBits);
-			void* ptr = nimbleBase + index * ssize;
+		// All set bits in toFinalize have metadata.
+		while (toFinalize != 0) {
+			auto index = countTrailingZeros(toFinalize);
+			void* ptr = nimbleBase + index * slotSize;
 
-			auto metadata = SlotMetadata.fromBlock(ptr, ssize);
+			auto metadata = SlotMetadata.fromBlock(ptr, slotSize);
 			auto finalizer = metadata.finalizer;
 			if (finalizer) {
 				import d.finalizer;
-				__sd_run_finalizer(ptr, ssize - metadata.freeSpace, finalizer);
+				__sd_run_finalizer(ptr, slotSize - metadata.freeSpace,
+				                   finalizer);
 			}
 
-			nimbleBits &= (nimbleBits - 1);
+			toFinalize &= (toFinalize - 1);
 		}
+
+		/**
+		 * /!\ This is not atomic. If we want to collect concurently, we'll
+		 *     need to do this atomically. This will do for now.
+		 */
+		// Clear the metadata of element we collected.
+		metadataFlags &= ~evicted;
+		e.slabMetadataFlags.rawContent[nimbleIndex] = metadataFlags;
 	}
 
 	void collectDenseAllocations(ref CachedExtentMap emap,
@@ -751,10 +762,8 @@ private:
 						continue;
 					}
 
-					auto evictedWithMetadata =
-						evicted & e.slabMetadataFlags.rawContent[i];
-
-					finalizeSlabNimble(evictedWithMetadata, sc, e.address, i);
+					auto metadataFlags = e.slabMetadataFlags.rawContent[i];
+					finalizeSlabNimble(evicted, metadataFlags, sc, e, i);
 				}
 
 				// The slab is empty.
@@ -822,11 +831,11 @@ private:
 					continue;
 				}
 
-				auto slotsWithMeta = e.slabMetadataFlags.rawContent[0];
+				auto metadataFlags = e.slabMetadataFlags.rawContent[0];
 
 				// If the cycle do not match, all the elements are dead. If no
 				// metadata exists, then we can safely clear the whole thing.
-				if (slotsWithMeta == 0 && (w & 0xff) != gcCycle) {
+				if (metadataFlags == 0 && (w & 0xff) != gcCycle) {
 					deadExtents.insert(e);
 					continue;
 				}
@@ -834,10 +843,9 @@ private:
 				auto oldOccupancy = e.slabData.rawContent[0];
 				auto newOccupancy = oldOccupancy & (w >> 8);
 				auto evicted = oldOccupancy ^ newOccupancy;
-				auto evictedWithMeta = slotsWithMeta & evicted;
 
 				// Call any finalizers on dying slots.
-				finalizeSlabNimble(evictedWithMeta, ec.sizeClass, e.address, 0);
+				finalizeSlabNimble(evicted, metadataFlags, ec.sizeClass, e, 0);
 
 				// The slab is empty.
 				if (newOccupancy == 0) {
