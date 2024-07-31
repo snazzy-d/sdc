@@ -64,5 +64,5 @@ void checkUnlikely(bool b) {
 	// CHECK: ret void
 }
 
-// CHECK-DAG: [[LIKELY]] = !{!"branch_weights", i32 2000, i32 1}
-// CHECK-DAG: [[UNLIKELY]] = !{!"branch_weights", i32 1, i32 2000}
+// CHECK-DAG: [[LIKELY]] = !{!"branch_weights", !"expected", i32 2000, i32 1}
+// CHECK-DAG: [[UNLIKELY]] = !{!"branch_weights", !"expected", i32 1, i32 2000}

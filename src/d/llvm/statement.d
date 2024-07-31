@@ -214,7 +214,7 @@ struct StatementGen {
 
 		auto type = LLVMFunctionType(i32, &llvmPtr, 1, false);
 		return statementGenData.llvmEhTypeIdFor =
-			LLVMAddFunction(dmodule, "llvm.eh.typeid.for".ptr, type);
+			LLVMAddFunction(dmodule, "llvm.eh.typeid.for.p0", type);
 	}
 
 	private auto genExpression(Expression e) {

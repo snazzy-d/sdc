@@ -17,10 +17,10 @@ void doAlloca(size_t s) {
 ulong doPopCount(ubyte n1, ushort n2, uint n3, ulong n4) {
 	return popCount(n1) + popCount(n2) + popCount(n3) + popCount(n4);
 	// CHECK-LABEL: _D10intrinsics10doPopCountFMhtkmZm
-	// CHECK: call i8 @llvm.ctpop.i8(i8 {{.*}})
-	// CHECK: call i16 @llvm.ctpop.i16(i16 {{.*}})
-	// CHECK: call i32 @llvm.ctpop.i32(i32 {{.*}})
-	// CHECK: call i64 @llvm.ctpop.i64(i64 {{.*}})
+	// CHECK: call range(i8 0, 9) i8 @llvm.ctpop.i8(i8 {{.*}})
+	// CHECK: call range(i16 0, 17) i16 @llvm.ctpop.i16(i16 {{.*}})
+	// CHECK: call range(i32 0, 33) i32 @llvm.ctpop.i32(i32 {{.*}})
+	// CHECK: call range(i64 0, 65) i64 @llvm.ctpop.i64(i64 {{.*}})
 }
 
 ulong doCountLeadingZeros(ubyte n1, ushort n2, uint n3, ulong n4) {
@@ -28,10 +28,10 @@ ulong doCountLeadingZeros(ubyte n1, ushort n2, uint n3, ulong n4) {
 	auto b = countLeadingZeros(n3) + countLeadingZeros(n4);
 	return a + b;
 	// CHECK-LABEL: _D10intrinsics19doCountLeadingZerosFMhtkmZm
-	// CHECK: call i8 @llvm.ctlz.i8(i8 {{.*}})
-	// CHECK: call i16 @llvm.ctlz.i16(i16 {{.*}})
-	// CHECK: call i32 @llvm.ctlz.i32(i32 {{.*}})
-	// CHECK: call i64 @llvm.ctlz.i64(i64 {{.*}})
+	// CHECK: call range(i8 0, 9) i8 @llvm.ctlz.i8(i8 {{.*}})
+	// CHECK: call range(i16 0, 17) i16 @llvm.ctlz.i16(i16 {{.*}})
+	// CHECK: call range(i32 0, 33) i32 @llvm.ctlz.i32(i32 {{.*}})
+	// CHECK: call range(i64 0, 65) i64 @llvm.ctlz.i64(i64 {{.*}})
 }
 
 ulong doCountTrailingZeros(ubyte n1, ushort n2, uint n3, ulong n4) {
@@ -39,10 +39,10 @@ ulong doCountTrailingZeros(ubyte n1, ushort n2, uint n3, ulong n4) {
 	auto b = countTrailingZeros(n3) + countTrailingZeros(n4);
 	return a + b;
 	// CHECK-LABEL: _D10intrinsics20doCountTrailingZerosFMhtkmZm
-	// CHECK: call i8 @llvm.cttz.i8(i8 {{.*}})
-	// CHECK: call i16 @llvm.cttz.i16(i16 {{.*}})
-	// CHECK: call i32 @llvm.cttz.i32(i32 {{.*}})
-	// CHECK: call i64 @llvm.cttz.i64(i64 {{.*}})
+	// CHECK: call range(i8 0, 9) i8 @llvm.cttz.i8(i8 {{.*}})
+	// CHECK: call range(i16 0, 17) i16 @llvm.cttz.i16(i16 {{.*}})
+	// CHECK: call range(i32 0, 33) i32 @llvm.cttz.i32(i32 {{.*}})
+	// CHECK: call range(i64 0, 65) i64 @llvm.cttz.i64(i64 {{.*}})
 }
 
 ulong doBswap(ushort n1, uint n2, ulong n3) {
