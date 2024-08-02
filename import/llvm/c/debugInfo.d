@@ -13,7 +13,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-module llvm.c.core;
+module llvm.c.debugInfo;
 
 public import llvm.c.types;
 
@@ -67,7 +67,7 @@ enum LLVMDIFlags {
                   Public,
   PtrToMemberRep = SingleInheritance |
                    MultipleInheritance |
-                   Inheritance,
+                   VirtualInheritance,
 }
 
 /**
@@ -147,7 +147,7 @@ enum LLVMDWARFSourceLanguage {
  * The amount of debug information to emit.
  */
 enum LLVMDWARFEmissionKind {
-    one = 0,
+    None = 0,
     Full,
     LineTablesOnly,
 }
@@ -1165,7 +1165,7 @@ LLVMMetadataRef LLVMDIBuilderCreateGlobalVariableExpression(
 /**
  * Get the dwarf::Tag of a DINode
  */
-uint16_t LLVMGetDINodeTag(LLVMMetadataRef MD);
+ushort LLVMGetDINodeTag(LLVMMetadataRef MD);
 
 /**
  * Retrieves the \c DIVariable associated with this global variable expression.
@@ -1206,7 +1206,7 @@ LLVMMetadataRef LLVMDIVariableGetScope(LLVMMetadataRef Var);
  *
  * @see DIVariable::getLine()
  */
-unsigned LLVMDIVariableGetLine(LLVMMetadataRef Var);
+uint LLVMDIVariableGetLine(LLVMMetadataRef Var);
 
 /**
  * Create a new temporary \c MDNode.  Suitable for use in constructing cyclic
@@ -1529,7 +1529,7 @@ void LLVMSetSubprogram(LLVMValueRef Func, LLVMMetadataRef SP);
  *
  * @see DISubprogram::getLine()
  */
-unsigned LLVMDISubprogramGetLine(LLVMMetadataRef Subprogram);
+uint LLVMDISubprogramGetLine(LLVMMetadataRef Subprogram);
 
 /**
  * Get the debug location for the given instruction.
