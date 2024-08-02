@@ -61,7 +61,7 @@ public:
 			LLVMCodeGenOptLevel.Default, Reloc, LLVMCodeModel.Default);
 
 		auto pass = new CodeGen(sema, name, this, targetMachine);
-		globalGen = GlobalGen(pass, name);
+		globalGen = GlobalGen(pass);
 		dataLayout = new LLVMDataLayout(pass, pass.targetData);
 	}
 

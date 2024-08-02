@@ -69,7 +69,7 @@ private:
 
 public:
 	this(CodeGen pass) {
-		globalGen = GlobalGen(pass, "sdc.jit", Mode.Eager);
+		globalGen = GlobalGen(pass, Mode.Eager);
 	}
 
 	Constant evaluate(Expression e) {

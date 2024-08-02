@@ -44,7 +44,7 @@ public:
 	IntrinsicGenData intrinsicGenData;
 
 public:
-	this(CodeGen pass, string name, Mode mode = Mode.Lazy) {
+	this(CodeGen pass, Mode mode = Mode.Lazy) {
 		this.pass = pass;
 		this.mode = mode;
 
