@@ -796,7 +796,35 @@ struct ExpressionGen {
 		}
 
 		auto type = typeGen.getFunctionType(cType);
-		return buildCall(callee, type, args);
+		auto call = buildCall(callee, type, args);
+
+		/**
+		 * Generate debug information if need be.
+		 * 
+		 * FIXME: At this stage we lonly try to generate debug informations
+		 *        to describe functions. However, that means we also need
+		 *        to generate location for calls, so that inlining can be
+		 *        done while preserving debug metadata.
+		 *        Ultimately, we want to generate debug informations for
+		 *        all generated instructions.
+		 */
+		auto insertBB = LLVMGetInsertBlock(builder);
+		auto fun = LLVMGetBasicBlockParent(insertBB);
+
+		import llvm.c.debugInfo;
+		auto di = LLVMGetSubprogram(fun);
+		if (di !is null) {
+			auto floc = c.location.getFullLocation(context);
+			auto line = floc.getStartLineNumber();
+			auto column = floc.getStartColumn();
+
+			auto loc = LLVMDIBuilderCreateDebugLocation(
+				llvmCtx, line, column, di, null /* LLVMMetadataRef InlinedAt */
+			);
+			LLVMInstructionSetDebugLoc(call, loc);
+		}
+
+		return call;
 	}
 
 	LLVMValueRef visit(CallExpression c) {

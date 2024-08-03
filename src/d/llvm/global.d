@@ -1,6 +1,7 @@
 module d.llvm.global;
 
 import d.llvm.codegen;
+import d.llvm.debuginfo;
 
 import d.ir.symbol;
 
@@ -63,6 +64,7 @@ public:
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 
+		DebugInfoScopeGen(this).define(m);
 		foreach (s; m.members) {
 			define(s);
 		}

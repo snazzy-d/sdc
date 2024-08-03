@@ -14,6 +14,17 @@ import llvm.c.targetMachine;
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
+/**
+ * FIXME: This part of the backend's structure is wrong.
+ *        Most of the CodeGen related state is in GlobalGen,
+ *        When it should be in there. In turn, GlobalGen should contain
+ *        no state such as it can be insteaciate on the fly using a Codegen
+ *        object.
+ *        In turn, other parts of the backend, such as LocalGen should
+ *        reference CodeGen instead of GlobalGen.
+ *        In addition, the LLVMBackend object should not pre-instanciate
+ *        a GlobalGen object as this can now be done lazily.
+ */
 final class CodeGen {
 	import source.context;
 	Context context;

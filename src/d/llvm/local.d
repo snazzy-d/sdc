@@ -31,10 +31,9 @@ struct LocalGen {
 	LLVMBuilderRef builder;
 
 	LLVMValueRef ctxPtr;
+	Closure[] contexts;
 
 	LLVMValueRef[ValueSymbol] locals;
-
-	Closure[] contexts;
 
 	LLVMValueRef lpContext;
 	LLVMBasicBlockRef lpBB;
@@ -184,6 +183,14 @@ struct LocalGen {
 			return false;
 		}
 
+		// Generate debug infos.
+		import d.llvm.debuginfo;
+		auto di = DebugInfoScopeGen(pass.pass).define(f);
+
+		import llvm.c.debugInfo;
+		LLVMSetSubprogram(fun, di);
+
+		// Generate body.
 		auto contexts = f.hasContext ? this.contexts : [];
 		LocalGen(pass, contexts).genBody(f, fun);
 
