@@ -215,10 +215,9 @@ struct DebugInfoScopeGen {
 		auto name = f.name.toString(context);
 
 		auto t = f.type;
-		auto diType = DebugInfoTypeGen(pass).visit(t);
-		auto type = TypeGen(pass).visit(t);
-		auto size = 8 * LLVMABISizeOfType(targetData, type);
-		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
+		auto type = DebugInfoTypeGen(pass).visit(t);
+		auto size = LLVMDITypeGetSizeInBits(type);
+		auto dalign = LLVMDITypeGetAlignInBits(type);
 
 		// Bump the offset to ensure proper alignment.
 		offset += dalign - 1;
@@ -227,7 +226,7 @@ struct DebugInfoScopeGen {
 		scope(success) offset += size;
 		return LLVMDIBuilderCreateMemberType(
 			builder, tmp, name.ptr, name.length, fl.file, fl.line, size, dalign,
-			offset, LLVMDIFlags.Zero, diType, );
+			offset, LLVMDIFlags.Zero, type);
 	}
 
 	LLVMMetadataRef visit(Struct s) {
@@ -249,7 +248,7 @@ struct DebugInfoScopeGen {
 		auto size = 8 * LLVMABISizeOfType(targetData, type);
 		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
 
-		// Make sure we have a temporary structure to refer to in case we need it.
+		// Make sure we have a temporary composite to refer to in case we need it.
 		enum DW_TAG_structure_type = 0x0013;
 		auto tmp = symbolScopes[s] =
 			LLVMDIBuilderCreateReplaceableCompositeType(
@@ -299,6 +298,97 @@ struct DebugInfoScopeGen {
 		LLVMMetadataReplaceAllUsesWith(tmp, ret);
 		return ret;
 	}
+
+	LLVMMetadataRef visit(Class c) {
+		if (auto cPtr = c in symbolScopes) {
+			return *cPtr;
+		}
+
+		// Generating the parent scope might trigger this class's generation.
+		auto parentScope = visit(c.getParentScope());
+		if (auto cPtr = c in symbolScopes) {
+			return *cPtr;
+		}
+
+		auto fl = getFileAndLine(c.location);
+		auto name = c.name.toString(context);
+		auto mangle = c.mangle.toString(context);
+
+		auto type = TypeGen(pass).getClassStructure(c);
+		auto size = 8 * LLVMABISizeOfType(targetData, type);
+		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
+
+		// Make sure we have a temporary composite to refer to in case we need it.
+		enum DW_TAG_class_type = 0x0002;
+		auto tmp = symbolScopes[c] =
+			LLVMDIBuilderCreateReplaceableCompositeType(
+				builder,
+				DW_TAG_class_type,
+				name.ptr,
+				name.length,
+				parentScope,
+				fl.file,
+				fl.line,
+				0, // uint RuntimeLang
+				size,
+				dalign,
+				LLVMDIFlags.Zero,
+				mangle.ptr,
+				mangle.length,
+			);
+
+		auto baseFieldCount = c.base.fields.length;
+		auto base = visit(c.base);
+
+		LLVMMetadataRef[] elements;
+		elements.length = c.fields.length - baseFieldCount + 1;
+
+		if (c is c.base) {
+			assert(elements.length == 1);
+
+			ulong offset = 0;
+			elements[0] = getField(c.fields[0], tmp, offset);
+		} else {
+			elements[0] = LLVMDIBuilderCreateInheritance(
+				builder,
+				tmp,
+				base,
+				0, // ulong BaseOffset
+				0, // uint VBPtrOffset
+				LLVMDIFlags.Zero,
+			);
+
+			ulong offset = LLVMDITypeGetSizeInBits(base);
+			foreach (i; 1 .. elements.length) {
+				auto f = c.fields[baseFieldCount + i - 1];
+				elements[i] = getField(f, tmp, offset);
+			}
+		}
+
+		auto ret = symbolScopes[c] = LLVMDIBuilderCreateClassType(
+			builder,
+			parentScope,
+			name.ptr,
+			name.length,
+			fl.file,
+			fl.line,
+			size,
+			dalign,
+			0, // ulong OffsetInBits
+			LLVMDIFlags.Zero,
+			null, // LLVMMetadataRef DerivedFrom
+			elements.ptr,
+			cast(uint) elements.length,
+			base, // LLVMMetadataRef VTableHolder
+			null, // LLVMMetadataRef TemplateParamsNode
+			mangle.ptr,
+			mangle.length,
+		);
+
+		// Now we swap our temporary for the real thing.
+		LLVMMetadataReplaceAllUsesWith(tmp, ret);
+		return ret;
+	}
 }
 
 struct DebugInfoTypeGen {
@@ -318,15 +408,15 @@ struct DebugInfoTypeGen {
 		return t.accept(this);
 	}
 
+	private auto getReference(LLVMMetadataRef type) {
+		enum DW_TAG_reference_type = 0x0010;
+		return LLVMDIBuilderCreateReferenceType(builder, DW_TAG_reference_type,
+		                                        type);
+	}
+
 	auto visit(ParamType pt) {
 		auto t = visit(pt.getType());
-		if (pt.isRef) {
-			enum DW_TAG_reference_type = 0x0010;
-			t = LLVMDIBuilderCreateReferenceType(builder, DW_TAG_reference_type,
-			                                     t);
-		}
-
-		return t;
+		return pt.isRef ? getReference(t) : t;
 	}
 
 	LLVMMetadataRef visit(BuiltinType t) {
@@ -375,7 +465,7 @@ struct DebugInfoTypeGen {
 		auto cname = LLVMDITypeGetName(dt, &len);
 
 		auto name = cname[0 .. len] ~ '*';
-		return LLVMDIBuilderCreatePointerType(builder, dt, 8, 8, 0, name.ptr,
+		return LLVMDIBuilderCreatePointerType(builder, dt, 64, 64, 0, name.ptr,
 		                                      name.length);
 	}
 
@@ -396,7 +486,8 @@ struct DebugInfoTypeGen {
 	}
 
 	LLVMMetadataRef visit(Class c) in(c.step >= Step.Signed) {
-		assert(0, "Class type can't be generated.");
+		auto s = DebugInfoScopeGen(pass).visit(c);
+		return getReference(s);
 	}
 
 	LLVMMetadataRef visit(Enum e) {
