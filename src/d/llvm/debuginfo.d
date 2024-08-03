@@ -5,6 +5,7 @@ import d.ir.symbol;
 import d.ir.type;
 
 import d.llvm.codegen;
+import d.llvm.type;
 
 import source.location;
 import source.manager;
@@ -13,6 +14,7 @@ import util.visitor;
 
 import llvm.c.core;
 import llvm.c.debugInfo;
+import llvm.c.target;
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
@@ -58,6 +60,12 @@ struct DebugInfoData {
 			SDK.ptr,
 			SDK.length,
 		);
+	}
+
+	void finalize() {
+		if (builder) {
+			LLVMDIBuilderFinalize(builder);
+		}
 	}
 
 	void dispose() {
@@ -201,6 +209,97 @@ struct DebugInfoScopeGen {
 			false, // LLVMBool IsOptimized
 		);
 	}
+
+	LLVMMetadataRef getField(Field f, LLVMMetadataRef tmp) {
+		auto fl = getFileAndLine(f.location);
+		auto name = f.name.toString(context);
+
+		auto t = f.type;
+		auto diType = DebugInfoTypeGen(pass).visit(t);
+		auto type = TypeGen(pass).visit(t);
+		auto size = 8 * LLVMABISizeOfType(targetData, type);
+		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
+
+		return LLVMDIBuilderCreateMemberType(
+			builder,
+			tmp,
+			name.ptr,
+			name.length,
+			fl.file,
+			fl.line,
+			size,
+			dalign,
+			0, // ulong OffsetInBits
+			LLVMDIFlags.Zero,
+			diType,
+		);
+	}
+
+	LLVMMetadataRef visit(Struct s) {
+		if (auto sPtr = s in symbolScopes) {
+			return *sPtr;
+		}
+
+		// Generating the parent scope might trigger this struct's generation.
+		auto parentScope = visit(s.getParentScope());
+		if (auto sPtr = s in symbolScopes) {
+			return *sPtr;
+		}
+
+		auto fl = getFileAndLine(s.location);
+		auto name = s.name.toString(context);
+		auto mangle = s.mangle.toString(context);
+
+		auto type = TypeGen(pass).visit(s);
+		auto size = 8 * LLVMABISizeOfType(targetData, type);
+		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
+
+		// Make sure we have a temporary structure to refer to in case we need it.
+		enum DW_TAG_structure_type = 0x0013;
+		auto tmp = symbolScopes[s] =
+			LLVMDIBuilderCreateReplaceableCompositeType(
+				builder,
+				DW_TAG_structure_type,
+				name.ptr,
+				name.length,
+				parentScope,
+				fl.file,
+				fl.line,
+				0, // uint RuntimeLang
+				size,
+				dalign,
+				LLVMDIFlags.Zero,
+				mangle.ptr,
+				mangle.length,
+			);
+
+		import std.algorithm, std.array;
+		LLVMMetadataRef[] elements =
+			s.fields.map!(f => getField(f, tmp)).array();
+
+		auto ret = symbolScopes[s] = LLVMDIBuilderCreateStructType(
+			builder,
+			parentScope,
+			name.ptr,
+			name.length,
+			fl.file,
+			fl.line,
+			size,
+			dalign,
+			LLVMDIFlags.Zero,
+			null, // LLVMMetadataRef DerivedFrom
+			elements.ptr,
+			cast(uint) elements.length,
+			0, // uint RunTimeLang
+			null, // LLVMMetadataRef VTableHolder
+			mangle.ptr,
+			mangle.length,
+		);
+
+		// Now we swap our temporary for the real thing.
+		LLVMMetadataReplaceAllUsesWith(tmp, ret);
+		return ret;
+	}
 }
 
 struct DebugInfoTypeGen {
@@ -223,7 +322,9 @@ struct DebugInfoTypeGen {
 	auto visit(ParamType pt) {
 		auto t = visit(pt.getType());
 		if (pt.isRef) {
-			t = LLVMDIBuilderCreateReferenceType(builder, 0, t);
+			enum DW_TAG_reference_type = 0x0010;
+			t = LLVMDIBuilderCreateReferenceType(builder, DW_TAG_reference_type,
+			                                     t);
 		}
 
 		return t;
@@ -275,7 +376,7 @@ struct DebugInfoTypeGen {
 		auto cname = LLVMDITypeGetName(dt, &len);
 
 		auto name = cname[0 .. len] ~ '*';
-		return LLVMDIBuilderCreatePointerType(builder, dt, 0, 0, 0, name.ptr,
+		return LLVMDIBuilderCreatePointerType(builder, dt, 8, 8, 0, name.ptr,
 		                                      name.length);
 	}
 
@@ -288,7 +389,7 @@ struct DebugInfoTypeGen {
 	}
 
 	LLVMMetadataRef visit(Struct s) in(s.step >= Step.Signed) {
-		assert(0, "Struct type can't be generated.");
+		return DebugInfoScopeGen(pass).visit(s);
 	}
 
 	LLVMMetadataRef visit(Union u) in(u.step >= Step.Signed) {

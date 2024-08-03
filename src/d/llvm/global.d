@@ -69,6 +69,9 @@ public:
 			define(s);
 		}
 
+		// Make sure that we resolve all the debug infos.
+		debugInfoData.finalize();
+
 		checkModule();
 	}
 
