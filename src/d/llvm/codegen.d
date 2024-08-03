@@ -52,23 +52,15 @@ final class CodeGen {
 	LLVMAttributeRef noUnwind;
 	LLVMAttributeRef framePointer;
 
-	// FIXME: We hold a reference to the backend here so it is not GCed.
-	// Now that JIT use its own codegen, no reference to the JIT backend
-	// is held if that one goes. The whole thing needs to be refactored
-	// in a way that is more sensible.
-	import d.llvm.backend;
-	LLVMBackend backend;
-
 	import d.llvm.debuginfo;
 	DebugInfoData debugInfoData;
 
 	import d.semantic.semantic;
-	this(SemanticPass sema, Module main, LLVMBackend backend,
-	     LLVMTargetMachineRef targetMachine) {
+	this(SemanticPass sema, Module main, LLVMTargetMachineRef targetMachine,
+	     bool debugBuild) {
 		this.context = sema.context;
 		this.scheduler = sema.scheduler;
 		this.object = sema.object;
-		this.backend = backend;
 
 		llvmCtx = LLVMContextCreate();
 
@@ -112,7 +104,7 @@ final class CodeGen {
 		noUnwind = getAttribute("nounwind");
 		framePointer = getAttribute("frame-pointer", "non-leaf");
 
-		if (backend.config.debugBuild) {
+		if (debugBuild) {
 			debugInfoData.create(dmodule, source);
 		}
 	}

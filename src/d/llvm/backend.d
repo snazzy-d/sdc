@@ -64,7 +64,7 @@ public:
 			LLVMGetFirstTarget(), triple, "x86-64", "",
 			LLVMCodeGenOptLevel.Default, Reloc, LLVMCodeModel.Default);
 
-		auto pass = new CodeGen(sema, main, this, targetMachine);
+		auto pass = new CodeGen(sema, main, targetMachine, config.debugBuild);
 		globalGen = GlobalGen(pass);
 		dataLayout = new LLVMDataLayout(pass, pass.targetData);
 	}
