@@ -42,20 +42,19 @@ private auto dispatchImpl(alias unhandled, V, T, Args...)(
 	}
 
 	foreach (visit; Members) {
-		alias parameters = ParameterTypeTuple!visit;
+		alias Parameters = ParameterTypeTuple!visit;
 
-		static if (parameters.length == args.length + 1) {
-			alias parameter = parameters[args.length];
+		static if (Parameters.length == args.length + 1) {
+			alias P = Parameters[args.length];
 
 			// FIXME: ensure call is correctly done when args exists.
-			static if (is(parameter == class)
-				           && !__traits(isAbstractClass, parameter)
-				           && is(parameter : T)) {
-				if (tid is typeid(parameter)) {
+			static if (is(P == class) && is(P : T)
+				           && !__traits(isAbstractClass, P)) {
+				if (tid is typeid(P)) {
 					return visitor.visit(args, () @trusted {
 						// Fast cast can be trusted in this case, we already did the check.
 						import util.fastcast;
-						return fastCast!parameter(o);
+						return fastCast!P(o);
 					}());
 				}
 			}
@@ -63,10 +62,10 @@ private auto dispatchImpl(alias unhandled, V, T, Args...)(
 	}
 
 	// Dispatch isn't possible.
-	enum returnVoid = is(typeof(return) == void);
-	static if (returnVoid || is(typeof(unhandled(t)) == void)) {
+	enum ReturnsVoid = is(typeof(return) == void);
+	static if (ReturnsVoid || is(typeof(unhandled(t)) == void)) {
 		unhandled(t);
-		assert(returnVoid);
+		assert(ReturnsVoid);
 	} else {
 		return unhandled(t);
 	}
