@@ -197,7 +197,30 @@ enum LLVMMetadataKind : uint {
 /**
  * An LLVM DWARF type encoding.
  */
-alias LLVMDWARFTypeEncoding = uint;
+enum LLVMDWARFTypeEncoding {
+  None = 0x00,
+  Address = 0x01,
+  Boolean = 0x02,
+  ComplexFloat = 0x03,
+  Float = 0x04,
+  Signed = 0x05,
+  SignedChar = 0x06,
+  Unsigned = 0x07,
+  UnsignedChar = 0x08,
+  // New in DWARF v3:
+  ImmaginaryFloat = 0x09,
+  PackedDecimal = 0x0a,
+  NumericString = 0x0b,
+  Edited = 0x0c,
+  SignedFixed = 0x0d,
+  UnsignedFixed = 0x0e,
+  DecimalFloat = 0x0f,
+  // New in DWARF v4:
+  UTF = 0x10,
+  // New in DWARF v5:
+  UCS = 0x11,
+  ASCII = 0x12,
+}
 
 /**
  * Describes the kind of macro declaration used for LLVMDIBuilderCreateMacro.
