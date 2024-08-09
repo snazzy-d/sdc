@@ -210,7 +210,7 @@ struct DebugInfoScopeGen {
 		);
 	}
 
-	LLVMMetadataRef getField(Field f, LLVMMetadataRef tmp) {
+	LLVMMetadataRef getField(Field f, LLVMMetadataRef tmp, ref ulong offset) {
 		auto fl = getFileAndLine(f.location);
 		auto name = f.name.toString(context);
 
@@ -220,19 +220,14 @@ struct DebugInfoScopeGen {
 		auto size = 8 * LLVMABISizeOfType(targetData, type);
 		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
 
+		// Bump the offset to ensure proper alignment.
+		offset += dalign - 1;
+		offset &= -dalign;
+
+		scope(success) offset += size;
 		return LLVMDIBuilderCreateMemberType(
-			builder,
-			tmp,
-			name.ptr,
-			name.length,
-			fl.file,
-			fl.line,
-			size,
-			dalign,
-			0, // ulong OffsetInBits
-			LLVMDIFlags.Zero,
-			diType,
-		);
+			builder, tmp, name.ptr, name.length, fl.file, fl.line, size, dalign,
+			offset, LLVMDIFlags.Zero, diType, );
 	}
 
 	LLVMMetadataRef visit(Struct s) {
@@ -273,9 +268,13 @@ struct DebugInfoScopeGen {
 				mangle.length,
 			);
 
-		import std.algorithm, std.array;
-		LLVMMetadataRef[] elements =
-			s.fields.map!(f => getField(f, tmp)).array();
+		LLVMMetadataRef[] elements;
+		elements.length = s.fields.length;
+
+		ulong offset = 0;
+		foreach (i, f; s.fields) {
+			elements[i] = getField(f, tmp, offset);
+		}
 
 		auto ret = symbolScopes[s] = LLVMDIBuilderCreateStructType(
 			builder,
