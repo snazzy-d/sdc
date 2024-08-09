@@ -147,7 +147,7 @@ public:
 			LLVMSetInitializer(buffer, LLVMGetUndef(type));
 
 			import llvm.c.target;
-			auto size = LLVMStoreSizeOfType(targetData, type);
+			auto size = LLVMABISizeOfType(targetData, type);
 			auto returnType = i64;
 		}
 
@@ -291,7 +291,7 @@ struct JitRepacker {
 	import d.ir.type, d.ir.symbol;
 	Constant visit(Type t) in {
 		import d.llvm.type, llvm.c.target;
-		auto size = LLVMStoreSizeOfType(targetData, TypeGen(pass).visit(t));
+		auto size = LLVMABISizeOfType(targetData, TypeGen(pass).visit(t));
 
 		import std.format;
 		assert(
@@ -358,7 +358,7 @@ struct JitRepacker {
 	Constant visitArrayOf(uint size, Type t) {
 		import d.llvm.type, llvm.c.target;
 		uint elementSize =
-			cast(uint) LLVMStoreSizeOfType(targetData, TypeGen(pass).visit(t));
+			cast(uint) LLVMABISizeOfType(targetData, TypeGen(pass).visit(t));
 
 		Constant[] elements;
 		elements.reserve(size);
@@ -383,7 +383,7 @@ struct JitRepacker {
 		auto type = TypeGen(pass).visit(s);
 
 		import llvm.c.target;
-		auto size = LLVMStoreSizeOfType(targetData, type);
+		auto size = LLVMABISizeOfType(targetData, type);
 		auto count = LLVMCountStructElementTypes(type);
 
 		Constant[] elements;
@@ -402,7 +402,7 @@ struct JitRepacker {
 			auto start = LLVMOffsetOfElement(targetData, type, i);
 			auto elementType = LLVMStructGetTypeAtIndex(type, i);
 
-			auto fieldSize = LLVMStoreSizeOfType(targetData, elementType);
+			auto fieldSize = LLVMABISizeOfType(targetData, elementType);
 			auto stop = start + fieldSize;
 
 			buffer = x[start .. stop];

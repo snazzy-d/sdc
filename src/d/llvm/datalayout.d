@@ -22,7 +22,7 @@ final class LLVMDataLayout : DataLayout {
 	uint getSize(Type t) {
 		import d.llvm.type;
 		auto type = TypeGen(pass).visit(t);
-		return cast(uint) LLVMStoreSizeOfType(targetData, type);
+		return cast(uint) LLVMABISizeOfType(targetData, type);
 	}
 
 	uint getAlign(Type t) {

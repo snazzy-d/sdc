@@ -178,8 +178,7 @@ struct TypeGen {
 			types[hasContext] = visit(fields[0].type);
 
 			import llvm.c.target;
-			size =
-				cast(uint) LLVMStoreSizeOfType(targetData, types[hasContext]);
+			size = cast(uint) LLVMABISizeOfType(targetData, types[hasContext]);
 			dalign = cast(uint)
 				LLVMABIAlignmentOfType(targetData, types[hasContext]);
 		}
@@ -189,7 +188,7 @@ struct TypeGen {
 			auto t = visit(f.type);
 
 			import llvm.c.target;
-			auto s = cast(uint) LLVMStoreSizeOfType(targetData, t);
+			auto s = cast(uint) LLVMABISizeOfType(targetData, t);
 			auto a = cast(uint) LLVMABIAlignmentOfType(targetData, t);
 
 			extra = ((size + extra) < s) ? s - size : extra;
