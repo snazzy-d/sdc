@@ -1,7 +1,6 @@
 module d.llvm.evaluator;
 
 import d.llvm.codegen;
-import d.llvm.global;
 
 import d.ir.constant;
 import d.ir.expression;
@@ -59,17 +58,12 @@ extern(C) {
 
 final class LLVMEvaluator : Evaluator {
 private:
-	GlobalGen globalGen;
-
+	CodeGen pass;
 	alias pass this;
-	@property
-	auto pass() {
-		return globalGen.pass;
-	}
 
 public:
 	this(CodeGen pass) {
-		globalGen = GlobalGen(pass, Mode.Eager);
+		this.pass = pass;
 	}
 
 	Constant evaluate(Expression e) {
@@ -157,6 +151,9 @@ public:
 		scope(exit) LLVMDeleteFunction(fun);
 
 		// Generate function's body. Warning: horrible hack.
+		import d.llvm.global;
+		auto globalGen = GlobalGen(pass, Mode.Eager);
+
 		import d.llvm.local;
 		auto lg = LocalGen(&globalGen);
 		auto builder = lg.builder;
@@ -198,6 +195,9 @@ public:
 
 	import d.ir.symbol;
 	auto createTestStub(Function f) {
+		import d.llvm.global;
+		auto globalGen = GlobalGen(pass, Mode.Eager);
+
 		// Make sure the function we want to call is ready to go.
 		auto callee = globalGen.declare(f);
 

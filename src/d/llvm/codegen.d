@@ -55,6 +55,24 @@ final class CodeGen {
 	import d.llvm.type;
 	TypeGenData typeGenData;
 
+	import d.llvm.global;
+	GlobalData globalData;
+
+	import d.llvm.local;
+	LocalData localData;
+
+	import d.llvm.constant;
+	ConstantData constantData;
+
+	import d.llvm.runtime;
+	RuntimeData runtimeData;
+
+	import d.llvm.statement;
+	StatementGenData statementGenData;
+
+	import d.llvm.intrinsic;
+	IntrinsicGenData intrinsicGenData;
+
 	LLVMValueRef unlikelyBranch;
 	uint profKindID;
 

@@ -7,9 +7,20 @@ import d.ir.symbol;
 
 import llvm.c.core;
 
+// Conflict with Interface in object.di
+alias Interface = d.ir.symbol.Interface;
+
 enum Mode {
 	Lazy,
 	Eager,
+}
+
+struct GlobalData {
+private:
+	LLVMValueRef[ValueSymbol] globals;
+
+	Class classInfoClass;
+	LLVMValueRef[Class] classInfos;
 }
 
 alias GlobalPass = GlobalGen*;
@@ -22,28 +33,6 @@ struct GlobalGen {
 	// private:
 	Mode mode;
 
-	LLVMValueRef[ValueSymbol] globals;
-
-private:
-	Class classInfoClass;
-	LLVMValueRef[Class] classInfos;
-
-public:
-	import d.llvm.local;
-	LocalData localData;
-
-	import d.llvm.constant;
-	ConstantData constantData;
-
-	import d.llvm.runtime;
-	RuntimeData runtimeData;
-
-	import d.llvm.statement;
-	StatementGenData statementGenData;
-
-	import d.llvm.intrinsic;
-	IntrinsicGenData intrinsicGenData;
-
 public:
 	this(CodeGen pass, Mode mode = Mode.Lazy) {
 		this.pass = pass;
@@ -52,6 +41,21 @@ public:
 		// Make sure globals are initialized.
 		globals[null] = null;
 		globals.remove(null);
+	}
+
+	@property
+	ref LLVMValueRef[ValueSymbol] globals() {
+		return globalData.globals;
+	}
+
+	@property
+	ref Class classInfoClass() {
+		return globalData.classInfoClass;
+	}
+
+	@property
+	ref LLVMValueRef[Class] classInfos() {
+		return globalData.classInfos;
 	}
 
 	@property
