@@ -1,8 +1,6 @@
 module d.llvm.backend;
 
 import d.llvm.codegen;
-import d.llvm.evaluator;
-import d.llvm.datalayout;
 
 import d.ir.symbol;
 
@@ -17,9 +15,6 @@ private:
 
 	import d.llvm.config;
 	LLVMConfig _config;
-
-	LLVMEvaluator evaluator;
-	LLVMDataLayout dataLayout;
 
 	LLVMTargetMachineRef targetMachine;
 
@@ -60,7 +55,6 @@ public:
 			LLVMCodeGenOptLevel.Default, Reloc, LLVMCodeModel.Default);
 
 		pass = new CodeGen(sema, main, targetMachine, config.debugBuild);
-		dataLayout = new LLVMDataLayout(pass, targetData);
 	}
 
 	~this() {
@@ -68,15 +62,14 @@ public:
 	}
 
 	auto getEvaluator() {
-		if (evaluator is null) {
-			evaluator = new LLVMEvaluator(pass);
-		}
-
-		return evaluator;
+		import d.llvm.evaluator;
+		return new LLVMEvaluator(pass);
+	;
 	}
 
 	auto getDataLayout() {
-		return dataLayout;
+		import d.llvm.datalayout;
+		return new LLVMDataLayout(pass);
 	}
 
 	void define(Function f) {
@@ -189,19 +182,61 @@ public:
 		wait(spawnShell(linkCommand));
 	}
 
-	auto runUnittests(Module[] modules) {
-		// In a first step, we do all the codegen.
-		// We need to do it in a first step so that we can reuse
-		// one instance of MCJIT.
-		auto e = getEvaluator();
+	private auto createTestStub(Function f) {
+		import d.llvm.global;
+		auto globalGen = GlobalGen(pass, Mode.Eager);
 
-		struct Test {
+		// Make sure the function we want to call is ready to go.
+		auto callee = globalGen.declare(f);
+
+		// Generate function's body. Warning: horrible hack.
+		import d.llvm.local;
+		auto lg = LocalGen(&globalGen);
+		auto builder = lg.builder;
+
+		auto funType = LLVMFunctionType(i64, null, 0, false);
+		auto fun = LLVMAddFunction(dmodule, "__unittest", funType);
+
+		// Personality function to handle exceptions.
+		LLVMSetPersonalityFn(fun,
+		                     globalGen.declare(pass.object.getPersonality()));
+
+		auto callBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "call");
+		auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
+		auto lpBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "lp");
+
+		LLVMPositionBuilderAtEnd(builder, callBB);
+		LLVMBuildInvoke2(builder, funType, callee, null, 0, thenBB, lpBB, "");
+
+		LLVMPositionBuilderAtEnd(builder, thenBB);
+		LLVMBuildRet(builder, LLVMConstInt(i64, 0, false));
+
+		// Build the landing pad.
+		LLVMTypeRef[2] lpTypes = [llvmPtr, i32];
+		auto lpType = LLVMStructTypeInContext(llvmCtx, lpTypes.ptr,
+		                                      lpTypes.length, false);
+
+		LLVMPositionBuilderAtEnd(builder, lpBB);
+		auto landingPad = LLVMBuildLandingPad(builder, lpType, null, 1, "");
+
+		LLVMAddClause(landingPad, llvmNull);
+
+		// We don't care about cleanup for now.
+		LLVMBuildRet(builder, LLVMConstInt(i64, 1, false));
+
+		return fun;
+	}
+
+	auto runUnittests(Module[] modules) {
+		// We do all the code generation as a first pass so we
+		// avoid JITing multiple variations of the same code.
+		static struct Test {
 			Function unit;
 			LLVMValueRef stub;
 
-			this(LLVMEvaluator e, Function t) {
+			this(LLVMBackend b, Function t) {
 				unit = t;
-				stub = e.createTestStub(t);
+				stub = b.createTestStub(t);
 			}
 		}
 
@@ -209,13 +244,14 @@ public:
 		foreach (m; modules) {
 			foreach (t; m.tests) {
 				import source.name;
-				tests ~= Test(e, t);
+				tests ~= Test(this, t);
 			}
 		}
 
 		runLLVMPasses();
 
 		// Now that we generated the IR, we run the unittests.
+		import d.llvm.engine;
 		auto ee = createExecutionEngine(dmodule);
 		scope(exit) destroyExecutionEngine(ee, dmodule);
 

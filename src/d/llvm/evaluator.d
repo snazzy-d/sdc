@@ -10,7 +10,6 @@ import d.semantic.evaluator;
 import util.visitor;
 
 import llvm.c.core;
-import llvm.c.executionEngine;
 
 // In order to JIT, we redirect some call from libsdrt to druntime.
 extern(C) {
@@ -176,9 +175,11 @@ public:
 
 		globalGen.checkModule();
 
+		import d.llvm.engine;
 		auto ee = createExecutionEngine(dmodule);
 		scope(exit) destroyExecutionEngine(ee, dmodule);
 
+		import llvm.c.executionEngine;
 		auto result = LLVMRunFunction(ee, fun, 0, null);
 		scope(exit) LLVMDisposeGenericValue(result);
 
@@ -192,82 +193,6 @@ public:
 			return handler(pass, e, (cast(void*) asInt)[0 .. size]);
 		}
 	}
-
-	import d.ir.symbol;
-	auto createTestStub(Function f) {
-		import d.llvm.global;
-		auto globalGen = GlobalGen(pass, Mode.Eager);
-
-		// Make sure the function we want to call is ready to go.
-		auto callee = globalGen.declare(f);
-
-		// Generate function's body. Warning: horrible hack.
-		import d.llvm.local;
-		auto lg = LocalGen(&globalGen);
-		auto builder = lg.builder;
-
-		auto funType = LLVMFunctionType(i64, null, 0, false);
-		auto fun = LLVMAddFunction(dmodule, "__unittest", funType);
-
-		// Personality function to handle exceptions.
-		LLVMSetPersonalityFn(fun,
-		                     globalGen.declare(pass.object.getPersonality()));
-
-		auto callBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "call");
-		auto thenBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "then");
-		auto lpBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "lp");
-
-		LLVMPositionBuilderAtEnd(builder, callBB);
-		LLVMBuildInvoke2(builder, funType, callee, null, 0, thenBB, lpBB, "");
-
-		LLVMPositionBuilderAtEnd(builder, thenBB);
-		LLVMBuildRet(builder, LLVMConstInt(i64, 0, false));
-
-		// Build the landing pad.
-		LLVMTypeRef[2] lpTypes = [llvmPtr, i32];
-		auto lpType = LLVMStructTypeInContext(llvmCtx, lpTypes.ptr,
-		                                      lpTypes.length, false);
-
-		LLVMPositionBuilderAtEnd(builder, lpBB);
-		auto landingPad = LLVMBuildLandingPad(builder, lpType, null, 1, "");
-
-		LLVMAddClause(landingPad, llvmNull);
-
-		// We don't care about cleanup for now.
-		LLVMBuildRet(builder, LLVMConstInt(i64, 1, false));
-
-		return fun;
-	}
-}
-
-package:
-auto createExecutionEngine(LLVMModuleRef dmodule) {
-	char* errorPtr;
-	LLVMExecutionEngineRef ee;
-	if (!LLVMCreateMCJITCompilerForModule(&ee, dmodule, null, 0, &errorPtr)) {
-		return ee;
-	}
-
-	scope(exit) LLVMDisposeMessage(errorPtr);
-
-	import core.stdc.string;
-	auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-	throw new Exception(error);
-}
-
-void destroyExecutionEngine(LLVMExecutionEngineRef ee, LLVMModuleRef dmodule) {
-	char* errorPtr;
-	LLVMModuleRef outMod;
-	if (!LLVMRemoveModule(ee, dmodule, &outMod, &errorPtr)) {
-		LLVMDisposeExecutionEngine(ee);
-		return;
-	}
-
-	scope(exit) LLVMDisposeMessage(errorPtr);
-
-	import core.stdc.string;
-	auto error = errorPtr[0 .. strlen(errorPtr)].idup;
-	throw new Exception(error);
 }
 
 private:

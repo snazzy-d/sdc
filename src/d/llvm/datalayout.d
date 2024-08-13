@@ -12,11 +12,8 @@ final class LLVMDataLayout : DataLayout {
 	private CodeGen pass;
 	alias pass this;
 
-	private LLVMTargetDataRef targetData;
-
-	this(CodeGen pass, LLVMTargetDataRef targetData) {
+	this(CodeGen pass) {
 		this.pass = pass;
-		this.targetData = targetData;
 	}
 
 	uint getSize(Type t) {
