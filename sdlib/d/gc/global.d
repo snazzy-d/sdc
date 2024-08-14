@@ -4,11 +4,16 @@ alias ScanDg = void delegate(const(void*)[] range);
 
 struct GCState {
 private:
+	import d.sync.mutex;
+	Mutex mutex;
+
 	import d.sync.atomic;
 	Atomic!ubyte cycle;
 
-	import d.sync.mutex;
-	Mutex mutex;
+	uint registeredThreadCount = 0;
+
+	import d.gc.tcache;
+	RegisteredThreadRing registeredThreads;
 
 	const(void*)[][] roots;
 
@@ -16,6 +21,20 @@ public:
 	ubyte nextGCCycle() shared {
 		auto c = cycle.fetchAdd(1);
 		return (c + 1) & ubyte.max;
+	}
+
+	void register(ThreadCache* tcache) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(GCState*) &this).registerImpl(tcache);
+	}
+
+	void remove(ThreadCache* tcache) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(GCState*) &this).removeImpl(tcache);
 	}
 
 	/**
@@ -53,6 +72,16 @@ public:
 	}
 
 private:
+	void registerImpl(ThreadCache* tcache) {
+		registeredThreadCount++;
+		registeredThreads.insert(tcache);
+	}
+
+	void removeImpl(ThreadCache* tcache) {
+		registeredThreadCount--;
+		registeredThreads.remove(tcache);
+	}
+
 	void addRootsImpl(const void[] range) {
 		assert(mutex.isHeld(), "Mutex not held!");
 

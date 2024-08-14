@@ -2,6 +2,7 @@ module d.gc.tcache;
 
 import d.gc.base;
 import d.gc.emap;
+import d.gc.ring;
 import d.gc.size;
 import d.gc.sizeclass;
 import d.gc.slab;
@@ -12,6 +13,9 @@ import d.gc.util;
 import sdc.intrinsics;
 
 enum DefaultEventWait = 65536;
+
+alias RNode = Node!ThreadCache;
+alias RegisteredThreadRing = Ring!ThreadCache;
 
 ThreadCache threadCache;
 
@@ -44,6 +48,8 @@ private:
 	 * segregate them in order to get better locality on the frequently
 	 * used ones.
 	 */
+	RNode rnode;
+
 	const(void*)[][] tlsSegments;
 
 	static assert(ThreadBinCount < ubyte.max, "Too many thread bin!");

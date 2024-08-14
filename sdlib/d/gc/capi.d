@@ -29,10 +29,16 @@ void* realloc(void* ptr, size_t size) {
 void __sd_gc_init() {
 	import d.gc.emap, d.gc.base;
 	threadCache.initialize(&gExtentMap, &gBase);
+
+	import d.gc.global;
+	gState.register(&threadCache);
 }
 
 void __sd_gc_destroy_thread() {
 	threadCache.destroyThread();
+
+	import d.gc.global;
+	gState.remove(&threadCache);
 }
 
 /**
