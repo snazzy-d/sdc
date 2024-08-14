@@ -7,19 +7,9 @@ alias PthreadFunction = void* function(void*);
 // Hijack the system's pthread_create function so we can register the thread.
 extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
                              PthreadFunction start_routine, void* arg) {
-	auto runner = ThreadRunner(start_routine, arg);
-
-	auto result =
-		pthread_create_trampoline(thread, attr, cast(PthreadFunction) runThread,
-		                          &runner);
-
-	if (result == 0) {
-		runner.waitForRelease();
-	} else {
-		runner.release();
-	}
-
-	return result;
+	return pthread_create_trampoline(
+		thread, attr, cast(PthreadFunction) runThread,
+		new ThreadRunner(start_routine, arg));
 }
 
 private:
@@ -28,28 +18,15 @@ struct ThreadRunner {
 	void* arg;
 	void* function(void*) fun;
 
-	import d.sync.mutex;
-	shared Mutex mutex;
-
 	this(void* function(void*) fun, void* arg) {
 		this.arg = arg;
 		this.fun = fun;
-
-		mutex.lock();
-	}
-
-	void release() {
-		mutex.unlock();
-	}
-
-	void waitForRelease() {
-		mutex.lock();
-		release();
 	}
 }
 
 extern(C) void __sd_thread_create();
 extern(C) void __sd_thread_destroy();
+extern(C) void __sd_gc_free(void* ptr);
 
 void destroyThread(void* dummy) {
 	__sd_thread_destroy();
@@ -59,11 +36,11 @@ void* runThread(ThreadRunner* runner) {
 	auto fun = runner.fun;
 	auto arg = runner.arg;
 
-	runner.release();
+	__sd_thread_create();
+	__sd_gc_free(runner);
 
 	// Make sure we clean up after ourselves.
 	scope(exit) __sd_thread_destroy();
-	__sd_thread_create();
 
 	return fun(arg);
 }
