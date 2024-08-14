@@ -25,41 +25,41 @@ bool __sd_gc_fetch_alloc_info(void* ptr, void** base, size_t* size,
 	*pd = threadCache.maybeGetPageDescriptor(ptr);
 	auto e = pd.extent;
 	*flags = cast(BlkAttr) 0;
-	if (e) {
-		if (!pd.containsPointers) {
-			*flags |= BlkAttr.NO_SCAN;
-		}
-
-		if (pd.isSlab()) {
-			auto si = SlabAllocInfo(*pd, ptr);
-			*base = cast(void*) si.address;
-
-			if (si.hasMetadata) {
-				*flags |= BlkAttr.APPENDABLE;
-				if (si.finalizer) {
-					*flags |= BlkAttr.FINALIZE;
-				}
-			}
-
-			*size = si.slotCapacity;
-		} else {
-			// large blocks are always appendable.
-			*flags |= BlkAttr.APPENDABLE;
-
-			if (e.finalizer) {
-				*flags |= BlkAttr.FINALIZE;
-			}
-
-			auto e = pd.extent;
-			*base = e.address;
-
-			*size = e.size;
-		}
-
-		return true;
+	if (!e) {
+		return false;
 	}
 
-	return false;
+	if (!pd.containsPointers) {
+		*flags |= BlkAttr.NO_SCAN;
+	}
+
+	if (pd.isSlab()) {
+		auto si = SlabAllocInfo(*pd, ptr);
+		*base = cast(void*) si.address;
+
+		if (si.hasMetadata) {
+			*flags |= BlkAttr.APPENDABLE;
+			if (si.finalizer) {
+				*flags |= BlkAttr.FINALIZE;
+			}
+		}
+
+		*size = si.slotCapacity;
+	} else {
+		// Large blocks are always appendable.
+		*flags |= BlkAttr.APPENDABLE;
+
+		if (e.finalizer) {
+			*flags |= BlkAttr.FINALIZE;
+		}
+
+		auto e = pd.extent;
+		*base = e.address;
+
+		*size = e.size;
+	}
+
+	return true;
 }
 
 size_t __sd_gc_get_array_used(void* ptr, PageDescriptor pd) {
