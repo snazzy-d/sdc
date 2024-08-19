@@ -7,12 +7,24 @@ alias PthreadFunction = void* function(void*);
 // Hijack the system's pthread_create function so we can register the thread.
 extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
                              PthreadFunction start_routine, void* arg) {
+	// It is probably best to avoid stopping a thread in the middle
+	// of another thread's creation.
+	__sd_gc_thread_enter_busy_state();
+	scope(exit) __sd_gc_thread_exit_busy_state();
+
 	return pthread_create_trampoline(
 		thread, attr, cast(PthreadFunction) runThread,
 		new ThreadRunner(start_routine, arg));
 }
 
 private:
+
+extern(C) void __sd_thread_create();
+extern(C) void __sd_thread_destroy();
+extern(C) void __sd_gc_free(void* ptr);
+
+extern(C) void __sd_gc_thread_enter_busy_state();
+extern(C) void __sd_gc_thread_exit_busy_state();
 
 struct ThreadRunner {
 	void* arg;
@@ -23,10 +35,6 @@ struct ThreadRunner {
 		this.fun = fun;
 	}
 }
-
-extern(C) void __sd_thread_create();
-extern(C) void __sd_thread_destroy();
-extern(C) void __sd_gc_free(void* ptr);
 
 void destroyThread(void* dummy) {
 	__sd_thread_destroy();

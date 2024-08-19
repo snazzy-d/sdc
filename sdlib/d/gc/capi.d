@@ -73,6 +73,17 @@ void __sd_gc_tl_flush_cache() {
 }
 
 /**
+ * Thread suspesion API.
+ */
+void __sd_gc_thread_enter_busy_state() {
+	threadCache.enterBusyState();
+}
+
+void __sd_gc_thread_exit_busy_state() {
+	threadCache.exitBusyState();
+}
+
+/**
  * Garbage collection cycles.
  */
 void __sd_gc_collect() {

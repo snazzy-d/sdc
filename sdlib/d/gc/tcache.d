@@ -48,6 +48,9 @@ private:
 	 * segregate them in order to get better locality on the frequently
 	 * used ones.
 	 */
+	import d.gc.tstate;
+	ThreadState state;
+
 	RNode rnode;
 
 	const(void*)[][] tlsSegments;
@@ -268,6 +271,17 @@ public:
 		}
 	}
 
+	/**
+	 * Thread suspesion API.
+	 */
+	void enterBusyState() {
+		state.enterBusyState();
+	}
+
+	void exitBusyState() {
+		state.enterBusyState();
+	}
+
 private:
 	/**
 	 * Small allocations.
@@ -308,9 +322,14 @@ private:
 			return ptr;
 		}
 
-		// We need to refill the bin.
-		auto arena = chooseArena(containsPointers);
-		bin.refill(emap, arena, binStates[index], sizeClass, slotSize);
+		// The bin is empty, refill.
+		{
+			enterBusyState();
+			scope(exit) exitBusyState();
+
+			auto arena = chooseArena(containsPointers);
+			bin.refill(emap, arena, binStates[index], sizeClass, slotSize);
+		}
 
 		if (bin.allocateEasy(ptr)) {
 			return ptr;
@@ -336,7 +355,13 @@ private:
 			return;
 		}
 
-		bin.flushToFree(emap, binStates[index]);
+		// The bin is full, make space.
+		{
+			enterBusyState();
+			scope(exit) exitBusyState();
+
+			bin.flushToFree(emap, binStates[index]);
+		}
 
 		auto success = bin.free(ptr);
 		assert(success, "Unable to free!");
@@ -346,8 +371,16 @@ private:
 	 * Large allocations.
 	 */
 	void* allocLarge(uint pages, bool containsPointers, bool zero) {
-		auto arena = chooseArena(containsPointers);
-		auto ptr = arena.allocLarge(emap, pages, zero);
+		void* ptr;
+
+		{
+			enterBusyState();
+			scope(exit) exitBusyState();
+
+			auto arena = chooseArena(containsPointers);
+			ptr = arena.allocLarge(emap, pages, zero);
+		}
+
 		if (unlikely(ptr is null)) {
 			return null;
 		}
@@ -362,7 +395,13 @@ private:
 		auto e = pd.extent;
 		auto npages = e.npages;
 
-		pd.arena.freeLarge(emap, e);
+		{
+			enterBusyState();
+			scope(exit) exitBusyState();
+
+			pd.arena.freeLarge(emap, e);
+		}
+
 		triggerDeallocationEvent(npages * PageSize);
 	}
 
