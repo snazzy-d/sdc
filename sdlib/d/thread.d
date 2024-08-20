@@ -2,6 +2,9 @@ module d.thread;
 
 extern(C) void __sd_process_create() {
 	import d.gc.capi;
+	__sd_gc_thread_enter_busy_state();
+	scope(exit) __sd_gc_thread_exit_busy_state();
+
 	__sd_gc_init();
 
 	import d.rt.elf;
@@ -9,8 +12,24 @@ extern(C) void __sd_process_create() {
 	registerTlsSegments();
 }
 
+extern(C) void __sd_thread_creation_enter() {
+	import d.gc.global;
+	gState.enterThreadCreation();
+}
+
+extern(C) void __sd_thread_creation_exit() {
+	import d.gc.global;
+	gState.exitThreadCreation();
+}
+
 extern(C) void __sd_thread_create() {
 	import d.gc.capi;
+	__sd_gc_thread_enter_busy_state();
+	scope(exit) {
+		__sd_gc_thread_exit_busy_state();
+		__sd_thread_creation_exit();
+	}
+
 	__sd_gc_init();
 
 	import d.rt.elf;

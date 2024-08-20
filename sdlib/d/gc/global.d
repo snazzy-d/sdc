@@ -10,17 +10,33 @@ private:
 	import d.sync.atomic;
 	Atomic!ubyte cycle;
 
+	/**
+	 * Thread accounting and registration.
+	 */
+	Atomic!uint startingThreadCount;
 	uint registeredThreadCount = 0;
 
 	import d.gc.tcache;
 	RegisteredThreadRing registeredThreads;
 
+	/**
+	 * Global roots.
+	 */
 	const(void*)[][] roots;
 
 public:
 	ubyte nextGCCycle() shared {
 		auto c = cycle.fetchAdd(1);
 		return (c + 1) & ubyte.max;
+	}
+
+	void enterThreadCreation() shared {
+		startingThreadCount.fetchAdd(1);
+	}
+
+	void exitThreadCreation() shared {
+		auto s = startingThreadCount.fetchSub(1);
+		assert(s > 0, "enterThreadCreation was not called!");
 	}
 
 	void register(ThreadCache* tcache) shared {

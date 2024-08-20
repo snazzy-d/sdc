@@ -27,6 +27,8 @@ void* realloc(void* ptr, size_t size) {
  * Setup.
  */
 void __sd_gc_init() {
+	assert(threadCache.isBusy(), "Thread is not busy!");
+
 	import d.gc.emap, d.gc.base;
 	threadCache.initialize(&gExtentMap, &gBase);
 

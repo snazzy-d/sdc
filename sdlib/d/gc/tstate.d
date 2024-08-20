@@ -26,6 +26,10 @@ public:
 		return (state.load() & StopRequestedFlag) != 0;
 	}
 
+	bool isBusy() {
+		return state.load() >= BusyIncrement;
+	}
+
 	void enterBusyState() {
 		assert(isRunning());
 		state.fetchAdd(BusyIncrement);

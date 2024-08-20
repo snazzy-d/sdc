@@ -7,22 +7,41 @@ alias PthreadFunction = void* function(void*);
 // Hijack the system's pthread_create function so we can register the thread.
 extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
                              PthreadFunction start_routine, void* arg) {
-	// It is probably best to avoid stopping a thread in the middle
-	// of another thread's creation.
+	auto runner = new ThreadRunner(start_routine, arg);
+
+	/**
+	 * We do not want the GC to stop this specific thread
+	 * while it is creating another thread.
+	 */
 	__sd_gc_thread_enter_busy_state();
 	scope(exit) __sd_gc_thread_exit_busy_state();
 
-	return pthread_create_trampoline(
-		thread, attr, cast(PthreadFunction) runThread,
-		new ThreadRunner(start_routine, arg));
+	/**
+	 * We notify the GC that we are starting a new thread.
+	 * This allows the GC to not stop the workd while a thread
+	 * is being created.
+	 */
+	__sd_thread_creation_enter();
+
+	auto ret =
+		pthread_create_trampoline(thread, attr, cast(PthreadFunction) runThread,
+		                          runner);
+	if (ret != 0) {
+		// The spawned thread will call this when there are no errors.
+		__sd_thread_creation_exit();
+	}
+
+	return ret;
 }
 
 private:
 
 extern(C) void __sd_thread_create();
 extern(C) void __sd_thread_destroy();
-extern(C) void __sd_gc_free(void* ptr);
+extern(C) void __sd_thread_creation_enter();
+extern(C) void __sd_thread_creation_exit();
 
+extern(C) void __sd_gc_free(void* ptr);
 extern(C) void __sd_gc_thread_enter_busy_state();
 extern(C) void __sd_gc_thread_exit_busy_state();
 

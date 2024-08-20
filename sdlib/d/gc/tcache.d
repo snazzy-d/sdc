@@ -282,6 +282,10 @@ public:
 		state.enterBusyState();
 	}
 
+	bool isBusy() {
+		return state.isBusy();
+	}
+
 private:
 	/**
 	 * Small allocations.
