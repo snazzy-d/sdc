@@ -46,6 +46,8 @@ shared(RegionAllocator)* gPointerRegionAllocator() {
 	return &regionAllocator;
 }
 
+enum MinimumBlockCollectThreshold = 8;
+
 struct RegionAllocator {
 private:
 	shared(Base)* base;
@@ -63,6 +65,11 @@ private:
 	size_t minAddress = AddressSpace;
 	size_t maxAddress = 0;
 
+	// Count of blocks that are currently allocated.
+	size_t nBlocks;
+
+	// Threshold at which a collection should be run.
+	size_t blockCollectThreshold = MinimumBlockCollectThreshold;
 public:
 	bool acquire(void** addrPtr, uint extraBlocks = 0) shared {
 		mutex.lock();
@@ -89,6 +96,15 @@ public:
 		scope(exit) mutex.unlock();
 
 		return (cast(RegionAllocator*) &this).computeAddressRangeImpl();
+	}
+
+	bool checkBlockThreshold() shared {
+		return nBlocks >= blockCollectThreshold;
+	}
+
+	void setBlockThreshold(int targetNum, int targetDen) shared {
+		blockCollectThreshold =
+			max(nBlocks * targetNum / targetDen, MinimumBlockCollectThreshold);
 	}
 
 private:
@@ -124,6 +140,8 @@ private:
 		auto extraSize = extraBlocks * BlockSize;
 		*addrPtr = ptr + extraSize;
 
+		nBlocks += totalBlocks;
+
 		auto newBlockCount = r.blockCount - totalBlocks;
 		if (newBlockCount == 0) {
 			unusedRegions.insert(r);
@@ -143,6 +161,8 @@ private:
 		auto r = getOrAllocateRegion();
 		r.at(ptr, blocks);
 		registerRegion(r);
+
+		nBlocks -= blocks;
 	}
 
 	void registerRegion(Region* r) {
@@ -234,6 +254,9 @@ unittest acquire_release {
 	void* addr0;
 	assert(regionAllocator.acquire(&addr0));
 
+	// check the block counter works
+	assert(regionAllocator.nBlocks == 1);
+
 	// Check we compute the proper range.
 	auto r = regionAllocator.computeAddressRange();
 	assert(!r.contains(addr0 - 1));
@@ -241,17 +264,32 @@ unittest acquire_release {
 	assert(r.contains(addr0 + RefillBlockCount * BlockSize - 1));
 	assert(!r.contains(addr0 + RefillBlockCount * BlockSize));
 
+	bool passedThreshold = false;
 	foreach (i; 1 .. RefillBlockCount) {
 		void* addr;
 		assert(regionAllocator.acquire(&addr));
 		assert(addr is addr0 + i * BlockSize);
 		assert(r.contains(addr));
+		assert(regionAllocator.nBlocks == i + 1);
+		if (!passedThreshold && regionAllocator.checkBlockThreshold()) {
+			passedThreshold = true;
+			assert(regionAllocator.nBlocks == MinimumBlockCollectThreshold);
+		}
 	}
+
+	assert(regionAllocator.checkBlockThreshold());
 
 	foreach (i; 5 .. RefillBlockCount) {
 		void* addr = addr0 + i * BlockSize;
 		regionAllocator.release(addr, 1);
 	}
+
+	assert(regionAllocator.nBlocks == 5);
+	assert(!regionAllocator.checkBlockThreshold());
+	// this should trigger the min threshold which should be 8 blocks.
+	regionAllocator.setBlockThreshold(1, 1);
+
+	assert(!regionAllocator.checkBlockThreshold());
 
 	{
 		auto r = ra.regionsByClass.extractAny();
