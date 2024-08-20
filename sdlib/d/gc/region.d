@@ -65,7 +65,7 @@ private:
 	size_t minAddress = AddressSpace;
 	size_t maxAddress = 0;
 
-	// Count of blocks that are currently allocated.
+	// Count of blocks that are currently acquired.
 	size_t nBlocks;
 
 	// Threshold at which a collection should be run.
@@ -326,24 +326,29 @@ unittest extra_blocks {
 	void* addr1;
 	assert(regionAllocator.acquire(&addr1, 1));
 	assert(addr1 is addr0 + 2 * BlockSize);
+	assert(regionAllocator.nBlocks == 1 + 2);
 
 	void* addr2;
 	assert(regionAllocator.acquire(&addr2, 5));
 	assert(addr2 is addr1 + 6 * BlockSize);
+	assert(regionAllocator.nBlocks == 1 + 2 + 6);
 
 	// Release 3 blocks. We now have 2 regions.
 	regionAllocator.release(addr0, 1);
 	regionAllocator.release(addr0 + BlockSize, 2);
+	assert(regionAllocator.nBlocks == 6);
 
 	// Too big too fit.
 	void* addr3;
 	assert(regionAllocator.acquire(&addr3, 3));
 	assert(addr3 is addr2 + 4 * BlockSize);
+	assert(regionAllocator.nBlocks == 6 + 4);
 
 	// Small enough, so we reuse freed regions.
 	void* addr4;
 	assert(regionAllocator.acquire(&addr4, 2));
 	assert(addr4 is addr0 + 2 * BlockSize);
+	assert(regionAllocator.nBlocks == 6 + 4 + 3);
 }
 
 unittest enormous {
