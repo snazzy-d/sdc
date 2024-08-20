@@ -11,6 +11,7 @@ private:
 
 	import d.sync.atomic;
 	Atomic!ubyte cycle;
+	Atomic!ubyte incycle;
 
 	/**
 	 * Thread accounting and registration.
@@ -28,6 +29,16 @@ private:
 	const(void*)[][] roots;
 
 public:
+	bool startGCCycle() shared {
+		ubyte outofcycle = 0;
+		return incycle.cas(outofcycle, 1);
+	}
+
+	bool endGCCycle() shared {
+		ubyte runningcycle = 1;
+		return incycle.cas(runningcycle, 0);
+	}
+
 	ubyte nextGCCycle() shared {
 		auto c = cycle.fetchAdd(1);
 		return (c + 1) & ubyte.max;

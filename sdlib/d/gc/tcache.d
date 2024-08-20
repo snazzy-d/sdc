@@ -413,8 +413,22 @@ private:
 
 		if (allocated >= nextAllocationEvent) {
 			recycleNextBin();
+			// check for triggering an automatic collection
+			checkAutomaticCollection();
 
 			nextAllocationEvent = allocated + DefaultEventWait;
+		}
+	}
+
+	/**
+	 * Check whether we should run an automatic collection, and if so, run
+	 * it.
+	 */
+	void checkAutomaticCollection() {
+		import d.gc.region;
+		if (gPointerRegionAllocator.checkBlockThreshold()
+			    || gDataRegionAllocator.checkBlockThreshold()) {
+			this.runGCCycle();
 		}
 	}
 
@@ -514,11 +528,24 @@ private:
 	 * GC facilities.
 	 */
 	void runGCCycle() {
+		import d.gc.global;
+		if (!gState.startGCCycle()) {
+			// Already running a GC cycle!
+			return;
+		}
+
+		scope(exit) {
+			// Set the block thresholds for the next collection to
+			// be 2x current block allocations.
+			gPointerRegionAllocator.setBlockThreshold(2, 1);
+			gDataRegionAllocator.setBlockThreshold(2, 1);
+			gState.endGCCycle();
+		}
+
 		import d.gc.thread;
 		stopTheWorld();
 		scope(exit) restartTheWorld();
 
-		import d.gc.global;
 		auto gcCycle = gState.nextGCCycle();
 
 		import d.gc.region;
