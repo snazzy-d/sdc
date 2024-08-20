@@ -49,7 +49,7 @@ all: $(ALL_EXECUTABLES) $(ALL_TOOLS) $(LIBSDRT) $(LIBDMDALLOC) $(PHOBOS)
 check: all
 
 clean:
-	rm -rf obj lib $(ALL_EXECUTABLES)
+	rm -rf obj lib $(ALL_EXECUTABLES) $(ALL_TOOLS)
 
 print-%: ; @echo $*=$($*)
 
