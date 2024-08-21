@@ -25,6 +25,13 @@ In order to provide full C and C++ interroperability, dalloc comes with an
 implementation of the C API functions used to allocate memory. Allocations made
 with the C API are considered to possibly contain pointers.
 
+## Stop the world
+
+To stop the world, dalloc uses the UNIX signals SIGPWR and SIGXCPU. These
+signals are reserved and should not be used by the application. The
+configuration required to handle these signals is done during thread
+initialization by intercepting `pthread_create`.
+
 ## Size class
 
 Dalloc separates allocation sizes in classes. Computing size classes in an

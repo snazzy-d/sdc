@@ -5,6 +5,9 @@ extern(C) void __sd_process_create() {
 	__sd_gc_thread_enter_busy_state();
 	scope(exit) __sd_gc_thread_exit_busy_state();
 
+	import d.gc.signal;
+	setupSignals();
+
 	__sd_gc_init();
 
 	import d.rt.elf;

@@ -222,12 +222,12 @@ unittest suspend {
 		return null;
 	}
 
-	// Start or ginea pig thread.
-	auto tid = runThread(runSuspend);
-
 	// Stop the world!
 	import d.thread;
 	__sd_thread_stop_the_world();
+
+	// Start or ginea pig thread.
+	auto tid = runThread(runSuspend);
 
 	// Signal the thread.
 	state.sendSignal();

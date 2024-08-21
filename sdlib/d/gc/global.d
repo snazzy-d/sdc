@@ -1,6 +1,7 @@
-import d.gc.global;
+module d.gc.global;
 
 import d.gc.tcache;
+import d.gc.tstate;
 
 alias ScanDg = void delegate(const(void*)[] range);
 
@@ -62,7 +63,10 @@ public:
 	void stopTheWorld() shared {
 		stopTheWorldMutex.lock();
 
-		// FIXME: Actually stop all threads...
+		while (sendSignals() || startingThreadCount.load() > 0) {
+			import sys.posix.sched;
+			sched_yield();
+		}
 	}
 
 	void restartTheWorld() shared {
@@ -117,6 +121,42 @@ private:
 	void removeImpl(ThreadCache* tcache) {
 		registeredThreadCount--;
 		registeredThreads.remove(tcache);
+	}
+
+	bool sendSignals() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(GCState*) &this).sendSignalsImpl();
+	}
+
+	bool sendSignalsImpl() {
+		bool retry = false;
+
+		auto r = registeredThreads.range;
+		while (!r.empty) {
+			auto tc = r.front;
+			scope(success) r.popFront();
+
+			// Make sure we do not self suspend!
+			if (tc is &threadCache) {
+				continue;
+			}
+
+			// If the thread isn't already stopped, we'll need to retry.
+			auto ss = tc.state.suspendState;
+			retry |= ss != SuspendState.Suspended;
+
+			// If the thread has already been signaled.
+			if (ss != SuspendState.None) {
+				continue;
+			}
+
+			import d.gc.signal;
+			signalThread(tc);
+		}
+
+		return retry;
 	}
 
 	void addRootsImpl(const void[] range) {
