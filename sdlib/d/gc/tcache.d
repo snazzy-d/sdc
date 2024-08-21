@@ -271,21 +271,6 @@ public:
 		}
 	}
 
-	/**
-	 * Thread suspesion API.
-	 */
-	void enterBusyState() {
-		state.enterBusyState();
-	}
-
-	void exitBusyState() {
-		state.enterBusyState();
-	}
-
-	bool isBusy() {
-		return state.isBusy();
-	}
-
 private:
 	/**
 	 * Small allocations.
@@ -328,8 +313,8 @@ private:
 
 		// The bin is empty, refill.
 		{
-			enterBusyState();
-			scope(exit) exitBusyState();
+			state.enterBusyState();
+			scope(exit) state.exitBusyState();
 
 			auto arena = chooseArena(containsPointers);
 			bin.refill(emap, arena, binStates[index], sizeClass, slotSize);
@@ -361,8 +346,8 @@ private:
 
 		// The bin is full, make space.
 		{
-			enterBusyState();
-			scope(exit) exitBusyState();
+			state.enterBusyState();
+			scope(exit) state.exitBusyState();
 
 			bin.flushToFree(emap, binStates[index]);
 		}
@@ -378,8 +363,8 @@ private:
 		void* ptr;
 
 		{
-			enterBusyState();
-			scope(exit) exitBusyState();
+			state.enterBusyState();
+			scope(exit) state.exitBusyState();
 
 			auto arena = chooseArena(containsPointers);
 			ptr = arena.allocLarge(emap, pages, zero);
@@ -400,8 +385,8 @@ private:
 		auto npages = e.npages;
 
 		{
-			enterBusyState();
-			scope(exit) exitBusyState();
+			state.enterBusyState();
+			scope(exit) state.exitBusyState();
 
 			pd.arena.freeLarge(emap, e);
 		}

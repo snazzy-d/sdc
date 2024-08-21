@@ -27,7 +27,7 @@ void* realloc(void* ptr, size_t size) {
  * Setup.
  */
 void __sd_gc_init() {
-	assert(threadCache.isBusy(), "Thread is not busy!");
+	assert(threadCache.state.busy, "Thread is not busy!");
 
 	import d.gc.emap, d.gc.base;
 	threadCache.initialize(&gExtentMap, &gBase);
@@ -78,11 +78,11 @@ void __sd_gc_tl_flush_cache() {
  * Thread suspesion API.
  */
 void __sd_gc_thread_enter_busy_state() {
-	threadCache.enterBusyState();
+	threadCache.state.enterBusyState();
 }
 
 void __sd_gc_thread_exit_busy_state() {
-	threadCache.exitBusyState();
+	threadCache.state.exitBusyState();
 }
 
 /**
