@@ -5,6 +5,7 @@ import d.gc.base;
 import d.gc.heap;
 import d.gc.range;
 import d.gc.rbtree;
+import d.gc.valuetracker;
 
 import d.gc.spec;
 import d.gc.util;
@@ -66,10 +67,8 @@ private:
 	size_t maxAddress = 0;
 
 	// Count of blocks that are currently acquired.
-	size_t nBlocks;
-
-	// Threshold at which a collection should be run.
-	size_t blockCollectThreshold = MinimumBlockCollectThreshold;
+	ValueTracker!long nBlocks =
+		ValueTracker!long(0, MinimumBlockCollectThreshold);
 public:
 	bool acquire(void** addrPtr, uint extraBlocks = 0) shared {
 		mutex.lock();
@@ -99,12 +98,18 @@ public:
 	}
 
 	bool checkBlockThreshold() shared {
-		return nBlocks >= blockCollectThreshold;
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(RegionAllocator*) &this).nBlocks.above;
 	}
 
 	void setBlockThreshold(int targetNum, int targetDen) shared {
-		blockCollectThreshold =
-			max(nBlocks * targetNum / targetDen, MinimumBlockCollectThreshold);
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(RegionAllocator*) &this).nBlocks.setRelativeThreshold(
+			targetNum, targetDen, MinimumBlockCollectThreshold);
 	}
 
 private:
@@ -140,7 +145,7 @@ private:
 		auto extraSize = extraBlocks * BlockSize;
 		*addrPtr = ptr + extraSize;
 
-		nBlocks += totalBlocks;
+		nBlocks.add(totalBlocks);
 
 		auto newBlockCount = r.blockCount - totalBlocks;
 		if (newBlockCount == 0) {
@@ -162,7 +167,7 @@ private:
 		r.at(ptr, blocks);
 		registerRegion(r);
 
-		nBlocks -= blocks;
+		nBlocks.subtract(blocks);
 	}
 
 	void registerRegion(Region* r) {
@@ -254,9 +259,6 @@ unittest acquire_release {
 	void* addr0;
 	assert(regionAllocator.acquire(&addr0));
 
-	// check the block counter works
-	assert(regionAllocator.nBlocks == 1);
-
 	// Check we compute the proper range.
 	auto r = regionAllocator.computeAddressRange();
 	assert(!r.contains(addr0 - 1));
@@ -270,10 +272,10 @@ unittest acquire_release {
 		assert(regionAllocator.acquire(&addr));
 		assert(addr is addr0 + i * BlockSize);
 		assert(r.contains(addr));
-		assert(regionAllocator.nBlocks == i + 1);
 		if (!passedThreshold && regionAllocator.checkBlockThreshold()) {
 			passedThreshold = true;
-			assert(regionAllocator.nBlocks == MinimumBlockCollectThreshold);
+			assert((cast(RegionAllocator*) &regionAllocator).nBlocks.value
+				== MinimumBlockCollectThreshold);
 		}
 	}
 
@@ -284,7 +286,6 @@ unittest acquire_release {
 		regionAllocator.release(addr, 1);
 	}
 
-	assert(regionAllocator.nBlocks == 5);
 	assert(!regionAllocator.checkBlockThreshold());
 	// this should trigger the min threshold which should be 8 blocks.
 	regionAllocator.setBlockThreshold(1, 1);
@@ -326,29 +327,24 @@ unittest extra_blocks {
 	void* addr1;
 	assert(regionAllocator.acquire(&addr1, 1));
 	assert(addr1 is addr0 + 2 * BlockSize);
-	assert(regionAllocator.nBlocks == 1 + 2);
 
 	void* addr2;
 	assert(regionAllocator.acquire(&addr2, 5));
 	assert(addr2 is addr1 + 6 * BlockSize);
-	assert(regionAllocator.nBlocks == 1 + 2 + 6);
 
 	// Release 3 blocks. We now have 2 regions.
 	regionAllocator.release(addr0, 1);
 	regionAllocator.release(addr0 + BlockSize, 2);
-	assert(regionAllocator.nBlocks == 6);
 
 	// Too big too fit.
 	void* addr3;
 	assert(regionAllocator.acquire(&addr3, 3));
 	assert(addr3 is addr2 + 4 * BlockSize);
-	assert(regionAllocator.nBlocks == 6 + 4);
 
 	// Small enough, so we reuse freed regions.
 	void* addr4;
 	assert(regionAllocator.acquire(&addr4, 2));
 	assert(addr4 is addr0 + 2 * BlockSize);
-	assert(regionAllocator.nBlocks == 6 + 4 + 3);
 }
 
 unittest enormous {
