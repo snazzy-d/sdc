@@ -1,5 +1,7 @@
 import d.gc.global;
 
+import d.gc.tcache;
+
 alias ScanDg = void delegate(const(void*)[] range);
 
 struct GCState {
@@ -13,10 +15,11 @@ private:
 	/**
 	 * Thread accounting and registration.
 	 */
+	Mutex stopTheWorldMutex;
+
 	Atomic!uint startingThreadCount;
 	uint registeredThreadCount = 0;
 
-	import d.gc.tcache;
 	RegisteredThreadRing registeredThreads;
 
 	/**
@@ -30,6 +33,9 @@ public:
 		return (c + 1) & ubyte.max;
 	}
 
+	/**
+	 * Thread management.
+	 */
 	void enterThreadCreation() shared {
 		startingThreadCount.fetchAdd(1);
 	}
@@ -51,6 +57,21 @@ public:
 		scope(exit) mutex.unlock();
 
 		(cast(GCState*) &this).removeImpl(tcache);
+	}
+
+	void stopTheWorld() shared {
+		stopTheWorldMutex.lock();
+
+		// FIXME: Actually stop all threads...
+	}
+
+	void restartTheWorld() shared {
+		stopTheWorldMutex.unlock();
+	}
+
+	void suspendThread() shared {
+		stopTheWorldMutex.lock();
+		scope(exit) stopTheWorldMutex.unlock();
 	}
 
 	/**

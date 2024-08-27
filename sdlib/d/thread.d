@@ -59,9 +59,11 @@ extern(C) void __sd_global_scan(ScanDg scan) {
 }
 
 extern(C) void __sd_thread_stop_the_world() {
-	// TODO: Actually stop the world.
+	import d.gc.global;
+	gState.stopTheWorld();
 }
 
 extern(C) void __sd_thread_restart_the_world() {
-	// TODO: Actually stop the world.
+	import d.gc.global;
+	gState.restartTheWorld();
 }

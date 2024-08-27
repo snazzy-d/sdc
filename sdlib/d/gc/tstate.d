@@ -107,7 +107,9 @@ private:
 		// Stop the thread.
 		state.store(SuspendedState);
 
-		// FIXME: Suspend this thread...
+		// Suspend this thread.
+		import d.gc.global;
+		gState.suspendThread();
 
 		// Resume execution.
 		state.store(RunningState);
@@ -186,4 +188,66 @@ unittest signal {
 
 	assert(s.exitBusyState());
 	check(SuspendState.None, false);
+}
+
+unittest suspend {
+	ThreadState state;
+
+	static runThread(void* delegate() dg) {
+		static struct Delegate {
+			void* ctx;
+			void* function(void*) fun;
+		}
+
+		auto x = *(cast(Delegate*) &dg);
+
+		import core.stdc.pthread;
+		pthread_t tid;
+		auto r = pthread_create(&tid, null, x.fun, x.ctx);
+		assert(r == 0, "Failed to create thread!");
+
+		return tid;
+	}
+
+	void* runSuspend() {
+		// Wait for the main thread to signal.
+		while (state.suspendState != SuspendState.Signaled) {
+			import sys.posix.sched;
+			sched_yield();
+		}
+
+		auto suspended = state.recieveSignal();
+		assert(suspended);
+
+		return null;
+	}
+
+	// Start or ginea pig thread.
+	auto tid = runThread(runSuspend);
+
+	// Stop the world!
+	import d.thread;
+	__sd_thread_stop_the_world();
+
+	// Signal the thread.
+	state.sendSignal();
+
+	// Wait for the thread to be suspended.
+	while (state.suspendState != SuspendState.Suspended) {
+		import sys.posix.sched;
+		sched_yield();
+	}
+
+	// Resume the executation and check the thread restarts.
+	__sd_thread_restart_the_world();
+
+	while (state.suspendState != SuspendState.None) {
+		import sys.posix.sched;
+		sched_yield();
+	}
+
+	void* ret;
+
+	import core.stdc.pthread;
+	pthread_join(tid, &ret);
 }
