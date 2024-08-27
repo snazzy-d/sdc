@@ -7,10 +7,18 @@ import core.stdc.pthread;
 
 alias PthreadFunction = void* function(void*);
 
+extern(C) {
+	void* malloc(size_t size);
+	void free(void* ptr);
+}
+
 // Hijack the system's pthread_create function so we can register the thread.
 extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
                              PthreadFunction start_routine, void* arg) {
-	auto runner = new ThreadRunner(start_routine, arg);
+	//auto runner = new ThreadRunner(start_routine, arg);
+	auto runner = cast(ThreadRunner *)malloc(ThreadRunner.sizeof);
+	trunner.fun = start_routine;
+	trunner.arg = arg;
 
 	/**
 	 * We do not want the GC to stop this specific thread
@@ -32,6 +40,7 @@ extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
 	if (ret != 0) {
 		// The spawned thread will call this when there are no errors.
 		exitThreadCreation();
+		free(runner);
 	}
 
 	return ret;
@@ -54,7 +63,7 @@ void* runThread(ThreadRunner* runner) {
 	auto arg = runner.arg;
 
 	createThread();
-	__sd_gc_free(runner);
+	free(runner);
 
 	// Make sure we clean up after ourselves.
 	scope(exit) destroyThread();
