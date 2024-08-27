@@ -51,6 +51,9 @@ private:
 	import d.gc.tstate;
 	ThreadState state;
 
+	import core.stdc.pthread;
+	pthread_t self;
+
 	RNode rnode;
 
 	const(void*)[][] tlsSegments;
@@ -62,6 +65,8 @@ private:
 
 public:
 	void initialize(shared(ExtentMap)* emap, shared(Base)* base) {
+		self = pthread_self();
+
 		nextAllocationEvent = DefaultEventWait;
 		nextDeallocationEvent = DefaultEventWait;
 
