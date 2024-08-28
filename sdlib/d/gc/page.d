@@ -346,9 +346,9 @@ private:
 
 	bool growAllocImpl(Extent* e, uint index, uint pages, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
+		assert(delta > 0 && delta < PagesInBlock, "Invalid delta!");
 		assert(index > 0 && index <= PagesInBlock - delta, "Invalid index!");
 		assert(pages > 0 && pages <= PagesInBlock, "Invalid number of pages!");
-		assert(delta > 0, "Invalid delta!");
 
 		auto block = e.block;
 		unregisterBlock(block);
@@ -364,10 +364,9 @@ private:
 
 	void shrinkAllocImpl(Extent* e, uint index, uint pages, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(index > 0 && index <= PagesInBlock - pages, "Invalid index!");
-		assert(pages > 0 && pages <= PagesInBlock - index,
-		       "Invalid number of pages!");
-		assert(delta > 0, "Invalid delta!");
+		assert(delta > 0 && delta < PagesInBlock, "Invalid delta!");
+		assert(index > 0 && index <= PagesInBlock - delta, "Invalid index!");
+		assert(pages > 0 && pages <= index, "Invalid number of pages!");
 
 		auto block = e.block;
 		unregisterBlock(block);

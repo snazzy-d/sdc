@@ -363,7 +363,12 @@ unittest shrinklarge {
 	assert(arena.shrinkLarge(emap, pd5.extent, 128));
 	assert(pd5.extent.npages == 128);
 
-	// Shrink third alloc.
+	// Shrink third alloc,
+	// Make sure to test for shrinking the last page of the block.
+	assert(arena.shrinkLarge(emap, pd6.extent, 127));
+	assert(pd6.extent.npages == 127);
+
+	// Then shrink to the desired size.
 	assert(arena.shrinkLarge(emap, pd6.extent, 64));
 	assert(pd6.extent.npages == 64);
 
