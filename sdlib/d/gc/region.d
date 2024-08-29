@@ -46,6 +46,8 @@ shared(RegionAllocator)* gPointerRegionAllocator() {
 	return &regionAllocator;
 }
 
+enum MinimumBlockCollectThreshold = 8;
+
 struct RegionAllocator {
 private:
 	shared(Base)* base;
@@ -63,6 +65,8 @@ private:
 	size_t minAddress = AddressSpace;
 	size_t maxAddress = 0;
 
+	// Count of blocks that are currently acquired.
+	size_t nBlocks = 0;
 public:
 	bool acquire(void** addrPtr, uint extraBlocks = 0) shared {
 		mutex.lock();
@@ -89,6 +93,14 @@ public:
 		scope(exit) mutex.unlock();
 
 		return (cast(RegionAllocator*) &this).computeAddressRangeImpl();
+	}
+
+	@property
+	size_t acquiredBlocks() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(RegionAllocator*) &this).nBlocks;
 	}
 
 private:
@@ -124,6 +136,8 @@ private:
 		auto extraSize = extraBlocks * BlockSize;
 		*addrPtr = ptr + extraSize;
 
+		nBlocks += totalBlocks;
+
 		auto newBlockCount = r.blockCount - totalBlocks;
 		if (newBlockCount == 0) {
 			unusedRegions.insert(r);
@@ -143,6 +157,8 @@ private:
 		auto r = getOrAllocateRegion();
 		r.at(ptr, blocks);
 		registerRegion(r);
+
+		nBlocks -= blocks;
 	}
 
 	void registerRegion(Region* r) {
@@ -233,6 +249,7 @@ unittest acquire_release {
 
 	void* addr0;
 	assert(regionAllocator.acquire(&addr0));
+	assert(regionAllocator.acquiredBlocks == 1);
 
 	// Check we compute the proper range.
 	auto r = regionAllocator.computeAddressRange();
@@ -246,12 +263,16 @@ unittest acquire_release {
 		assert(regionAllocator.acquire(&addr));
 		assert(addr is addr0 + i * BlockSize);
 		assert(r.contains(addr));
+		assert(regionAllocator.acquiredBlocks == i + 1);
 	}
 
 	foreach (i; 5 .. RefillBlockCount) {
 		void* addr = addr0 + i * BlockSize;
 		regionAllocator.release(addr, 1);
+		assert(regionAllocator.acquiredBlocks == RefillBlockCount - (i - 4));
 	}
+
+	assert(regionAllocator.acquiredBlocks == 5);
 
 	{
 		auto r = ra.regionsByClass.extractAny();
@@ -264,6 +285,7 @@ unittest acquire_release {
 	foreach (i; 0 .. 5) {
 		void* addr = addr0 + i * BlockSize;
 		regionAllocator.release(addr, 1);
+		assert(regionAllocator.acquiredBlocks == 4 - i);
 	}
 
 	{
@@ -288,24 +310,29 @@ unittest extra_blocks {
 	void* addr1;
 	assert(regionAllocator.acquire(&addr1, 1));
 	assert(addr1 is addr0 + 2 * BlockSize);
+	assert(regionAllocator.acquiredBlocks == 1 + 2);
 
 	void* addr2;
 	assert(regionAllocator.acquire(&addr2, 5));
 	assert(addr2 is addr1 + 6 * BlockSize);
+	assert(regionAllocator.acquiredBlocks == 1 + 2 + 6);
 
 	// Release 3 blocks. We now have 2 regions.
 	regionAllocator.release(addr0, 1);
 	regionAllocator.release(addr0 + BlockSize, 2);
+	assert(regionAllocator.acquiredBlocks == 6);
 
 	// Too big too fit.
 	void* addr3;
 	assert(regionAllocator.acquire(&addr3, 3));
 	assert(addr3 is addr2 + 4 * BlockSize);
+	assert(regionAllocator.acquiredBlocks == 6 + 4);
 
 	// Small enough, so we reuse freed regions.
 	void* addr4;
 	assert(regionAllocator.acquire(&addr4, 2));
 	assert(addr4 is addr0 + 2 * BlockSize);
+	assert(regionAllocator.acquiredBlocks == 6 + 4 + 3);
 }
 
 unittest enormous {
