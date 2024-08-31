@@ -28,6 +28,7 @@ private:
 	enum RunningState = SuspendState.None;
 	enum SignaledState = SuspendState.Signaled;
 	enum SuspendedState = SuspendState.Suspended;
+	enum DelayedState = SuspendState.Delayed;
 
 	enum MustSuspendState = BusyIncrement | SuspendState.Delayed;
 
@@ -56,24 +57,25 @@ public:
 		}
 	}
 
-	bool recieveSignal() {
+	bool onSuspendSignal() {
+		// Sets the status to Delayed no matter what.
 		auto s = state.fetchAdd(1);
 		assert(status(s) == SuspendState.Signaled);
 
-		// The thread is not busy, put it to sleep!
+		// The thread is busy, put it to sleep!
 		if (s != SignaledState) {
 			return false;
 		}
 
-		/**
-		 * When we suspend from the signal handler, we do not need to call
-		 * __sd_gc_push_registers. The context for the signal handler has
-		 * been pushed on the stack, and it contains the values for all the
-		 * registers.
-		 * It is capital that the signal handler uses SA_SIGINFO for this.
-		 */
-		suspend(s);
+		import d.gc.signal;
+		suspendThreadFromSignal(&this);
+
 		return true;
+	}
+
+	void onResumeSignal() {
+		assert(state.load() == SuspendedState);
+		state.store(RunningState);
 	}
 
 	void enterBusyState() {
@@ -90,6 +92,15 @@ public:
 		return exitBusyStateSlow(s);
 	}
 
+package:
+	void markSuspended() {
+		// The status to delayed because of the fetchAdd in onSuspendSignal.
+		auto s = state.load();
+		assert(s == DelayedState || s == MustSuspendState);
+
+		state.store(SuspendedState);
+	}
+
 private:
 	bool exitBusyStateSlow(size_t s) {
 		while (true) {
@@ -97,12 +108,8 @@ private:
 			assert(status(s) != SuspendState.Suspended);
 
 			if (s == MustSuspendState) {
-				static void runSuspend(ref ThreadState ts) {
-					ts.suspend(MustSuspendState);
-				}
-
-				import d.gc.stack;
-				__sd_gc_push_registers(this.runSuspend);
+				import d.gc.signal;
+				suspendThreadDelayed(&this);
 
 				return true;
 			}
@@ -111,21 +118,6 @@ private:
 				return false;
 			}
 		}
-	}
-
-	void suspend(size_t s) {
-		// Make sure the thread is running and not too busy.
-		assert(s == SignaledState || s == MustSuspendState);
-
-		// Stop the thread.
-		state.store(SuspendedState);
-
-		// Suspend this thread.
-		import d.gc.global;
-		gState.suspendThread();
-
-		// Resume execution.
-		state.store(RunningState);
 	}
 }
 
@@ -167,44 +159,9 @@ unittest busy {
 	checkForState(SuspendState.Signaled);
 }
 
-unittest signal {
-	ThreadState s;
-
-	void check(SuspendState ss, bool busy) {
-		assert(s.suspendState == ss);
-		assert(s.busy == busy);
-	}
-
-	// Check init state.
-	check(SuspendState.None, false);
-
-	// Simple signal.
-	s.sendSignal();
-	check(SuspendState.Signaled, false);
-
-	assert(s.recieveSignal());
-	check(SuspendState.None, false);
-
-	// Signal while busy.
-	s.sendSignal();
-	check(SuspendState.Signaled, false);
-
-	s.enterBusyState();
-	s.enterBusyState();
-	check(SuspendState.Signaled, true);
-
-	assert(!s.recieveSignal());
-	check(SuspendState.Delayed, true);
-
-	assert(!s.exitBusyState());
-	check(SuspendState.Delayed, true);
-
-	assert(s.exitBusyState());
-	check(SuspendState.None, false);
-}
-
 unittest suspend {
-	ThreadState state;
+	import d.gc.signal;
+	setupSignals();
 
 	static runThread(void* delegate() dg) {
 		static struct Delegate {
@@ -222,45 +179,80 @@ unittest suspend {
 		return tid;
 	}
 
-	void* runSuspend() {
-		// Wait for the main thread to signal.
-		while (state.suspendState != SuspendState.Signaled) {
-			import sys.posix.sched;
-			sched_yield();
-		}
+	// Make sure to use the state from the thread cache
+	// so signal can find it back when needed.
+	import d.gc.tcache;
+	ThreadState* s = &threadCache.state;
+	scope(exit) {
+		assert(s.state.load() == 0, "Invalid leftover state!");
+	}
 
-		auto suspended = state.recieveSignal();
-		assert(suspended);
+	import d.sync.atomic;
+	shared Atomic!uint resumeCount;
+	shared Atomic!uint mustStop;
+
+	import core.stdc.pthread;
+	auto mainThreadID = pthread_self();
+
+	void* autoResume() {
+		while (mustStop.load() == 0) {
+			if (s.suspendState != SuspendState.Suspended) {
+				import sys.posix.sched;
+				sched_yield();
+				continue;
+			}
+
+			resumeCount.fetchAdd(1);
+
+			import core.stdc.signal, d.gc.signal;
+			pthread_kill(mainThreadID, SIGRESUME);
+
+			while (s.suspendState == SuspendState.Suspended) {
+				import sys.posix.sched;
+				sched_yield();
+			}
+		}
 
 		return null;
 	}
 
-	// Stop the world!
-	import d.thread;
-	__sd_thread_stop_the_world();
+	auto autoResumeThreadID = runThread(autoResume);
 
-	// Start or ginea pig thread.
-	auto tid = runThread(runSuspend);
-
-	// Signal the thread.
-	state.sendSignal();
-
-	// Wait for the thread to be suspended.
-	while (state.suspendState != SuspendState.Suspended) {
-		import sys.posix.sched;
-		sched_yield();
+	void check(SuspendState ss, bool busy, uint suspendCount) {
+		assert(s.suspendState == ss);
+		assert(s.busy == busy);
+		assert(resumeCount.load() == suspendCount);
 	}
 
-	// Resume the executation and check the thread restarts.
-	__sd_thread_restart_the_world();
+	// Check init state.
+	check(SuspendState.None, false, 0);
 
-	while (state.suspendState != SuspendState.None) {
-		import sys.posix.sched;
-		sched_yield();
-	}
+	// Simple signal.
+	s.sendSignal();
+	check(SuspendState.Signaled, false, 0);
+
+	assert(s.onSuspendSignal());
+	check(SuspendState.None, false, 1);
+
+	// Signal while busy.
+	s.sendSignal();
+	check(SuspendState.Signaled, false, 1);
+
+	s.enterBusyState();
+	s.enterBusyState();
+	check(SuspendState.Signaled, true, 1);
+
+	assert(!s.onSuspendSignal());
+	check(SuspendState.Delayed, true, 1);
+
+	assert(!s.exitBusyState());
+	check(SuspendState.Delayed, true, 1);
+
+	assert(s.exitBusyState());
+	check(SuspendState.None, false, 2);
+
+	mustStop.store(1);
 
 	void* ret;
-
-	import core.stdc.pthread;
-	pthread_join(tid, &ret);
+	pthread_join(autoResumeThreadID, &ret);
 }

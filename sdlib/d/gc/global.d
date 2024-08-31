@@ -69,12 +69,12 @@ public:
 	}
 
 	void restartTheWorld() shared {
-		stopTheWorldMutex.unlock();
-	}
+		while (resumeSuspendedThreads()) {
+			import sys.posix.sched;
+			sched_yield();
+		}
 
-	void suspendThread() shared {
-		stopTheWorldMutex.lock();
-		scope(exit) stopTheWorldMutex.unlock();
+		stopTheWorldMutex.unlock();
 	}
 
 	/**
@@ -156,6 +156,31 @@ private:
 		}
 
 		return retry;
+	}
+
+	bool resumeSuspendedThreads() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(GCState*) &this).resumeSuspendedThreadsImpl();
+	}
+
+	bool resumeSuspendedThreadsImpl() {
+		auto r = registeredThreads.range;
+		while (!r.empty) {
+			auto tc = r.front;
+			scope(success) r.popFront();
+
+			// If the thread isn't suspended, move on.
+			if (tc.state.suspendState != SuspendState.Suspended) {
+				continue;
+			}
+
+			import d.gc.signal;
+			resumeThread(tc);
+		}
+
+		return false;
 	}
 
 	void addRootsImpl(const void[] range) {

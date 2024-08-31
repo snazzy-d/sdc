@@ -55,6 +55,16 @@ void exitBusyState() {
 	threadCache.state.exitBusyState();
 }
 
+void stopTheWorld() {
+	import d.gc.global;
+	gState.stopTheWorld();
+}
+
+void restartTheWorld() {
+	import d.gc.global;
+	gState.restartTheWorld();
+}
+
 private:
 
 void initThread() {
