@@ -1,5 +1,7 @@
 module sys.linux.sysinfo;
 
+import sys.posix.types;
+
 version(linux):
 extern(C):
 

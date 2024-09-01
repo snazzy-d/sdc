@@ -1,5 +1,7 @@
 module core.stdc.unistd;
 
+import sys.posix.types;
+
 // POSIX.1 (1996)
 enum STDIN_FILENO = 0;
 enum STDOUT_FILENO = 1;
