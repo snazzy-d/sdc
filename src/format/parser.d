@@ -2415,10 +2415,18 @@ private:
 	}
 
 	void parseFunctionBody() {
-		if (parseFunctionPostfix()) {
-			space();
-			parseBlock(Mode.Statement);
+		if (!parseFunctionPostfix()) {
+			return;
 		}
+
+		// ShortenedFunctionBody
+		if (match(TokenType.FatArrow)) {
+			parseShortenedFunctionBody();
+			return;
+		}
+
+		space();
+		parseBlock(Mode.Statement);
 	}
 
 	bool parseFunctionPostfix() {
@@ -2429,7 +2437,7 @@ private:
 			space();
 
 			switch (token.type) with (TokenType) {
-				case OpenBrace:
+				case OpenBrace, FatArrow:
 					// Function declaration.
 					return true;
 
@@ -2501,6 +2509,19 @@ private:
 		}
 
 		assert(0);
+	}
+
+	void parseShortenedFunctionBody() in(match(TokenType.FatArrow)) {
+		auto spanGuard = spliceSpan();
+		split();
+		nextToken();
+		space();
+		parseExpression();
+		if (match(TokenType.Semicolon)) {
+			nextToken();
+		}
+
+		newline(2);
 	}
 
 	void parseConstraint() {
