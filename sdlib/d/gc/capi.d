@@ -36,13 +36,6 @@ void __sd_gc_init() {
 	gState.register(&threadCache);
 }
 
-void __sd_gc_destroy_thread() {
-	threadCache.destroyThread();
-
-	import d.gc.global;
-	gState.remove(&threadCache);
-}
-
 /**
  * SDC runtime API.
  */

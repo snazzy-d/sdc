@@ -1,5 +1,7 @@
 module d.rt.trampoline;
 
+import d.gc.thread;
+
 import core.stdc.pthread;
 
 alias PthreadFunction = void* function(void*);
@@ -37,7 +39,6 @@ extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
 private:
 
 extern(C) void __sd_thread_create();
-extern(C) void __sd_thread_destroy();
 extern(C) void __sd_thread_creation_enter();
 extern(C) void __sd_thread_creation_exit();
 
@@ -55,10 +56,6 @@ struct ThreadRunner {
 	}
 }
 
-void destroyThread(void* dummy) {
-	__sd_thread_destroy();
-}
-
 void* runThread(ThreadRunner* runner) {
 	auto fun = runner.fun;
 	auto arg = runner.arg;
@@ -67,7 +64,7 @@ void* runThread(ThreadRunner* runner) {
 	__sd_gc_free(runner);
 
 	// Make sure we clean up after ourselves.
-	scope(exit) __sd_thread_destroy();
+	scope(exit) destroyThread();
 
 	return fun(arg);
 }

@@ -69,8 +69,3 @@ void __sd_thread_create() {
 
 	__sd_gc_init();
 }
-
-void __sd_thread_destroy() {
-	import d.gc.capi;
-	__sd_gc_destroy_thread();
-}

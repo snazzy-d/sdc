@@ -39,11 +39,6 @@ extern(C) void __sd_thread_create() {
 	registerTlsSegments();
 }
 
-extern(C) void __sd_thread_destroy() {
-	import d.gc.capi;
-	__sd_gc_destroy_thread();
-}
-
 alias ScanDg = void delegate(const(void*)[] range);
 extern(C) void __sd_thread_scan(ScanDg scan) {
 	// Scan the registered TLS segments.
