@@ -24,19 +24,6 @@ void* realloc(void* ptr, size_t size) {
 }
 
 /**
- * Setup.
- */
-void __sd_gc_init() {
-	assert(threadCache.state.busy, "Thread is not busy!");
-
-	import d.gc.emap, d.gc.base;
-	threadCache.initialize(&gExtentMap, &gBase);
-
-	import d.gc.global;
-	gState.register(&threadCache);
-}
-
-/**
  * SDC runtime API.
  */
 void* __sd_gc_alloc(size_t size) {

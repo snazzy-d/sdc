@@ -49,23 +49,7 @@ void __sd_thread_restart_the_world() {
 	thread_resumeAll();
 }
 
-extern(C) void __sd_thread_creation_enter() {
-	import d.gc.global;
-	gState.enterThreadCreation();
-}
+// druntime handles this on its own.
+void __sd_gc_register_global_segments() {}
 
-extern(C) void __sd_thread_creation_exit() {
-	import d.gc.global;
-	gState.exitThreadCreation();
-}
-
-void __sd_thread_create() {
-	import d.gc.capi;
-	__sd_gc_thread_enter_busy_state();
-	scope(exit) {
-		__sd_gc_thread_exit_busy_state();
-		__sd_thread_creation_exit();
-	}
-
-	__sd_gc_init();
-}
+void __sd_gc_register_tls_segments() {}

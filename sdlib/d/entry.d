@@ -4,8 +4,8 @@ extern(C):
 int _Dmain();
 
 int main() {
-	import d.thread;
-	__sd_process_create();
+	import d.gc.thread;
+	createProcess();
 
 	try {
 		return _Dmain();

@@ -1,5 +1,6 @@
 module d.rt.trampoline;
 
+import d.gc.capi;
 import d.gc.thread;
 
 import core.stdc.pthread;
@@ -23,28 +24,20 @@ extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
 	 * This allows the GC to not stop the workd while a thread
 	 * is being created.
 	 */
-	__sd_thread_creation_enter();
+	enterThreadCreation();
 
 	auto ret =
 		pthread_create_trampoline(thread, attr, cast(PthreadFunction) runThread,
 		                          runner);
 	if (ret != 0) {
 		// The spawned thread will call this when there are no errors.
-		__sd_thread_creation_exit();
+		exitThreadCreation();
 	}
 
 	return ret;
 }
 
 private:
-
-extern(C) void __sd_thread_create();
-extern(C) void __sd_thread_creation_enter();
-extern(C) void __sd_thread_creation_exit();
-
-extern(C) void __sd_gc_free(void* ptr);
-extern(C) void __sd_gc_thread_enter_busy_state();
-extern(C) void __sd_gc_thread_exit_busy_state();
 
 struct ThreadRunner {
 	void* arg;
@@ -60,7 +53,7 @@ void* runThread(ThreadRunner* runner) {
 	auto fun = runner.fun;
 	auto arg = runner.arg;
 
-	__sd_thread_create();
+	createThread();
 	__sd_gc_free(runner);
 
 	// Make sure we clean up after ourselves.

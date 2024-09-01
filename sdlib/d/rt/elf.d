@@ -29,11 +29,11 @@ version(linux) {
 		return addr + size;
 	}
 
-	void registerMutableSegments() {
+	void registerGlobalSegments() {
 		import sys.linux.link;
 
 		static extern(C)
-		int __mutable_callback(dl_phdr_info* info, size_t size, void* data) {
+		int __global_callback(dl_phdr_info* info, size_t size, void* data) {
 			auto offset = info.dlpi_addr;
 
 			auto segmentCount = info.dlpi_phnum;
@@ -53,7 +53,7 @@ version(linux) {
 			return 0;
 		}
 
-		dl_iterate_phdr(__mutable_callback, null);
+		dl_iterate_phdr(__global_callback, null);
 	}
 
 	void registerTlsSegments() {

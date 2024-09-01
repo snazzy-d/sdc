@@ -7,6 +7,11 @@ import d.gc.emap;
 
 extern(C):
 
+void __sd_gc_init() {
+	import d.gc.thread;
+	createProcess();
+}
+
 // Some of the bits from druntime.
 enum BlkAttr : uint {
 	FINALIZE = 0b0000_0001,
