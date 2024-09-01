@@ -110,7 +110,7 @@ uint getPageCount(size_t size) {
 
 	import d.gc.util;
 	auto pages = alignUp(size, PageSize) / PageSize;
-	assert(pages == pages & uint.max, "Invalid page count!");
+	assert(pages <= uint.max, "Invalid page count!");
 
 	return pages & uint.max;
 }
