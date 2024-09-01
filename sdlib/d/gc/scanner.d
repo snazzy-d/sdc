@@ -3,6 +3,7 @@ module d.gc.scanner;
 import sdc.intrinsics;
 
 import d.gc.emap;
+import d.gc.hooks;
 import d.gc.range;
 import d.gc.spec;
 import d.gc.util;
@@ -63,8 +64,7 @@ public:
 		}
 
 		// Scan the roots.
-		import d.thread;
-		__sd_global_scan(addToWorkList);
+		__sd_gc_global_scan(addToWorkList);
 
 		// Now send this thread marking!
 		runMark();
@@ -97,8 +97,7 @@ private:
 		auto worker = Worker(&this);
 
 		// Scan the stack and TLS.
-		import d.thread;
-		__sd_thread_scan(worker.scan);
+		__sd_gc_thread_scan(worker.scan);
 
 		while (waitForWork(worker)) {
 			worker.scan();

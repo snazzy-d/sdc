@@ -1,6 +1,6 @@
 module dmd.thread;
 
-alias ScanDg = void delegate(const(void*)[] range);
+import d.gc.types;
 
 extern(C):
 
@@ -21,7 +21,7 @@ void __sd_scanAllThreadsFn(ScanDg* context, void* start, void* end) {
 }
 
 // sdrt API.
-void __sd_thread_scan(ScanDg scan) {
+void __sd_gc_thread_scan(ScanDg scan) {
 	/**
 	 * Note, this is needed, even though druntime will pass in the thread
 	 * stacks to scan. The thread calling the collect will have its stack
@@ -33,7 +33,7 @@ void __sd_thread_scan(ScanDg scan) {
 	scanStack(scan);
 }
 
-void __sd_global_scan(ScanDg scan) {
+void __sd_gc_global_scan(ScanDg scan) {
 	import d.gc.global;
 	// Scan all registered roots and ranges.
 	gState.scanRoots(scan);

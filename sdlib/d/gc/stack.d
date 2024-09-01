@@ -1,5 +1,7 @@
 module d.gc.stack;
 
+import d.gc.types;
+
 version(OSX) {
 	// For some reason OSX's symbol get a _ prepended.
 	extern(C) void _sd_gc_push_registers(void delegate());
@@ -8,7 +10,6 @@ version(OSX) {
 	extern(C) void __sd_gc_push_registers(void delegate());
 }
 
-alias ScanDg = void delegate(const(void*)[] range);
 void scanStack(ScanDg scan) {
 	auto ts = ThreadScanner(scan);
 	__sd_gc_push_registers(ts.scanStack);

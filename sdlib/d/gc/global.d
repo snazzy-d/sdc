@@ -2,8 +2,7 @@ module d.gc.global;
 
 import d.gc.tcache;
 import d.gc.tstate;
-
-alias ScanDg = void delegate(const(void*)[] range);
+import d.gc.types;
 
 struct GCState {
 private:
