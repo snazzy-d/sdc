@@ -1,4 +1,4 @@
-import d.rt.stack;
+module d.gc.stack;
 
 version(OSX) {
 	// For some reason OSX's symbol get a _ prepended.
@@ -9,7 +9,7 @@ version(OSX) {
 }
 
 alias ScanDg = void delegate(const(void*)[] range);
-extern(C) void __sd_stack_scan(ScanDg scan) {
+void scanStack(ScanDg scan) {
 	auto ts = ThreadScanner(scan);
 	__sd_gc_push_registers(ts.scanStack);
 }

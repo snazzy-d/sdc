@@ -29,8 +29,8 @@ void __sd_thread_scan(ScanDg scan) {
 	 * stack is scanned, it may no longer have the saved registers. Therefore,
 	 * we need to scan the registers now.
 	 */
-	import d.rt.stack;
-	__sd_stack_scan(scan);
+	import d.gc.stack;
+	scanStack(scan);
 }
 
 void __sd_global_scan(ScanDg scan) {

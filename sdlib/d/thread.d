@@ -8,8 +8,8 @@ extern(C) void __sd_thread_scan(ScanDg scan) {
 		scan(s);
 	}
 
-	import d.rt.stack;
-	__sd_stack_scan(scan);
+	import d.gc.stack;
+	scanStack(scan);
 }
 
 extern(C) void __sd_global_scan(ScanDg scan) {
