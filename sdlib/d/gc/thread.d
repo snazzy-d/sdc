@@ -4,8 +4,8 @@ import d.gc.capi;
 import d.gc.tcache;
 
 void createProcess() {
-	__sd_gc_thread_enter_busy_state();
-	scope(exit) __sd_gc_thread_exit_busy_state();
+	enterBusyState();
+	scope(exit) exitBusyState();
 
 	import d.gc.signal;
 	setupSignals();
@@ -18,9 +18,9 @@ void createProcess() {
 }
 
 void createThread() {
-	__sd_gc_thread_enter_busy_state();
+	enterBusyState();
 	scope(exit) {
-		__sd_gc_thread_exit_busy_state();
+		exitBusyState();
 		exitThreadCreation();
 	}
 
@@ -45,6 +45,14 @@ void enterThreadCreation() {
 void exitThreadCreation() {
 	import d.gc.global;
 	gState.exitThreadCreation();
+}
+
+void enterBusyState() {
+	threadCache.state.enterBusyState();
+}
+
+void exitBusyState() {
+	threadCache.state.exitBusyState();
 }
 
 private:

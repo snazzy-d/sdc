@@ -16,8 +16,8 @@ extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
 	 * We do not want the GC to stop this specific thread
 	 * while it is creating another thread.
 	 */
-	__sd_gc_thread_enter_busy_state();
-	scope(exit) __sd_gc_thread_exit_busy_state();
+	enterBusyState();
+	scope(exit) exitBusyState();
 
 	/**
 	 * We notify the GC that we are starting a new thread.
