@@ -48,6 +48,12 @@ extern(C) {
 	}
 
 	/**
+	 * Assemblies from the runtime.
+	 */
+	void __sd_gc_push_registers(void delegate());
+	immutable __anchor_sd_gc_push_registers = &__sd_gc_push_registers;
+
+	/**
 	 * Exception facilities are using a subset of libsdrt compiled with
 	 * DMD called libsdmd. We need to anchor some functions here.
 	 */

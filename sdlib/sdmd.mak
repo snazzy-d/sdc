@@ -14,5 +14,5 @@ obj/sdmd.o: $(LIBSMD_SRC)
 	@mkdir -p lib obj
 	$(DMD) -c -of"$@" $(LIBSMD_SRC) -makedeps="$@.deps" $(ARCHFLAG) $(LIBSDMD_IMPORTS)
 
-$(LIBSDMD): obj/sdmd.o
+$(LIBSDMD): obj/sdmd.o obj/x64/save_regs.o
 	ar rcs "$@" $^

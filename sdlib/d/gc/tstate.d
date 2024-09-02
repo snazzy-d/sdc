@@ -65,6 +65,13 @@ public:
 			return false;
 		}
 
+		/**
+		 * When we suspend from the signal handler, we do not need to call
+		 * __sd_gc_push_registers. The context for the signal handler has
+		 * been pushed on the stack, and it contains the values for all the
+		 * registers.
+		 * It is capital that the signal handler uses SA_SIGINFO for this.
+		 */
 		suspend(s);
 		return true;
 	}
@@ -90,7 +97,13 @@ private:
 			assert(status(s) != SuspendState.Suspended);
 
 			if (s == MustSuspendState) {
-				suspend(s);
+				static void runSuspend(ref ThreadState ts) {
+					ts.suspend(MustSuspendState);
+				}
+
+				import d.gc.stack;
+				__sd_gc_push_registers(this.runSuspend);
+
 				return true;
 			}
 

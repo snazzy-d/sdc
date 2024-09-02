@@ -2,8 +2,6 @@ global __sd_gc_push_registers
 
 section .text
 __sd_gc_push_registers:
-; We could actually make things faster by not pushing the base and stack pointers
-; but this is not performance critical and needs to be rock solid.
 ; For some reason, clang seems to use rbp, but gcc rbx (?) so we will do it
 ; the clang way and push rbx to the stack as a parameter.
 	push rbp
@@ -18,6 +16,8 @@ __sd_gc_push_registers:
 	mov	[rbp - 24], r13
 	mov	[rbp - 32], r14
 	mov	[rbp - 40], r15
+; While not strictly necessary, it avoids false pointers and make for easier debug.
+	mov	[rbp - 48], rsp
 ; This method is passed a delegate. rdi contains the context as a first argument
 ; and rsi, the second argument is the function pointer. rdi do not need any special
 ; threatement as it is also the first argument when calling the delegate.
