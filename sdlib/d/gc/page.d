@@ -666,6 +666,25 @@ private:
 	static
 	void finalizeSlabNimble(ulong evicted, ulong metadataFlags, int sizeClass,
 	                        Extent* e, size_t nimbleIndex) {
+		auto toPrint = evicted;
+		while (toPrint != 0) {
+			import d.gc.slab;
+			auto slotSize = binInfos[sizeClass].slotSize;
+			void* nimbleBase = e.address + (nimbleIndex * 64 * slotSize);
+
+			auto index = countTrailingZeros(toPrint);
+			void* ptr = nimbleBase + index * slotSize;
+
+			char[4096] buf;
+
+			import core.stdc.unistd, core.stdc.stdio;
+			auto len =
+				snprintf(buf.ptr, buf.length, "g %p %16ld\n", ptr, slotSize);
+			write(STDERR_FILENO, buf.ptr, len);
+
+			toPrint &= (toPrint - 1);
+		}
+
 		auto toFinalize = evicted & metadataFlags;
 		if (toFinalize == 0) {
 			return;
@@ -822,6 +841,13 @@ private:
 							import d.gc.hooks;
 							__sd_gc_finalize(e.address, e.usedCapacity, f);
 						}
+
+						char[4096] buf;
+
+						import core.stdc.unistd, core.stdc.stdio;
+						auto len = snprintf(buf.ptr, buf.length, "G %p %16ld\n",
+						                    e.address, e.size);
+						write(STDERR_FILENO, buf.ptr, len);
 
 						deadExtents.insert(e);
 					}

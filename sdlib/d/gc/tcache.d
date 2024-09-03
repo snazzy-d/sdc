@@ -293,6 +293,12 @@ private:
 			return null;
 		}
 
+		char[4096] buf;
+
+		import core.stdc.unistd, core.stdc.stdio;
+		auto len = snprintf(buf.ptr, buf.length, "a %p %16ld\n", ptr, slotSize);
+		write(STDERR_FILENO, buf.ptr, len);
+
 		if (unlikely(zero)) {
 			memset(ptr, 0, slotSize);
 		}
@@ -338,6 +344,13 @@ private:
 		auto ec = pd.extentClass;
 		auto sc = ec.sizeClass;
 
+		char[4096] buf;
+
+		import core.stdc.unistd, core.stdc.stdio;
+		auto len = snprintf(buf.ptr, buf.length, "f %p %16ld\n", ptr,
+		                    binInfos[sc].slotSize);
+		write(STDERR_FILENO, buf.ptr, len);
+
 		// We trigger the deallocation event first as it might
 		// recycle the bin we are interested in, which increase
 		// our chances that free works.
@@ -379,6 +392,13 @@ private:
 			return null;
 		}
 
+		char[4096] buf;
+
+		import core.stdc.unistd, core.stdc.stdio;
+		auto len = snprintf(buf.ptr, buf.length, "A %p %16ld\n", ptr,
+		                    pages * PageSize);
+		write(STDERR_FILENO, buf.ptr, len);
+
 		triggerAllocationEvent(pages * PageSize);
 		return ptr;
 	}
@@ -388,6 +408,13 @@ private:
 
 		auto e = pd.extent;
 		auto npages = e.npages;
+
+		char[4096] buf;
+
+		import core.stdc.unistd, core.stdc.stdio;
+		auto len =
+			snprintf(buf.ptr, buf.length, "F %p %16ld\n", e.address, e.size);
+		write(STDERR_FILENO, buf.ptr, len);
 
 		{
 			state.enterBusyState();

@@ -246,6 +246,13 @@ public:
 		BinInfo lastDenseBin;
 
 		while (true) {
+			char[4096] buf;
+
+			import core.stdc.unistd, core.stdc.stdio;
+			auto len = snprintf(buf.ptr, buf.length, "S %p %16ld\n", range.ptr,
+			                    range.length * PointerSize);
+			write(STDERR_FILENO, buf.ptr, len);
+
 			auto current = range.ptr;
 			auto top = current + range.length;
 
