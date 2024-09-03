@@ -56,6 +56,8 @@ private:
 
 	RNode rnode;
 
+	void* stackBottom;
+	void* stackTop;
 	const(void*)[][] tlsSegments;
 
 	static assert(ThreadBinCount < ubyte.max, "Too many thread bin!");
@@ -84,6 +86,10 @@ public:
 			bins[sp++] = ThreadBin(binBuffer[i .. i + capacity]);
 			i += capacity;
 		}
+
+		// Because this may allocate, we do it last.
+		import d.rt.elf;
+		stackBottom = getStackBottom();
 	}
 
 	void destroyThread() {

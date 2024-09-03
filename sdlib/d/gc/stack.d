@@ -28,8 +28,8 @@ struct ThreadScanner {
 		import sdc.intrinsics;
 		auto top = readFramePointer();
 
-		import d.rt.elf;
-		auto bottom = getStackBottom();
+		import d.gc.tcache;
+		auto bottom = threadCache.stackBottom;
 
 		import d.gc.range;
 		scan(makeRange(top, bottom));

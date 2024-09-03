@@ -59,6 +59,13 @@ extern(C) {
 	 */
 	void __sd_eh_throw(void*);
 	immutable __anchor_sd_eh_throw = &__sd_eh_throw;
+
+	/**
+	 * GC hooks.
+	 */
+	void __sd_gc_pre_suspend_hook(void* stackTop) {}
+
+	void __sd_gc_post_suspend_hook() {}
 }
 
 final class LLVMEvaluator : Evaluator {

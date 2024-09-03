@@ -106,6 +106,16 @@ void initSuspendSigSet(sigset_t* set) {
 }
 
 void suspendThreadImpl(ThreadState* ts) {
+	import sdc.intrinsics;
+	auto stackTop = readFramePointer();
+
+	threadCache.stackTop = stackTop;
+	scope(exit) threadCache.stackTop = null;
+
+	import d.gc.hooks;
+	__sd_gc_pre_suspend_hook(stackTop);
+	scope(exit) __sd_gc_post_suspend_hook();
+
 	ts.markSuspended();
 
 	sigset_t set;

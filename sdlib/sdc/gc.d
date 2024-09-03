@@ -20,6 +20,10 @@ void __sd_gc_global_scan(ScanDg scan) {
 	gState.scanRoots(scan);
 }
 
+void __sd_gc_pre_suspend_hook(void* stackTop) {}
+
+void __sd_gc_post_suspend_hook() {}
+
 void __sd_gc_register_global_segments() {
 	import d.rt.elf;
 	registerGlobalSegments();

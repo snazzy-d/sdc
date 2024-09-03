@@ -5,6 +5,9 @@ import d.gc.types;
 extern(C):
 
 // druntime API.
+void thread_preSuspend(void* stackTop);
+void thread_postSuspend();
+
 void thread_suspendAll();
 void thread_resumeAll();
 void thread_scanAll_C(ScanDg* context, typeof(&__sd_scanAllThreadsFn) scan);
@@ -39,6 +42,14 @@ void __sd_gc_global_scan(ScanDg scan) {
 	gState.scanRoots(scan);
 
 	thread_scanAll_C(&scan, &__sd_scanAllThreadsFn);
+}
+
+void __sd_gc_pre_suspend_hook(void* stackTop) {
+	thread_preSuspend(stackTop);
+}
+
+void __sd_gc_post_suspend_hook() {
+	thread_postSuspend();
 }
 
 void __sd_thread_stop_the_world() {
