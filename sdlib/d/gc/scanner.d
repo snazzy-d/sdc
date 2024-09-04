@@ -96,7 +96,20 @@ private:
 	void runMark() shared {
 		auto worker = Worker(&this);
 
-		// Scan the stack and TLS.
+		/**
+		 * Scan the stack and TLS.
+		 * 
+		 * It may seems counter intuitive that we do so for worker threads
+		 * as well,b ut it turns out to be necessary. NPTL caches resources
+		 * necessary to start a thread after a thread exits, to be able to
+		 * restart new ones quickly and cheaply.
+		 * 
+		 * Because we start and stop threads during the mark phase, we are
+		 * at risk of missing pointers allocated for thread management resources
+		 * and corrupting the internal of the standard C library.
+		 * 
+		 * This is NOT good! So we scan here to make sure we don't miss anything.
+		 */
 		__sd_gc_thread_scan(worker.scan);
 
 		while (waitForWork(worker)) {
