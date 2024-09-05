@@ -62,5 +62,4 @@ void __sd_thread_restart_the_world() {
 
 // druntime handles this on its own.
 void __sd_gc_register_global_segments() {}
-
 void __sd_gc_register_tls_segments() {}

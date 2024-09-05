@@ -14,10 +14,21 @@ enum Foo {
 	Bar, // comment!
 }
 
+void foo() { /* Inline comment. */ }
+void foo(int[] args...) {
+	// comment!
+}
+
+void foo(int[] args...) { // comment!
+	// comment!
+}
+
+void foo(int[] args...) { // comment!
+	/* Inline comment. */
+}
+
 void foo(int[] args...) {}
-
 void foo(void function() @safe a) {}
-
 void foo(void delegate() @safe a) {}
 
 Foo[]* a;

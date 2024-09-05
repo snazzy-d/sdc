@@ -237,6 +237,14 @@ private:
 		return p.getFullPosition(context).getLineNumber();
 	}
 
+	uint getLineNumber(ref TokenRange r) {
+		return getLineNumber(r.front.location.stop);
+	}
+
+	uint getLineNumber() {
+		return getLineNumber(trange);
+	}
+
 	int newLineCount(Position start, Position stop) {
 		return getLineNumber(stop) - getLineNumber(start);
 	}
@@ -361,7 +369,7 @@ private:
 	}
 
 	/**
-	 * Unformateed code management.
+	 * Unformated code management.
 	 */
 	void emitRawContent() {
 		auto upTo = inFlightComments.length > 0
@@ -440,6 +448,10 @@ private:
 	void flushComments() {
 		emitInFlightComments();
 		emitComments(nextComments, token.location);
+	}
+
+	bool hasComments() {
+		return inFlightComments.length > 0 || nextComments.length > 0;
 	}
 
 	void parseComments() in(inFlightComments == [] && nextComments == []) {
@@ -1357,21 +1369,6 @@ private:
 	/**
 	 * Statements
 	 */
-	bool parseEmptyBlock() {
-		if (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
-			return false;
-		}
-
-		{
-			// Flush comments so that they have the proper indentation.
-			auto guard = indent();
-			flushComments();
-		}
-
-		nextToken();
-		return true;
-	}
-
 	bool parseInlineBlock(Mode m) {
 		auto oldNeedDoubleIndent = needDoubleIndent;
 		scope(exit) {
@@ -1387,14 +1384,34 @@ private:
 		return false;
 	}
 
+	bool parseEmptyBlock(uint openBraceLine) {
+		if (!match(TokenType.CloseBrace) && !match(TokenType.End)) {
+			return false;
+		}
+
+		if (hasComments() && openBraceLine != getLineNumber()) {
+			return false;
+		}
+
+		{
+			// Flush comments so that they have the proper indentation.
+			auto guard = indent();
+			flushComments();
+		}
+
+		nextToken();
+		newline();
+		return true;
+	}
+
 	bool parseBlock(alias fun = parseBlockContent, T...)(T args) {
 		if (!match(TokenType.OpenBrace)) {
 			return false;
 		}
 
+		auto openBraceLine = getLineNumber();
 		nextToken();
-		if (parseEmptyBlock()) {
-			newline(mode == Mode.Declaration ? 2 : 1);
+		if (parseEmptyBlock(openBraceLine)) {
 			return true;
 		}
 

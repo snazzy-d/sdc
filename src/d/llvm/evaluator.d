@@ -64,7 +64,6 @@ extern(C) {
 	 * GC hooks.
 	 */
 	void __sd_gc_pre_suspend_hook(void* stackTop) {}
-
 	void __sd_gc_post_suspend_hook() {}
 }
 
