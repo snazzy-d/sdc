@@ -60,6 +60,9 @@ public:
 	}
 
 	void stopTheWorld() shared {
+		import d.gc.hooks;
+		__sd_gc_pre_stop_the_world_hook();
+
 		stopTheWorldMutex.lock();
 
 		while (sendSignals() || startingThreadCount.load() > 0) {
@@ -75,6 +78,9 @@ public:
 		}
 
 		stopTheWorldMutex.unlock();
+
+		import d.gc.hooks;
+		__sd_gc_post_restart_the_world_hook();
 	}
 
 	/**

@@ -8,8 +8,9 @@ extern(C):
 void thread_preSuspend(void* stackTop);
 void thread_postSuspend();
 
-void thread_suspendAll();
-void thread_resumeAll();
+void thread_preStopTheWorld();
+void thread_postRestartTheWorld();
+
 void thread_scanAll_C(ScanDg* context, typeof(&__sd_scanAllThreadsFn) scan);
 
 // note, we must interface with DMD using extern(C) calls, so we
@@ -52,12 +53,12 @@ void __sd_gc_post_suspend_hook() {
 	thread_postSuspend();
 }
 
-void __sd_thread_stop_the_world() {
-	thread_suspendAll();
+void __sd_gc_pre_stop_the_world_hook(void* stackTop) {
+	thread_preStopTheWorld();
 }
 
-void __sd_thread_restart_the_world() {
-	thread_resumeAll();
+void __sd_gc_post_restart_the_world_hook() {
+	thread_postRestartTheWorld();
 }
 
 // druntime handles this on its own.

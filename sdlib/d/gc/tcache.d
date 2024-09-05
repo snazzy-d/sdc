@@ -514,9 +514,9 @@ private:
 	 * GC facilities.
 	 */
 	void runGCCycle() {
-		import d.thread;
-		__sd_thread_stop_the_world();
-		scope(exit) __sd_thread_restart_the_world();
+		import d.gc.thread;
+		stopTheWorld();
+		scope(exit) restartTheWorld();
 
 		import d.gc.global;
 		auto gcCycle = gState.nextGCCycle();
