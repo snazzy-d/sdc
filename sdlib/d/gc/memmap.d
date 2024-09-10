@@ -74,7 +74,7 @@ void pages_purge(void* addr, size_t size) {
 }
 
 void pages_zero(void* addr, size_t size) {
-	if (size >= PurgePageThresold) {
+	if (size >= PurgePageThresoldSize) {
 		pages_purge(addr, size);
 	} else {
 		memset(addr, 0, size);

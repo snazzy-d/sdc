@@ -57,7 +57,8 @@ enum ArenaCount = 1 << LgArenaCount;
 enum ArenaMask = ArenaCount - 1;
 
 // Various thresolds.
-enum PurgePageThresold = 16 * PageSize;
+enum PurgePageThresold = 16;
+enum PurgePageThresoldSize = PurgePageThresold * PageSize;
 
 // GC-specific items
 alias Finalizer = void*;
