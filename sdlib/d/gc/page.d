@@ -840,17 +840,24 @@ private:
 					continue;
 				}
 
+				auto markCycle = w & 0xff;
+				auto markBits = w >> 8;
 				auto metadataFlags = e.slabMetadataFlags.rawContent[0];
 
-				// If the cycle do not match, all the elements are dead. If no
-				// metadata exists, then we can safely clear the whole thing.
-				if (metadataFlags == 0 && (w & 0xff) != gcCycle) {
-					deadExtents.insert(e);
-					continue;
+				// If the cycle do not match, then all the element are dead.
+				if (markCycle != gcCycle) {
+					// If no metadata exists, we can short circuit here.
+					if (metadataFlags == 0) {
+						deadExtents.insert(e);
+						continue;
+					}
+
+					// Otherwise we run finalizers.
+					markBits = 0;
 				}
 
 				auto oldOccupancy = e.slabData.rawContent[0];
-				auto newOccupancy = oldOccupancy & (w >> 8);
+				auto newOccupancy = oldOccupancy & markBits;
 				auto evicted = oldOccupancy ^ newOccupancy;
 
 				// Call any finalizers on dying slots.
