@@ -838,19 +838,23 @@ private:
 					}
 
 					continue;
+				} else if ((w & 0xff) != gcCycle) {
+					w = 0;
+				} else {
+					w = w >> 8;
 				}
 
 				auto metadataFlags = e.slabMetadataFlags.rawContent[0];
 
 				// If the cycle do not match, all the elements are dead. If no
 				// metadata exists, then we can safely clear the whole thing.
-				if (metadataFlags == 0 && (w & 0xff) != gcCycle) {
+				if (metadataFlags == 0 && w == 0) {
 					deadExtents.insert(e);
 					continue;
 				}
 
 				auto oldOccupancy = e.slabData.rawContent[0];
-				auto newOccupancy = oldOccupancy & (w >> 8);
+				auto newOccupancy = oldOccupancy & w;
 				auto evicted = oldOccupancy ^ newOccupancy;
 
 				// Call any finalizers on dying slots.
