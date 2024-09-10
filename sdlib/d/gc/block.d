@@ -326,6 +326,44 @@ public:
 		clear(index, pages);
 		bits += AllocScoreUnit;
 	}
+
+	uint minimize() {
+		// If there aren't enough pages to purge, do nothing.
+		auto n = dirtyCount - usedCount;
+		if (n < PurgePageThresold) {
+			return 0;
+		}
+
+		auto toPurge = dirtyPages;
+		foreach (i, ref n; toPurge.rawContent) {
+			n &= ~allocatedPages.rawContent[i];
+		}
+
+		auto base = address;
+
+		uint i = 0;
+		while (i < PagesInBlock) {
+			i = toPurge.findSet(i);
+			if (i >= PagesInBlock) {
+				break;
+			}
+
+			auto offset = i * PageSize;
+			auto ptr = base + offset;
+
+			i = toPurge.findClear(i);
+			auto end = i * PageSize;
+			auto size = end - offset;
+
+			import d.gc.memmap;
+			pages_purge(ptr, size);
+		}
+
+		dirtyCount = usedCount;
+		dirtyPages = allocatedPages;
+
+		return n;
+	}
 }
 
 unittest bitpack {

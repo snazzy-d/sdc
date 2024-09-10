@@ -783,6 +783,17 @@ private:
 		}
 
 		collectOutlinedBitmaps();
+		minimizeDense();
+	}
+
+	uint minimizeDense() {
+		uint n = 0;
+		for (auto r = denseBlocks.range; !r.empty; r.popFront()) {
+			auto block = r.front;
+			n += block.minimize();
+		}
+
+		return n;
 	}
 
 	/**
@@ -865,6 +876,18 @@ private:
 		while (!deadExtents.empty) {
 			freeExtentLocked(emap, deadExtents.pop());
 		}
+
+		minimizeSparse();
+	}
+
+	uint minimizeSparse() {
+		uint n = 0;
+		for (auto r = sparseBlocks.range; !r.empty; r.popFront()) {
+			auto block = r.front;
+			n += block.minimize();
+		}
+
+		return n;
 	}
 
 	void freeExtentLocked(ref CachedExtentMap emap, Extent* e) {
