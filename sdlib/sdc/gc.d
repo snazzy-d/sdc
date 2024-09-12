@@ -18,6 +18,7 @@ void __sd_gc_thread_scan(ScanDg scan) {
 void __sd_gc_global_scan(ScanDg scan) {
 	import d.gc.global;
 	gState.scanRoots(scan);
+	gState.scanSuspendedThreads(scan);
 }
 
 void __sd_gc_pre_suspend_hook(void* stackTop) {}

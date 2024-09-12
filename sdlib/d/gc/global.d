@@ -83,6 +83,15 @@ public:
 		__sd_gc_post_restart_the_world_hook();
 	}
 
+	void scanSuspendedThreads(ScanDg scan) shared {
+		assert(stopTheWorldMutex.isHeld());
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(GCState*) &this).scanSuspendedThreadsImpl(scan);
+	}
+
 	/**
 	 * Add a block of scannable data as a root to possible GC memory. This
 	 * range will be scanned on proper alignment boundaries if it potentially
@@ -187,6 +196,27 @@ private:
 		}
 
 		return false;
+	}
+
+	void scanSuspendedThreadsImpl(ScanDg scan) {
+		auto r = registeredThreads.range;
+		while (!r.empty) {
+			auto tc = r.front;
+			scope(success) r.popFront();
+
+			// If the thread isn't suspended, move on.
+			if (tc.state.suspendState != SuspendState.Suspended) {
+				continue;
+			}
+
+			// Scan the registered TLS segments.
+			foreach (s; tc.tlsSegments) {
+				scan(s);
+			}
+
+			import d.gc.range;
+			scan(makeRange(tc.stackTop, tc.stackBottom));
+		}
 	}
 
 	void addRootsImpl(const void[] range) {
