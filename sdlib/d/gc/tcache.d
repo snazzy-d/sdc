@@ -430,7 +430,14 @@ private:
 
 	void recycleNextBin() {
 		auto index = nextBinToRecycle;
-		bins[index].recycle(emap, binStates[index], index / 2);
+		ubyte sizeClass = index / 2;
+
+		{
+			state.enterBusyState();
+			scope(exit) state.exitBusyState();
+
+			bins[index].recycle(emap, binStates[index], sizeClass);
+		}
 
 		nextBinToRecycle++;
 		if (nextBinToRecycle >= ThreadBinCount) {
