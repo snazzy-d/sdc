@@ -106,8 +106,7 @@ public:
 			return allocSmall(size, containsPointers, zero);
 		}
 
-		auto pages = getPageCount(size);
-		return allocLarge(pages, containsPointers, zero);
+		return allocLarge(size, containsPointers, zero);
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers, bool zero,
@@ -134,8 +133,7 @@ public:
 			return ptr;
 		}
 
-		auto pages = getPageCount(size);
-		auto ptr = allocLarge(pages, containsPointers, zero);
+		auto ptr = allocLarge(size, containsPointers, zero);
 		if (unlikely(ptr is null)) {
 			return null;
 		}
@@ -301,6 +299,9 @@ private:
 
 		if (unlikely(zero)) {
 			memset(ptr, 0, slotSize);
+		} else if (containsPointers) {
+			// Zero out the non-allocated part of the slot to avoid stale pointers.
+			memset(ptr + size, 0, slotSize - size);
 		}
 
 		triggerAllocationEvent(slotSize);
@@ -370,7 +371,8 @@ private:
 	/**
 	 * Large allocations.
 	 */
-	void* allocLarge(uint pages, bool containsPointers, bool zero) {
+	void* allocLarge(size_t size, bool containsPointers, bool zero) {
+		auto pages = getPageCount(size);
 		void* ptr;
 
 		{
@@ -383,6 +385,10 @@ private:
 
 		if (unlikely(ptr is null)) {
 			return null;
+		}
+
+		if (containsPointers && !zero) {
+			memset(ptr + size, 0, pages * PageSize - size);
 		}
 
 		triggerAllocationEvent(pages * PageSize);
@@ -536,9 +542,9 @@ private:
 
 		scope(exit) {
 			// Set the block thresholds for the next collection to
-			// be 2x current block allocations.
-			gPointerRegionAllocator.setBlockThreshold(2, 1);
-			gDataRegionAllocator.setBlockThreshold(2, 1);
+			// be 1.5x current block allocations.
+			gPointerRegionAllocator.setBlockThreshold(3, 2);
+			gDataRegionAllocator.setBlockThreshold(3, 2);
 			gState.endGCCycle();
 		}
 

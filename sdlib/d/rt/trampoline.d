@@ -17,8 +17,8 @@ extern(C) int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
                              PthreadFunction start_routine, void* arg) {
 	//auto runner = new ThreadRunner(start_routine, arg);
 	auto runner = cast(ThreadRunner *)malloc(ThreadRunner.sizeof);
-	trunner.fun = start_routine;
-	trunner.arg = arg;
+	runner.fun = start_routine;
+	runner.arg = arg;
 
 	/**
 	 * We do not want the GC to stop this specific thread
