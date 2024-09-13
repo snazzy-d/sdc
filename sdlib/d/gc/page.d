@@ -51,6 +51,8 @@ private:
 	AllBlockRing denseBlocks;
 	AllBlockRing sparseBlocks;
 
+	size_t usedPageCount;
+
 	import d.gc.ring;
 	Ring!BlockDescriptor fullBlocks;
 
@@ -244,6 +246,14 @@ public:
 		(cast(PageFiller*) &this).collectImpl(emap, gcCycle);
 	}
 
+	@property
+	size_t usedPages() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(PageFiller*) &this).usedPageCount;
+	}
+
 private:
 	/**
 	 * Allocate and free pages, private implementation.
@@ -267,6 +277,7 @@ private:
 		registerBlock(block);
 
 		auto ptr = block.address + n * PageSize;
+		usedPageCount += pages;
 		return e.at(ptr, pages, block, ec);
 	}
 
@@ -297,6 +308,7 @@ private:
 		auto ptr = block.address - leadSize;
 		auto npages = pages + extraBlocks * PagesInBlock;
 
+		usedPageCount += npages;
 		return e.at(ptr, npages, block);
 	}
 
@@ -308,6 +320,7 @@ private:
 		auto block = e.block;
 		unregisterBlock(block);
 
+		usedPageCount -= e.npages;
 		block.release(n, pages);
 		if (block.empty) {
 			releaseBlock(e, block);
@@ -358,6 +371,7 @@ private:
 			return false;
 		}
 
+		usedPageCount += delta;
 		e.at(e.address, pages, block);
 		return true;
 	}
@@ -372,6 +386,7 @@ private:
 		unregisterBlock(block);
 		scope(success) registerBlock(block);
 
+		usedPageCount -= delta;
 		e.at(e.address, pages, block);
 
 		block.clear(index, delta);
@@ -937,27 +952,34 @@ unittest allocPages {
 	auto e0 = checkAllocPage(1, true);
 	auto e1 = checkAllocPage(2, true);
 	assert(e1.address is e0.address + e0.size);
+	assert(filler.usedPages == 3);
 
 	auto e0Addr = e0.address;
 	filler.freePages(e0);
+	assert(filler.usedPages == 2);
 
 	// Do not reuse the free slot is there is no room.
 	auto e2 = checkAllocPage(3, true);
 	assert(e2.address is e1.address + e1.size);
+	assert(filler.usedPages == 5);
 
 	// But do reuse that free slot if there isn't.
 	auto e3 = checkAllocPage(1, false);
 	assert(e3.address is e0Addr);
+	assert(filler.usedPages == 6);
 
 	// Free everything.
 	filler.freePages(e1);
 	filler.freePages(e2);
 	filler.freePages(e3);
+	assert(filler.usedPages == 0);
 
 	// Check a wide range of sizes.
 	foreach (pages; 1 .. 2 * PagesInBlock) {
 		auto e = checkAllocPage(pages, true);
+		assert(filler.usedPages == pages);
 		filler.freePages(e);
+		assert(filler.usedPages == 0);
 	}
 }
 
@@ -991,44 +1013,56 @@ unittest allocHuge {
 
 	// Allocate a huge extent.
 	auto e0 = checkAllocPage(AllocSize, true, true);
+	assert(filler.usedPages == AllocSize);
 
 	// Free the huge extent.
 	auto e0Addr = e0.address;
 	filler.freePages(e0);
+	assert(filler.usedPages == 0);
 
 	// Reallocating the same run will yield the same memory back.
 	e0 = checkAllocPage(AllocSize, true, true);
 	assert(e0.address is e0Addr);
+	assert(filler.usedPages == AllocSize);
 
 	// Allocate one page on the borrowed block.
 	auto e1 = checkAllocPage(1, true, false);
 	assert(e1.address is e0.address + e0.size);
+	assert(filler.usedPages == AllocSize + 1);
 
 	// Now, freeing the huge extent will leave a page behind.
 	filler.freePages(e0);
+	assert(filler.usedPages == 1);
 
 	// Allocating another huge extent will use a new range.
 	auto e2 = checkAllocPage(AllocSize, true, true);
 	assert(e2.address is alignUp(e1.address, BlockSize));
+	assert(filler.usedPages == AllocSize + 1);
 
 	// Allocating new small extents fill the borrowed page.
 	auto e3 = checkAllocPage(1, false, false);
 	assert(e3.address is alignDown(e1.address, BlockSize));
+	assert(filler.usedPages == AllocSize + 2);
 
 	// But allocating just the right size will reuse the region.
 	auto e4 = checkAllocPage(PagesInBlock, true, true);
 	assert(e4.address is e0Addr);
+	assert(filler.usedPages == AllocSize + 2 + PagesInBlock);
 
 	// Free everything.
 	filler.freePages(e1);
 	filler.freePages(e2);
 	filler.freePages(e3);
 	filler.freePages(e4);
+	assert(filler.usedPages == 0);
 
 	// Check boundaries.
 	auto e5 = checkAllocPage(MaxPagesInLargeAlloc, true, false);
+	assert(filler.usedPages == MaxPagesInLargeAlloc);
 	auto e6 = checkAllocPage(MaxPagesInLargeAlloc + 1, true, true);
+	assert(filler.usedPages == MaxPagesInLargeAlloc * 2 + 1);
 
 	filler.freePages(e5);
 	filler.freePages(e6);
+	assert(filler.usedPages == 0);
 }
