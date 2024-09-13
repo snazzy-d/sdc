@@ -274,10 +274,12 @@ private:
 		}
 
 		auto n = block.reserve(pages, dirty);
+
+		usedPageCount += pages;
+
 		registerBlock(block);
 
 		auto ptr = block.address + n * PageSize;
-		usedPageCount += pages;
 		return e.at(ptr, pages, block, ec);
 	}
 
@@ -302,13 +304,13 @@ private:
 		assert(n == 0, "Unexpected page allocated!");
 		assert(!dirty, "Huge allocations shouldn't be dirty!");
 
+		auto npages = pages + extraBlocks * PagesInBlock;
+		usedPageCount += npages;
+
 		registerBlock(block);
 
 		auto leadSize = extraBlocks * BlockSize;
 		auto ptr = block.address - leadSize;
-		auto npages = pages + extraBlocks * PagesInBlock;
-
-		usedPageCount += npages;
 		return e.at(ptr, npages, block);
 	}
 
@@ -938,6 +940,14 @@ unittest allocPages {
 	auto filler = &arena.filler;
 	filler.regionAllocator = &regionAllocator;
 
+	size_t expectedUsedPages = 0;
+
+	void checkFreePage(Extent* e) {
+		filler.freePages(e);
+		expectedUsedPages -= e.npages;
+		assert(expectedUsedPages == filler.usedPages);
+	}
+
 	auto checkAllocPage(uint pages, bool clean) {
 		bool dirty;
 		auto e = filler.allocPages(pages, dirty);
@@ -946,40 +956,36 @@ unittest allocPages {
 		assert(e.npages == pages);
 		assert(dirty == !clean);
 
+		expectedUsedPages += pages;
+		assert(expectedUsedPages == filler.usedPages);
+
 		return e;
 	}
 
 	auto e0 = checkAllocPage(1, true);
 	auto e1 = checkAllocPage(2, true);
 	assert(e1.address is e0.address + e0.size);
-	assert(filler.usedPages == 3);
 
 	auto e0Addr = e0.address;
-	filler.freePages(e0);
-	assert(filler.usedPages == 2);
+	checkFreePage(e0);
 
 	// Do not reuse the free slot is there is no room.
 	auto e2 = checkAllocPage(3, true);
 	assert(e2.address is e1.address + e1.size);
-	assert(filler.usedPages == 5);
 
 	// But do reuse that free slot if there isn't.
 	auto e3 = checkAllocPage(1, false);
 	assert(e3.address is e0Addr);
-	assert(filler.usedPages == 6);
 
 	// Free everything.
-	filler.freePages(e1);
-	filler.freePages(e2);
-	filler.freePages(e3);
-	assert(filler.usedPages == 0);
+	checkFreePage(e1);
+	checkFreePage(e2);
+	checkFreePage(e3);
 
 	// Check a wide range of sizes.
 	foreach (pages; 1 .. 2 * PagesInBlock) {
 		auto e = checkAllocPage(pages, true);
-		assert(filler.usedPages == pages);
-		filler.freePages(e);
-		assert(filler.usedPages == 0);
+		checkFreePage(e);
 	}
 }
 
@@ -997,6 +1003,14 @@ unittest allocHuge {
 	auto filler = &arena.filler;
 	filler.regionAllocator = &regionAllocator;
 
+	size_t expectedUsedPages = 0;
+
+	void checkFreePage(Extent* e) {
+		filler.freePages(e);
+		expectedUsedPages -= e.npages;
+		assert(expectedUsedPages == filler.usedPages);
+	}
+
 	auto checkAllocPage(uint pages, bool clean, bool huge) {
 		bool dirty;
 		auto e = filler.allocPages(pages, dirty);
@@ -1004,6 +1018,9 @@ unittest allocHuge {
 		assert(e !is null);
 		assert(e.npages == pages);
 		assert(dirty == !clean);
+
+		expectedUsedPages += pages;
+		assert(expectedUsedPages == filler.usedPages);
 
 		assert(e.isHuge() == huge);
 		return e;
@@ -1013,56 +1030,44 @@ unittest allocHuge {
 
 	// Allocate a huge extent.
 	auto e0 = checkAllocPage(AllocSize, true, true);
-	assert(filler.usedPages == AllocSize);
 
 	// Free the huge extent.
 	auto e0Addr = e0.address;
-	filler.freePages(e0);
-	assert(filler.usedPages == 0);
+	checkFreePage(e0);
 
 	// Reallocating the same run will yield the same memory back.
 	e0 = checkAllocPage(AllocSize, true, true);
 	assert(e0.address is e0Addr);
-	assert(filler.usedPages == AllocSize);
 
 	// Allocate one page on the borrowed block.
 	auto e1 = checkAllocPage(1, true, false);
 	assert(e1.address is e0.address + e0.size);
-	assert(filler.usedPages == AllocSize + 1);
 
 	// Now, freeing the huge extent will leave a page behind.
-	filler.freePages(e0);
-	assert(filler.usedPages == 1);
+	checkFreePage(e0);
 
 	// Allocating another huge extent will use a new range.
 	auto e2 = checkAllocPage(AllocSize, true, true);
 	assert(e2.address is alignUp(e1.address, BlockSize));
-	assert(filler.usedPages == AllocSize + 1);
 
 	// Allocating new small extents fill the borrowed page.
 	auto e3 = checkAllocPage(1, false, false);
 	assert(e3.address is alignDown(e1.address, BlockSize));
-	assert(filler.usedPages == AllocSize + 2);
 
 	// But allocating just the right size will reuse the region.
 	auto e4 = checkAllocPage(PagesInBlock, true, true);
 	assert(e4.address is e0Addr);
-	assert(filler.usedPages == AllocSize + 2 + PagesInBlock);
 
 	// Free everything.
-	filler.freePages(e1);
-	filler.freePages(e2);
-	filler.freePages(e3);
-	filler.freePages(e4);
-	assert(filler.usedPages == 0);
+	checkFreePage(e1);
+	checkFreePage(e2);
+	checkFreePage(e3);
+	checkFreePage(e4);
 
 	// Check boundaries.
 	auto e5 = checkAllocPage(MaxPagesInLargeAlloc, true, false);
-	assert(filler.usedPages == MaxPagesInLargeAlloc);
 	auto e6 = checkAllocPage(MaxPagesInLargeAlloc + 1, true, true);
-	assert(filler.usedPages == MaxPagesInLargeAlloc * 2 + 1);
 
-	filler.freePages(e5);
-	filler.freePages(e6);
-	assert(filler.usedPages == 0);
+	checkFreePage(e5);
+	checkFreePage(e6);
 }
