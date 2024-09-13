@@ -277,6 +277,9 @@ public:
 	}
 
 	void flushCache() {
+		state.enterBusyState();
+		scope(exit) state.exitBusyState();
+
 		foreach (ref b; bins) {
 			b.fullFlush(emap);
 		}
