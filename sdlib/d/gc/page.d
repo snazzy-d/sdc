@@ -821,11 +821,14 @@ private:
 				assert(e !is null, "GC Metadata leftovers?");
 
 				auto npages = e.npages;
-				i += npages;
+				scope(success) i += npages;
 
 				auto w = e.gcWord.load();
 				auto ec = pd.extentClass;
 				if (ec.isLarge()) {
+					// Make sure we handle huge extents correctly.
+					npages = modUp(npages, PagesInBlock);
+
 					if (w == gcCycle) {
 						// It's alive.
 						continue;
