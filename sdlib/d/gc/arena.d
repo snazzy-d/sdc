@@ -216,48 +216,69 @@ unittest allocLarge {
 	regionAllocator.base = base;
 
 	arena.filler.regionAllocator = &regionAllocator;
+	auto filler = &arena.filler;
 
-	auto makeLargeAlloc(uint pages) {
-		return arena.allocLarge(emap, pages, false);
+	size_t expectedUsedPages = 0;
+
+	void checkFreeLarge(Extent* e) {
+		auto ptr = e.address;
+		auto pages = e.npages;
+
+		arena.freeLarge(emap, e);
+
+		expectedUsedPages -= pages;
+		assert(filler.usedPages == expectedUsedPages);
+
+		// Ensure the emap is cleared.
+		auto ptrEnd = ptr + pages * PageSize;
+		for (auto p = ptr; p < ptrEnd; p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent is null);
+			assert(probe.data == 0);
+		}
 	}
 
-	auto ptr0 = makeLargeAlloc(4);
-	assert(ptr0 !is null);
-	auto pd0 = emap.lookup(ptr0);
-	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.npages == 4);
+	auto makeLargeAlloc(uint pages) {
+		auto ptr = arena.allocLarge(emap, pages, false);
+		assert(ptr !is null);
 
-	auto ptr1 = makeLargeAlloc(12);
-	assert(ptr1 !is null);
-	assert(ptr1 is ptr0 + 4 * PageSize);
-	auto pd1 = emap.lookup(ptr1);
-	assert(pd1.extent.address is ptr1);
-	assert(pd1.extent.npages == 12);
+		expectedUsedPages += pages;
+		assert(filler.usedPages == expectedUsedPages);
 
-	arena.freeLarge(emap, pd0.extent);
-	auto pdf = emap.lookup(ptr0);
-	assert(pdf.extent is null);
+		auto pd = emap.lookup(ptr);
+		auto e = pd.extent;
+		assert(e !is null);
+		assert(e.address is ptr);
+		assert(e.npages == pages);
+
+		for (auto p = ptr; p < e.address + e.size; p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent is e);
+			assert(probe.data == pd.data);
+			pd = pd.next();
+		}
+
+		return e;
+	}
+
+	auto e0 = makeLargeAlloc(4);
+	auto e1 = makeLargeAlloc(12);
+	assert(e1.address is e0.address + e0.size);
+
+	checkFreeLarge(e0);
 
 	// Do not reuse the free slot is there is no room.
-	auto ptr2 = makeLargeAlloc(5);
-	assert(ptr2 !is null);
-	assert(ptr2 is ptr1 + 12 * PageSize);
-	auto pd2 = emap.lookup(ptr2);
-	assert(pd2.extent.address is ptr2);
-	assert(pd2.extent.npages == 5);
+	auto e2 = makeLargeAlloc(5);
+	assert(e2.address is e1.address + e1.size);
 
 	// But do reuse that free slot if there isn't.
-	auto ptr3 = makeLargeAlloc(4);
-	assert(ptr3 !is null);
-	assert(ptr3 is ptr0);
-	auto pd3 = emap.lookup(ptr3);
-	assert(pd3.extent.address is ptr3);
-	assert(pd3.extent.npages == 4);
+	auto e3 = makeLargeAlloc(4);
+	assert(e1.address is e3.address + e3.size);
 
 	// Free everything.
-	arena.freeLarge(emap, pd1.extent);
-	arena.freeLarge(emap, pd2.extent);
-	arena.freeLarge(emap, pd3.extent);
+	checkFreeLarge(e1);
+	checkFreeLarge(e2);
+	checkFreeLarge(e3);
 }
 
 unittest shrinklarge {
@@ -276,128 +297,140 @@ unittest shrinklarge {
 	regionAllocator.base = base;
 
 	arena.filler.regionAllocator = &regionAllocator;
+	auto filler = &arena.filler;
 
-	auto makeLargeAlloc(uint pages) {
-		return arena.allocLarge(emap, pages, false);
+	size_t expectedUsedPages = 0;
+
+	void checkFreeLarge(Extent* e) {
+		auto ptr = e.address;
+		auto pages = e.npages;
+
+		arena.freeLarge(emap, e);
+
+		expectedUsedPages -= pages;
+		assert(filler.usedPages == expectedUsedPages);
+
+		// Ensure the emap is cleared.
+		auto ptrEnd = ptr + pages * PageSize;
+		for (auto p = ptr; p < ptrEnd; p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent is null);
+			assert(probe.data == 0);
+		}
 	}
 
-	// Allocation 0: 35 pages.
-	auto ptr0 = makeLargeAlloc(35);
-	assert(ptr0 !is null);
-	auto pd0 = emap.lookup(ptr0);
-	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.npages == 35);
-	auto pd0x = emap.lookup(ptr0);
-	assert(pd0x.extent.address is ptr0);
+	auto makeLargeAlloc(uint pages) {
+		auto ptr = arena.allocLarge(emap, pages, false);
+		assert(ptr !is null);
 
-	// Allocation 1: 20 pages.
-	auto ptr1 = makeLargeAlloc(20);
-	assert(ptr1 !is null);
-	assert(ptr1 is ptr0 + 35 * PageSize);
-	auto pd1 = emap.lookup(ptr1);
-	assert(pd1.extent.address is ptr1);
-	assert(pd1.extent.npages == 20);
+		expectedUsedPages += pages;
+		assert(filler.usedPages == expectedUsedPages);
 
-	// Shrink no. 0 down to 10 pages.
-	assert(arena.shrinkLarge(emap, pd0.extent, 10));
-	assert(pd0.extent.address is ptr0);
-	assert(pd0.extent.npages == 10);
-	auto pd0xx = emap.lookup(ptr0);
-	assert(pd0xx.extent.address is ptr0);
+		auto pd = emap.lookup(ptr);
+		auto e = pd.extent;
+		assert(e !is null);
+		assert(e.address is ptr);
+		assert(e.npages == pages);
 
-	// Check that newly-last page is mapped.
-	auto okpd = emap.lookup(ptr0 + 9 * PageSize);
-	assert(okpd.extent !is null);
+		for (auto p = ptr; p < e.address + e.size; p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent is e);
+			assert(probe.data == pd.data);
+			pd = pd.next();
+		}
 
-	// But the page after the newly-last one, should not be mapped.
-	auto badpd = emap.lookup(ptr0 + 10 * PageSize);
-	assert(badpd.extent is null);
+		return e;
+	}
 
-	// Allocate 26 pages, will not fit in the hole after no.0.
-	auto ptr2 = makeLargeAlloc(26);
-	assert(ptr2 !is null);
-	auto pd2 = emap.lookup(ptr2);
-	assert(pd2.extent.address is ptr2);
-	assert(ptr2 is ptr1 + 20 * PageSize);
+	void checkShrinkLarge(Extent* e, uint pages) {
+		assert(e.npages >= pages);
+		auto delta = e.npages - pages;
+		expectedUsedPages -= delta;
+
+		auto ptr = e.address;
+
+		assert(arena.shrinkLarge(emap, e, pages));
+		assert(e.address is ptr);
+		assert(e.npages == pages);
+		assert(filler.usedPages == expectedUsedPages);
+
+		// Confirm that the extent is still mapped.
+		auto pd = emap.lookup(e.address);
+		for (auto p = e.address; p < e.address + e.size; p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent is e);
+			assert(probe.data == pd.data);
+			pd = pd.next();
+		}
+
+		// But that page were cleared where it shrunk.
+		auto ptrAfter = e.address + e.size;
+		auto ptrEnd = ptrAfter + delta * PageSize;
+
+		for (auto p = ptrAfter; p < ptrEnd; p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent is null);
+			assert(probe.data == 0);
+		}
+	}
+
+	// Round 1.
+	auto e0 = makeLargeAlloc(35);
+	auto e1 = makeLargeAlloc(20);
+	assert(e1.address is e0.address + e0.size);
+
+	// Shrink e0 down to 10 pages.
+	checkShrinkLarge(e0, 10);
+
+	// Allocate 26 pages, will not fit in the hole after e0.
+	auto e2 = makeLargeAlloc(26);
+	assert(e2.address is e1.address + e1.size);
 
 	// Now allocate precisely 25 pages.
-	// This new alloc WILL fit in and fill the free space after no. 0.
-	auto ptr3 = makeLargeAlloc(25);
-	assert(ptr3 !is null);
-	auto pd3 = emap.lookup(ptr3);
-	assert(pd3.extent.address is ptr3);
-	assert(ptr3 is ptr0 + 10 * PageSize);
+	// This new alloc WILL fit in and fill the free space after e0.
+	auto e3 = makeLargeAlloc(25);
+	assert(e3.address is e0.address + e0.size);
 
-	arena.freeLarge(emap, pd0.extent);
-	arena.freeLarge(emap, pd1.extent);
-	arena.freeLarge(emap, pd2.extent);
-	arena.freeLarge(emap, pd3.extent);
+	checkFreeLarge(e0);
+	checkFreeLarge(e1);
+	checkFreeLarge(e2);
+	checkFreeLarge(e3);
 
-	// Allocate 128 pages.
-	auto ptr4 = makeLargeAlloc(128);
-	assert(ptr4 !is null);
-	auto pd4 = emap.lookup(ptr4);
-	assert(pd4.extent.address is ptr4);
+	// Round 2.
+	auto e4 = makeLargeAlloc(128);
+	auto e5 = makeLargeAlloc(256);
+	assert(e5.address is e4.address + e4.size);
 
-	// Allocate 256 pages.
-	auto ptr5 = makeLargeAlloc(256);
-	assert(ptr5 !is null);
-	auto pd5 = emap.lookup(ptr5);
-	assert(pd5.extent.address is ptr5);
-	assert(pd5.extent.block == pd4.extent.block);
+	auto e6 = makeLargeAlloc(128);
+	assert(e6.address is e5.address + e5.size);
 
-	// Allocate 128 pages, block full.
-	auto ptr6 = makeLargeAlloc(128);
-	assert(ptr6 !is null);
-	auto pd6 = emap.lookup(ptr6);
-	assert(pd6.extent.address is ptr6);
-	assert(pd6.extent.block == pd5.extent.block);
-	assert(pd6.extent.block.full);
+	auto block = e4.block;
+	assert(block.full);
 
-	// Shrink first alloc.
-	assert(arena.shrinkLarge(emap, pd4.extent, 96));
-	assert(pd4.extent.npages == 96);
-	assert(!pd6.extent.block.full);
+	// After we shrink something, the block isn't full anymore.
+	checkShrinkLarge(e4, 96);
+	assert(!block.full);
 
-	// Shrink second alloc.
-	assert(arena.shrinkLarge(emap, pd5.extent, 128));
-	assert(pd5.extent.npages == 128);
+	checkShrinkLarge(e5, 128);
 
-	// Shrink third alloc,
-	// Make sure to test for shrinking the last page of the block.
-	assert(arena.shrinkLarge(emap, pd6.extent, 127));
-	assert(pd6.extent.npages == 127);
+	// We check for the boundary condition, then shrink to the desired size.
+	checkShrinkLarge(e6, 127);
+	checkShrinkLarge(e6, 64);
 
-	// Then shrink to the desired size.
-	assert(arena.shrinkLarge(emap, pd6.extent, 64));
-	assert(pd6.extent.npages == 64);
+	// Allocate 128 pages, should go after e5.
+	auto e7 = makeLargeAlloc(128);
+	assert(e7.address is e5.address + e5.size);
 
-	// Allocate 128 pages, should go after second alloc.
-	auto ptr7 = makeLargeAlloc(128);
-	assert(ptr7 !is null);
-	auto pd7 = emap.lookup(ptr7);
-	assert(pd7.extent.address is ptr7);
-	assert(pd7.extent.block == pd6.extent.block);
-	assert(ptr7 is ptr5 + 128 * PageSize);
+	// Allocate 32 pages, should go after e4.
+	auto e8 = makeLargeAlloc(32);
+	assert(e8.address is e4.address + e4.size);
 
-	// Allocate 32 pages, should go after first alloc.
-	auto ptr8 = makeLargeAlloc(32);
-	assert(ptr8 !is null);
-	auto pd8 = emap.lookup(ptr8);
-	assert(pd8.extent.address is ptr8);
-	assert(pd8.extent.block == pd7.extent.block);
-	assert(ptr8 is ptr4 + 96 * PageSize);
-
-	// Allocate 64 pages, should go after third alloc.
-	auto ptr9 = makeLargeAlloc(64);
-	assert(ptr9 !is null);
-	auto pd9 = emap.lookup(ptr9);
-	assert(pd9.extent.address is ptr9);
-	assert(pd9.extent.block == pd8.extent.block);
-	assert(ptr9 is ptr6 + 64 * PageSize);
+	// Allocate 64 pages, should go after e6.
+	auto e9 = makeLargeAlloc(64);
+	assert(e9.address is e6.address + e6.size);
 
 	// Now full again.
-	assert(pd9.extent.block.full);
+	assert(block.full);
 }
 
 unittest growLarge {
@@ -416,31 +449,72 @@ unittest growLarge {
 	regionAllocator.base = base;
 
 	arena.filler.regionAllocator = &regionAllocator;
+	auto filler = &arena.filler;
 
-	Extent* makeLargeAlloc(uint pages) {
+	size_t expectedUsedPages = 0;
+
+	void checkFreeLarge(Extent* e) {
+		auto ptr = e.address;
+		auto pages = e.npages;
+
+		arena.freeLarge(emap, e);
+
+		expectedUsedPages -= pages;
+		assert(filler.usedPages == expectedUsedPages);
+
+		// Ensure the emap is cleared.
+		auto ptrEnd = ptr + pages * PageSize;
+		for (auto p = ptr; p < ptrEnd; p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent is null);
+			assert(probe.data == 0);
+		}
+	}
+
+	auto makeLargeAlloc(uint pages) {
 		auto ptr = arena.allocLarge(emap, pages, false);
 		assert(ptr !is null);
+
+		expectedUsedPages += pages;
+		assert(filler.usedPages == expectedUsedPages);
+
 		auto pd = emap.lookup(ptr);
 		auto e = pd.extent;
 		assert(e !is null);
 		assert(e.address is ptr);
 		assert(e.npages == pages);
+
+		for (auto p = ptr; p < e.address + e.size; p += PageSize) {
+			auto probe = emap.lookup(p);
+			assert(probe.extent is e);
+			assert(probe.data == pd.data);
+			pd = pd.next();
+		}
+
 		return e;
 	}
 
 	void checkGrowLarge(Extent* e, uint pages) {
-		assert(arena.growLarge(emap, e, pages));
-		assert(e.npages == pages);
+		assert(pages >= e.npages);
+		auto delta = pages - e.npages;
+		expectedUsedPages += delta;
 
-		// Confirm that the page after the end of the extent is not included in the map:
+		auto ptr = e.address;
+
+		assert(arena.growLarge(emap, e, pages));
+		assert(e.address is ptr);
+		assert(e.npages == pages);
+		assert(filler.usedPages == expectedUsedPages);
+
+		// Check that we did not map past the end.
 		auto pdAfter = emap.lookup(e.address + e.size);
 		assert(pdAfter.extent !is e);
 
+		// Confirm that the extent correctly grew and remapped.
 		auto pd = emap.lookup(e.address);
-		// Confirm that the extent correctly grew and remapped:
 		for (auto p = e.address; p < e.address + e.size; p += PageSize) {
 			auto probe = emap.lookup(p);
-			assert(probe.extent == e);
+			assert(probe.extent is e);
 			assert(probe.data == pd.data);
 			pd = pd.next();
 		}
@@ -448,9 +522,9 @@ unittest growLarge {
 
 	auto e0 = makeLargeAlloc(35);
 	auto e1 = makeLargeAlloc(64);
-	assert(e1.address == e0.address + e0.size);
+	assert(e1.address is e0.address + e0.size);
 	auto e2 = makeLargeAlloc(128);
-	assert(e2.address == e1.address + e1.size);
+	assert(e2.address is e1.address + e1.size);
 
 	// We cannot grow if there isn't enough space.
 	assert(!arena.growLarge(emap, e0, 36));
@@ -459,9 +533,7 @@ unittest growLarge {
 	// But we can if there is space left.
 	checkGrowLarge(e2, 413);
 
-	auto pd1 = emap.lookup(e1.address);
-	arena.freeLarge(emap, pd1.extent);
-
+	checkFreeLarge(e1);
 	checkGrowLarge(e0, 44);
 
 	// There are 99 pages left after e0.
@@ -474,13 +546,11 @@ unittest growLarge {
 	checkGrowLarge(e0, 99);
 	assert(e0.block.full);
 
-	auto pd2 = emap.lookup(e2.address);
-	arena.freeLarge(emap, pd2.extent);
+	checkFreeLarge(e2);
 	assert(!e0.block.full);
 
 	checkGrowLarge(e0, 512);
 	assert(e0.block.full);
 
-	auto pd0 = emap.lookup(e0.address);
-	arena.freeLarge(emap, pd0.extent);
+	checkFreeLarge(e0);
 }
