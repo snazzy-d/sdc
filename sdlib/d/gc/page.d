@@ -826,17 +826,19 @@ private:
 				auto w = e.gcWord.load();
 				auto ec = pd.extentClass;
 				if (ec.isLarge()) {
-					if (w != gcCycle) {
-						// We have not marked this extent this cycle.
-						auto f = e.finalizer;
-						if (f !is null) {
-							import d.gc.hooks;
-							__sd_gc_finalize(e.address, e.usedCapacity, f);
-						}
-
-						deadExtents.insert(e);
+					if (w == gcCycle) {
+						// It's alive.
+						continue;
 					}
 
+					// We have not marked this extent this cycle.
+					auto f = e.finalizer;
+					if (f !is null) {
+						import d.gc.hooks;
+						__sd_gc_finalize(e.address, e.usedCapacity, f);
+					}
+
+					deadExtents.insert(e);
 					continue;
 				}
 
