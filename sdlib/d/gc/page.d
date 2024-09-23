@@ -31,9 +31,9 @@ private:
 	 * Dense allocations are slabs which contains a lot of elements.
 	 * In practice, these slabs tends to be long lived, because it
 	 * is unlikely that all of their slots get freed at the same time.
-	 * In additon, all slabs that require spacial care, such as slabs
-	 * that cannot do inline marking, are dense, so segeregating them
-	 * allows to iterrate over all of them effisciently.
+	 * In addition, all slabs that require spacial care, such as slabs
+	 * that cannot do inline marking, are dense, so segregating them
+	 * allows to iterate over all of them efficiently.
 	 * 
 	 * The second set of heaps is used for sparse allocations.
 	 * Sparse allocation are slabs with few elements, and large
@@ -540,8 +540,8 @@ private:
 		@property
 		ulong[] bitmaps() {
 			/**
-			 * Bitmaps are storaed on a page. The OutlinedBitmap lives at
-			 * the start of the page, and the bitmaps nimbles come next.
+			 * Bitmaps are stored on a page. The OutlinedBitmap lives at
+			 * the start of the page, and the bitmaps nimble come next.
 			 */
 			enum NimbleCount =
 				(PageSize - OutlinedBitmap.sizeof) / ulong.sizeof;
@@ -691,7 +691,7 @@ private:
 		}
 
 		/**
-		 * /!\ This is not atomic. If we want to collect concurently, we'll
+		 * /!\ This is not atomic. If we want to collect concurrently, we'll
 		 *     need to do this atomically. This will do for now.
 		 */
 		// Clear the metadata of element we collected.
