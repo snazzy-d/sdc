@@ -87,9 +87,11 @@ public:
 	}
 
 	void addToWorkList(const(void*)[] range) shared {
-		assert(range.length > 0, "Cannot add empty range to the worklist!");
-
-		addToWorkList((&range)[0 .. 1]);
+		// The runtime might try to add empty ranges when scanning
+		// globals, stack, TLS, etc...
+		if (range.length > 0) {
+			addToWorkList((&range)[0 .. 1]);
+		}
 	}
 
 private:
@@ -388,6 +390,8 @@ private:
 	}
 
 	void addToSharedWorklist(const(void*)[] range) {
+		assert(range.length > 0, "Cannot add empty range to the worklist!");
+
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
 		if (cursor == 0) {
@@ -421,6 +425,7 @@ private:
 		       "Range is not aligned properly!");
 		assert(isAligned(range.length, PointerInPage),
 		       "Range has invalid size!");
+		assert(range.length > 0, "Cannot add empty range to the worklist!");
 
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
