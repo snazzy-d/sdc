@@ -65,7 +65,7 @@ public:
 
 		stopTheWorldMutex.lock();
 
-		while (sendSignals() || startingThreadCount.load() > 0) {
+		while (suspendRunningThreads() || startingThreadCount.load() > 0) {
 			import sys.posix.sched;
 			sched_yield();
 		}
@@ -137,14 +137,14 @@ private:
 		registeredThreads.remove(tcache);
 	}
 
-	bool sendSignals() shared {
+	bool suspendRunningThreads() shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(GCState*) &this).sendSignalsImpl();
+		return (cast(GCState*) &this).suspendRunningThreadsImpl();
 	}
 
-	bool sendSignalsImpl() {
+	bool suspendRunningThreadsImpl() {
 		bool retry = false;
 
 		auto r = registeredThreads.range;
@@ -167,7 +167,7 @@ private:
 			}
 
 			import d.gc.signal;
-			signalThread(tc);
+			signalThreadSuspend(tc);
 		}
 
 		return retry;
@@ -181,21 +181,27 @@ private:
 	}
 
 	bool resumeSuspendedThreadsImpl() {
+		bool retry = false;
+
 		auto r = registeredThreads.range;
 		while (!r.empty) {
 			auto tc = r.front;
 			scope(success) r.popFront();
 
+			// If the thread isn't already resumed, we'll need to retry.
+			auto ss = tc.state.suspendState;
+			retry |= ss != SuspendState.None;
+
 			// If the thread isn't suspended, move on.
-			if (tc.state.suspendState != SuspendState.Suspended) {
+			if (ss != SuspendState.Suspended) {
 				continue;
 			}
 
 			import d.gc.signal;
-			resumeThread(tc);
+			signalThreadResume(tc);
 		}
 
-		return false;
+		return retry;
 	}
 
 	void scanSuspendedThreadsImpl(ScanDg scan) {

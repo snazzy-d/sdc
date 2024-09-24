@@ -11,10 +11,12 @@ enum SuspendState {
 	Delayed,
 	// The thread is suspended.
 	Suspended,
+	// The thread is in the process of resuming operations.
+	Resumed,
 }
 
 static auto status(size_t v) {
-	enum StatusMask = 0x03;
+	enum StatusMask = ThreadState.BusyIncrement - 1;
 	return cast(SuspendState) (v & StatusMask);
 }
 
@@ -23,12 +25,13 @@ private:
 	import d.sync.atomic;
 	shared Atomic!size_t state;
 
-	enum BusyIncrement = 0x04;
+	enum BusyIncrement = 0x08;
 
 	enum RunningState = SuspendState.None;
 	enum SignaledState = SuspendState.Signaled;
 	enum SuspendedState = SuspendState.Suspended;
 	enum DelayedState = SuspendState.Delayed;
+	enum ResumedState = SuspendState.Resumed;
 
 	enum MustSuspendState = BusyIncrement | SuspendState.Delayed;
 
@@ -43,10 +46,10 @@ public:
 		return state.load() >= BusyIncrement;
 	}
 
-	void sendSignal() {
+	void sendSuspendSignal() {
 		auto s = state.load();
 		while (true) {
-			auto n = s | SuspendState.Signaled;
+			auto n = s + SuspendState.Signaled;
 
 			assert(status(s) == SuspendState.None);
 			assert(status(n) == SuspendState.Signaled);
@@ -73,8 +76,22 @@ public:
 		return true;
 	}
 
+	void sendResumeSignal() {
+		auto s = state.load();
+		while (true) {
+			auto n = s + SuspendState.Signaled;
+
+			assert(status(s) == SuspendState.Suspended);
+			assert(status(n) == SuspendState.Resumed);
+
+			if (state.casWeak(s, n)) {
+				break;
+			}
+		}
+	}
+
 	void onResumeSignal() {
-		assert(state.load() == SuspendedState);
+		assert(state.load() == ResumedState);
 		state.store(RunningState);
 	}
 
@@ -182,7 +199,14 @@ unittest suspend {
 	// Make sure to use the state from the thread cache
 	// so signal can find it back when needed.
 	import d.gc.tcache;
-	ThreadState* s = &threadCache.state;
+	ThreadCache* tc = &threadCache;
+
+	// Depending on the environement the thread runs in,
+	// this may not have been initialized.
+	import core.stdc.pthread;
+	tc.self = pthread_self();
+
+	ThreadState* s = &tc.state;
 	scope(exit) {
 		assert(s.state.load() == 0, "Invalid leftover state!");
 	}
@@ -190,9 +214,6 @@ unittest suspend {
 	import d.sync.atomic;
 	shared Atomic!uint resumeCount;
 	shared Atomic!uint mustStop;
-
-	import core.stdc.pthread;
-	auto mainThreadID = pthread_self();
 
 	void* autoResume() {
 		while (mustStop.load() == 0) {
@@ -204,8 +225,8 @@ unittest suspend {
 
 			resumeCount.fetchAdd(1);
 
-			import core.stdc.signal, d.gc.signal;
-			pthread_kill(mainThreadID, SIGRESUME);
+			import d.gc.signal;
+			signalThreadResume(tc);
 
 			while (s.suspendState == SuspendState.Suspended) {
 				import sys.posix.sched;
@@ -228,14 +249,14 @@ unittest suspend {
 	check(SuspendState.None, false, 0);
 
 	// Simple signal.
-	s.sendSignal();
+	s.sendSuspendSignal();
 	check(SuspendState.Signaled, false, 0);
 
 	assert(s.onSuspendSignal());
 	check(SuspendState.None, false, 1);
 
 	// Signal while busy.
-	s.sendSignal();
+	s.sendSuspendSignal();
 	check(SuspendState.Signaled, false, 1);
 
 	s.enterBusyState();
