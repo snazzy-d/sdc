@@ -58,7 +58,9 @@ void __sd_gc_tl_flush_cache() {
  * Garbage collection cycles.
  */
 void __sd_gc_collect() {
-	threadCache.runGCCycle();
+	import d.gc.collector;
+	auto collector = Collector(&threadCache);
+	collector.runGCCycle();
 }
 
 void __sd_gc_add_roots(const void[] range) {
