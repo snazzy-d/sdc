@@ -116,3 +116,7 @@ void* __sd_gc_alloc_no_pointers(size_t size) {
 void* __sd_gc_alloc_finalizer_no_pointers(size_t size, void* finalizer) {
 	return threadCache.allocAppendable(size, false, false, finalizer);
 }
+
+size_t __sd_gc_resize(void* ptr, size_t request) {
+	return threadCache.resize(ptr, request);
+}

@@ -276,6 +276,64 @@ public:
 		return newPtr;
 	}
 
+	/**
+	  * Resize an allocation in place, to accomodate at least the requested
+	  * size, preserving the existing used size.
+	  * Returns the resulting capacity of the allocation, or 0 if resize
+	  * cannot be accomodated in place.
+	  */
+	size_t resize(const void* ptr, size_t request) {
+		auto pd = maybeGetPageDescriptor(ptr);
+		auto e = pd.extent;
+
+		if (e is null) {
+			return 0;
+		}
+
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			auto capacity = si.slotCapacity;
+			if (request > capacity) {
+				// Cannot resize a slab.
+				return 0;
+			}
+
+			return capacity;
+		}
+
+		auto epages = e.npages;
+		auto npages = getPageCount(request);
+
+		auto usedCapacity = e.usedCapacity;
+		if (npages* PageSize
+		< usedCapacity ) {
+			// Can't shrink below used size.
+			return epages * PageSize;
+		}
+
+		if (npages < epages) {
+			// Shrink and grow will reset the used capactiy to the full
+			// extent size. We need to preserve it.
+			if (!pd.arena.shrinkLarge(emap, e, npages)) {
+				// We couldn't shrink, but that doesn't mean it's a failure.
+				return epages * PageSize;
+			}
+
+			triggerDeallocationEvent((epages - npages) * PageSize);
+			e.setUsedCapacity(usedCapacity);
+		} else if (npages > epages) {
+			auto origUsedCapacity = e.usedCapacity;
+			if (!pd.arena.growLarge(emap, e, npages)) {
+				return 0;
+			}
+
+			triggerAllocationEvent((npages - epages) * PageSize);
+			e.setUsedCapacity(usedCapacity);
+		}
+
+		return npages * PageSize;
+	}
+
 	void flushCache() {
 		state.enterBusyState();
 		scope(exit) state.exitBusyState();
@@ -928,6 +986,86 @@ unittest realloc {
 	tc.free(p5);
 	deallocated += 112;
 	checkAllocatedByteTracking();
+}
+
+unittest resize {
+	ThreadCache tc;
+	tc.initialize(&gExtentMap, &gBase);
+
+	size_t allocated = 0;
+	size_t deallocated = 0;
+
+	void checkAllocatedByteTracking() {
+		assert(tc.allocated == allocated);
+		assert(tc.deallocated == deallocated);
+	}
+
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		checkAllocatedByteTracking();
+		assert(tc.allocated == tc.deallocated);
+	}
+
+	// Resize.
+	auto p0 = tc.allocAppendable(20000, false, false);
+	auto asize = getPageCount(20000) * PageSize;
+	allocated += asize;
+	checkAllocatedByteTracking();
+
+	assert(tc.getCapacity(p0[0 .. 19999]) == 0);
+	assert(tc.getCapacity(p0[0 .. 20000]) == asize);
+	assert(tc.getCapacity(p0[0 .. 20001]) == 0);
+
+	// Requesting a size below the used size should give back the existing size.
+	auto sz = tc.resize(p0, 19999);
+	assert(sz == asize);
+
+	assert(tc.getCapacity(p0[0 .. 19999]) == 0);
+	assert(tc.getCapacity(p0[0 .. 20000]) == asize);
+	assert(tc.getCapacity(p0[0 .. 20001]) == 0);
+
+	// Increasing the size without crossing a page boundary should just
+	// give back the existing size.
+	sz = tc.resize(p0, 20001);
+	assert(sz == asize);
+
+	// Realloc to shrink the used size
+	auto p1 = tc.realloc(p0, 16000, false);
+	assert(p1 is p0);
+	assert(tc.getCapacity(p0[0 .. 16000]) == 16384);
+
+	deallocated += PageSize;
+	checkAllocatedByteTracking();
+
+	// now, resize to get back to the original
+	sz = tc.resize(p0, 20000);
+	assert(sz == asize);
+	assert(tc.getCapacity(p0[0 .. 16000]) == asize);
+	allocated += PageSize;
+	checkAllocatedByteTracking();
+
+	// Set the used size down to 100, then resize down to 50.
+	auto pd = tc.getPageDescriptor(p0);
+	auto e = pd.extent;
+	assert(e);
+	e.setUsedCapacity(100);
+	sz = tc.resize(p0, 50);
+	assert(sz == PageSize);
+
+	deallocated += 4 * PageSize;
+	checkAllocatedByteTracking();
+
+	// grow back into the pages we just freed
+	sz = tc.resize(p0, 20000);
+	assert(sz == asize);
+	assert(tc.getCapacity(p0[0 .. 100]) == asize);
+	allocated += 4 * PageSize;
+	checkAllocatedByteTracking();
+
+	// Cleanup after ourselves.
+	tc.free(p0);
+	deallocated += 5 * PageSize;
 }
 
 unittest extendSmall {
