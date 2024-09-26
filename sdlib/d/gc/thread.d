@@ -34,18 +34,14 @@ void createThread() {
 
 void destroyThread() {
 	threadCache.destroyThread();
-
-	import d.gc.global;
 	gThreadState.remove(&threadCache);
 }
 
 void enterThreadCreation() {
-	import d.gc.global;
 	gThreadState.enterThreadCreation();
 }
 
 void exitThreadCreation() {
-	import d.gc.global;
 	gThreadState.exitThreadCreation();
 }
 
@@ -58,13 +54,15 @@ void exitBusyState() {
 }
 
 void stopTheWorld() {
-	import d.gc.global;
 	gThreadState.stopTheWorld();
 }
 
 void restartTheWorld() {
-	import d.gc.global;
 	gThreadState.restartTheWorld();
+}
+
+void scanSuspendedThreads(ScanDg scan) {
+	gThreadState.scanSuspendedThreads(scan);
 }
 
 private:
