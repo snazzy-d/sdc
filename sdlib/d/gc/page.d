@@ -246,6 +246,9 @@ public:
 		(cast(PageFiller*) &this).collectImpl(emap, gcCycle);
 	}
 
+	/**
+	 * Usage stats.
+	 */
 	@property
 	size_t usedPages() shared {
 		mutex.lock();

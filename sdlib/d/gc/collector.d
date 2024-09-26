@@ -75,3 +75,65 @@ struct Collector {
 		}
 	}
 }
+
+private:
+struct CollectorState {
+private:
+	import d.sync.mutex;
+	Mutex mutex;
+
+	// This makes for a 32MB default target.
+	size_t targetPageCount = 32 * 1024 * 1024 / PageSize;
+
+public:
+	bool needCollection() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(CollectorState*) &this).needCollectionImpl();
+	}
+
+	size_t updateTargetPageCount() shared {
+		size_t totalUsedPageCount;
+
+		foreach (i; 0 .. ArenaCount) {
+			import d.gc.arena;
+			auto a = Arena.getIfInitialized(i);
+			if (a is null) {
+				continue;
+			}
+
+			totalUsedPageCount += a.usedPages;
+		}
+
+		auto target = 2 * totalUsedPageCount;
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(CollectorState*) &this).targetPageCount = target;
+		return target;
+	}
+
+private:
+	bool needCollectionImpl() {
+		size_t totalUsedPageCount;
+
+		foreach (i; 0 .. ArenaCount) {
+			import d.gc.arena;
+			auto a = Arena.getIfInitialized(i);
+			if (a is null) {
+				continue;
+			}
+
+			totalUsedPageCount += a.usedPages;
+			if (totalUsedPageCount >= targetPageCount) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+
+shared CollectorState gCollectorState;

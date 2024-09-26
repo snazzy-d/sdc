@@ -38,6 +38,11 @@ private:
 		return bits & ArenaMask;
 	}
 
+	@property
+	size_t usedPages() shared {
+		return filler.usedPages;
+	}
+
 	static getArenaAddress(uint index) {
 		assert((index & ~ArenaMask) == 0, "Invalid index!");
 
