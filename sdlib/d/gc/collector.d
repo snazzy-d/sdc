@@ -17,6 +17,10 @@ struct Collector {
 		return threadCache.emap;
 	}
 
+	bool maybeRunGCCycle() {
+		return gCollectorState.maybeRunGCCycle(this);
+	}
+
 	void runGCCycle() {
 		import d.gc.thread;
 		stopTheWorld();
@@ -86,37 +90,26 @@ private:
 	size_t targetPageCount = 32 * 1024 * 1024 / PageSize;
 
 public:
-	bool needCollection() shared {
+	bool maybeRunGCCycle(ref Collector collector) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(CollectorState*) &this).needCollectionImpl();
-	}
-
-	size_t updateTargetPageCount() shared {
-		size_t totalUsedPageCount;
-
-		foreach (i; 0 .. ArenaCount) {
-			import d.gc.arena;
-			auto a = Arena.getIfInitialized(i);
-			if (a is null) {
-				continue;
-			}
-
-			totalUsedPageCount += a.usedPages;
-		}
-
-		auto target = 2 * totalUsedPageCount;
-
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		(cast(CollectorState*) &this).targetPageCount = target;
-		return target;
+		return (cast(CollectorState*) &this).maybeRunGCCycleImpl(collector);
 	}
 
 private:
-	bool needCollectionImpl() {
+	bool maybeRunGCCycleImpl(ref Collector collector) {
+		if (!needCollection()) {
+			return false;
+		}
+
+		collector.runGCCycle();
+
+		updateTargetPageCount();
+		return true;
+	}
+
+	bool needCollection() {
 		size_t totalUsedPageCount;
 
 		foreach (i; 0 .. ArenaCount) {
@@ -133,6 +126,22 @@ private:
 		}
 
 		return false;
+	}
+
+	size_t updateTargetPageCount() {
+		size_t totalUsedPageCount;
+
+		foreach (i; 0 .. ArenaCount) {
+			import d.gc.arena;
+			auto a = Arena.getIfInitialized(i);
+			if (a is null) {
+				continue;
+			}
+
+			totalUsedPageCount += a.usedPages;
+		}
+
+		return targetPageCount = 2 * totalUsedPageCount;
 	}
 }
 
