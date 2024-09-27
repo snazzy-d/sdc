@@ -347,7 +347,7 @@ private:
 		auto ec = pd.extentClass;
 		auto sc = ec.sizeClass;
 
-		// We trigger the deallocation event first as it might
+		// We trigger the de-allocation event first as it might
 		// recycle the bin we are interested in, which increase
 		// our chances that free works.
 		triggerDeallocationEvent(binInfos[sc].slotSize);
@@ -528,7 +528,7 @@ private:
 		auto index = tlsSegments.length;
 		auto length = index + 1;
 
-		// We realloc everytime. It doesn't really matter at this point.
+		// We realloc every time. It doesn't really matter at this point.
 		ptr = realloc(ptr, length * void*[].sizeof, true);
 		tlsSegments = (cast(const(void*)[]*) ptr)[0 .. length];
 
@@ -840,7 +840,7 @@ unittest getCapacity {
 	assert(tc.getCapacity(p0[50 .. 99]) == 0);
 	assert(tc.getCapacity(p0[99 .. 99]) == 0);
 
-	// This would almost certainly be a bug in userland,
+	// This would almost certainly be a bug in user land,
 	// but let's make sure be behave reasonably there.
 	assert(tc.getCapacity(p0[0 .. 101]) == 0);
 	assert(tc.getCapacity(p0[1 .. 101]) == 0);
@@ -883,7 +883,7 @@ unittest realloc {
 	assert(tc.getCapacity(p0[0 .. 20001]) == 0);
 
 	// Decreasing the size of the allocation
-	// should adjust capacity acordingly.
+	// should adjust capacity accordingly.
 	auto p1 = tc.realloc(p0, 19999, false);
 	assert(p1 is p0);
 
@@ -985,7 +985,7 @@ unittest extendSmall {
 	assert(tc.extend(s0[0 .. 42], 3));
 	assert(tc.getCapacity(s0[0 .. 45]) == 48);
 
-	// Check that there are no interferences.
+	// Check that there are no interference.
 	auto s1 = tc.allocAppendable(42, false, false);
 	assert(tc.allocated == 152);
 
@@ -1002,7 +1002,7 @@ unittest extendSmall {
 	assert(tc.extend(s0[0 .. 47], 1));
 
 	// Decreasing the size of the allocation
-	// should adjust capacity acordingly.
+	// should adjust capacity accordingly.
 	auto s2 = tc.realloc(s0, 42, false);
 	assert(s2 is s0);
 	assert(tc.getCapacity(s2[0 .. 42]) == 48);
@@ -1069,7 +1069,8 @@ unittest extendLarge {
 		auto asize = getPageCount(size) * PageSize;
 		allocated += asize + DeadZoneSize;
 
-		// We make sure we can't reisze the allocation by allocating a dead zone after it.
+		// We make sure we can't resize the allocation
+		// by allocating a dead zone after it.
 		import d.gc.size;
 		auto deadzone = tc.alloc(DeadZoneSize, false, false);
 		if (deadzone !is alignUp(ptr + size, PageSize)) {
@@ -1122,7 +1123,7 @@ unittest extendLarge {
 	assert(tc.extend(p0[0 .. 16384], 0));
 	assert(!tc.extend(p0[0 .. 16384], 1));
 
-	// Unless we clear the deadzone, in which case we can extend again.
+	// Unless we clear the dead zone, in which case we can extend again.
 	tc.free(p0 + DeadZoneSize);
 	deallocated += DeadZoneSize;
 	checkAllocatedByteTracking();
@@ -1173,7 +1174,7 @@ unittest extendLarge {
 	assert(!tc.extend(p1[0 .. 16384], 1));
 	assert(tc.extend(p1[0 .. 16384], 0));
 
-	// Deallocate everything.
+	// De-allocate everything.
 	tc.free(p0);
 	deallocated += 5 * PageSize;
 	checkAllocatedByteTracking();
@@ -1248,12 +1249,14 @@ unittest arraySpill {
 				setAllocationUsedCapacity(a0, a0Capacity);
 				// For all possible zero-length slices of a0:
 				foreach (s; 0 .. arraySize + 1) {
-					// A zero-length slice has non-zero capacity if and only if it
-					// resides at the start of the freespace of a non-empty alloc:
+					// A zero-length slice has non-zero capacity
+					// if and only if it resides at the start of
+					// the free space of a non-empty allocation:
 					auto sliceCapacity = tc.getCapacity(a0[s .. s]);
 					auto haveCapacity = sliceCapacity > 0;
-					assert(haveCapacity
-						== (s == a0Capacity && s > 0 && s < arraySize));
+					assert((s == a0Capacity && s > 0 && s < arraySize)
+						== haveCapacity);
+
 					// Capacity in non-degenerate case follows standard rule:
 					assert(!haveCapacity || sliceCapacity == arraySize - s);
 				}
@@ -1321,7 +1324,7 @@ unittest finalization {
 	assert(lastKilledAddress == s2);
 	assert(lastKilledUsedCapacity == 48);
 
-	// Behaviour of realloc() on small allocs with finalizers:
+	// Behavior of realloc() on small allocs with finalizers:
 	auto s3 = tc.allocAppendable(70, false, false, &destruct);
 	assert(tc.getCapacity(s3[0 .. 70]) == 72);
 	auto s4 = tc.realloc(s3, 70, false);
