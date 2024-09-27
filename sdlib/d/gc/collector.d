@@ -22,6 +22,17 @@ struct Collector {
 	}
 
 	void runGCCycle() {
+		gCollectorState.mutex.lock();
+		scope(exit) gCollectorState.mutex.unlock();
+
+		runGCCycleLocked();
+	}
+
+private:
+	void runGCCycleLocked() {
+		assert(gCollectorState.mutex.isHeld(), "Mutex not held!");
+		assert(!threadCache.state.busy, "Cannot run GC cycle while busy!");
+
 		import d.gc.thread;
 		stopTheWorld();
 		scope(exit) restartTheWorld();
@@ -47,7 +58,7 @@ struct Collector {
 		/**
 		 * We might have allocated, and therefore refilled the bin
 		 * during the collection process. As a result, slots in the
-		 * bins may not be makred at this point.
+		 * bins may not be marked at this point.
 		 * 
 		 * The straightforward way to handle this is simply to flush
 		 * the bins.
@@ -92,9 +103,14 @@ private:
 public:
 	bool maybeRunGCCycle(ref Collector collector, ref size_t delta,
 	                     ref size_t target) shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		// Do not unnecessarily create contention on this mutex.
+		if (!mutex.tryLock()) {
+			delta = 0;
+			target = 0;
+			return false;
+		}
 
+		scope(exit) mutex.unlock();
 		return (cast(CollectorState*) &this)
 			.maybeRunGCCycleImpl(collector, delta, target);
 	}
@@ -107,7 +123,7 @@ private:
 			return false;
 		}
 
-		collector.runGCCycle();
+		collector.runGCCycleLocked();
 
 		target = updateTargetPageCount();
 		return true;
