@@ -98,7 +98,10 @@ private:
 	Mutex mutex;
 
 	// This makes for a 32MB default target.
-	size_t targetPageCount = 32 * 1024 * 1024 / PageSize;
+	enum DefaultHeapSize = 32 * 1024 * 1024 / PageSize;
+
+	size_t minHeapTarget = DefaultHeapSize;
+	size_t nextTarget = DefaultHeapSize;
 
 public:
 	bool maybeRunGCCycle(ref Collector collector, ref size_t delta,
@@ -140,14 +143,14 @@ private:
 			}
 		}
 
-		if (total >= targetPageCount) {
+		if (total >= nextTarget) {
 			// How much did we overshoot?
-			delta = total - targetPageCount;
+			delta = total - nextTarget;
 			return true;
 		}
 
 		// How many more pages before we need a collection.
-		delta = targetPageCount - total;
+		delta = nextTarget - total;
 		return false;
 	}
 
@@ -165,8 +168,12 @@ private:
 		}
 
 		// We set the target at 1.75x the current heap size in pages.
-		targetPageCount = total + (total >> 1) + (total >> 2);
-		return targetPageCount - total;
+		auto target = total + (total >> 1) + (total >> 2);
+
+		import d.gc.util;
+		nextTarget = max(target, minHeapTarget);
+
+		return nextTarget - total;
 	}
 }
 
