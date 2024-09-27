@@ -67,6 +67,18 @@ extern(C) {
 	void __sd_gc_post_suspend_hook() {}
 	void __sd_gc_pre_stop_the_world_hook() {}
 	void __sd_gc_post_restart_the_world_hook() {}
+
+	/**
+	 * This is defintively not correct, but we don't expect
+	 * to collect using the JITed GC.
+	 */
+	void __sd_gc_global_scan() {
+		assert(0, "Do not run __sd_gc_global_scan in the evaluator!");
+	}
+
+	void __sd_gc_thread_scan() {
+		assert(0, "Do not run __sd_gc_thread_scan in the evaluator!");
+	}
 }
 
 final class LLVMEvaluator : Evaluator {
