@@ -71,6 +71,10 @@ private:
 	size_t nextGCRun;
 	bool enableGC;
 
+	int nextGCRunClassOffset;
+	uint consecutiveSuccessfulGCRuns;
+	uint consecutiveFailedGCRuns;
+
 	/**
 	 * Bin stats and recycling mechanism.
 	 */
@@ -380,6 +384,9 @@ private:
 			return ptr;
 		}
 
+		// We are about to allocate, make room for it if needed.
+		maybeRunGCCycle();
+
 		// The bin is empty, refill.
 		{
 			state.enterBusyState();
@@ -430,6 +437,9 @@ private:
 	 */
 	void* allocLarge(uint pages, bool containsPointers, bool zero) {
 		ensureThreadCacheIsInitialized();
+
+		// We are about to allocate, make room for it if needed.
+		maybeRunGCCycle();
 
 		void* ptr;
 
@@ -568,6 +578,31 @@ private:
 
 	bool reserve(const void[] slice, size_t size) {
 		return resize!false(slice, size);
+	}
+
+	/**
+	 * GC facilities
+	 */
+	void maybeRunGCCycle() {
+		// If the GC is disabled or we have not reached the point
+		// at which we try to collect, move on.
+		if (!enableGC || allocated < nextGCRun) {
+			return;
+		}
+
+		// Do not run GC cycles when we are busy as another thread
+		// might be trying to run its own GC cycle and waiting on us.
+		if (state.busy) {
+			return;
+		}
+
+		size_t delta, target;
+
+		import d.gc.collector;
+		auto collector = Collector(&this);
+		auto didRun = collector.maybeRunGCCycle(delta, target);
+
+		nextGCRun = allocated + BlockSize;
 	}
 
 	/**

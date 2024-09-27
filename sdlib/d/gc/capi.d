@@ -77,3 +77,7 @@ void __sd_gc_remove_roots(const void* ptr) {
 void __sd_gc_add_tls_segment(const void[] range) {
 	threadCache.addTLSSegment(range);
 }
+
+void __sd_gc_tl_activate(bool activated) {
+	threadCache.activateGC(activated);
+}

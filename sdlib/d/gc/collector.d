@@ -153,8 +153,8 @@ private:
 	size_t updateTargetPageCount() {
 		auto total = Arena.computeUsedPageCount();
 
-		// We set the target at 1.75x the current heap size in pages.
-		auto target = total + (total >> 1) + (total >> 2);
+		// We set the target at 1.625x the current heap size in pages.
+		auto target = total + (total >> 1) + (total >> 3);
 
 		import d.gc.util;
 		nextTarget = max(target, minHeapTarget);
