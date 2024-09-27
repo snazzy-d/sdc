@@ -69,7 +69,12 @@ private:
 	 * track GC runs.
 	 */
 	size_t nextGCRun;
+	size_t lastGCTarget;
 	bool enableGC;
+
+	int nextGCRunClassOffset;
+	uint consecutiveSuccessfulGCRuns;
+	uint consecutiveFailedGCRuns;
 
 	/**
 	 * Bin stats and recycling mechanism.
@@ -380,6 +385,9 @@ private:
 			return ptr;
 		}
 
+		// We are about to allocate, make room for it if needed.
+		maybeRunGCCycle();
+
 		// The bin is empty, refill.
 		{
 			state.enterBusyState();
@@ -430,6 +438,9 @@ private:
 	 */
 	void* allocLarge(uint pages, bool containsPointers, bool zero) {
 		ensureThreadCacheIsInitialized();
+
+		// We are about to allocate, make room for it if needed.
+		maybeRunGCCycle();
 
 		void* ptr;
 
@@ -568,6 +579,93 @@ private:
 
 	bool reserve(const void[] slice, size_t size) {
 		return resize!false(slice, size);
+	}
+
+	/**
+	 * GC facilities
+	 */
+	void maybeRunGCCycle() {
+		// If the GC is disabled or we have not reached the point
+		// at which we try to collect, move on.
+		if (!enableGC || allocated < nextGCRun) {
+			return;
+		}
+
+		// Do not run GC cycles when we are busy as another thread
+		// might be trying to run its own GC cycle and waiting on us.
+		if (state.busy) {
+			return;
+		}
+
+		size_t delta, target;
+
+		import d.gc.collector;
+		auto collector = Collector(&this);
+		auto didRun = collector.maybeRunGCCycle(delta, target);
+
+		/**
+		 * Even though we now have a target, this is actually not enough
+		 * to decide when to try to collect again. For instance:
+		 *  - The rate at which we free allocations is unknown. If half
+		 *    of what we allocate is freed, we need to wait twice as long.
+		 *  - If several threads are running, they all will be checking if
+		 *    collection is required on a regular basis. Each thread must
+		 *    avoid checking too frequently.
+		 * 
+		 * These behavior depend on the application and will change at runtime.
+		 * Therefore, we need to measure and adjust the frequency at which
+		 * we try to collect based on the run-time behavior.
+		 * 
+		 * To do that, we scale the target based on size classes and adjust
+		 * the size class based on historical behavior.
+		 */
+
+		// Make sure we don't blow up if target == 0.
+		int targetClass = getSizeClass(max(target, 1));
+		targetClass += nextGCRunClassOffset;
+
+		int c0 = getSizeClass(lastGCTarget);
+		int c1 = getSizeClass(lastGCTarget + delta);
+		int offsetDelta = (c1 - c0) / 2;
+
+		if (didRun) {
+			consecutiveFailedGCRuns = 0;
+			targetClass -= consecutiveSuccessfulGCRuns++;
+
+			// We overshoot, nerf the offset.
+			nextGCRunClassOffset -= offsetDelta;
+		} else {
+			consecutiveSuccessfulGCRuns = 0;
+			targetClass += consecutiveFailedGCRuns++;
+
+			// We undershoot, bump the offset.
+			nextGCRunClassOffset += offsetDelta;
+		}
+
+		// Adjust offset and clamp the result.
+		enum MaxSizeClass = getSizeClass(512 * 512);
+		targetClass = min(targetClass, MaxSizeClass);
+		targetClass = max(targetClass, 0);
+
+		lastGCTarget = getSizeFromClass(targetClass);
+		nextGCRun = allocated + lastGCTarget * PageSize;
+		/+
+		char[4096] buf;
+
+		import core.stdc.unistd, core.stdc.stdio, core.stdc.pthread;
+		auto len = snprintf(
+			buf.ptr,
+			buf.length,
+			"[%p] GC did run: %d\tdelta: %ld\ttarget: %ld\toffsetDelta: %d\tnextOffset: %d\n",
+			pthread_self(),
+			didRun,
+			delta,
+			target,
+			offsetDelta,
+			nextGCRunClassOffset,
+		);
+		write(STDERR_FILENO, buf.ptr, len);
+		// +/
 	}
 
 	/**
