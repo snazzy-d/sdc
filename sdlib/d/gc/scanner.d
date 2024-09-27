@@ -54,6 +54,9 @@ public:
 		auto threads = threadsPtr[0 .. threadCount];
 
 		static void* markThreadEntry(void* ctx) {
+			import d.gc.tcache;
+			threadCache.activateGC(false);
+
 			(cast(shared(Scanner*)) ctx).runMark();
 			return null;
 		}

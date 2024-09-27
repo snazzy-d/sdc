@@ -72,6 +72,7 @@ void initThread() {
 
 	import d.gc.emap, d.gc.base;
 	threadCache.initialize(&gExtentMap, &gBase);
+	threadCache.activateGC();
 
 	import d.gc.global;
 	gThreadState.register(&threadCache);

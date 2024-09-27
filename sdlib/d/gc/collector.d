@@ -33,6 +33,10 @@ private:
 		assert(gCollectorState.mutex.isHeld(), "Mutex not held!");
 		assert(!threadCache.state.busy, "Cannot run GC cycle while busy!");
 
+		// Make sure we do not try to collect during a collection.
+		auto oldGCActivationState = threadCache.activateGC(false);
+		scope(exit) threadCache.activateGC(oldGCActivationState);
+
 		import d.gc.thread;
 		stopTheWorld();
 		scope(exit) restartTheWorld();

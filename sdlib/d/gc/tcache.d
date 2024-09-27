@@ -60,6 +60,15 @@ private:
 	void* stackTop;
 	const(void*)[][] tlsSegments;
 
+	/**
+	 * track GC runs.
+	 */
+	size_t nextGCRun;
+	bool enableGC;
+
+	/**
+	 * Bin stats and recycling mechanism.
+	 */
 	static assert(ThreadBinCount < ubyte.max, "Too many thread bin!");
 	ubyte nextBinToRecycle;
 
@@ -71,6 +80,7 @@ public:
 
 		nextAllocationEvent = DefaultEventWait;
 		nextDeallocationEvent = DefaultEventWait;
+		nextGCRun = DefaultEventWait;
 
 		this.emap = CachedExtentMap(emap, base);
 
@@ -90,6 +100,11 @@ public:
 		// Because this may allocate, we do it last.
 		import d.rt.elf;
 		stackBottom = getStackBottom();
+	}
+
+	bool activateGC(bool activated = true) {
+		scope(exit) enableGC = activated;
+		return enableGC;
 	}
 
 	void destroyThread() {
