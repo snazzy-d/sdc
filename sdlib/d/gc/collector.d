@@ -17,8 +17,8 @@ struct Collector {
 		return threadCache.emap;
 	}
 
-	bool maybeRunGCCycle() {
-		return gCollectorState.maybeRunGCCycle(this);
+	bool maybeRunGCCycle(ref size_t delta, ref size_t target) {
+		return gCollectorState.maybeRunGCCycle(this, delta, target);
 	}
 
 	void runGCCycle() {
@@ -90,46 +90,53 @@ private:
 	size_t targetPageCount = 32 * 1024 * 1024 / PageSize;
 
 public:
-	bool maybeRunGCCycle(ref Collector collector) shared {
+	bool maybeRunGCCycle(ref Collector collector, ref size_t delta,
+	                     ref size_t target) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(CollectorState*) &this).maybeRunGCCycleImpl(collector);
+		return (cast(CollectorState*) &this)
+			.maybeRunGCCycleImpl(collector, delta, target);
 	}
 
 private:
-	bool maybeRunGCCycleImpl(ref Collector collector) {
-		if (!needCollection()) {
+	bool maybeRunGCCycleImpl(ref Collector collector, ref size_t delta,
+	                         ref size_t target) {
+		if (!needCollection(delta)) {
+			target = delta;
 			return false;
 		}
 
 		collector.runGCCycle();
 
-		updateTargetPageCount();
+		target = updateTargetPageCount();
 		return true;
 	}
 
-	bool needCollection() {
-		size_t totalUsedPageCount;
+	bool needCollection(ref size_t delta) {
+		size_t total;
 
 		foreach (i; 0 .. ArenaCount) {
 			import d.gc.arena;
 			auto a = Arena.getIfInitialized(i);
-			if (a is null) {
-				continue;
-			}
-
-			totalUsedPageCount += a.usedPages;
-			if (totalUsedPageCount >= targetPageCount) {
-				return true;
+			if (a !is null) {
+				total += a.usedPages;
 			}
 		}
 
+		if (total >= targetPageCount) {
+			// How much did we overshoot?
+			delta = total - targetPageCount;
+			return true;
+		}
+
+		// How many more pages before we need a collection.
+		delta = targetPageCount - total;
 		return false;
 	}
 
 	size_t updateTargetPageCount() {
-		size_t totalUsedPageCount;
+		size_t total;
 
 		foreach (i; 0 .. ArenaCount) {
 			import d.gc.arena;
@@ -138,10 +145,12 @@ private:
 				continue;
 			}
 
-			totalUsedPageCount += a.usedPages;
+			total += a.usedPages;
 		}
 
-		return targetPageCount = 2 * totalUsedPageCount;
+		// We set the target at 1.75x the current heap size in pages.
+		targetPageCount = total + (total >> 1) + (total >> 2);
+		return targetPageCount - total;
 	}
 }
 
