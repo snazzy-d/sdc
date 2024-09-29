@@ -519,46 +519,11 @@ private:
 	}
 
 	bool extend(const void[] slice, size_t size) {
-		if (size == 0) {
-			return true;
-		}
+		return resize!true(slice, size);
+	}
 
-		auto pd = maybeGetPageDescriptor(slice.ptr);
-		auto e = pd.extent;
-
-		if (e is null) {
-			return false;
-		}
-
-		if (pd.isSlab()) {
-			auto si = SlabAllocInfo(pd, slice.ptr);
-			auto usedCapacity = si.usedCapacity;
-
-			if (!validateCapacity(slice, si.address, usedCapacity)) {
-				return false;
-			}
-
-			return si.setUsedCapacity(usedCapacity + size);
-		}
-
-		if (!validateCapacity(slice, e.address, e.usedCapacity)) {
-			return false;
-		}
-
-		auto epages = e.npages;
-		auto newCapacity = e.usedCapacity + size;
-
-		auto npages = getPageCount(newCapacity);
-		if (epages < npages) {
-			if (!pd.arena.growLarge(emap, e, npages)) {
-				return false;
-			}
-
-			triggerAllocationEvent((npages - epages) * PageSize);
-		}
-
-		e.setUsedCapacity(newCapacity);
-		return true;
+	bool reserve(const void[] slice, size_t size) {
+		return resize!false(slice, size);
 	}
 
 	/**
@@ -608,6 +573,57 @@ private:
 		auto stopIndex = startIndex + slice.length;
 
 		return stopIndex != 0 && stopIndex == usedCapacity;
+	}
+
+	bool resize(bool AdjustUsedCapacity)(const void[] slice, size_t size) {
+		if (size == 0) {
+			return true;
+		}
+
+		auto pd = maybeGetPageDescriptor(slice.ptr);
+		auto e = pd.extent;
+		if (e is null) {
+			return false;
+		}
+
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, slice.ptr);
+			auto usedCapacity = si.usedCapacity;
+
+			if (!validateCapacity(slice, si.address, usedCapacity)) {
+				return false;
+			}
+
+			auto newCapacity = usedCapacity + size;
+			if (AdjustUsedCapacity) {
+				return si.setUsedCapacity(newCapacity);
+			}
+
+			return newCapacity <= si.slotCapacity;
+		}
+
+		auto usedCapacity = e.usedCapacity;
+		if (!validateCapacity(slice, e.address, usedCapacity)) {
+			return false;
+		}
+
+		auto epages = e.npages;
+		auto newCapacity = usedCapacity + size;
+
+		auto npages = getPageCount(newCapacity);
+		if (epages < npages) {
+			if (!pd.arena.growLarge(emap, e, npages)) {
+				return false;
+			}
+
+			triggerAllocationEvent((npages - epages) * PageSize);
+		}
+
+		if (AdjustUsedCapacity) {
+			e.setUsedCapacity(newCapacity);
+		}
+
+		return true;
 	}
 
 	auto getPageDescriptor(void* ptr) {
@@ -1047,6 +1063,8 @@ unittest extendSmall {
 
 	// Non-appendable size class 6 (56 bytes)
 	auto nonAppendable = tc.alloc(50, false, false);
+	scope(exit) tc.free(nonAppendable);
+
 	assert(tc.getCapacity(nonAppendable[0 .. 50]) == 0);
 	assert(tc.allocated == 56);
 
@@ -1138,7 +1156,6 @@ unittest extendSmall {
 	assert(tc.deallocated == 128);
 
 	// Cleanup after ourselves.
-	tc.free(nonAppendable);
 	tc.free(s1);
 	tc.free(s5);
 }
@@ -1224,7 +1241,7 @@ unittest extendLarge {
 	// Extending to the limit succeeds.
 	assert(tc.extend(p0[50 .. 100], 16284));
 
-	// Now we're full, and can extend only by zero.
+	// Now we're full, and can only extend by zero.
 	assert(tc.extend(p0[0 .. 16384], 0));
 	assert(!tc.extend(p0[0 .. 16384], 1));
 
@@ -1290,6 +1307,162 @@ unittest extendLarge {
 
 	tc.free(p1);
 	deallocated += 4 * PageSize;
+	checkAllocatedByteTracking();
+}
+
+unittest reserve {
+	ThreadCache tc;
+	tc.initialize(&gExtentMap, &gBase);
+
+	size_t allocated = 0;
+	size_t deallocated = 0;
+
+	void checkAllocatedByteTracking() {
+		assert(tc.allocated == allocated);
+		assert(tc.deallocated == deallocated);
+	}
+
+	// Make sure we leave things in a clean state.
+	scope(exit) {
+		tc.destroyThread();
+		checkAllocatedByteTracking();
+		assert(tc.allocated == tc.deallocated);
+	}
+
+	// Non-appendable size class 6 (56 bytes)
+	auto nonAppendable = tc.alloc(50, false, false);
+	scope(exit) {
+		deallocated += 56;
+		tc.free(nonAppendable);
+	}
+
+	allocated += 56;
+	checkAllocatedByteTracking();
+	assert(tc.getCapacity(nonAppendable[0 .. 50]) == 0);
+
+	// Attempt to reserve a non-appendable (always considered fully occupied)
+	assert(!tc.reserve(nonAppendable[50 .. 50], 1));
+	assert(!tc.reserve(nonAppendable[0 .. 0], 1));
+
+	// Reserve by zero is permitted even when no capacity:
+	assert(tc.reserve(nonAppendable[50 .. 50], 0));
+
+	// Reserve in space unknown to the GC.
+	void* nullPtr = null;
+	assert(tc.reserve(nullPtr[0 .. 100], 0));
+	assert(!tc.reserve(nullPtr[0 .. 100], 1));
+	assert(!tc.reserve(nullPtr[100 .. 100], 1));
+
+	void* stackPtr = &nullPtr;
+	assert(tc.reserve(stackPtr[0 .. 100], 0));
+	assert(!tc.reserve(stackPtr[0 .. 100], 1));
+	assert(!tc.reserve(stackPtr[100 .. 100], 1));
+
+	static size_t tlValue;
+	void* tlPtr = &tlValue;
+	assert(tc.reserve(tlPtr[0 .. 100], 0));
+	assert(!tc.reserve(tlPtr[0 .. 100], 1));
+	assert(!tc.reserve(tlPtr[100 .. 100], 1));
+
+	// Check that we can reserve after small appendable allocations.
+	auto s0 = tc.allocAppendable(42, false, false);
+	scope(exit) {
+		deallocated += 48;
+		tc.free(s0);
+	}
+
+	allocated += 48;
+	checkAllocatedByteTracking();
+	assert(tc.getCapacity(s0[0 .. 42]) == 48);
+
+	assert(tc.reserve(s0[0 .. 0], 0));
+	assert(!tc.reserve(s0[0 .. 0], 10));
+	assert(!tc.reserve(s0[0 .. 41], 10));
+	assert(!tc.reserve(s0[1 .. 41], 10));
+	assert(!tc.reserve(s0[0 .. 20], 10));
+
+	assert(tc.reserve(s0[0 .. 42], 3));
+	assert(tc.reserve(s0[0 .. 42], 6));
+	assert(tc.reserve(s0[32 .. 42], 6));
+	assert(!tc.reserve(s0[0 .. 42], 7));
+	assert(!tc.reserve(s0[32 .. 42], 7));
+	assert(tc.getCapacity(s0[0 .. 42]) == 48);
+
+	// Check that we can reserve after large appendable allocations.
+	enum DeadZoneSize = getPageCount(MaxSmallSize + 1) * PageSize;
+
+	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
+		// Make sure we keep track of all allocations.
+		scope(exit) checkAllocatedByteTracking();
+
+		auto ptr = tc.allocAppendable(size, false, false);
+		assert(ptr !is null);
+
+		auto asize = getPageCount(size) * PageSize;
+		allocated += asize + DeadZoneSize;
+
+		// We make sure we can't resize the allocation
+		// by allocating a dead zone after it.
+		import d.gc.size;
+		auto deadzone = tc.alloc(DeadZoneSize, false, false);
+		if (deadzone !is alignUp(ptr + size, PageSize)) {
+			tc.free(deadzone);
+			deallocated += DeadZoneSize;
+
+			scope(success) {
+				tc.free(ptr);
+				deallocated += asize;
+			}
+
+			return allocAppendableWithCapacity(size, usedCapacity);
+		}
+
+		auto pd = tc.getPageDescriptor(ptr);
+		assert(pd.extent !is null);
+		assert(pd.extent.isLarge());
+		pd.extent.setUsedCapacity(usedCapacity);
+		return ptr;
+	}
+
+	auto p0 = allocAppendableWithCapacity(16384, 100);
+	assert(tc.getCapacity(p0[0 .. 100]) == 16384);
+
+	// Reserve from an invalid slice.
+	assert(tc.reserve(p0[0 .. 0], 0));
+	assert(!tc.reserve(p0[0 .. 0], 50));
+	assert(!tc.reserve(p0[0 .. 99], 50));
+	assert(!tc.reserve(p0[1 .. 99], 50));
+	assert(!tc.reserve(p0[0 .. 50], 50));
+
+	// Reserve an extra 0 byte is permitted but has no effect.
+	assert(tc.reserve(p0[100 .. 100], 0));
+	assert(tc.reserve(p0[0 .. 100], 0));
+	assert(tc.reserve(p0[50 .. 100], 0));
+	assert(tc.getCapacity(p0[50 .. 100]) == 16334);
+
+	// Attempt to reserve past the end of the allocation.
+	assert(tc.getCapacity(p0[100 .. 100]) == 16284);
+	assert(!tc.reserve(p0[0 .. 100], 16285));
+	assert(!tc.reserve(p0[50 .. 100], 16285));
+
+	// Reserving to the limit succeeds.
+	assert(tc.reserve(p0[50 .. 100], 16284));
+	assert(tc.getCapacity(p0[0 .. 100]) == 16384);
+
+	// Unless we clear the dead zone, in which case we can reserve more.
+	tc.free(p0 + DeadZoneSize);
+	deallocated += DeadZoneSize;
+	checkAllocatedByteTracking();
+
+	assert(tc.reserve(p0[0 .. 100], 16285));
+	assert(tc.getCapacity(p0[0 .. 100]) == 16384 + PageSize);
+
+	allocated += PageSize;
+	checkAllocatedByteTracking();
+
+	// De-allocate everything.
+	tc.free(p0);
+	deallocated += 5 * PageSize;
 	checkAllocatedByteTracking();
 }
 
