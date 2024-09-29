@@ -492,6 +492,32 @@ private:
 		return e.size - startIndex;
 	}
 
+	void[] getAllocationSlice(const void* ptr) {
+		auto pd = maybeGetPageDescriptor(ptr);
+		auto e = pd.extent;
+		if (e is null) {
+			return [];
+		}
+
+		void* base;
+		size_t size;
+
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			base = si.address;
+			size = si.usedCapacity;
+		} else {
+			base = e.address;
+			size = e.usedCapacity;
+		}
+
+		if (ptr >= base + size) {
+			return [];
+		}
+
+		return base[0 .. size];
+	}
+
 	bool extend(const void[] slice, size_t size) {
 		if (size == 0) {
 			return true;
@@ -792,7 +818,7 @@ unittest zero {
 	tc.free(ptr0);
 }
 
-unittest getCapacity {
+unittest queryAllocInfos {
 	ThreadCache tc;
 	tc.initialize(&gExtentMap, &gBase);
 
@@ -802,33 +828,58 @@ unittest getCapacity {
 		assert(tc.allocated == tc.deallocated);
 	}
 
+	void checkAllocationSlice(void* ptr, void* base, size_t size) {
+		auto slice = tc.getAllocationSlice(ptr);
+		assert(slice.ptr is base);
+		assert(slice.length == size);
+	}
+
 	// Non-appendable size class 6 (56 bytes)
 	auto nonAppendable = tc.alloc(50, false, false);
 	assert(tc.getCapacity(nonAppendable[0 .. 0]) == 0);
 	assert(tc.getCapacity(nonAppendable[0 .. 50]) == 0);
 	assert(tc.getCapacity(nonAppendable[0 .. 56]) == 56);
 
+	foreach (i; 0 .. 56) {
+		checkAllocationSlice(nonAppendable + i, nonAppendable, 56);
+	}
+
 	// Capacity of any slice in space unknown to the GC is zero:
 	void* nullPtr = null;
 	assert(tc.getCapacity(nullPtr[0 .. 0]) == 0);
 	assert(tc.getCapacity(nullPtr[0 .. 100]) == 0);
+	checkAllocationSlice(nullPtr, null, 0);
 
 	void* stackPtr = &nullPtr;
 	assert(tc.getCapacity(stackPtr[0 .. 0]) == 0);
 	assert(tc.getCapacity(stackPtr[0 .. 100]) == 0);
+	checkAllocationSlice(stackPtr, null, 0);
 
 	static size_t tlValue;
 	void* tlPtr = &tlValue;
 	assert(tc.getCapacity(tlPtr[0 .. 0]) == 0);
 	assert(tc.getCapacity(tlPtr[0 .. 100]) == 0);
+	checkAllocationSlice(tlPtr, null, 0);
 
 	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
 		auto ptr = tc.allocAppendable(size, false, false);
 		assert(ptr !is null);
+
 		auto pd = tc.getPageDescriptor(ptr);
-		assert(pd.extent !is null);
-		assert(pd.extent.isLarge());
-		pd.extent.setUsedCapacity(usedCapacity);
+		auto e = pd.extent;
+		assert(e !is null);
+		assert(e.isLarge());
+
+		e.setUsedCapacity(usedCapacity);
+
+		foreach (i; 0 .. usedCapacity) {
+			checkAllocationSlice(ptr + i, ptr, usedCapacity);
+		}
+
+		foreach (i; usedCapacity .. e.size) {
+			checkAllocationSlice(ptr + i, null, 0);
+		}
+
 		return ptr;
 	}
 
@@ -1217,13 +1268,14 @@ unittest arraySpill {
 		assert(ptr !is null);
 
 		auto pd = tc.getPageDescriptor(ptr);
-		assert(pd.extent !is null);
+		auto e = pd.extent;
+		assert(e !is null);
 
 		if (pd.isSlab()) {
 			auto si = SlabAllocInfo(pd, ptr);
 			si.setUsedCapacity(usedCapacity);
 		} else {
-			pd.extent.setUsedCapacity(usedCapacity);
+			e.setUsedCapacity(usedCapacity);
 		}
 	}
 

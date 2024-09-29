@@ -152,7 +152,7 @@ private:
 
 	uint index;
 	uint slotSize;
-	const void* _address;
+	void* _address;
 
 	bool supportsMetadata = false;
 	bool _hasMetadata = false;
