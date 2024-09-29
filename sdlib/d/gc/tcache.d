@@ -836,6 +836,8 @@ unittest queryAllocInfos {
 
 	// Non-appendable size class 6 (56 bytes)
 	auto nonAppendable = tc.alloc(50, false, false);
+	scope(exit) tc.free(nonAppendable);
+
 	assert(tc.getCapacity(nonAppendable[0 .. 0]) == 0);
 	assert(tc.getCapacity(nonAppendable[0 .. 50]) == 0);
 	assert(tc.getCapacity(nonAppendable[0 .. 56]) == 56);
@@ -868,16 +870,24 @@ unittest queryAllocInfos {
 		auto pd = tc.getPageDescriptor(ptr);
 		auto e = pd.extent;
 		assert(e !is null);
-		assert(e.isLarge());
 
-		e.setUsedCapacity(usedCapacity);
+		if (pd.isSlab()) {
+			auto si = SlabAllocInfo(pd, ptr);
+			si.setUsedCapacity(usedCapacity);
+
+			foreach (i; usedCapacity .. si.slotCapacity) {
+				checkAllocationSlice(ptr + i, null, 0);
+			}
+		} else {
+			e.setUsedCapacity(usedCapacity);
+
+			foreach (i; usedCapacity .. e.size) {
+				checkAllocationSlice(ptr + i, null, 0);
+			}
+		}
 
 		foreach (i; 0 .. usedCapacity) {
 			checkAllocationSlice(ptr + i, ptr, usedCapacity);
-		}
-
-		foreach (i; usedCapacity .. e.size) {
-			checkAllocationSlice(ptr + i, null, 0);
 		}
 
 		return ptr;
@@ -885,6 +895,7 @@ unittest queryAllocInfos {
 
 	// Check capacity for an appendable large GC allocation.
 	auto p0 = allocAppendableWithCapacity(16384, 100);
+	scope(exit) tc.free(p0);
 
 	// p0 is appendable and has the minimum large size.
 	// Capacity of segment from p0, length 100 is 16384:
@@ -914,9 +925,37 @@ unittest queryAllocInfos {
 	assert(tc.getCapacity(p0[100 .. 101]) == 0);
 	assert(tc.getCapacity(p0[101 .. 101]) == 0);
 
-	// Cleanup after ourselves.
-	tc.free(nonAppendable);
-	tc.free(p0);
+	// Check capacity for an appendable small GC allocation.
+	auto p1 = allocAppendableWithCapacity(4096, 100);
+	scope(exit) tc.free(p1);
+
+	// p1 is appendable and has the minimum large size.
+	// Capacity of segment from p1, length 100 is 4096:
+	assert(tc.getCapacity(p1[0 .. 100]) == 4096);
+	assert(tc.getCapacity(p1[1 .. 100]) == 4095);
+	assert(tc.getCapacity(p1[50 .. 100]) == 4046);
+	assert(tc.getCapacity(p1[99 .. 100]) == 3997);
+	assert(tc.getCapacity(p1[100 .. 100]) == 3996);
+
+	// If the slice doesn't go the end of the allocated area
+	// then the capacity must be 0.
+	assert(tc.getCapacity(p1[0 .. 0]) == 0);
+	assert(tc.getCapacity(p1[0 .. 1]) == 0);
+	assert(tc.getCapacity(p1[0 .. 50]) == 0);
+	assert(tc.getCapacity(p1[0 .. 99]) == 0);
+
+	assert(tc.getCapacity(p1[0 .. 99]) == 0);
+	assert(tc.getCapacity(p1[1 .. 99]) == 0);
+	assert(tc.getCapacity(p1[50 .. 99]) == 0);
+	assert(tc.getCapacity(p1[99 .. 99]) == 0);
+
+	// This would almost certainly be a bug in user land,
+	// but let's make sure be behave reasonably there.
+	assert(tc.getCapacity(p1[0 .. 101]) == 0);
+	assert(tc.getCapacity(p1[1 .. 101]) == 0);
+	assert(tc.getCapacity(p1[50 .. 101]) == 0);
+	assert(tc.getCapacity(p1[100 .. 101]) == 0);
+	assert(tc.getCapacity(p1[101 .. 101]) == 0);
 }
 
 unittest realloc {
