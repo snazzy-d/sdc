@@ -177,10 +177,10 @@ private:
 	 * 
 	 * FIXME: When considering this bitfield and the GC metadata, we have a
 	 *        640 bits budget to play with. Size class 2 contains 170 slots,
-	 *        but currently does not support markign inline. However, even
-	 *        rounding up to the closest mutliple of 64 bits, 192, we only
+	 *        but currently does not support marking inline. However, even
+	 *        rounding up to the closest multiple of 64 bits, 192, we only
 	 *        need 576 bits to store occupancy, metatadat flags and mark bits.
-	 *        The data layout would benefit from being reowrked as to allow
+	 *        The data layout would benefit from being reworked as to allow
 	 *        size class 2 to be marked inline.
 	 */
 	struct SlabMetadata {
@@ -247,12 +247,31 @@ public:
 		return at(ptr, npages, block, ExtentClass.large());
 	}
 
+	Extent* gropwTo(uint npages) {
+		assert(isLarge(), "Only large extents can be resized!");
+		assert(npages >= this._npages, "Not growing the extent!");
+
+		this._npages = npages;
+		return &this;
+	}
+
+	Extent* shrinkTo(uint npages) {
+		assert(isLarge(), "Only large extents can be resized!");
+		assert(npages <= this._npages, "Not shrinking the extent!");
+
+		this._npages = npages;
+
+		import d.gc.util;
+		setUsedCapacity(min(usedCapacity, size));
+
+		return &this;
+	}
+
 	static fromSlot(uint arenaIndex, GenerationPointer slot) {
 		// FIXME: in contract
 		assert((arenaIndex & ~ArenaMask) == 0, "Invalid arena index!");
 		assert(slot.address !is null, "Slot is empty!");
-		assert(isAligned(slot.address, ExtentAlign),
-		       "Invalid slot alignement!");
+		assert(isAligned(slot.address, ExtentAlign), "Invalid slot alignment!");
 
 		auto e = cast(Extent*) slot.address;
 		e.bits = arenaIndex;
@@ -531,7 +550,7 @@ alias PriorityExtentHeap = Heap!(Extent, priorityExtentCmp);
 /**
  * FIXME: We don't want to take into account the number of free slots
  *        when prioritizing extents. This forces many heaps manipulations
- *        in the bins for dubbious benefits.
+ *        in the bins for dubious benefits.
  *        A better approach would be to prefers older slabs/blocks, which
  *        are more likely to contain "immortal" elements, and discriminate
  *        on address to tie break.
@@ -539,7 +558,7 @@ alias PriorityExtentHeap = Heap!(Extent, priorityExtentCmp);
  * Note:
  * This used to use the bits in the Extent, but now we simply use the address.
  * This works, contrary to the previous approach which could lead to heap
- * corrpution, but still not idea. We probably want to target older blocks.
+ * corruption, but still not idea. We probably want to target older blocks.
  */
 ptrdiff_t priorityExtentCmp(Extent* lhs, Extent* rhs) {
 	auto l = cast(size_t) lhs.address;
@@ -580,7 +599,7 @@ unittest priority {
 	 * FIXME: The tests here were based on the use of bits.
 	 *        This can lead to corruption, but simply using
 	 *        the address is not satisfactory.
-	 *        The test was left commented as exemple of what
+	 *        The test was left commented as example of what
 	 *        the test for a proper implementation of this
 	 *        function could look like.
 	 */

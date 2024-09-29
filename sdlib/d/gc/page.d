@@ -377,7 +377,7 @@ private:
 		}
 
 		usedPageCount += delta;
-		e.at(e.address, pages, block);
+		e.gropwTo(pages);
 		return true;
 	}
 
@@ -392,7 +392,7 @@ private:
 		scope(success) registerBlock(block);
 
 		usedPageCount -= delta;
-		e.at(e.address, pages, block);
+		e.shrinkTo(pages);
 
 		block.clear(index, delta);
 		assert(!block.empty);
