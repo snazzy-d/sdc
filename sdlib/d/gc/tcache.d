@@ -126,9 +126,10 @@ public:
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers, bool zero,
-	                      Finalizer finalizer = null) {
+	                      Finalizer finalizer = null, size_t capacity = 0) {
 		// Reserve bytes for the finalizer if needed.
-		auto asize = size + (finalizer !is null) * PointerSize;
+		capacity = max(capacity, size);
+		auto asize = capacity + (finalizer !is null) * PointerSize;
 		if (!isAllocatableSize(asize)) {
 			return null;
 		}
@@ -149,7 +150,7 @@ public:
 			return ptr;
 		}
 
-		auto pages = getPageCount(size);
+		auto pages = getPageCount(capacity);
 		auto ptr = allocLarge(pages, containsPointers, zero);
 		if (unlikely(ptr is null)) {
 			return null;
@@ -879,8 +880,8 @@ unittest queryAllocInfos {
 	assert(tc.getCapacity(tlPtr[0 .. 100]) == 0);
 	checkAllocationSlice(tlPtr, null, 0);
 
-	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
-		auto ptr = tc.allocAppendable(size, false, false);
+	void* allocAppendableWithCapacity(size_t size, size_t capacity) {
+		auto ptr = tc.allocAppendable(size, false, false, null, capacity);
 		assert(ptr !is null);
 
 		auto pd = tc.getPageDescriptor(ptr);
@@ -889,28 +890,24 @@ unittest queryAllocInfos {
 
 		if (pd.isSlab()) {
 			auto si = SlabAllocInfo(pd, ptr);
-			si.setUsedCapacity(usedCapacity);
-
-			foreach (i; usedCapacity .. si.slotCapacity) {
+			foreach (i; size .. si.slotCapacity) {
 				checkAllocationSlice(ptr + i, null, 0);
 			}
 		} else {
-			e.setUsedCapacity(usedCapacity);
-
-			foreach (i; usedCapacity .. e.size) {
+			foreach (i; size .. e.size) {
 				checkAllocationSlice(ptr + i, null, 0);
 			}
 		}
 
-		foreach (i; 0 .. usedCapacity) {
-			checkAllocationSlice(ptr + i, ptr, usedCapacity);
+		foreach (i; 0 .. size) {
+			checkAllocationSlice(ptr + i, ptr, size);
 		}
 
 		return ptr;
 	}
 
 	// Check capacity for an appendable large GC allocation.
-	auto p0 = allocAppendableWithCapacity(16384, 100);
+	auto p0 = allocAppendableWithCapacity(100, 16384);
 	scope(exit) tc.free(p0);
 
 	// p0 is appendable and has the minimum large size.
@@ -942,7 +939,7 @@ unittest queryAllocInfos {
 	assert(tc.getCapacity(p0[101 .. 101]) == 0);
 
 	// Check capacity for an appendable small GC allocation.
-	auto p1 = allocAppendableWithCapacity(4096, 100);
+	auto p1 = allocAppendableWithCapacity(100, 4096);
 	scope(exit) tc.free(p1);
 
 	// p1 is appendable and has the minimum large size.
@@ -1181,21 +1178,21 @@ unittest extendLarge {
 
 	enum DeadZoneSize = getPageCount(MaxSmallSize + 1) * PageSize;
 
-	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
+	void* allocAppendableWithCapacity(size_t size, size_t capacity) {
 		// Make sure we keep track of all allocations.
 		scope(exit) checkAllocatedByteTracking();
 
-		auto ptr = tc.allocAppendable(size, false, false);
+		auto ptr = tc.allocAppendable(size, false, false, null, capacity);
 		assert(ptr !is null);
 
-		auto asize = getPageCount(size) * PageSize;
+		auto asize = getPageCount(capacity) * PageSize;
 		allocated += asize + DeadZoneSize;
 
 		// We make sure we can't resize the allocation
 		// by allocating a dead zone after it.
 		import d.gc.size;
 		auto deadzone = tc.alloc(DeadZoneSize, false, false);
-		if (deadzone !is alignUp(ptr + size, PageSize)) {
+		if (deadzone !is alignUp(ptr + capacity, PageSize)) {
 			tc.free(deadzone);
 			deallocated += DeadZoneSize;
 
@@ -1204,18 +1201,19 @@ unittest extendLarge {
 				deallocated += asize;
 			}
 
-			return allocAppendableWithCapacity(size, usedCapacity);
+			return allocAppendableWithCapacity(size, capacity);
 		}
 
 		auto pd = tc.getPageDescriptor(ptr);
-		assert(pd.extent !is null);
-		assert(pd.extent.isLarge());
-		pd.extent.setUsedCapacity(usedCapacity);
+		auto e = pd.extent;
+		assert(e !is null);
+		assert(e.isLarge());
+
 		return ptr;
 	}
 
 	// Make an appendable alloc:
-	auto p0 = allocAppendableWithCapacity(16384, 100);
+	auto p0 = allocAppendableWithCapacity(100, 16384);
 	assert(tc.getCapacity(p0[0 .. 100]) == 16384);
 
 	// Attempt to extend valid slices with capacity 0.
@@ -1257,7 +1255,7 @@ unittest extendLarge {
 	checkAllocatedByteTracking();
 
 	// Check extensions of slices.
-	auto p1 = allocAppendableWithCapacity(16384, 100);
+	auto p1 = allocAppendableWithCapacity(100, 16384);
 	assert(tc.getCapacity(p1[0 .. 100]) == 16384);
 
 	assert(tc.extend(p1[0 .. 100], 50));
@@ -1391,21 +1389,21 @@ unittest reserve {
 	// Check that we can reserve after large appendable allocations.
 	enum DeadZoneSize = getPageCount(MaxSmallSize + 1) * PageSize;
 
-	void* allocAppendableWithCapacity(size_t size, size_t usedCapacity) {
+	void* allocAppendableWithCapacity(size_t size, size_t capacity) {
 		// Make sure we keep track of all allocations.
 		scope(exit) checkAllocatedByteTracking();
 
-		auto ptr = tc.allocAppendable(size, false, false);
+		auto ptr = tc.allocAppendable(size, false, false, null, capacity);
 		assert(ptr !is null);
 
-		auto asize = getPageCount(size) * PageSize;
+		auto asize = getPageCount(capacity) * PageSize;
 		allocated += asize + DeadZoneSize;
 
 		// We make sure we can't resize the allocation
 		// by allocating a dead zone after it.
 		import d.gc.size;
 		auto deadzone = tc.alloc(DeadZoneSize, false, false);
-		if (deadzone !is alignUp(ptr + size, PageSize)) {
+		if (deadzone !is alignUp(ptr + capacity, PageSize)) {
 			tc.free(deadzone);
 			deallocated += DeadZoneSize;
 
@@ -1414,17 +1412,18 @@ unittest reserve {
 				deallocated += asize;
 			}
 
-			return allocAppendableWithCapacity(size, usedCapacity);
+			return allocAppendableWithCapacity(size, capacity);
 		}
 
 		auto pd = tc.getPageDescriptor(ptr);
-		assert(pd.extent !is null);
-		assert(pd.extent.isLarge());
-		pd.extent.setUsedCapacity(usedCapacity);
+		auto e = pd.extent;
+		assert(e !is null);
+		assert(e.isLarge());
+
 		return ptr;
 	}
 
-	auto p0 = allocAppendableWithCapacity(16384, 100);
+	auto p0 = allocAppendableWithCapacity(100, 16384);
 	assert(tc.getCapacity(p0[0 .. 100]) == 16384);
 
 	// Reserve from an invalid slice.
