@@ -5,8 +5,8 @@ import d.gc.types;
 extern(C):
 
 // druntime API.
-void thread_preSuspend(void* stackTop);
-void thread_postSuspend();
+bool thread_preSuspend(void* stackTop);
+bool thread_postSuspend();
 
 void thread_preStopTheWorld();
 void thread_postRestartTheWorld();
