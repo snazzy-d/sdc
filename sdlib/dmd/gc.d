@@ -77,8 +77,8 @@ bool __sd_gc_shrink_array_used(void* ptr, size_t newUsed, size_t existingUsed) {
 
 	if (pd.isSlab()) {
 		auto si = SlabAllocInfo(pd, ptr);
-		if (threadCache.validateCapacity(ptr[0 .. existingUsed + 1], si.address,
-		                                 si.usedCapacity)) {
+		if (!threadCache.validateCapacity(ptr[0 .. existingUsed + 1],
+		                                  si.address, si.usedCapacity)) {
 			return false;
 		}
 
