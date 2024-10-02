@@ -377,7 +377,7 @@ private:
 		}
 
 		usedPageCount += delta;
-		e.gropwTo(pages);
+		e.growTo(pages);
 		return true;
 	}
 

@@ -247,7 +247,7 @@ public:
 		return at(ptr, npages, block, ExtentClass.large());
 	}
 
-	Extent* gropwTo(uint npages) {
+	Extent* growTo(uint npages) {
 		assert(isLarge(), "Only large extents can be resized!");
 		assert(npages >= this._npages, "Not growing the extent!");
 
