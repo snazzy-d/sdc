@@ -111,13 +111,10 @@ bool __sd_gc_set_array_used(void* ptr, PageDescriptor pd, size_t newUsed,
 
 void* __sd_gc_alloc_from_druntime(size_t size, uint flags, void* finalizer) {
 	bool containsPointers = (flags & BlkAttr.NO_SCAN) == 0;
-	if ((flags & BlkAttr.APPENDABLE) != 0) {
-		// Might need to add a buffer byte to prevent cross-allocation pointers.
-		auto bufferByte =
-			(size >= 14336 || !(flags & BlkAttr.FINALIZE)) ? 1 : 0;
-		return threadCache.allocAppendable(size, containsPointers, false,
-		                                   finalizer, size + bufferByte);
-	} else {
-		return threadCache.alloc(size, containsPointers, false);
+	if ((flags & BlkAttr.APPENDABLE) != 0 || finalizer) {
+		// Add a byte to prevent cross-allocation pointers.
+		return threadCache
+			.allocAppendable(size + 1, containsPointers, false, finalizer);
 	}
+	return threadCache.alloc(size, containsPointers, false);
 }
