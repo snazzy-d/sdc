@@ -103,6 +103,13 @@ bool __sd_gc_extend_array_used(void* ptr, size_t newUsed, size_t existingUsed) {
 		threadCache.extend(ptr[0 .. existingUsed + 1], newUsed - existingUsed);
 }
 
+bool __sd_gc_reserve_array_capacity(void* ptr, size_t request,
+                                    size_t existingUsed) {
+	assert(request >= existingUsed);
+	return
+		threadCache.reserve(ptr[0 .. existingUsed + 1], request - existingUsed);
+}
+
 void* __sd_gc_alloc_from_druntime(size_t size, uint flags, void* finalizer) {
 	bool containsPointers = (flags & BlkAttr.NO_SCAN) == 0;
 	if ((flags & BlkAttr.APPENDABLE) != 0 || finalizer) {
@@ -110,5 +117,6 @@ void* __sd_gc_alloc_from_druntime(size_t size, uint flags, void* finalizer) {
 		return threadCache
 			.allocAppendable(size + 1, containsPointers, false, finalizer);
 	}
+
 	return threadCache.alloc(size, containsPointers, false);
 }
