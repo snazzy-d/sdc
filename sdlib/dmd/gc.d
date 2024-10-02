@@ -67,11 +67,8 @@ bool __sd_gc_fetch_alloc_info(void* ptr, void** base, size_t* size,
 	return true;
 }
 
-void[] __sd_gc_get_allocation_slice(const void* ptr) {
-	return threadCache.getAllocationSlice(ptr);
-}
-
 bool __sd_gc_shrink_array_used(void* ptr, size_t newUsed, size_t existingUsed) {
+	assert(newUsed <= existingUsed);
 	auto pd = threadCache.maybeGetPageDescriptor(ptr);
 	auto e = pd.extent;
 	if (!e) {
@@ -80,46 +77,23 @@ bool __sd_gc_shrink_array_used(void* ptr, size_t newUsed, size_t existingUsed) {
 
 	if (pd.isSlab()) {
 		auto si = SlabAllocInfo(pd, ptr);
-		auto offset = ptr - si.address;
-		if(existingUsed != 0 && si.usedCapacity != existingUsed + offset) {
+		if (threadCache.validateCapacity(ptr[0 .. existingUsed + 1], si.address,
+		                                 si.usedCapacity)) {
 			return false;
 		}
-		assert(newUsed + offset <= si.usedCapacity);
-		return si.setUsedCapacity(newUsed + offset);
-	}
 
-	// Large allocation.
-	auto offset = ptr - e.address;
-	if(existingUsed != 0 && e.usedCapacity != existingUsed + offset) {
-		return false;
-	}
-	assert(newUsed + offset <= e.usedCapacity);
-	e.setUsedCapacity(newUsed + offset);
-	return true;
-}
-
-bool __sd_gc_extend_array_used(void* ptr, size_t newUsed, size_t existingUsed) {
-	// extend array to new used + 1, but don't set the size. Then set the size
-	// if it succeeds.
-	assert(newUsed > existingUsed);
-	if(!threadCache.reserve(ptr[0 .. existingUsed], newUsed - existingUsed + 1))
-	{
-		return false;
-	}
-
-	// We shouldn't have to do this, extend should take a capacity
-	// parameter like malloc.
-	auto pd = threadCache.maybeGetPageDescriptor(ptr);
-	auto e = pd.extent;
-	if (pd.isSlab()) {
-		auto si = SlabAllocInfo(pd, ptr);
 		auto offset = ptr - si.address;
-		return si.setUsedCapacity(newUsed + offset);
+		return si.setUsedCapacity(newUsed + offset + 1);
 	}
 
 	// Large allocation.
+	if (!threadCache.validateCapacity(ptr[0 .. existingUsed + 1], e.address,
+	                                  e.usedCapacity)) {
+		return false;
+	}
+
 	auto offset = ptr - e.address;
-	e.setUsedCapacity(newUsed + offset);
+	e.setUsedCapacity(newUsed + offset + 1);
 	return true;
 }
 
