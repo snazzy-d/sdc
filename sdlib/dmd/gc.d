@@ -67,23 +67,9 @@ bool __sd_gc_fetch_alloc_info(void* ptr, void** base, size_t* size,
 	return true;
 }
 
-size_t __sd_gc_get_array_used(void* ptr, PageDescriptor pd) {
-	auto e = pd.extent;
-	if (!e) {
-		return 0;
-	}
-
-	if (pd.isSlab()) {
-		auto si = SlabAllocInfo(pd, ptr);
-		return si.usedCapacity;
-	} else {
-		return e.usedCapacity;
-	}
-}
-
-// TODO: this should only do large blocks, and let the druntime side do slabs.
-bool __sd_gc_set_array_used(void* ptr, PageDescriptor pd, size_t newUsed,
-                            size_t existingUsed) {
+bool __sd_gc_shrink_array_used(void* ptr, size_t newUsed, size_t existingUsed) {
+	assert(newUsed <= existingUsed);
+	auto pd = threadCache.maybeGetPageDescriptor(ptr);
 	auto e = pd.extent;
 	if (!e) {
 		return false;
@@ -91,21 +77,23 @@ bool __sd_gc_set_array_used(void* ptr, PageDescriptor pd, size_t newUsed,
 
 	if (pd.isSlab()) {
 		auto si = SlabAllocInfo(pd, ptr);
-		if (existingUsed < size_t.max && existingUsed != si.usedCapacity) {
-			// The existing capacity doesn't match.
+		if (threadCache.validateCapacity(ptr[0 .. existingUsed + 1], si.address,
+		                                 si.usedCapacity)) {
 			return false;
 		}
 
-		return si.setUsedCapacity(newUsed);
-	} else {
-		if (existingUsed < size_t.max && existingUsed != e.usedCapacity) {
-			// The existing capacity doesn't match.
-			return false;
-		}
-
-		e.setUsedCapacity(newUsed);
+		auto offset = ptr - si.address;
+		return si.setUsedCapacity(newUsed + offset + 1);
 	}
 
+	// Large allocation.
+	if (!threadCache.validateCapacity(ptr[0 .. existingUsed + 1], e.address,
+	                                  e.usedCapacity)) {
+		return false;
+	}
+
+	auto offset = ptr - e.address;
+	e.setUsedCapacity(newUsed + offset + 1);
 	return true;
 }
 
