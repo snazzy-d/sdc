@@ -17,26 +17,13 @@ void finalize(void* ptr, size_t size) {
 
 size_t allocate(bool pin) {
 	auto ptr = __sd_gc_alloc_finalizer(16, &finalize);
-	auto iptr = cast(size_t) ptr;
-	scope(exit) {
-		ptr = null;
-		iptr = 0;
-	}
-
-	enum BlockSize = 2 * 1024 * 1024;
-	if ((iptr % BlockSize) == 0) {
-		// The pointer is aligned on a block, this tend to lead to
-		// false positive. To avoid this, we'll get a new one.
-		scope(exit) __sd_gc_free(ptr);
-		return allocate(pin);
-	}
 
 	if (pin) {
 		import d.gc.global;
 		gState.addRoots(ptr[0 .. 0]);
 	}
 
-	return ~iptr;
+	return ~(cast(size_t) ptr);
 }
 
 void unpin(size_t blk) {

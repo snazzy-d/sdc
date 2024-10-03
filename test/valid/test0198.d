@@ -31,14 +31,6 @@ void allocateItem(size_t S)() {
 
 	auto item = cast(T*) ptr;
 	item.x[0] = S;
-
-	enum BlockSize = 2 * 1024 * 1024;
-	if ((iptr % BlockSize) == 0) {
-		// The pointer is aligned on a block, this tend to lead to
-		// false positive. To avoid this, we'll get a new one.
-		allocateItem();
-		__sd_gc_free(ptr);
-	}
 }
 
 void allocateItems() {

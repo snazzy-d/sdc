@@ -31,17 +31,6 @@ void destroyItem(void* item, size_t size) {
 void allocateItem() {
 	// allocate a new item, with destroyItem as the finalizer
 	auto ptr = __sd_gc_alloc_finalizer(LargeDestructor.sizeof, &destroyItem);
-	auto iptr = cast(size_t) ptr;
-
-	enum BlockSize = 2 * 1024 * 1024;
-	if ((iptr % BlockSize) == 0) {
-		// The pointer is aligned on a block, this tend to lead to
-		// false positive. To avoid this, we'll get a new one.
-		allocateItem();
-		__sd_gc_free(ptr);
-
-		return;
-	}
 
 	auto item = cast(LargeDestructor*) ptr;
 	foreach (uint i; 0 .. item.x.length) {
