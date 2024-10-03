@@ -60,3 +60,15 @@ unittest ptr_to_bool {
 	auto ptr4 = &ptr2;
 	assert(ptr4);
 }
+
+unittest ptr_to_int {
+	void* ptr0 = null;
+	auto iptr0 = cast(size_t) ptr0;
+	assert(iptr0 == 0);
+
+	auto ptr1 = cast(void*) -1;
+	assert(ptr1 is ptr0 - 1);
+
+	auto ptr2 = cast(void*) uint(-1);
+	assert(ptr2 is cast(void*) uint.max);
+}

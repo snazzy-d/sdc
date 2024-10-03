@@ -281,7 +281,11 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		// Can explicitely cast integral to pointer.
 		if (isExplicit
 			    && (to.kind == TypeKind.Pointer && canConvertToIntegral(t))) {
-			return CastKind.IntToPtr;
+			if (isIntegral(t) && isSigned(t)) {
+				return CastKind.SignedToPointer;
+			}
+
+			return CastKind.UnsignedToPointer;
 		}
 
 		if (to.kind != TypeKind.Builtin) {
@@ -349,7 +353,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 			case Null:
 				if (canConvertToIntegral(bt)) {
-					return CastKind.PtrToInt;
+					return CastKind.PointerToInt;
 				}
 
 				return CastKind.Invalid;
@@ -366,14 +370,14 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		if (isExplicit && to.kind == TypeKind.Builtin) {
 			auto bt = to.builtin;
 			if (bt == BuiltinType.Bool) {
-				return CastKind.PtrToBool;
+				return CastKind.PointerToBool;
 			}
 
 			// We might want to ensure that the size is right and
 			// refuse to cast if it isn't. This would avoid bugs
 			// due to unintended truncations.
 			if (canConvertToIntegral(bt)) {
-				return CastKind.PtrToInt;
+				return CastKind.PointerToInt;
 			}
 		}
 

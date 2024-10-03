@@ -223,10 +223,10 @@ public:
 			case Invalid:
 				assert(0, "Invalid cast");
 
-			case IntToPtr, Down:
+			case UnsignedToPointer, SignedToPointer, Down:
 				assert(0, "Do not make any sense on integrals");
 
-			case PtrToInt:
+			case PointerToInt:
 				auto t = getBuiltin(e.type);
 				return getRange(t);
 
@@ -238,7 +238,7 @@ public:
 				auto t = getBuiltin(e.type);
 				return getRange(t);
 
-			case IntToBool, PtrToBool:
+			case IntToBool, PointerToBool:
 				static doTheDMDMonkeyDance(R)(R r) {
 					return VR(!r.containsZero, r != R(0));
 				}

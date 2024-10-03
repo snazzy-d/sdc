@@ -548,7 +548,8 @@ public:
 			case Invalid:
 				return MatchLevel.Not;
 
-			case IntToPtr, PtrToInt, Down, IntToBool, PtrToBool, Trunc:
+			case UnsignedToPointer, SignedToPointer, PointerToInt:
+			case Down, IntToBool, PointerToBool, Trunc:
 			case FloatToSigned, FloatToUnsigned:
 				assert(0, "Not an implicit cast!");
 

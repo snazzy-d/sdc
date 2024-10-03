@@ -657,10 +657,14 @@ struct ExpressionGen {
 			case Trunc:
 				return LLVMBuildTrunc(builder, value, type, "");
 
-			case IntToPtr:
+			case SignedToPointer:
+				value = LLVMBuildSExt(builder, value, i64, "");
+				goto case UnsignedToPointer;
+
+			case UnsignedToPointer:
 				return LLVMBuildIntToPtr(builder, value, type, "");
 
-			case PtrToInt:
+			case PointerToInt:
 				return LLVMBuildPtrToInt(builder, value, type, "");
 
 			case IntToBool:
@@ -668,7 +672,7 @@ struct ExpressionGen {
 				return LLVMBuildICmp(builder, LLVMIntPredicate.NE, value, zero,
 				                     "");
 
-			case PtrToBool:
+			case PointerToBool:
 				return LLVMBuildICmp(builder, LLVMIntPredicate.NE, value,
 				                     llvmNull, "");
 
@@ -958,8 +962,9 @@ struct AddressOfGen {
 			case Exact, Qual, Bit:
 				return value;
 
-			case Invalid, IntToPtr, PtrToInt, Down:
-			case IntToBool, PtrToBool, Trunc, SPad, UPad:
+			case Invalid, Down:
+			case UnsignedToPointer, SignedToPointer, PointerToInt:
+			case IntToBool, PointerToBool, Trunc, SPad, UPad:
 			case FloatToSigned, FloatToUnsigned:
 			case UnsignedToFloat, SignedToFloat:
 			case FloatExtend, FloatTrunc:

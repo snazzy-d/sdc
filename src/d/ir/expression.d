@@ -475,11 +475,12 @@ class ArrayLiteral : Expression {
  */
 enum CastKind {
 	Invalid,
-	IntToPtr,
-	PtrToInt,
+	UnsignedToPointer,
+	SignedToPointer,
+	PointerToInt,
 	Down,
 	IntToBool,
-	PtrToBool,
+	PointerToBool,
 	Trunc,
 	UPad,
 	SPad,
@@ -510,11 +511,12 @@ class CastExpression : Expression {
 	override bool isLvalue() const {
 		final switch (kind) with (CastKind) {
 			case Invalid:
-			case IntToPtr:
-			case PtrToInt:
+			case UnsignedToPointer:
+			case SignedToPointer:
+			case PointerToInt:
 			case Down:
 			case IntToBool:
-			case PtrToBool:
+			case PointerToBool:
 			case Trunc:
 			case UPad:
 			case SPad:
