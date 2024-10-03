@@ -18,17 +18,17 @@ private:
 	const(void*)[][] worklist;
 
 	ubyte _gcCycle;
-	const(void*)[] _managedAddressSpace;
+	AddressRange _managedAddressSpace;
 
 public:
-	this(uint threadCount, ubyte gcCycle, const(void*)[] managedAddressSpace) {
+	this(uint threadCount, ubyte gcCycle, AddressRange managedAddressSpace) {
 		activeThreads = threadCount;
 
 		this._gcCycle = gcCycle;
 		this._managedAddressSpace = managedAddressSpace;
 	}
 
-	this(ubyte gcCycle, const(void*)[] managedAddressSpace) {
+	this(ubyte gcCycle, AddressRange managedAddressSpace) {
 		import sys.linux.sysinfo;
 		auto nthreads = get_nprocs();
 		assert(nthreads >= 1, "Expected at least one thread!");
@@ -37,7 +37,7 @@ public:
 	}
 
 	@property
-	const(void*)[] managedAddressSpace() shared {
+	AddressRange managedAddressSpace() shared {
 		return (cast(Scanner*) &this)._managedAddressSpace;
 	}
 

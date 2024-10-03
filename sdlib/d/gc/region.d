@@ -62,11 +62,11 @@ private:
 	// Unused region objects.
 	Heap!(Region, unusedRegionCmp) unusedRegions;
 
-	size_t minAddress = AddressSpace;
-	size_t maxAddress = 0;
+	AddressRange addressRange;
 
 	// Count of blocks that are currently acquired.
 	size_t nBlocks = 0;
+
 public:
 	bool acquire(void** addrPtr, uint extraBlocks = 0) shared {
 		mutex.lock();
@@ -92,7 +92,7 @@ public:
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(RegionAllocator*) &this).computeAddressRangeImpl();
+		return *(cast(AddressRange*) &addressRange);
 	}
 
 	@property
@@ -104,12 +104,6 @@ public:
 	}
 
 private:
-	auto computeAddressRangeImpl() {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		return makeRange(cast(void*) minAddress, cast(void*) maxAddress);
-	}
-
 	bool acquireImpl(void** addrPtr, uint extraBlocks) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
@@ -203,9 +197,8 @@ private:
 			return null;
 		}
 
-		auto v = cast(size_t) ptr;
-		minAddress = min(minAddress, v);
-		maxAddress = max(maxAddress, v + blocks * BlockSize);
+		auto range = AddressRange(ptr, ptr + blocks * BlockSize);
+		addressRange = addressRange.merge(range);
 
 		// Newly allocated blocks are considered clean.
 		assert(blocks <= uint.max, "blocks does not fit in 32 bits!");

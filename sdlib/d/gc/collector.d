@@ -49,7 +49,7 @@ private:
 		auto ptrRange = gPointerRegionAllocator.computeAddressRange();
 
 		import d.gc.range;
-		auto managedAddressSpace = merge(dataRange, ptrRange);
+		auto managedAddressSpace = dataRange.merge(ptrRange);
 
 		prepareGCCycle();
 
