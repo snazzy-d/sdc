@@ -65,7 +65,6 @@ bool contains(const(void*)[] range, const void* ptr) {
 }
 
 unittest contains {
-	import d.gc.spec;
 	auto r = makeRange(cast(void*) AddressSpace, null);
 
 	assert(!r.contains(null));
@@ -127,7 +126,6 @@ unittest merge {
 		checkMergeCommutative(a, a, a);
 		checkMergeCommutative(b, b, b);
 
-		import d.gc.spec;
 		auto rnull = makeRange(cast(void*) AddressSpace, null);
 		checkMergeCommutative(a, rnull, a);
 		checkMergeCommutative(b, rnull, b);
@@ -137,9 +135,7 @@ unittest merge {
 		checkMergeCommutative(b, rall, rall);
 	}
 
-	import d.gc.spec;
 	auto rnull = makeRange(cast(void*) AddressSpace, null);
-
 	auto rall = makeRange(null, cast(void*) AddressSpace);
 	checkMerge(rnull, rall, rall);
 
@@ -156,6 +152,127 @@ unittest merge {
 	checkMerge(r1, r3, r13);
 
 	auto r23 = makeRange(cast(void*) 4100, cast(void*) 4240);
+	checkMerge(r2, r3, r23);
+
+	// Mix and match ranges.
+	checkMerge(r1, r23, r12);
+	checkMerge(r2, r13, r12);
+	checkMerge(r3, r12, r12);
+}
+
+/**
+ * This describes a range of addresses.
+ * 
+ * In order to avoid false pointer, we stored the
+ * complement of the base address of the range.
+ */
+struct AddressRange {
+private:
+	size_t base;
+	size_t length;
+
+public:
+	this(const void[] range) {
+		base = -(cast(size_t) range.ptr);
+		length = range.length;
+	}
+
+	this(const void* start, const void* stop) {
+		this(start[0 .. stop - start]);
+	}
+
+	bool contains(const void* ptr) const {
+		auto iptr = cast(size_t) ptr;
+		return (iptr + base) < length;
+	}
+
+	auto merge(AddressRange other) const {
+		if (length == 0) {
+			return other;
+		}
+
+		if (other.length == 0) {
+			return this;
+		}
+
+		auto top = max(length - base, other.length - other.base);
+
+		AddressRange ret;
+		ret.base = max(base - 1, other.base - 1) + 1;
+		ret.length = top + ret.base;
+
+		return ret;
+	}
+}
+
+unittest AddressRange {
+	auto r = AddressRange(cast(void*) AddressSpace, null);
+
+	assert(!r.contains(null));
+	assert(!r.contains(cast(void*) 1));
+	assert(!r.contains(cast(void*) AddressSpace - 1));
+
+	assert(r.contains(cast(void*) AddressSpace));
+	assert(r.contains(cast(void*) -1));
+
+	r = AddressRange(cast(void*) 123, cast(void*) 456);
+
+	assert(!r.contains(cast(void*) 122));
+	assert(r.contains(cast(void*) 123));
+	assert(r.contains(cast(void*) 234));
+	assert(r.contains(cast(void*) 345));
+	assert(r.contains(cast(void*) 455));
+	assert(!r.contains(cast(void*) 456));
+
+	static
+	void checkMergeImpl(AddressRange a, AddressRange b, AddressRange expected) {
+		auto m = a.merge(b);
+
+		assert(m.base == expected.base);
+		assert(m.length == expected.length);
+	}
+
+	static void checkMergeCommutative(AddressRange a, AddressRange b,
+	                                  AddressRange expected) {
+		checkMergeImpl(a, b, expected);
+		checkMergeImpl(b, a, expected);
+	}
+
+	static
+	void checkMerge(AddressRange a, AddressRange b, AddressRange expected) {
+		checkMergeCommutative(a, b, expected);
+		checkMergeCommutative(a, expected, expected);
+		checkMergeCommutative(b, expected, expected);
+
+		checkMergeCommutative(a, a, a);
+		checkMergeCommutative(b, b, b);
+
+		auto rnull = AddressRange(null, null);
+		checkMergeCommutative(a, rnull, a);
+		checkMergeCommutative(b, rnull, b);
+
+		auto rall = AddressRange(null, cast(void*) AddressSpace);
+		checkMergeCommutative(a, rall, rall);
+		checkMergeCommutative(b, rall, rall);
+	}
+
+	auto rnull = AddressRange(null, null);
+	auto rall = AddressRange(null, cast(void*) AddressSpace);
+	checkMerge(rnull, rall, rall);
+
+	auto r1 = AddressRange(cast(void*) 4000, cast(void*) 4080);
+	auto r2 = AddressRange(cast(void*) 4160, cast(void*) 4240);
+	auto r3 = AddressRange(cast(void*) 4100, cast(void*) 4200);
+
+	// Disjoint ranges.
+	auto r12 = AddressRange(cast(void*) 4000, cast(void*) 4240);
+	checkMerge(r1, r2, r12);
+
+	// Overlapping ranges.
+	auto r13 = AddressRange(cast(void*) 4000, cast(void*) 4200);
+	checkMerge(r1, r3, r13);
+
+	auto r23 = AddressRange(cast(void*) 4100, cast(void*) 4240);
 	checkMerge(r2, r3, r23);
 
 	// Mix and match ranges.
