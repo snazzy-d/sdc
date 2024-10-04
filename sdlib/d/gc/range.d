@@ -92,12 +92,12 @@ unittest contains {
  */
 struct AddressRange {
 private:
-	size_t base;
+	ptrdiff_t base;
 	size_t length;
 
 public:
 	this(const void[] range) {
-		base = -(cast(size_t) range.ptr);
+		base = -(cast(ptrdiff_t) range.ptr);
 		length = range.length;
 	}
 
@@ -122,7 +122,7 @@ public:
 		auto top = max(length - base, other.length - other.base);
 
 		AddressRange ret;
-		ret.base = max(base - 1, other.base - 1) + 1;
+		ret.base = max(base, other.base);
 		ret.length = top + ret.base;
 
 		return ret;
