@@ -51,7 +51,8 @@ private:
 	AllBlockRing denseBlocks;
 	AllBlockRing sparseBlocks;
 
-	size_t usedPageCount;
+	import d.sync.atomic;
+	shared Atomic!size_t usedPageCount;
 
 	import d.gc.ring;
 	Ring!BlockDescriptor fullBlocks;
@@ -251,10 +252,7 @@ public:
 	 */
 	@property
 	size_t usedPages() shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		return (cast(PageFiller*) &this).usedPageCount;
+		return usedPageCount.load();
 	}
 
 private:
@@ -277,10 +275,9 @@ private:
 		}
 
 		auto n = block.reserve(pages, dirty);
-
-		usedPageCount += pages;
-
 		registerBlock(block);
+
+		usedPageCount.fetchAdd(pages);
 
 		auto ptr = block.address + n * PageSize;
 		return e.at(ptr, pages, block, ec);
@@ -303,14 +300,13 @@ private:
 
 		bool dirty;
 		auto n = block.reserve(pages, dirty);
+		registerBlock(block);
 
 		assert(n == 0, "Unexpected page allocated!");
 		assert(!dirty, "Huge allocations shouldn't be dirty!");
 
 		auto npages = pages + extraBlocks * PagesInBlock;
-		usedPageCount += npages;
-
-		registerBlock(block);
+		usedPageCount.fetchAdd(npages);
 
 		auto leadSize = extraBlocks * BlockSize;
 		auto ptr = block.address - leadSize;
@@ -325,7 +321,6 @@ private:
 		auto block = e.block;
 		unregisterBlock(block);
 
-		usedPageCount -= e.npages;
 		block.release(n, pages);
 		if (block.empty) {
 			releaseBlock(e, block);
@@ -342,6 +337,7 @@ private:
 			registerBlock(block);
 		}
 
+		usedPageCount.fetchSub(e.npages);
 		unusedExtents.insert(e);
 	}
 
@@ -376,8 +372,9 @@ private:
 			return false;
 		}
 
-		usedPageCount += delta;
+		usedPageCount.fetchAdd(delta);
 		e.growTo(pages);
+
 		return true;
 	}
 
@@ -391,7 +388,7 @@ private:
 		unregisterBlock(block);
 		scope(success) registerBlock(block);
 
-		usedPageCount -= delta;
+		usedPageCount.fetchSub(delta);
 		e.shrinkTo(pages);
 
 		block.clear(index, delta);
