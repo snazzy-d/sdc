@@ -68,11 +68,12 @@ private:
 	size_t nBlocks = 0;
 
 public:
-	bool acquire(void** addrPtr, uint extraBlocks = 0) shared {
+	bool acquire(ref void* blockAddress, uint extraBlocks = 0) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(RegionAllocator*) &this).acquireImpl(addrPtr, extraBlocks);
+		return (cast(RegionAllocator*) &this)
+			.acquireImpl(blockAddress, extraBlocks);
 	}
 
 	void release(void* ptr, uint blocks) shared {
@@ -104,7 +105,7 @@ public:
 	}
 
 private:
-	bool acquireImpl(void** addrPtr, uint extraBlocks) {
+	bool acquireImpl(ref void* blockAddress, uint extraBlocks) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto totalBlocks = extraBlocks + 1;
@@ -127,8 +128,7 @@ private:
 		assert(r.blockCount > extraBlocks, "Insuffiscient address space!");
 
 		auto ptr = r.address;
-		auto extraSize = extraBlocks * BlockSize;
-		*addrPtr = ptr + extraSize;
+		blockAddress = ptr + extraBlocks * BlockSize;
 
 		nBlocks += totalBlocks;
 
@@ -241,7 +241,7 @@ unittest acquire_release {
 	auto ra = cast(RegionAllocator*) &regionAllocator;
 
 	void* addr0;
-	assert(regionAllocator.acquire(&addr0));
+	assert(regionAllocator.acquire(addr0));
 	assert(regionAllocator.acquiredBlocks == 1);
 
 	// Check we compute the proper range.
@@ -253,7 +253,7 @@ unittest acquire_release {
 
 	foreach (i; 1 .. RefillBlockCount) {
 		void* addr;
-		assert(regionAllocator.acquire(&addr));
+		assert(regionAllocator.acquire(addr));
 		assert(addr is addr0 + i * BlockSize);
 		assert(r.contains(addr));
 		assert(regionAllocator.acquiredBlocks == i + 1);
@@ -298,15 +298,15 @@ unittest extra_blocks {
 	regionAllocator.base = &base;
 
 	void* addr0;
-	assert(regionAllocator.acquire(&addr0));
+	assert(regionAllocator.acquire(addr0));
 
 	void* addr1;
-	assert(regionAllocator.acquire(&addr1, 1));
+	assert(regionAllocator.acquire(addr1, 1));
 	assert(addr1 is addr0 + 2 * BlockSize);
 	assert(regionAllocator.acquiredBlocks == 1 + 2);
 
 	void* addr2;
-	assert(regionAllocator.acquire(&addr2, 5));
+	assert(regionAllocator.acquire(addr2, 5));
 	assert(addr2 is addr1 + 6 * BlockSize);
 	assert(regionAllocator.acquiredBlocks == 1 + 2 + 6);
 
@@ -317,13 +317,13 @@ unittest extra_blocks {
 
 	// Too big too fit.
 	void* addr3;
-	assert(regionAllocator.acquire(&addr3, 3));
+	assert(regionAllocator.acquire(addr3, 3));
 	assert(addr3 is addr2 + 4 * BlockSize);
 	assert(regionAllocator.acquiredBlocks == 6 + 4);
 
 	// Small enough, so we reuse freed regions.
 	void* addr4;
-	assert(regionAllocator.acquire(&addr4, 2));
+	assert(regionAllocator.acquire(addr4, 2));
 	assert(addr4 is addr0 + 2 * BlockSize);
 	assert(regionAllocator.acquiredBlocks == 6 + 4 + 3);
 }
@@ -339,7 +339,7 @@ unittest enormous {
 	enum ExtraBlocks = Blocks - 1;
 
 	void* addr0;
-	assert(regionAllocator.acquire(&addr0, ExtraBlocks));
+	assert(regionAllocator.acquire(addr0, ExtraBlocks));
 
 	// Check we compute the proper range.
 	auto r = regionAllocator.computeAddressRange();

@@ -486,7 +486,7 @@ private:
 		}
 
 		void* address;
-		if (!regionAllocator.acquire(&address, extraBlocks)) {
+		if (!regionAllocator.acquire(address, extraBlocks)) {
 			return null;
 		}
 
