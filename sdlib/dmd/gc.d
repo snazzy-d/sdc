@@ -120,3 +120,7 @@ void* __sd_gc_alloc_from_druntime(size_t size, uint flags, void* finalizer) {
 
 	return threadCache.alloc(size, containsPointers, false);
 }
+
+bool __sd_gc_activate(bool activated) {
+	return threadCache.activateGC(activated);
+}
