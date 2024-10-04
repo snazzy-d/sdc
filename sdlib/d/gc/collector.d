@@ -137,15 +137,7 @@ private:
 	}
 
 	bool needCollection(ref size_t delta) {
-		size_t total;
-
-		foreach (i; 0 .. ArenaCount) {
-			import d.gc.arena;
-			auto a = Arena.getIfInitialized(i);
-			if (a !is null) {
-				total += a.usedPages;
-			}
-		}
+		auto total = Arena.computeUsedPageCount();
 
 		if (total >= nextTarget) {
 			// How much did we overshoot?
@@ -159,17 +151,7 @@ private:
 	}
 
 	size_t updateTargetPageCount() {
-		size_t total;
-
-		foreach (i; 0 .. ArenaCount) {
-			import d.gc.arena;
-			auto a = Arena.getIfInitialized(i);
-			if (a is null) {
-				continue;
-			}
-
-			total += a.usedPages;
-		}
+		auto total = Arena.computeUsedPageCount();
 
 		// We set the target at 1.75x the current heap size in pages.
 		auto target = total + (total >> 1) + (total >> 2);

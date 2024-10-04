@@ -104,6 +104,22 @@ public:
 		return a;
 	}
 
+	static computeUsedPageCount() {
+		size_t total;
+
+		foreach (i; 0 .. ArenaCount) {
+			import d.gc.arena;
+			auto a = Arena.getArenaAddress(i);
+
+			// We do not care about initializing the arenas here.
+			// Uninitialized arenas will be zero filled and so usedPages
+			// will also be zero.
+			total += a.usedPages;
+		}
+
+		return total;
+	}
+
 public:
 	/**
 	 * Small allocation facilities.
