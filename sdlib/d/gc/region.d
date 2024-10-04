@@ -76,6 +76,16 @@ public:
 			.acquireImpl(blockAddress, extraBlocks);
 	}
 
+	bool acquireAt(void* ptr, uint blocks) shared {
+		assert(isAligned(ptr, BlockSize), "Invalid ptr alignment!");
+		assert(blocks > 0, "Invalid number of blocks!");
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(RegionAllocator*) &this).acquireAtImpl(ptr, blocks);
+	}
+
 	void release(void* ptr, uint blocks) shared {
 		assert(blocks > 0, "Invalid number of blocks!");
 
@@ -142,6 +152,59 @@ private:
 		r.at(ptr + allocSize, newBlockCount);
 		registerRegion(r);
 
+		return true;
+	}
+
+	bool acquireAtImpl(void* ptr, uint blocks) {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(isAligned(ptr, BlockSize), "Invalid ptr alignment!");
+		assert(blocks > 0, "Invalid number of blocks!");
+
+		Region rr;
+		rr.at(ptr, 0);
+
+		// Do we have memory there?
+		auto r = regionsByRange.extract(&rr);
+		if (r is null) {
+			return false;
+		}
+
+		// Do we have enough?
+		auto base = r.address;
+		auto size = r.blockCount;
+
+		assert(base <= ptr, "Invalid region!");
+
+		auto index = (ptr - base) / BlockSize;
+		if (index + blocks > size) {
+			regionsByRange.insert(r);
+			return false;
+		}
+
+		// Ok we do have enough, do it!
+		regionsByClass.remove(r);
+		unusedRegions.insert(r);
+
+		if (index > 0) {
+			r = getOrAllocateRegion();
+
+			assert(index <= uint.max, "index does not fit in 32 bits!");
+			r.at(base, index & uint.max);
+
+			registerRegion(r);
+		}
+
+		auto extra = size - index - blocks;
+		if (extra > 0) {
+			r = getOrAllocateRegion();
+
+			assert(extra <= uint.max, "extra does not fit in 32 bits!");
+			r.at(ptr + blocks * BlockSize, extra & uint.max);
+
+			registerRegion(r);
+		}
+
+		nBlocks += blocks;
 		return true;
 	}
 
@@ -326,6 +389,64 @@ unittest extra_blocks {
 	assert(regionAllocator.acquire(addr4, 2));
 	assert(addr4 is addr0 + 2 * BlockSize);
 	assert(regionAllocator.acquiredBlocks == 6 + 4 + 3);
+}
+
+unittest acquire_at {
+	shared Base base;
+	scope(exit) base.clear();
+
+	shared RegionAllocator regionAllocator;
+	regionAllocator.base = &base;
+
+	// To snoop in.
+	auto ra = cast(RegionAllocator*) &regionAllocator;
+
+	void* addr0;
+	assert(regionAllocator.acquire(addr0));
+	assert(regionAllocator.acquiredBlocks == 1);
+
+	void* addr8;
+	assert(regionAllocator.acquire(addr8, 7));
+	assert(regionAllocator.acquiredBlocks == 9);
+	assert(addr8 is addr0 + 8 * BlockSize);
+
+	void* addr9;
+	assert(regionAllocator.acquire(addr9));
+	assert(regionAllocator.acquiredBlocks == 10);
+	assert(addr9 is addr8 + BlockSize);
+
+	// Trying to acquire at a location that's already taken.
+	void* addr1 = addr0 + BlockSize;
+	assert(!regionAllocator.acquireAt(addr1, 1));
+
+	// Release zone 1 to 8.
+	regionAllocator.release(addr1, 8);
+	assert(regionAllocator.acquiredBlocks == 2);
+
+	// Each block in there can be allocated.
+	foreach (i; 0 .. 8) {
+		auto ptr = addr1 + i * BlockSize;
+		assert(regionAllocator.acquireAt(ptr, 1));
+		assert(regionAllocator.acquiredBlocks == 3);
+
+		regionAllocator.release(ptr, 1);
+		assert(regionAllocator.acquiredBlocks == 2);
+	}
+
+	// But not past the end of the free run.
+	assert(!regionAllocator.acquireAt(addr1 + 8 * BlockSize, 1));
+
+	// All sizes can be allocated.
+	foreach (i; 1 .. 9) {
+		assert(regionAllocator.acquireAt(addr1, i));
+		assert(regionAllocator.acquiredBlocks == 2 + i);
+
+		regionAllocator.release(addr1, i);
+		assert(regionAllocator.acquiredBlocks == 2);
+	}
+
+	// But not larger.
+	assert(!regionAllocator.acquireAt(addr1, 9));
 }
 
 unittest enormous {
