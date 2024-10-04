@@ -452,6 +452,16 @@ unittest shrinklarge {
 
 	// Now full again.
 	assert(block.full);
+
+	// Shrink huge allocation.
+	enum HugeSize = 2 * PagesInBlock;
+	auto e10 = makeLargeAlloc(HugeSize);
+
+	checkShrinkLarge(e10, HugeSize - 1);
+	checkShrinkLarge(e10, PagesInBlock + 1);
+
+	// But we cannot reduce further.
+	assert(!arena.shrinkLarge(emap, e10, PagesInBlock));
 }
 
 unittest growLarge {

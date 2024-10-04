@@ -156,17 +156,26 @@ public:
 		assert(e.isLarge(), "Expected a large extent!");
 		assert(pages > 0 && pages < e.npages, "Invalid page count!");
 
+		auto n = e.blockIndex;
 		uint currentPages = e.npages;
-		if (currentPages >= PagesInBlock) {
+
+		uint start = n + pages - 1;
+		uint stop = n + currentPages - 1;
+
+		if ((start ^ stop) >= PagesInBlock) {
+			// We check that the old size and the new size
+			// terminate in the same block.
 			return false;
 		}
 
 		uint delta = currentPages - pages;
-		uint index = e.blockIndex + pages;
 		assert(delta < PagesInBlock, "Invalid delta!");
 
 		emap.clear(e.address + pages * PageSize, delta);
+
+		uint index = (n + pages) % PagesInBlock;
 		shrinkAlloc(e, index, delta);
+
 		return true;
 	}
 
