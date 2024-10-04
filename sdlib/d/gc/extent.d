@@ -247,19 +247,17 @@ public:
 		return at(ptr, npages, block, ExtentClass.large());
 	}
 
-	Extent* growTo(uint npages) {
+	Extent* growBy(uint delta) {
 		assert(isLarge(), "Only large extents can be resized!");
-		assert(npages >= this._npages, "Not growing the extent!");
 
-		this._npages = npages;
+		this._npages += delta;
 		return &this;
 	}
 
-	Extent* shrinkTo(uint npages) {
+	Extent* shrinkBy(uint delta) {
 		assert(isLarge(), "Only large extents can be resized!");
-		assert(npages <= this._npages, "Not shrinking the extent!");
 
-		this._npages = npages;
+		this._npages -= delta;
 
 		import d.gc.util;
 		setUsedCapacity(min(usedCapacity, size));

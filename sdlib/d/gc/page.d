@@ -133,7 +133,7 @@ public:
 		uint index = n + currentPages;
 		uint delta = pages - currentPages;
 
-		if (!growAlloc(e, index, pages, delta)) {
+		if (!growAlloc(e, index, delta)) {
 			return false;
 		}
 
@@ -163,9 +163,10 @@ public:
 
 		uint delta = currentPages - pages;
 		uint index = e.blockIndex + pages;
+		assert(delta < PagesInBlock, "Invalid delta!");
 
 		emap.clear(e.address + pages * PageSize, delta);
-		shrinkAlloc(e, index, pages, delta);
+		shrinkAlloc(e, index, delta);
 		return true;
 	}
 
@@ -344,25 +345,17 @@ private:
 	/**
 	 * Large allocation resizing facilities, private implementation.
 	 */
-	bool growAlloc(Extent* e, uint index, uint pages, uint delta) shared {
+	bool growAlloc(Extent* e, uint index, uint delta) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(PageFiller*) &this).growAllocImpl(e, index, pages, delta);
+		return (cast(PageFiller*) &this).growAllocImpl(e, index, delta);
 	}
 
-	void shrinkAlloc(Extent* e, uint index, uint pages, uint delta) shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		(cast(PageFiller*) &this).shrinkAllocImpl(e, index, pages, delta);
-	}
-
-	bool growAllocImpl(Extent* e, uint index, uint pages, uint delta) {
+	bool growAllocImpl(Extent* e, uint index, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(delta > 0 && delta < PagesInBlock, "Invalid delta!");
 		assert(index > 0 && index <= PagesInBlock - delta, "Invalid index!");
-		assert(pages > 0 && pages <= PagesInBlock, "Invalid number of pages!");
 
 		auto block = e.block;
 		unregisterBlock(block);
@@ -373,26 +366,32 @@ private:
 		}
 
 		usedPageCount.fetchAdd(delta);
-		e.growTo(pages);
+		e.growBy(delta);
 
 		return true;
 	}
 
-	void shrinkAllocImpl(Extent* e, uint index, uint pages, uint delta) {
+	void shrinkAlloc(Extent* e, uint index, uint delta) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(PageFiller*) &this).shrinkAllocImpl(e, index, delta);
+	}
+
+	void shrinkAllocImpl(Extent* e, uint index, uint delta) {
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(delta > 0 && delta < PagesInBlock, "Invalid delta!");
 		assert(index > 0 && index <= PagesInBlock - delta, "Invalid index!");
-		assert(pages > 0 && pages <= index, "Invalid number of pages!");
 
 		auto block = e.block;
 		unregisterBlock(block);
 		scope(success) registerBlock(block);
 
-		usedPageCount.fetchSub(delta);
-		e.shrinkTo(pages);
-
 		block.clear(index, delta);
 		assert(!block.empty);
+
+		usedPageCount.fetchSub(delta);
+		e.shrinkBy(delta);
 	}
 
 	/**
