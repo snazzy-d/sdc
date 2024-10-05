@@ -584,4 +584,14 @@ unittest growLarge {
 	assert(e0.block.full);
 
 	checkFreeLarge(e0);
+
+	// Grow huge allocation.
+	enum HugeSize = 2 * PagesInBlock;
+	auto e3 = makeLargeAlloc(PagesInBlock + 1);
+
+	checkGrowLarge(e3, PagesInBlock + 2);
+	checkGrowLarge(e3, 2 * PagesInBlock);
+
+	// But we cannot grow further.
+	assert(!arena.growLarge(emap, e3, 2 * PagesInBlock + 1));
 }

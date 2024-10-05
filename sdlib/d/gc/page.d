@@ -120,19 +120,22 @@ public:
 		assert(e.isLarge(), "Expected a large extent!");
 		assert(pages > e.npages, "Invalid page count!");
 
-		uint currentPages = e.npages;
-		if (pages > PagesInBlock || currentPages >= PagesInBlock) {
-			return false;
-		}
-
 		auto n = e.blockIndex;
-		if (n + pages > PagesInBlock) {
+		uint currentPages = e.npages;
+
+		uint start = n + currentPages - 1;
+		uint stop = n + pages - 1;
+
+		if ((start ^ stop) >= PagesInBlock) {
+			// We check that the old size and the new size
+			// terminate in the same block.
 			return false;
 		}
 
-		uint index = n + currentPages;
 		uint delta = pages - currentPages;
+		assert(delta < PagesInBlock, "Invalid delta!");
 
+		uint index = (n + currentPages) % PagesInBlock;
 		if (!growAlloc(e, index, delta)) {
 			return false;
 		}
