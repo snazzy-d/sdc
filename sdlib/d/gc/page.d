@@ -407,7 +407,36 @@ private:
 	}
 
 	/**
-	 * BlockDescriptor heaps management.
+	 * BlockDescriptor management.
+	 */
+	bool refillBlockDescriptors() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		if (!unusedBlockDescriptors.empty) {
+			return true;
+		}
+
+		auto page = base.allocMetadataPage();
+		if (page.address is null) {
+			return false;
+		}
+
+		unusedBlockDescriptors = BlockDescriptor.fromPage(page);
+		return true;
+	}
+
+	BlockDescriptor* getOrAllocateBlockDescriptor() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		if (!refillBlockDescriptors()) {
+			return null;
+		}
+
+		return unusedBlockDescriptors.pop();
+	}
+
+	/**
+	 * Heaps management.
 	 */
 	auto getFilterPtr(bool dense) {
 		return dense ? &denseFilter : &sparseFilter;
@@ -487,13 +516,8 @@ private:
 		assert(mutex.isHeld(), "Mutex not held!");
 		assert(!dense || extraBlocks == 0, "Huge allocations cannot be dense!");
 
-		if (unusedBlockDescriptors.empty) {
-			auto page = base.allocMetadataPage();
-			if (page.address is null) {
-				return null;
-			}
-
-			unusedBlockDescriptors = BlockDescriptor.fromPage(page);
+		if (!refillBlockDescriptors()) {
+			return null;
 		}
 
 		void* address;
