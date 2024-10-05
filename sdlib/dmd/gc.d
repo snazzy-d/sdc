@@ -114,6 +114,15 @@ void[] __sd_gc_get_allocation_slice(const void* ptr) {
 	return threadCache.getAllocationSlice(ptr);
 }
 
+size_t __sd_gc_get_array_capacity(void[] slice) {
+	auto capacity = threadCache.getCapacity(slice.ptr[0 .. slice.length + 1]);
+	if (capacity == 0) {
+		return 0;
+	}
+
+	return capacity - 1;
+}
+
 void* __sd_gc_alloc_from_druntime(size_t size, uint flags, void* finalizer) {
 	bool containsPointers = (flags & BlkAttr.NO_SCAN) == 0;
 	if ((flags & BlkAttr.APPENDABLE) != 0 || finalizer) {
