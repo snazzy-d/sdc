@@ -125,19 +125,29 @@ public:
 
 		uint start = n + currentPages - 1;
 		uint stop = n + pages - 1;
-
-		if ((start ^ stop) >= PagesInBlock) {
-			// We check that the old size and the new size
-			// terminate in the same block.
-			return false;
-		}
-
 		uint delta = pages - currentPages;
-		assert(delta < PagesInBlock, "Invalid delta!");
 
-		uint index = (n + currentPages) % PagesInBlock;
-		if (!growAlloc(e, index, delta)) {
-			return false;
+		if ((start ^ stop) < PagesInBlock) {
+			assert(delta < PagesInBlock, "Invalid delta!");
+
+			uint index = (n + currentPages) % PagesInBlock;
+			if (!growAlloc(e, index, delta)) {
+				return false;
+			}
+		} else {
+			// We cannot hugify an extant that isn't block aligned.
+			if (n != 0) {
+				return false;
+			}
+
+			uint currentBlocks = ((currentPages - 1) / PagesInBlock) + 1;
+			uint newBlocks = ((pages - 1) / PagesInBlock) + 1;
+			assert(newBlocks > currentBlocks, "Invalid block count!");
+
+			auto extraBlocks = newBlocks - currentBlocks;
+			if (!growHuge(e, extraBlocks, pages, delta)) {
+				return false;
+			}
 		}
 
 		auto pd = PageDescriptor(e, ExtentClass.large());
@@ -376,6 +386,54 @@ private:
 		if (!block.growAt(index, delta)) {
 			return false;
 		}
+
+		usedPageCount.fetchAdd(delta);
+		e.growBy(delta);
+
+		return true;
+	}
+
+	bool growHuge(Extent* e, uint extraBlocks, uint pages, uint delta) shared {
+		pages = modUp(pages, PagesInBlock);
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(PageFiller*) &this)
+			.growHugeImpl(e, extraBlocks, pages, delta);
+	}
+
+	bool growHugeImpl(Extent* e, uint extraBlocks, uint pages, uint delta) {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(extraBlocks > 0, "Invalid extraBlocks!");
+		assert(pages > 0 && pages <= PagesInBlock, "Invalid pages!");
+		assert(delta > 0, "Invalid delta!");
+
+		auto block = e.block;
+		assert(!block.dense, "Large must be sparse!");
+
+		if (block.allocCount > 1) {
+			// There are allocations after this one in the block.
+			return false;
+		}
+
+		auto address = block.address;
+		if (!regionAllocator.acquireAt(address + BlockSize, extraBlocks)) {
+			return false;
+		}
+
+		unregisterBlock(block);
+		sparseBlocks.remove(block);
+
+		block.at(address + extraBlocks * BlockSize, false);
+		sparseBlocks.insert(block);
+
+		bool dirty;
+		auto n = block.reserve(pages, dirty);
+		registerBlock(block);
+
+		assert(n == 0, "Unexpected page allocated!");
+		assert(!dirty, "Huge allocations shouldn't be dirty!");
 
 		usedPageCount.fetchAdd(delta);
 		e.growBy(delta);

@@ -592,6 +592,49 @@ unittest growLarge {
 	checkGrowLarge(e3, PagesInBlock + 2);
 	checkGrowLarge(e3, 2 * PagesInBlock);
 
-	// But we cannot grow further.
+	// Check cross block boundary scenarii.
+	auto e4 = makeLargeAlloc(100);
+	assert(e4.address is e3.address + e3.size);
+	auto e5 = makeLargeAlloc(100);
+	assert(e5.address is e4.address + e4.size);
+
+	// We cannot grow past the block boundary is the next block is used.
 	assert(!arena.growLarge(emap, e3, 2 * PagesInBlock + 1));
+
+	// Even if there is space left there.
+	checkFreeLarge(e4);
+	assert(!arena.growLarge(emap, e3, 2 * PagesInBlock + 1));
+
+	// But we can if it is empty.
+	checkFreeLarge(e5);
+	checkGrowLarge(e3, 2 * PagesInBlock + 1);
+
+	// We can grow huge allocation within their trailing block.
+	auto e6 = makeLargeAlloc(100);
+	assert(e6.address is e3.address + e3.size);
+	auto e7 = makeLargeAlloc(100);
+	assert(e7.address is e6.address + e6.size);
+
+	// There is no room.
+	assert(!arena.growLarge(emap, e3, 2 * PagesInBlock + 2));
+
+	// There is 100 block to be used.
+	checkFreeLarge(e6);
+	checkGrowLarge(e3, 2 * PagesInBlock + 2);
+	checkGrowLarge(e3, 2 * PagesInBlock + 101);
+
+	// But only up to the point we run into e7.
+	assert(!arena.growLarge(emap, e3, 2 * PagesInBlock + 102));
+
+	// Make sure the check also work when trying to cross block boundaries.
+	assert(!arena.growLarge(emap, e3, 3 * PagesInBlock));
+	assert(!arena.growLarge(emap, e3, 3 * PagesInBlock + 1));
+
+	// If we free e7, we are free to extand again.
+	checkFreeLarge(e7);
+	checkGrowLarge(e3, 2 * PagesInBlock + 102);
+	checkGrowLarge(e3, 3 * PagesInBlock);
+	checkGrowLarge(e3, 3 * PagesInBlock + 1);
+
+	checkFreeLarge(e3);
 }

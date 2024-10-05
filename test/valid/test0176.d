@@ -128,13 +128,13 @@ void main() {
 	// Huge realloc
 	r0 = __sd_gc_realloc(r1, 34 * 1024 * 1024);
 	r1 = __sd_gc_realloc(r0, 55 * 1024 * 1024);
-	assert(r0 !is r1);
+	assert(r0 is r1);
 
 	r0 = __sd_gc_realloc(r1, 34 * 1024 * 1024);
 	assert(r0 !is r1);
 
 	r1 = __sd_gc_realloc(r0, 35 * 1024 * 1024);
-	assert(r1 !is r0);
+	assert(r1 is r0);
 
 	__sd_gc_collect();
 
