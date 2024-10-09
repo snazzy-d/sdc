@@ -45,6 +45,10 @@ void exitThreadCreation() {
 	gThreadState.exitThreadCreation();
 }
 
+uint getRegisteredThreadCount() {
+	return gThreadState.getRegisteredThreadCount();
+}
+
 void enterBusyState() {
 	threadCache.state.enterBusyState();
 }
@@ -83,16 +87,13 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	/**
-	 * Thread accounting and registration.
-	 */
-	Mutex stopTheWorldMutex;
-
 	import d.sync.atomic;
 	Atomic!uint startingThreadCount;
 	uint registeredThreadCount = 0;
 
 	RegisteredThreadRing registeredThreads;
+
+	Mutex stopTheWorldMutex;
 
 public:
 	/**
@@ -119,6 +120,13 @@ public:
 		scope(exit) mutex.unlock();
 
 		(cast(ThreadState*) &this).removeImpl(tcache);
+	}
+
+	auto getRegisteredThreadCount() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(ThreadState*) &this).registeredThreadCount;
 	}
 
 	void stopTheWorld() shared {

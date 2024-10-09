@@ -48,6 +48,8 @@ private:
 	 * segregate them in order to get better locality on the frequently
 	 * used ones.
 	 */
+	uint associatedArena;
+
 	import d.gc.tstate;
 	ThreadState state;
 
@@ -96,6 +98,11 @@ public:
 			bins[sp++] = ThreadBin(binBuffer[i .. i + capacity]);
 			i += capacity;
 		}
+
+		// The thread cache will default to arena zero.
+		// In order to avoid this, we force the thread to
+		// pick an arena at initialization time.
+		reassociateArena(true);
 
 		// Because this may allocate, we do it last.
 		import d.rt.elf;
@@ -431,6 +438,8 @@ private:
 		allocated += bytes;
 
 		if (allocated >= nextAllocationEvent) {
+			reassociateArena();
+
 			recycleNextBin();
 
 			nextAllocationEvent = allocated + DefaultEventWait;
@@ -640,7 +649,28 @@ private:
 		return emap.lookup(aptr);
 	}
 
-	auto chooseArena(bool containsPointers) {
+	void reassociateArena(bool force = false) {
+		if (force) {
+			associatedArena = -1;
+		}
+
+		import d.gc.cpu, d.gc.thread;
+		if (getRegisteredThreadCount() > getCoreCount()) {
+			// When large number of thread are runnign, select arena
+			// based on the CPU core this trhead runs on.
+			associatedArena = -1;
+		} else {
+			// When the number of thread is low, pick and arena
+			// and stick to it.
+			associatedArena = selectArenaGroup();
+		}
+	}
+
+	uint selectArenaGroup() {
+		if (associatedArena < ArenaCount) {
+			return associatedArena;
+		}
+
 		/**
 		 * We assume this call is cheap.
 		 * This is true on modern linux with modern versions
@@ -648,10 +678,14 @@ private:
 		 * an alternative on other systems.
 		 */
 		import sys.posix.sched;
-		int cpuid = sched_getcpu();
+		return sched_getcpu();
+	}
+
+	auto chooseArena(bool containsPointers) {
+		auto group = selectArenaGroup();
 
 		import d.gc.arena;
-		return Arena.getOrInitialize((cpuid << 1) | containsPointers);
+		return Arena.getOrInitialize((group << 1) | containsPointers);
 	}
 }
 
