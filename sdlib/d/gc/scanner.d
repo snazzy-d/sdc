@@ -29,8 +29,8 @@ public:
 	}
 
 	this(ubyte gcCycle, AddressRange managedAddressSpace) {
-		import sys.linux.sysinfo;
-		auto nthreads = get_nprocs();
+		import d.gc.cpu;
+		auto nthreads = getCoreCount();
 		assert(nthreads >= 1, "Expected at least one thread!");
 
 		this(nthreads, gcCycle, managedAddressSpace);
