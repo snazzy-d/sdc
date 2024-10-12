@@ -49,6 +49,14 @@ uint getRegisteredThreadCount() {
 	return gThreadState.getRegisteredThreadCount();
 }
 
+uint getSuspendedThreadCount() {
+	return gThreadState.getSuspendedThreadCount();
+}
+
+uint getRunningThreadCount() {
+	return gThreadState.getRunningThreadCount();
+}
+
 void enterBusyState() {
 	threadCache.state.enterBusyState();
 }
@@ -90,6 +98,7 @@ private:
 	import d.sync.atomic;
 	Atomic!uint startingThreadCount;
 	uint registeredThreadCount = 0;
+	uint suspendedThreadCount = 0;
 
 	RegisteredThreadRing registeredThreads;
 
@@ -127,6 +136,21 @@ public:
 		scope(exit) mutex.unlock();
 
 		return (cast(ThreadState*) &this).registeredThreadCount;
+	}
+
+	auto getSuspendedThreadCount() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		return (cast(ThreadState*) &this).suspendedThreadCount;
+	}
+
+	auto getRunningThreadCount() shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		auto state = cast(ThreadState*) &this;
+		return state.registeredThreadCount - state.suspendedThreadCount;
 	}
 
 	void stopTheWorld() shared {
@@ -182,6 +206,7 @@ private:
 
 	bool suspendRunningThreadsImpl() {
 		bool retry = false;
+		uint suspended = 0;
 
 		auto r = registeredThreads.range;
 		while (!r.empty) {
@@ -195,6 +220,7 @@ private:
 
 			// If the thread isn't already stopped, we'll need to retry.
 			auto ss = tc.state.suspendState;
+			suspended += ss == SuspendState.Suspended;
 			retry |= ss != SuspendState.Suspended;
 
 			// If the thread has already been signaled.
@@ -206,6 +232,7 @@ private:
 			signalThreadSuspend(tc);
 		}
 
+		suspendedThreadCount = suspended;
 		return retry;
 	}
 
@@ -218,6 +245,7 @@ private:
 
 	bool resumeSuspendedThreadsImpl() {
 		bool retry = false;
+		uint suspended = 0;
 
 		auto r = registeredThreads.range;
 		while (!r.empty) {
@@ -226,6 +254,7 @@ private:
 
 			// If the thread isn't already resumed, we'll need to retry.
 			auto ss = tc.state.suspendState;
+			suspended += ss == SuspendState.Suspended;
 			retry |= ss != SuspendState.None;
 
 			// If the thread isn't suspended, move on.
@@ -237,6 +266,7 @@ private:
 			signalThreadResume(tc);
 		}
 
+		suspendedThreadCount = suspended;
 		return retry;
 	}
 

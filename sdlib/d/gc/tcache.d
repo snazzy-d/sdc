@@ -650,16 +650,16 @@ private:
 	}
 
 	void reassociateArena(bool force = false) {
-		if (force) {
-			associatedArena = -1;
-		}
-
 		import d.gc.cpu, d.gc.thread;
-		if (getRegisteredThreadCount() > getCoreCount()) {
+		if (getRunningThreadCount() > 2 * getCoreCount()) {
 			// When large number of thread are runnign, select arena
 			// based on the CPU core this trhead runs on.
 			associatedArena = -1;
 		} else {
+			if (force) {
+				associatedArena = -1;
+			}
+
 			// When the number of thread is low, pick and arena
 			// and stick to it.
 			associatedArena = selectArenaGroup();
