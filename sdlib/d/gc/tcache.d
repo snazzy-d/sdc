@@ -77,14 +77,34 @@ private:
 	ThreadBinState[ThreadBinCount] binStates;
 
 public:
+	bool isInitialized() {
+		return nextAllocationEvent > 0;
+	}
+
+	bool ensureThreadCacheIsInitialized() {
+		if (likely(isInitialized())) {
+			return false;
+		}
+
+		initialize(&gExtentMap, &gBase);
+		return true;
+	}
+
 	void initialize(shared(ExtentMap)* emap, shared(Base)* base) {
+		this.emap = CachedExtentMap(emap, base);
+
+		// Make sure initialize can be called multiple
+		// times on the same thread cache.
+		if (isInitialized()) {
+			assert(self == pthread_self(), "Invalid pthread_self!");
+			return;
+		}
+
 		self = pthread_self();
 
 		nextAllocationEvent = DefaultEventWait;
 		nextDeallocationEvent = DefaultEventWait;
 		nextGCRun = DefaultEventWait;
-
-		this.emap = CachedExtentMap(emap, base);
 
 		uint sp = 0;
 		uint i = 0;
@@ -340,6 +360,8 @@ private:
 	void* allocSmallBin(ubyte sizeClass, uint slotSize, bool containsPointers) {
 		assert(slotSize == binInfos[sizeClass].slotSize, "Invalid slot size!");
 
+		ensureThreadCacheIsInitialized();
+
 		auto index = getBinIndex(sizeClass, containsPointers);
 		auto bin = &bins[index];
 
@@ -397,6 +419,8 @@ private:
 	 * Large allocations.
 	 */
 	void* allocLarge(uint pages, bool containsPointers, bool zero) {
+		ensureThreadCacheIsInitialized();
+
 		void* ptr;
 
 		{
@@ -682,6 +706,7 @@ private:
 	}
 
 	auto chooseArena(bool containsPointers) {
+		assert(state.busy, "Must be busy!");
 		auto group = selectArenaGroup();
 
 		import d.gc.arena;
