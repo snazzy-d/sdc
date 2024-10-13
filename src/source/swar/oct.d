@@ -89,7 +89,7 @@ private auto loadBuffer(T)(string s) in(s.length >= T.sizeof) {
 	/**
 	 * We could simply go for
 	 *     return v & cast(T) 0x0707070707070707;
-	 * but this form is prefered as the computation is
+	 * but this form is preferred as the computation is
 	 * already done in startsWith8OctDigits.
 	 */
 	return v - cast(T) 0x3030303030303030;

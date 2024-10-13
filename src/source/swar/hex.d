@@ -137,7 +137,7 @@ private auto computeValue(T)(T v) {
 	/**
 	 * For '0' to '9', the lower bits are what we are looking for.
 	 * For letters, we get 'a'/'A'=1, 'b'/'B'=2, etc...
-	 * So we add 9 whenever a letter is dected.
+	 * So we add 9 whenever a letter is detected.
 	 */
 	auto base = v & cast(T) 0x0f0f0f0f0f0f0f0f;
 	auto letter = v & cast(T) 0x4040404040404040;
