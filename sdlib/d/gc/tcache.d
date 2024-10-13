@@ -684,6 +684,9 @@ private:
 	}
 
 	void reassociateArena(bool force = false) {
+		state.enterBusyState();
+		scope(exit) state.exitBusyState();
+
 		import d.gc.cpu, d.gc.thread;
 		if (getRunningThreadCount() > 2 * getCoreCount()) {
 			// When large number of thread are runnign, select arena
