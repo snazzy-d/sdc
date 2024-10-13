@@ -7,4 +7,5 @@ alias ssize_t = c_long;
 
 alias pid_t = int;
 alias uid_t = uint;
+alias gid_t = uint;
 alias clock_t = c_long;

@@ -56,6 +56,9 @@ private:
 	import core.stdc.pthread;
 	pthread_t self;
 
+	import sys.posix.types;
+	pid_t tid;
+
 	RNode rnode;
 
 	void* stackBottom;
@@ -101,6 +104,13 @@ public:
 		}
 
 		self = pthread_self();
+
+		/**
+		 * You'd think linux would provide a way to get the tid from
+		 * a pthread_t, and if, so, you'd be wrong! So we need to cache it.
+		 */
+		import core.stdc.unistd;
+		tid = gettid();
 
 		nextAllocationEvent = DefaultEventWait;
 		nextDeallocationEvent = DefaultEventWait;

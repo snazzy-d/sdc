@@ -8,10 +8,10 @@ import sys.linux.futex;
 import core.stdc.errno_;
 
 enum SYS_futex = 202;
-extern(C) long syscall(long __sysno, ...);
 
 int futex_wait(shared(Atomic!uint)* futex,
                uint expected, /* TODO: timeout */ ) {
+	import core.stdc.unistd;
 	auto err = syscall(SYS_futex, cast(uint*) futex, Futex.WaitPrivate,
 	                   expected, null);
 	if (likely(err < 0)) {
@@ -22,6 +22,7 @@ int futex_wait(shared(Atomic!uint)* futex,
 }
 
 int futex_wake(shared Atomic!uint* futex, uint count) {
+	import core.stdc.unistd;
 	auto err = syscall(SYS_futex, cast(uint*) futex, Futex.WakePrivate, count);
 	if (unlikely(err < 0)) {
 		return -errno;

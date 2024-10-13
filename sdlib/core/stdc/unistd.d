@@ -9,15 +9,24 @@ enum STDERR_FILENO = 2;
 
 extern(C):
 
+// TODO: access, euidaccess, eaccess, execveat
+// TODO: lseek, lseek64
+
 int close(int fd);
+
+// TODO: closefrom
 
 ssize_t read(int fd, void* buf, size_t nbytes);
 ssize_t write(int fd, const void* buf, size_t nbytes);
 
-// TODO: pread/pwrite
+// TODO: pread, pwrite
+// TODO: pipe, pipe2
 
 uint alarm(uint seconds);
 uint sleep(uint seconds);
+
+// TODO: ualarm, usleep
+
 int pause();
 
 // TODO: chown, chdir, fchdir, etc...
@@ -244,4 +253,51 @@ enum : int {
 
 long sysconf(int __name);
 
-// TODO: getpid and so on.
+pid_t getpid();
+pid_t getppid();
+pid_t getpgrp();
+
+// TODO: getpgid
+
+int setpgid(pid_t __pid, pid_t __pgid);
+
+// TODO: setpgrp
+
+pid_t setsid();
+
+// TODO: getsid
+
+uid_t getuid();
+uid_t geteuid();
+gid_t getgid();
+gid_t getegid();
+
+// TODO: getgroups, group_member
+
+int setuid(uid_t __uid);
+
+// TODO: setreuid, seteuid
+
+int setgid(gid_t __gid);
+
+// TODO: setregid, setegid
+// TODO: getresuid, getresgid, setresuid, setresgid
+// TODO: fork, vfork
+// TODO: ttyname, isatty, ttyslot
+// TODO: link, linkat, symlink, readlink, symlinkat, readlinkat, unlinkat
+// TODO: rmdir
+// TODO: tcgetpgrp, tcsetpgrp
+// TODO: getlogin, getlogin_r, setlogin
+// TODO: gethostname, sethostname, sethostid, getdomainname, setdomainname
+// TODO: vhangup, revoke, profil
+// TODO: ...
+
+long syscall(long __sysno, ...);
+
+// TODO: copy_file_range, fdatasync
+// TODO: ...
+
+/**
+ * Linux specifc extension.
+ */
+pid_t gettid();
