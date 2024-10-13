@@ -25,7 +25,8 @@ ssize_t write(int fd, const void* buf, size_t nbytes);
 uint alarm(uint seconds);
 uint sleep(uint seconds);
 
-// TODO: ualarm, usleep
+useconds_t ualarm(useconds_t __value, useconds_t __interval);
+int usleep(useconds_t __useconds);
 
 int pause();
 

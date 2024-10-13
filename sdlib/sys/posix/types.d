@@ -12,3 +12,4 @@ alias gid_t = uint;
 alias mode_t = uint;
 
 alias clock_t = c_long;
+alias useconds_t = uint;
