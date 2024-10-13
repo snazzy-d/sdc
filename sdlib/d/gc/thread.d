@@ -102,7 +102,7 @@ private:
 	uint suspendedThreadCount = 0;
 
 	Mutex mThreadList;
-	RegisteredThreadRing registeredThreads;
+	ThreadRing registeredThreads;
 
 	Mutex stopTheWorldMutex;
 
@@ -161,7 +161,9 @@ public:
 
 		stopTheWorldMutex.lock();
 
-		while (suspendRunningThreads() || startingThreadCount.load() > 0) {
+		uint count;
+		while (suspendRunningThreads(count++)
+			       || startingThreadCount.load() > 0) {
 			import sys.posix.sched;
 			sched_yield();
 		}
@@ -213,14 +215,14 @@ private:
 		registeredThreads.remove(tcache);
 	}
 
-	bool suspendRunningThreads() shared {
+	bool suspendRunningThreads(uint count) shared {
 		mThreadList.lock();
 		scope(exit) mThreadList.unlock();
 
-		return (cast(ThreadState*) &this).suspendRunningThreadsImpl();
+		return (cast(ThreadState*) &this).suspendRunningThreadsImpl(count);
 	}
 
-	bool suspendRunningThreadsImpl() {
+	bool suspendRunningThreadsImpl(uint count) {
 		assert(mThreadList.isHeld(), "Mutex not held!");
 
 		bool retry = false;
@@ -238,6 +240,19 @@ private:
 
 			// If the thread isn't already stopped, we'll need to retry.
 			auto ss = tc.state.suspendState;
+			if (ss == SuspendState.Detached) {
+				continue;
+			}
+
+			// If a thread is detached, stop trying.
+			if (count > 32 && ss == SuspendState.Signaled) {
+				import d.gc.proc;
+				if (isDetached(tc.tid)) {
+					tc.state.detach();
+					continue;
+				}
+			}
+
 			suspended += ss == SuspendState.Suspended;
 			retry |= ss != SuspendState.Suspended;
 
@@ -277,6 +292,10 @@ private:
 
 			// If the thread isn't already resumed, we'll need to retry.
 			auto ss = tc.state.suspendState;
+			if (ss == SuspendState.Detached) {
+				continue;
+			}
+
 			suspended += ss == SuspendState.Suspended;
 			retry |= ss != SuspendState.None;
 
@@ -305,7 +324,8 @@ private:
 			scope(success) r.popFront();
 
 			// If the thread isn't suspended, move on.
-			if (tc.state.suspendState != SuspendState.Suspended) {
+			auto ss = tc.state.suspendState;
+			if (ss != SuspendState.Suspended && ss != SuspendState.Detached) {
 				continue;
 			}
 
@@ -314,8 +334,12 @@ private:
 				scan(s);
 			}
 
-			import d.gc.range;
-			scan(makeRange(tc.stackTop, tc.stackBottom));
+			// Only suspended thread have their stack properly set.
+			// For detached threads, we just hope nothing's in there.
+			if (ss == SuspendState.Suspended) {
+				import d.gc.range;
+				scan(makeRange(tc.stackTop, tc.stackBottom));
+			}
 		}
 	}
 }

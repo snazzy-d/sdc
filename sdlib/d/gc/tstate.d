@@ -13,6 +13,8 @@ enum SuspendState {
 	Suspended,
 	// The thread is in the process of resuming operations.
 	Resumed,
+	// The thread is detached. The GC won't stop it.
+	Detached,
 }
 
 static auto status(size_t v) {
@@ -53,6 +55,20 @@ public:
 
 			assert(status(s) == SuspendState.None);
 			assert(status(n) == SuspendState.Signaled);
+
+			if (state.casWeak(s, n)) {
+				break;
+			}
+		}
+	}
+
+	void detach() {
+		auto s = state.load();
+		while (true) {
+			auto n = s - SuspendState.Signaled + SuspendState.Detached;
+
+			assert(status(s) == SuspendState.Signaled);
+			assert(status(n) == SuspendState.Detached);
 
 			if (state.casWeak(s, n)) {
 				break;

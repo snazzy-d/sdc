@@ -15,7 +15,7 @@ import sdc.intrinsics;
 enum DefaultEventWait = 65536;
 
 alias RNode = Node!ThreadCache;
-alias RegisteredThreadRing = Ring!ThreadCache;
+alias ThreadRing = Ring!ThreadCache;
 
 ThreadCache threadCache;
 
