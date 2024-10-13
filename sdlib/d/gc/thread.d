@@ -92,14 +92,16 @@ void initThread() {
 
 struct ThreadState {
 private:
-	import d.sync.mutex;
-	Mutex mutex;
-
 	import d.sync.atomic;
 	Atomic!uint startingThreadCount;
+
+	import d.sync.mutex;
+	shared Mutex mStats;
+
 	uint registeredThreadCount = 0;
 	uint suspendedThreadCount = 0;
 
+	Mutex mThreadList;
 	RegisteredThreadRing registeredThreads;
 
 	Mutex stopTheWorldMutex;
@@ -118,36 +120,36 @@ public:
 	}
 
 	void register(ThreadCache* tcache) shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		mThreadList.lock();
+		scope(exit) mThreadList.unlock();
 
 		(cast(ThreadState*) &this).registerImpl(tcache);
 	}
 
 	void remove(ThreadCache* tcache) shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		mThreadList.lock();
+		scope(exit) mThreadList.unlock();
 
 		(cast(ThreadState*) &this).removeImpl(tcache);
 	}
 
 	auto getRegisteredThreadCount() shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		mStats.lock();
+		scope(exit) mStats.unlock();
 
 		return (cast(ThreadState*) &this).registeredThreadCount;
 	}
 
 	auto getSuspendedThreadCount() shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		mStats.lock();
+		scope(exit) mStats.unlock();
 
 		return (cast(ThreadState*) &this).suspendedThreadCount;
 	}
 
 	auto getRunningThreadCount() shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		mStats.lock();
+		scope(exit) mStats.unlock();
 
 		auto state = cast(ThreadState*) &this;
 		return state.registeredThreadCount - state.suspendedThreadCount;
@@ -180,31 +182,47 @@ public:
 	void scanSuspendedThreads(ScanDg scan) shared {
 		assert(stopTheWorldMutex.isHeld());
 
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		mThreadList.lock();
+		scope(exit) mThreadList.unlock();
 
 		(cast(ThreadState*) &this).scanSuspendedThreadsImpl(scan);
 	}
 
 private:
 	void registerImpl(ThreadCache* tcache) {
-		registeredThreadCount++;
+		assert(mThreadList.isHeld(), "Mutex not held!");
+
+		{
+			mStats.lock();
+			scope(exit) mStats.unlock();
+			registeredThreadCount++;
+		}
+
 		registeredThreads.insert(tcache);
 	}
 
 	void removeImpl(ThreadCache* tcache) {
-		registeredThreadCount--;
+		assert(mThreadList.isHeld(), "Mutex not held!");
+
+		{
+			mStats.lock();
+			scope(exit) mStats.unlock();
+			registeredThreadCount--;
+		}
+
 		registeredThreads.remove(tcache);
 	}
 
 	bool suspendRunningThreads() shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		mThreadList.lock();
+		scope(exit) mThreadList.unlock();
 
 		return (cast(ThreadState*) &this).suspendRunningThreadsImpl();
 	}
 
 	bool suspendRunningThreadsImpl() {
+		assert(mThreadList.isHeld(), "Mutex not held!");
+
 		bool retry = false;
 		uint suspended = 0;
 
@@ -232,18 +250,23 @@ private:
 			signalThreadSuspend(tc);
 		}
 
+		mStats.lock();
+		scope(exit) mStats.unlock();
+
 		suspendedThreadCount = suspended;
 		return retry;
 	}
 
 	bool resumeSuspendedThreads() shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+		mThreadList.lock();
+		scope(exit) mThreadList.unlock();
 
 		return (cast(ThreadState*) &this).resumeSuspendedThreadsImpl();
 	}
 
 	bool resumeSuspendedThreadsImpl() {
+		assert(mThreadList.isHeld(), "Mutex not held!");
+
 		bool retry = false;
 		uint suspended = 0;
 
@@ -266,11 +289,16 @@ private:
 			signalThreadResume(tc);
 		}
 
+		mStats.lock();
+		scope(exit) mStats.unlock();
+
 		suspendedThreadCount = suspended;
 		return retry;
 	}
 
 	void scanSuspendedThreadsImpl(ScanDg scan) {
+		assert(mThreadList.isHeld(), "Mutex not held!");
+
 		auto r = registeredThreads.range;
 		while (!r.empty) {
 			auto tc = r.front;
