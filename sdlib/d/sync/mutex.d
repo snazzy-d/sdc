@@ -636,8 +636,6 @@ unittest locking {
 	assert(count.load() == 1024 * 1024);
 }
 
-extern(C) int sleep(int);
-
 unittest fairness {
 	static runThread(void* delegate() dg) {
 		static struct Delegate {
@@ -689,6 +687,7 @@ unittest fairness {
 
 	mutex.unlock();
 
+	import core.stdc.unistd;
 	sleep(1);
 	keepGoing.store(false);
 
