@@ -356,8 +356,11 @@ public:
 			auto size = end - offset;
 
 			import d.gc.memmap;
-			pages_purge_lazy(ptr, size);
+			pages_purge(ptr, size);
 		}
+
+		dirtyCount = usedCount;
+		dirtyPages = allocatedPages;
 
 		return n;
 	}
