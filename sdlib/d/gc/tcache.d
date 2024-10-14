@@ -159,7 +159,7 @@ public:
 		}
 
 		auto pages = getPageCount(size);
-		return allocLarge(pages, containsPointers, zero);
+		return allocLarge(pages, size, containsPointers, zero);
 	}
 
 	void* allocAppendable(size_t size, bool containsPointers, bool zero,
@@ -188,7 +188,7 @@ public:
 		}
 
 		auto pages = getPageCount(capacity);
-		auto ptr = allocLarge(pages, containsPointers, zero);
+		auto ptr = allocLarge(pages, size, containsPointers, zero);
 		if (unlikely(ptr is null)) {
 			return null;
 		}
@@ -358,6 +358,10 @@ private:
 		if (unlikely(zero)) {
 			memset(ptr, 0, slotSize);
 		}
+		else if (containsPointers) {
+			// clear out any data that was not requested
+			memset(ptr + size, 0, slotSize - size);
+		}
 
 		triggerAllocationEvent(slotSize);
 		return ptr;
@@ -428,7 +432,7 @@ private:
 	/**
 	 * Large allocations.
 	 */
-	void* allocLarge(uint pages, bool containsPointers, bool zero) {
+	void* allocLarge(uint pages, size_t requestedSize, bool containsPointers, bool zero) {
 		ensureThreadCacheIsInitialized();
 
 		void* ptr;
@@ -445,7 +449,12 @@ private:
 			return null;
 		}
 
-		triggerAllocationEvent(pages * PageSize);
+		auto allocatedSize = pages * PageSize;
+		triggerAllocationEvent(allocatedSize);
+		if (!zero && containsPointers) {
+			// zero out the data that was not requested, to prevent stale pointers
+			memset(ptr + requestedSize, 0, allocatedSize - requestedSize);
+		}
 		return ptr;
 	}
 
