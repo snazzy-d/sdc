@@ -418,16 +418,15 @@ private:
 			}
 		}
 
-		if (pd.containsPointers) {
-			splitAndAddToWorklist(makeRange(e.address, e.address + e.size));
+		if (pd.containsPointers && e.usedCapacity >= PointerSize) {
+			splitAndAddToWorklist(
+				makeRange(e.address, e.address + e.usedCapacity));
 		}
 	}
 
 	void splitAndAddToWorklist(const(void*)[] range) {
 		assert(isAligned(range.ptr, PageSize),
 		       "Range is not aligned properly!");
-		assert(isAligned(range.length, PointerInPage),
-		       "Range has invalid size!");
 		assert(range.length > 0, "Cannot add empty range to the worklist!");
 
 		// In order to expose some parallelism, we split the range
