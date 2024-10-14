@@ -20,12 +20,12 @@ enum ThreadBinCount = 2 * BinCount;
  * The ThreadBin manages a cache associated with a given size class.
  * 
  * Instead of allocating one element a the time, we allocate several
- * and store them in the cache. This way, a thread can do mutliple
+ * and store them in the cache. This way, a thread can do multiple
  * allocations before requiring a new round trip in the arena. Even
  * better, if the thread frees its slots, they are returned to the
  * cache and can be reused.
  * 
- * The cache is a buffer containing pointers organised as follow:
+ * The cache is a buffer containing pointers organized as follow:
  * 
  * low address                                        high address
  * |----- stashed -----|----- available -----|----- cached -----|
@@ -40,7 +40,7 @@ enum ThreadBinCount = 2 * BinCount;
  * that maintenance, we set the low water to the head of the cache. When
  * element are removed from the cache, the low water mark is also moved.
  * This ensures the maintenance routine can track the elements that
- * remained in the cache accorss runs and ensures they eventually get
+ * remained in the cache across runs and ensures they eventually get
  * purged.
  */
 struct ThreadBin {
@@ -101,8 +101,8 @@ public:
 
 	void flushToFree(ref CachedExtentMap emap, ref ThreadBinState state) {
 		/**
-		 * When we use free explicitely, we want to make sure we have room
-		 * left in the bin to accomodate further freed elements, even in case
+		 * When we use free explicitly, we want to make sure we have room
+		 * left in the bin to accommodate further freed elements, even in case
 		 * where we refill.
 		 */
 		state.onFlush();
@@ -130,7 +130,7 @@ public:
 			return;
 		}
 
-		// We precompute all we need so we can work out of lowal variables.
+		// We precompute all we need so we can work out of local variables.
 		auto newHead = top;
 		auto oldHead = _head;
 		auto base = oldHead + nretain;
@@ -210,7 +210,7 @@ public:
 		state.recycleDelay = 0;
 		flush(emap, ncached - nflush);
 
-		// We allocated too much since the last recyling, so we reduce
+		// We allocated too much since the last recycling, so we reduce
 		// the amount by which we refill for next time.
 		state.onExtraFill(nmax);
 	}
@@ -592,7 +592,7 @@ unittest refill {
 		enum SizeClass = 0;
 		auto slotSize = binInfos[SizeClass].slotSize;
 
-		// Refill without shift willr efill the whole bin.
+		// Refill without shift will refill the whole bin.
 		tbin.refill(emap, &arena, state, SizeClass, slotSize);
 
 		assert(state.refilled, "Thread bin not refilled!");
