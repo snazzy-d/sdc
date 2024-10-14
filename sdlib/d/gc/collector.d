@@ -107,6 +107,9 @@ private:
 	size_t minHeapTarget = DefaultHeapSize;
 	size_t nextTarget = DefaultHeapSize;
 
+	size_t baseline = DefaultHeapSize;
+	size_t peak = DefaultHeapSize;
+
 public:
 	bool maybeRunGCCycle(ref Collector collector, ref size_t delta,
 	                     ref size_t target) shared {
@@ -153,12 +156,29 @@ private:
 	size_t updateTargetPageCount() {
 		auto total = Arena.computeUsedPageCount();
 
-		// We set the target at 1.625x the current heap size in pages.
-		auto target = total + (total >> 1) + (total >> 3);
+		// This creates a low pass filter.
+		static next(size_t base, size_t n) {
+			return base - (base >> 3) + (n >> 3);
+		}
 
 		import d.gc.util;
-		nextTarget = max(target, minHeapTarget);
+		peak = max(next(peak, total), total);
+		baseline = next(baseline, total);
 
+		// Peak target at 1.5x the peak to prevent heap explosion.
+		auto tpeak = peak + (peak >> 1);
+
+		// Baseline target at 2x so we don't shrink the heap too fast.
+		auto tbaseline = 2 * baseline;
+
+		// We set the target at 1.75x the current heap size in pages.
+		auto target = total + (total >> 1) + (total >> 2);
+
+		// Clamp the target using tpeak and tbaseline.
+		target = max(target, tbaseline);
+		target = min(target, tpeak);
+
+		nextTarget = max(target, minHeapTarget);
 		return nextTarget - total;
 	}
 }
