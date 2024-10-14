@@ -5,8 +5,13 @@
 
 extern(C) void __sd_gc_collect();
 extern(C) void* __sd_gc_alloc(size_t size);
+extern(C) void __sd_gc_tl_activate(bool activated);
 
 void main() {
+	// We generate garbage at an alarming rate,
+	// so we do not trigger collection automatically.
+	__sd_gc_tl_activate(false);
+
 	enum CollectCycle = 10000000;
 	size_t n = 11400714819323198485;
 
