@@ -267,7 +267,8 @@ public:
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(PageFiller*) &this).collectImpl(emap, gcCycle);
+		(cast(PageFiller*) &this)
+			.collectImpl(emap, gcCycle, arena.containsPointers);
 	}
 
 	/**
@@ -737,7 +738,8 @@ private:
 		}
 	}
 
-	void collectImpl(ref CachedExtentMap emap, ubyte gcCycle) {
+	void collectImpl(ref CachedExtentMap emap, ubyte gcCycle,
+	                 bool containsPointers) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		auto sharedThis = cast(shared(PageFiller)*) &this;
@@ -747,8 +749,8 @@ private:
 		PriorityExtentHeap[BinCount] collectedSlabs;
 		auto slabs = collectedSlabs[0 .. BinCount];
 
-		collectDenseAllocations(emap, slabs);
-		collectSparseAllocations(emap, slabs, gcCycle);
+		collectDenseAllocations(emap, slabs, containsPointers);
+		collectSparseAllocations(emap, slabs, gcCycle, containsPointers);
 
 		sharedThis.arena.combineBinsAfterCollection(collectedSlabs);
 	}
@@ -809,8 +811,27 @@ private:
 		e.slabMetadataFlags.rawContent[nimbleIndex] = metadataFlags;
 	}
 
-	void collectDenseAllocations(ref CachedExtentMap emap,
-	                             PriorityExtentHeap[] slabs) {
+	static void zeroSlabNimble(ulong evicted, int sizeClass, Extent* e,
+	                           size_t nimbleIndex) {
+		assert(evicted != 0, "No slabs to clear!");
+		import d.gc.slab;
+		auto slotSize = binInfos[sizeClass].slotSize;
+		void* nimbleBase = e.address + (nimbleIndex * 64 * slotSize);
+
+		while (evicted != 0) {
+			auto index = countTrailingZeros(evicted);
+			void* ptr = nimbleBase + index * slotSize;
+
+			memset(ptr, 0, slotSize);
+			evicted &= (evicted - 1);
+		}
+	}
+
+	void collectDenseAllocations(
+		ref CachedExtentMap emap,
+		PriorityExtentHeap[] slabs,
+		bool containsPointers
+	) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		PriorityExtentHeap deadExtents;
@@ -872,6 +893,10 @@ private:
 
 					auto metadataFlags = e.slabMetadataFlags.rawContent[i];
 					finalizeSlabNimble(evicted, metadataFlags, sc, e, i);
+
+					if (containsPointers && evicted != 0) {
+						zeroSlabNimble(evicted, sc, e, i);
+					}
 				}
 
 				// The slab is empty.
@@ -909,8 +934,12 @@ private:
 	/**
 	 * Sparse collection.
 	 */
-	void collectSparseAllocations(ref CachedExtentMap emap,
-	                              PriorityExtentHeap[] slabs, ubyte gcCycle) {
+	void collectSparseAllocations(
+		ref CachedExtentMap emap,
+		PriorityExtentHeap[] slabs,
+		ubyte gcCycle,
+		bool containsPointers
+	) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
 		PriorityExtentHeap deadExtents;
@@ -982,6 +1011,11 @@ private:
 				if (newOccupancy == 0) {
 					deadExtents.insert(e);
 					continue;
+				}
+
+				// Clear any dead slots if they might contain pointers
+				if (containsPointers && evicted != 0) {
+					zeroSlabNimble(evicted, ec.sizeClass, e, 0);
 				}
 
 				auto count = popCount(evicted);
