@@ -130,12 +130,18 @@ public:
 		if ((start ^ stop) < PagesInBlock) {
 			assert(delta < PagesInBlock, "Invalid delta!");
 
+			// We cannot hugify an extant that isn't block aligned.
+			import d.gc.size;
+			if (n != 0 && isHugePageCount(pages)) {
+				return false;
+			}
+
 			uint index = (n + currentPages) % PagesInBlock;
 			if (!growAlloc(e, index, delta)) {
 				return false;
 			}
 		} else {
-			// We cannot hugify an extant that isn't block aligned.
+			// We cannot hugify an extent that isn't block aligned.
 			if (n != 0) {
 				return false;
 			}

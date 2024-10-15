@@ -114,3 +114,7 @@ uint getPageCount(size_t size) {
 
 	return pages & uint.max;
 }
+
+bool isHugePageCount(size_t npages) {
+	return npages > MaxPagesInLargeAlloc;
+}

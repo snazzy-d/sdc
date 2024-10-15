@@ -250,12 +250,19 @@ public:
 	Extent* growBy(uint delta) {
 		assert(isLarge(), "Only large extents can be resized!");
 
+		import d.gc.size;
+		assert(
+			!isHugePageCount(npages + delta) || isAligned(address, BlockSize),
+			"Huge extents must be block aligned!"
+		);
+
 		this._npages += delta;
 		return &this;
 	}
 
 	Extent* shrinkBy(uint delta) {
 		assert(isLarge(), "Only large extents can be resized!");
+		assert(delta < npages, "Invalid delta!");
 
 		this._npages -= delta;
 
@@ -295,7 +302,7 @@ public:
 
 	bool isHuge() const {
 		import d.gc.size;
-		return npages > MaxPagesInLargeAlloc;
+		return isHugePageCount(npages);
 	}
 
 	@property

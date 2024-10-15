@@ -585,10 +585,25 @@ unittest growLarge {
 
 	checkFreeLarge(e0);
 
-	// Grow huge allocation.
-	enum HugeSize = 2 * PagesInBlock;
-	auto e3 = makeLargeAlloc(PagesInBlock + 1);
+	// Turn a large allocation into a huge one.
+	auto e3 = makeLargeAlloc(35);
+	assert(e3.blockIndex == 0, "e3 must start the block!");
 
+	auto e8 = makeLargeAlloc(64);
+	assert(e8.address is e3.address + e3.size);
+
+	// e8 does not start the block. It can grow but not become huge.
+	checkGrowLarge(e8, MaxPagesInLargeAlloc);
+	assert(!arena.growLarge(emap, e8, MaxPagesInLargeAlloc + 1));
+	checkFreeLarge(e8);
+
+	// But e3 can become huge.
+	checkGrowLarge(e3, MaxPagesInLargeAlloc);
+	checkGrowLarge(e3, MaxPagesInLargeAlloc + 1);
+
+	// Grow huge allocation.
+	checkGrowLarge(e3, PagesInBlock);
+	checkGrowLarge(e3, PagesInBlock + 1);
 	checkGrowLarge(e3, PagesInBlock + 2);
 	checkGrowLarge(e3, 2 * PagesInBlock);
 
@@ -630,7 +645,7 @@ unittest growLarge {
 	assert(!arena.growLarge(emap, e3, 3 * PagesInBlock));
 	assert(!arena.growLarge(emap, e3, 3 * PagesInBlock + 1));
 
-	// If we free e7, we are free to extand again.
+	// If we free e7, we are free to extend again.
 	checkFreeLarge(e7);
 	checkGrowLarge(e3, 2 * PagesInBlock + 102);
 	checkGrowLarge(e3, 3 * PagesInBlock);
