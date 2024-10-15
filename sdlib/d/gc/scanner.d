@@ -430,18 +430,42 @@ private:
 		       "Range has invalid size!");
 		assert(range.length > 0, "Cannot add empty range to the worklist!");
 
+		// In order to expose some parallelism, we split the range
+		// into smaller chunks to be distributed.
+		static next(ref const(void*)[] range) {
+			enum WorkUnit = 16 * PointerInPage;
+			enum SplitThresold = 3 * WorkUnit / 2;
+
+			if (range.length <= SplitThresold) {
+				scope(success) range = [];
+				return range;
+			}
+
+			scope(success) range = range[WorkUnit .. range.length];
+			return range[0 .. WorkUnit];
+		}
+
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
 		if (cursor == 0) {
 			cursor = 1;
-			worklist[0] = range[0 .. PointerInPage];
-
-			range = range[PointerInPage .. range.length];
-			if (range.length == 0) {
-				return;
-			}
+			worklist[0] = next(range);
 		}
 
-		scanner.addToWorkList(range);
+		while (range.length > 0) {
+			uint count;
+			const(void*)[][16] units;
+
+			foreach (ref u; units) {
+				if (range.length == 0) {
+					break;
+				}
+
+				count++;
+				u = next(range);
+			}
+
+			scanner.addToWorkList(units[0 .. count]);
+		}
 	}
 }
