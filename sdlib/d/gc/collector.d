@@ -17,8 +17,8 @@ struct Collector {
 		return threadCache.emap;
 	}
 
-	bool maybeRunGCCycle(ref size_t delta, ref size_t target) {
-		return gCollectorState.maybeRunGCCycle(this, delta, target);
+	bool maybeRunGCCycle() {
+		return gCollectorState.maybeRunGCCycle(this);
 	}
 
 	void runGCCycle() {
@@ -110,50 +110,50 @@ private:
 	size_t baseline = DefaultHeapSize;
 	size_t peak = DefaultHeapSize;
 
+	/**
+	 * Data about the last collection cycle.
+	 */
+	ulong lastCollectionStart;
+	ulong lastCollectionStop;
+
 public:
-	bool maybeRunGCCycle(ref Collector collector, ref size_t delta,
-	                     ref size_t target) shared {
+	bool maybeRunGCCycle(ref Collector collector) shared {
 		// Do not unnecessarily create contention on this mutex.
 		if (!mutex.tryLock()) {
-			delta = 0;
-			target = 0;
 			return false;
 		}
 
 		scope(exit) mutex.unlock();
-		return (cast(CollectorState*) &this)
-			.maybeRunGCCycleImpl(collector, delta, target);
+		return (cast(CollectorState*) &this).maybeRunGCCycleImpl(collector);
 	}
 
 private:
-	bool maybeRunGCCycleImpl(ref Collector collector, ref size_t delta,
-	                         ref size_t target) {
-		if (!needCollection(delta)) {
-			target = delta;
+	bool maybeRunGCCycleImpl(ref Collector collector) {
+		assert(mutex.isHeld(), "mutex not held!");
+
+		auto total = Arena.computeUsedPageCount();
+		if (total < nextTarget) {
 			return false;
 		}
 
-		collector.runGCCycleLocked();
-
-		target = updateTargetPageCount();
+		runGCCycle(collector);
 		return true;
 	}
 
-	bool needCollection(ref size_t delta) {
-		auto total = Arena.computeUsedPageCount();
+	void runGCCycle(ref Collector collector) {
+		assert(mutex.isHeld(), "mutex not held!");
 
-		if (total >= nextTarget) {
-			// How much did we overshoot?
-			delta = total - nextTarget;
-			return true;
-		}
+		import d.gc.time;
+		lastCollectionStart = getMonotonicTime();
+		scope(exit) updateTargetPageCount();
 
-		// How many more pages before we need a collection.
-		delta = nextTarget - total;
-		return false;
+		collector.runGCCycleLocked();
 	}
 
-	size_t updateTargetPageCount() {
+	void updateTargetPageCount() {
+		import d.gc.time;
+		lastCollectionStop = getMonotonicTime();
+
 		auto total = Arena.computeUsedPageCount();
 
 		// This creates a low pass filter.
@@ -179,7 +179,6 @@ private:
 		target = min(target, tpeak);
 
 		nextTarget = max(target, minHeapTarget);
-		return nextTarget - total;
 	}
 }
 

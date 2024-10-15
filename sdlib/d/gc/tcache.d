@@ -596,11 +596,9 @@ private:
 			return;
 		}
 
-		size_t delta, target;
-
 		import d.gc.collector;
 		auto collector = Collector(&this);
-		auto didRun = collector.maybeRunGCCycle(delta, target);
+		auto didRun = collector.maybeRunGCCycle();
 
 		nextGCRun = allocated + BlockSize;
 	}

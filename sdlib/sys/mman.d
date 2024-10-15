@@ -1,8 +1,11 @@
 import sys.mman;
 
+import sys.posix.types;
+
+extern(C):
+
 // XXX: this is a bad port of mman header.
 // We should be able to use actual prot of C header soon.
-alias off_t = long; // Good for now.
 
 enum Prot {
 	None = 0x0,
@@ -65,7 +68,6 @@ version(linux) {
 	}
 }
 
-extern(C):
 void* mmap(void* addr, size_t length, int prot, int flags, int fd,
            off_t offset);
 int munmap(void* addr, size_t length);
