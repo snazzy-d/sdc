@@ -33,6 +33,10 @@ public:
 	 * the global array of roots.
 	 */
 	void addRoots(const void[] range) shared {
+		import d.gc.thread;
+		enterBusyState();
+		scope(exit) exitBusyState();
+
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
@@ -43,12 +47,23 @@ public:
 	 * Remove the root (if present) that begins with the given pointer.
 	 */
 	void removeRoots(const void* ptr) shared {
+		import d.gc.thread;
+		enterBusyState();
+		scope(exit) exitBusyState();
+
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
 		(cast(GCState*) &this).removeRootsImpl(ptr);
 	}
 
+	/**
+	 * This function is used during the mark phase of the GC cycle.
+	 * 
+	 * It is therefore capital that methods that add/remove roots
+	 * mark the thread as busy so it is not paused while holding
+	 * the mutex.
+	 */
 	void scanRoots(ScanDg scan) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -89,17 +104,20 @@ private:
 		 * in the reverse order they were added.
 		 */
 		foreach_reverse (i; 0 .. roots.length) {
-			if (cast(void*) roots[i].ptr is ptr
-				    || cast(void*) roots[i].ptr is alignedPtr) {
-				auto length = roots.length - 1;
-				roots[i] = roots[length];
-				roots[length] = [];
-				import d.gc.tcache;
-				auto newRoots = threadCache
-					.realloc(roots.ptr, length * void*[].sizeof, true);
-				roots = (cast(const(void*)[]*) newRoots)[0 .. length];
-				return;
+			if (cast(void*) roots[i].ptr !is ptr
+				    && cast(void*) roots[i].ptr !is alignedPtr) {
+				continue;
 			}
+
+			auto length = roots.length - 1;
+			roots[i] = roots[length];
+			roots[length] = [];
+
+			import d.gc.tcache;
+			auto newRoots =
+				threadCache.realloc(roots.ptr, length * void*[].sizeof, true);
+			roots = (cast(const(void*)[]*) newRoots)[0 .. length];
+			break;
 		}
 	}
 
@@ -121,3 +139,14 @@ private:
 }
 
 shared GCState gState;
+
+unittest addRootReentrancy {
+	foreach (_; 0 .. 1000) {
+		enum BufferSize = 800_000_000;
+
+		// Get the GC close past a collect threshold.
+		import d.gc.capi;
+		auto ptr = __sd_gc_alloc(BufferSize);
+		__sd_gc_add_roots(ptr[0 .. BufferSize]);
+	}
+}
