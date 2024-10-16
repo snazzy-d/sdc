@@ -84,10 +84,14 @@ public:
 	}
 
 	void addToWorkList(const(void*)[][] ranges) shared {
+		assert(ranges.length > 0);
+		// Compute new work items outside the lock.
+		auto newWorkItems = getWorkItems(ranges[ranges.length - 1]);
+
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(Scanner*) &this).addToWorkListImpl(ranges);
+		(cast(Scanner*) &this).addToWorkListImpl(ranges, newWorkItems);
 	}
 
 	void addToWorkList(const(void*)[] range) shared {
@@ -151,7 +155,7 @@ private:
 		activeThreads++;
 
 		if (--w.workItems == 0) {
-			worker.refill(w.worklist[w.cursor .. w.cursor + 1]);
+			worker.refill(w.worklist[w.cursor]);
 			if (w.cursor > 0) {
 				--w.cursor;
 				w.workItems = getWorkItems(w.worklist[w.cursor]);
@@ -160,9 +164,7 @@ private:
 			return true;
 		}
 
-		const(void*)[] localWork = extractWork(w.worklist[w.cursor]);
-		worker.refill((&localWork)[0 .. 1]);
-
+		worker.refill(extractWork(w.worklist[w.cursor]));
 		return true;
 	}
 
@@ -190,7 +192,7 @@ private:
 		worklist = (cast(const(void*)[]*) ptr)[0 .. size / ElementSize];
 	}
 
-	void addToWorkListImpl(const(void*)[][] ranges) {
+	void addToWorkListImpl(const(void*)[][] ranges, uint newWorkItems) {
 		assert(mutex.isHeld(), "mutex not held!");
 		assert(0 < ranges.length && ranges.length < uint.max,
 		       "Invalid ranges count!");
@@ -205,7 +207,7 @@ private:
 		}
 
 		cursor = insertAt - 1;
-		workItems = getWorkItems(worklist[cursor]);
+		workItems = newWorkItems;
 	}
 }
 
@@ -249,6 +251,13 @@ public:
 
 		import d.gc.tcache;
 		this.emap = threadCache.emap;
+	}
+
+	void refill(const(void*)[] range) {
+		assert(cursor == 0, "Refilling a worker that is not empty!");
+
+		worklist[0] = range;
+		cursor = 1;
 	}
 
 	void refill(const(void*)[][] ranges) {
@@ -467,6 +476,7 @@ private:
 				worklist[0] = range;
 				return;
 			}
+
 			worklist[0] = extractWork(range);
 		}
 
