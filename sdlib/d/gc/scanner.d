@@ -224,7 +224,7 @@ uint getWorkItems(const(void*)[] range) {
 }
 
 const(void*)[] extractWork(ref const(void*)[] range) {
-	assert(range.length > WorkUnit);
+	assert(range.length >= WorkUnit * 2);
 	scope(exit) range = range[WorkUnit .. range.length];
 	return range[0 .. WorkUnit];
 }
