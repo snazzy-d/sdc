@@ -4,6 +4,8 @@ import d.gc.arena;
 import d.gc.emap;
 import d.gc.spec;
 import d.gc.tcache;
+import d.gc.time;
+import d.gc.util;
 
 struct Collector {
 	ThreadCache* treadCache;
@@ -104,17 +106,40 @@ private:
 	// This makes for a 32MB default target.
 	enum DefaultHeapSize = 32 * 1024 * 1024 / PageSize;
 
-	size_t minHeapTarget = DefaultHeapSize;
-	size_t nextTarget = DefaultHeapSize;
-
-	size_t baseline = DefaultHeapSize;
-	size_t peak = DefaultHeapSize;
-
 	/**
 	 * Data about the last collection cycle.
 	 */
 	ulong lastCollectionStart;
 	ulong lastCollectionStop;
+
+	size_t lastHeapSize;
+
+	/**
+	 * Filtered data over several collection.
+	 */
+	ulong amortizedDuration;
+
+	size_t amortizedHeapSize = DefaultHeapSize;
+	size_t peakHeapSize = DefaultHeapSize;
+
+	/**
+	 * Track the targets to meet before collecting.
+	 */
+	ulong lastTargetAdjustement;
+
+	size_t nextTarget = DefaultHeapSize;
+
+	/**
+	 * Configuration.
+	 */
+	// Do not try to collect bellow this heap size.
+	size_t minHeapSize = DefaultHeapSize;
+
+	// Decay by 12.5% per time interval.
+	ubyte lgTargetDecay = 3;
+
+	// Keep a minimum overhead of 12.5% over the current heap size.
+	ubyte lgMinOverhead = 3;
 
 public:
 	bool maybeRunGCCycle(ref Collector collector) shared {
@@ -131,8 +156,7 @@ private:
 	bool maybeRunGCCycleImpl(ref Collector collector) {
 		assert(mutex.isHeld(), "mutex not held!");
 
-		auto total = Arena.computeUsedPageCount();
-		if (total < nextTarget) {
+		if (!needCollection()) {
 			return false;
 		}
 
@@ -140,10 +164,27 @@ private:
 		return true;
 	}
 
+	bool needCollection() {
+		auto now = getMonotonicTime();
+		auto interval =
+			max(lastCollectionStop - lastCollectionStart, 100 * Millisecond);
+
+		while (now - lastTargetAdjustement >= interval) {
+			auto delta = nextTarget - lastHeapSize;
+			delta -= delta >> lgTargetDecay;
+			delta += lastHeapSize >> (lgTargetDecay + lgMinOverhead);
+			nextTarget = lastHeapSize + delta;
+
+			lastTargetAdjustement += interval;
+		}
+
+		auto currentHeapSize = Arena.computeUsedPageCount();
+		return currentHeapSize >= nextTarget;
+	}
+
 	void runGCCycle(ref Collector collector) {
 		assert(mutex.isHeld(), "mutex not held!");
 
-		import d.gc.time;
 		lastCollectionStart = getMonotonicTime();
 		scope(exit) updateTargetPageCount();
 
@@ -151,34 +192,34 @@ private:
 	}
 
 	void updateTargetPageCount() {
-		import d.gc.time;
-		lastCollectionStop = getMonotonicTime();
-
-		auto total = Arena.computeUsedPageCount();
-
 		// This creates a low pass filter.
 		static next(size_t base, size_t n) {
 			return base - (base >> 3) + (n >> 3);
 		}
 
-		import d.gc.util;
-		peak = max(next(peak, total), total);
-		baseline = next(baseline, total);
+		lastCollectionStop = getMonotonicTime();
+		amortizedDuration =
+			next(amortizedDuration, lastCollectionStop - lastCollectionStart);
 
-		// Peak target at 1.5x the peak to prevent heap explosion.
-		auto tpeak = peak + (peak >> 1);
+		lastHeapSize = Arena.computeUsedPageCount();
+		amortizedHeapSize = next(amortizedHeapSize, lastHeapSize);
+		peakHeapSize = max(next(peakHeapSize, lastHeapSize), lastHeapSize);
+
+		// Peak target at 1.625x the peak to prevent heap explosion.
+		auto tpeak = peakHeapSize + (peakHeapSize >> 1) + (peakHeapSize >> 3);
 
 		// Baseline target at 2x so we don't shrink the heap too fast.
-		auto tbaseline = 2 * baseline;
+		auto tbaseline = 2 * amortizedHeapSize;
 
-		// We set the target at 1.75x the current heap size in pages.
-		auto target = total + (total >> 1) + (total >> 2);
+		// We set the target at 2x the current heap size.
+		auto target = 2 * lastHeapSize;
 
 		// Clamp the target using tpeak and tbaseline.
 		target = max(target, tbaseline);
 		target = min(target, tpeak);
 
-		nextTarget = max(target, minHeapTarget);
+		lastTargetAdjustement = lastCollectionStop;
+		nextTarget = max(target, minHeapSize);
 	}
 }
 
