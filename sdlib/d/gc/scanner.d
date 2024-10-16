@@ -15,6 +15,7 @@ private:
 
 	uint activeThreads;
 	uint cursor;
+	uint workItems;
 	const(void*)[][] worklist;
 
 	ubyte _gcCycle;
@@ -137,24 +138,29 @@ private:
 		 * and we shoudl stop.
 		 */
 		static hasWork(Scanner* w) {
-			return w.cursor != 0 || w.activeThreads == 0;
+			return w.workItems != 0 || w.activeThreads == 0;
 		}
 
 		auto w = (cast(Scanner*) &this);
 		mutex.waitFor(w.hasWork);
 
-		if (w.cursor == 0) {
+		if (w.workItems == 0) {
 			return false;
 		}
 
 		activeThreads++;
 
-		auto rangeIndex = w.cursor - 1;
-		const(void*)[] localWork;
-		if (extractWork(w.worklist[rangeIndex], localWork)) {
-			w.cursor = rangeIndex;
+		if (--w.workItems == 0) {
+			worker.refill(w.worklist[w.cursor .. w.cursor + 1]);
+			if (w.cursor > 0) {
+				--w.cursor;
+				w.workItems = getWorkItems(w.worklist[w.cursor]);
+			}
+
+			return true;
 		}
 
+		const(void*)[] localWork = extractWork(w.worklist[w.cursor]);
 		worker.refill((&localWork)[0 .. 1]);
 
 		return true;
@@ -189,32 +195,38 @@ private:
 		assert(0 < ranges.length && ranges.length < uint.max,
 		       "Invalid ranges count!");
 
-		auto capacity = cursor + ranges.length;
+		auto insertAt = cursor + (likely(workItems > 0) ? 1 : 0);
+		auto capacity = insertAt + ranges.length;
 		ensureWorklistCapacity(capacity);
 
 		foreach (r; ranges) {
 			assert(r.length > 0, "Cannot add empty range to the worklist!");
-			worklist[cursor++] = r;
+			worklist[insertAt++] = r;
 		}
+
+		cursor = insertAt - 1;
+		workItems = getWorkItems(worklist[cursor]);
 	}
 }
 
 private:
 
-// Returns true if the srcRange was completely consumed.
-static
-bool extractWork(ref const(void*)[] srcRange, ref const(void*)[] destRange) {
-	enum WorkUnit = 16 * PointerInPage;
-	enum SplitThreshold = 3 * WorkUnit / 2;
+enum WorkUnit = 16 * PointerInPage;
 
-	if (srcRange.length <= SplitThreshold) {
-		destRange = srcRange;
-		return true;
+// Gets the number of work items in a range.
+uint getWorkItems(const(void*)[] range) {
+	assert(range.length > 0);
+	if (range.length < WorkUnit) {
+		return 1;
 	}
 
-	destRange = srcRange[0 .. WorkUnit];
-	srcRange = srcRange[WorkUnit .. srcRange.length];
-	return false;
+	return cast(uint) range.length / WorkUnit;
+}
+
+const(void*)[] extractWork(ref const(void*)[] range) {
+	assert(range.length > WorkUnit);
+	scope(exit) range = range[WorkUnit .. range.length];
+	return range[0 .. WorkUnit];
 }
 
 struct Worker {
@@ -451,9 +463,11 @@ private:
 		// work in advance, then just keep some of it for ourselves.
 		if (cursor == 0) {
 			cursor = 1;
-			if (extractWork(range, worklist[0])) {
+			if (range.length < WorkUnit * 2) {
+				worklist[0] = range;
 				return;
 			}
+			worklist[0] = extractWork(range);
 		}
 
 		scanner.addToWorkList(range);
