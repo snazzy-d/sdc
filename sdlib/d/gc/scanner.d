@@ -149,11 +149,13 @@ private:
 
 		activeThreads++;
 
-		auto stop = w.cursor;
-		auto start = stop - 1;
+		auto rangeIndex = w.cursor - 1;
+		const(void*)[] localWork;
+		if (extractWork(w.worklist[rangeIndex], localWork)) {
+			w.cursor = rangeIndex;
+		}
 
-		w.cursor = start;
-		worker.refill(w.worklist[start .. stop]);
+		worker.refill((&localWork)[0 .. 1]);
 
 		return true;
 	}
@@ -198,6 +200,22 @@ private:
 }
 
 private:
+
+// Returns true if the srcRange was completely consumed.
+static
+bool extractWork(ref const(void*)[] srcRange, ref const(void*)[] destRange) {
+	enum WorkUnit = 16 * PointerInPage;
+	enum SplitThreshold = 3 * WorkUnit / 2;
+
+	if (srcRange.length <= SplitThreshold) {
+		destRange = srcRange;
+		return true;
+	}
+
+	destRange = srcRange[0 .. WorkUnit];
+	srcRange = srcRange[WorkUnit .. srcRange.length];
+	return false;
+}
 
 struct Worker {
 	enum WorkListCapacity = 16;
@@ -429,42 +447,15 @@ private:
 		       "Range is not aligned properly!");
 		assert(range.length > 0, "Cannot add empty range to the worklist!");
 
-		// In order to expose some parallelism, we split the range
-		// into smaller chunks to be distributed.
-		static next(ref const(void*)[] range) {
-			enum WorkUnit = 16 * PointerInPage;
-			enum SplitThresold = 3 * WorkUnit / 2;
-
-			if (range.length <= SplitThresold) {
-				scope(success) range = [];
-				return range;
-			}
-
-			scope(success) range = range[WorkUnit .. range.length];
-			return range[0 .. WorkUnit];
-		}
-
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
 		if (cursor == 0) {
 			cursor = 1;
-			worklist[0] = next(range);
-		}
-
-		while (range.length > 0) {
-			uint count;
-			const(void*)[][16] units;
-
-			foreach (ref u; units) {
-				if (range.length == 0) {
-					break;
-				}
-
-				count++;
-				u = next(range);
+			if (extractWork(range, worklist[0])) {
+				return;
 			}
-
-			scanner.addToWorkList(units[0 .. count]);
 		}
+
+		scanner.addToWorkList(range);
 	}
 }
