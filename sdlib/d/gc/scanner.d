@@ -15,7 +15,7 @@ private:
 
 	uint activeThreads;
 	uint cursor;
-	const(void*)[][] worklist;
+	WorkItem[] worklist;
 
 	ubyte _gcCycle;
 	AddressRange _managedAddressSpace;
@@ -82,18 +82,34 @@ public:
 		}
 	}
 
-	void addToWorkList(const(void*)[][] ranges) shared {
+	void addToWorkList(WorkItem[] items) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(Scanner*) &this).addToWorkListImpl(ranges);
+		(cast(Scanner*) &this).addToWorkListImpl(items);
+	}
+
+	void addToWorkList(WorkItem item) shared {
+		addToWorkList((&item)[0 .. 1]);
 	}
 
 	void addToWorkList(const(void*)[] range) shared {
-		// The runtime might try to add empty ranges when scanning
-		// globals, stack, TLS, etc...
-		if (range.length > 0) {
-			addToWorkList((&range)[0 .. 1]);
+		// In order to expose some parallelism, we split the range
+		// into smaller chunks to be distributed.
+		while (range.length > 0) {
+			uint count;
+			WorkItem[16] units;
+
+			foreach (ref u; units) {
+				if (range.length == 0) {
+					break;
+				}
+
+				count++;
+				u = WorkItem.extractFromRange(range);
+			}
+
+			addToWorkList(units[0 .. count]);
 		}
 	}
 
@@ -167,32 +183,30 @@ private:
 		}
 
 		enum MinWorklistSize = 4 * PageSize;
-		enum ElementSize = typeof(worklist[0]).sizeof;
 
-		auto size = count * ElementSize;
+		auto size = count * WorkItem.sizeof;
 		if (size < MinWorklistSize) {
 			size = MinWorklistSize;
 		} else {
 			import d.gc.sizeclass;
-			size = getAllocSize(count * ElementSize);
+			size = getAllocSize(count * WorkItem.sizeof);
 		}
 
 		import d.gc.tcache;
 		auto ptr = threadCache.realloc(worklist.ptr, size, false);
-		worklist = (cast(const(void*)[]*) ptr)[0 .. size / ElementSize];
+		worklist = (cast(WorkItem*) ptr)[0 .. size / WorkItem.sizeof];
 	}
 
-	void addToWorkListImpl(const(void*)[][] ranges) {
+	void addToWorkListImpl(WorkItem[] items) {
 		assert(mutex.isHeld(), "mutex not held!");
-		assert(0 < ranges.length && ranges.length < uint.max,
-		       "Invalid ranges count!");
+		assert(0 < items.length && items.length < uint.max,
+		       "Invalid item count!");
 
-		auto capacity = cursor + ranges.length;
+		auto capacity = cursor + items.length;
 		ensureWorklistCapacity(capacity);
 
-		foreach (r; ranges) {
-			assert(r.length > 0, "Cannot add empty range to the worklist!");
-			worklist[cursor++] = r;
+		foreach (item; items) {
+			worklist[cursor++] = item;
 		}
 	}
 }
@@ -207,7 +221,7 @@ private:
 	shared(Scanner)* scanner;
 
 	uint cursor;
-	const(void*)[][WorkListCapacity] worklist;
+	WorkItem[WorkListCapacity] worklist;
 
 	// TODO: Use a different caching layer that
 	//       can cache negative results.
@@ -221,14 +235,14 @@ public:
 		this.emap = threadCache.emap;
 	}
 
-	void refill(const(void*)[][] ranges) {
+	void refill(WorkItem[] items) {
 		assert(cursor == 0, "Refilling a worker that is not empty!");
 
-		cursor = cast(uint) ranges.length;
+		cursor = cast(uint) items.length;
 		assert(cursor > 0 && cursor <= MaxRefill, "Invalid refill amount!");
 
-		foreach (i, r; ranges) {
-			worklist[i] = r;
+		foreach (i, item; items) {
+			worklist[i] = item;
 		}
 	}
 
@@ -241,8 +255,15 @@ public:
 	}
 
 	void scan(const(void*)[] range) {
+		while (range.length > 0) {
+			scan(WorkItem.extractFromRange(range));
+		}
+	}
+
+	void scan(WorkItem item) {
 		auto ms = scanner.managedAddressSpace;
 		auto cycle = scanner.gcCycle;
+		auto range = item.range;
 
 		AddressRange lastDenseSlab;
 		PageDescriptor lastDenseSlabPageDescriptor;
@@ -275,8 +296,8 @@ public:
 					}
 
 					if (pd.containsPointers) {
-						auto slotPtr = cast(void**) (base + index * slotSize);
-						addToWorkList(slotPtr[0 .. slotSize / PointerSize]);
+						auto item = WorkItem(base + index * slotSize, slotSize);
+						addToWorkList(item);
 					}
 
 					continue;
@@ -316,7 +337,7 @@ public:
 				return;
 			}
 
-			range = worklist[--cursor];
+			range = worklist[--cursor].range;
 		}
 	}
 
@@ -350,18 +371,17 @@ private:
 		return true;
 	}
 
-	void addToWorkList(const(void*)[] range) {
+	void addToWorkList(WorkItem item) {
 		if (likely(cursor < WorkListCapacity)) {
-			worklist[cursor++] = range;
+			worklist[cursor++] = item;
 			return;
 		}
 
-		// Flush the current worklist except the first element in it
-		// so we do not starve this worker.
+		// Flush the current worklist and add the item.
 		scanner.addToWorkList(worklist[0 .. WorkListCapacity]);
 
 		cursor = 1;
-		worklist[0] = range;
+		worklist[0] = item;
 	}
 
 	void markSparse(PageDescriptor pd, const void* ptr, ubyte cycle) {
@@ -388,21 +408,19 @@ private:
 
 	Exit:
 		if (pd.containsPointers) {
-			addToSharedWorklist(se.computeRange());
+			auto r = se.computeRange();
+			addToSharedWorklist(WorkItem(r));
 		}
 	}
 
-	void addToSharedWorklist(const(void*)[] range) {
-		assert(range.length > 0, "Cannot add empty range to the worklist!");
-
+	void addToSharedWorklist(WorkItem item) {
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
 		if (cursor == 0) {
-			worklist[cursor++] = range;
-			return;
+			worklist[cursor++] = item;
+		} else {
+			scanner.addToWorkList(item);
 		}
-
-		scanner.addToWorkList(range);
 	}
 
 	void markLarge(PageDescriptor pd, ubyte cycle) {
@@ -429,42 +447,98 @@ private:
 		       "Range is not aligned properly!");
 		assert(range.length > 0, "Cannot add empty range to the worklist!");
 
-		// In order to expose some parallelism, we split the range
-		// into smaller chunks to be distributed.
-		static next(ref const(void*)[] range) {
-			enum WorkUnit = 16 * PointerInPage;
-			enum SplitThresold = 3 * WorkUnit / 2;
-
-			if (range.length <= SplitThresold) {
-				scope(success) range = [];
-				return range;
-			}
-
-			scope(success) range = range[WorkUnit .. range.length];
-			return range[0 .. WorkUnit];
-		}
-
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
 		if (cursor == 0) {
-			cursor = 1;
-			worklist[0] = next(range);
+			worklist[cursor++] = WorkItem.extractFromRange(range);
 		}
 
-		while (range.length > 0) {
-			uint count;
-			const(void*)[][16] units;
+		scanner.addToWorkList(range);
+	}
+}
 
-			foreach (ref u; units) {
-				if (range.length == 0) {
-					break;
-				}
+struct WorkItem {
+private:
+	size_t payload;
 
-				count++;
-				u = next(range);
-			}
+	// Verify our assumptions.
+	static assert(LgAddressSpace <= 48, "Address space too large!");
 
-			scanner.addToWorkList(units[0 .. count]);
+	// Useful constants for bit manipulations.
+	enum LengthShift = 48;
+	enum FreeBits = 8 * PointerSize - LengthShift;
+
+public:
+	@property
+	void* ptr() {
+		return cast(void*) (payload & AddressMask);
+	}
+
+	@property
+	size_t length() {
+		auto ptrlen = 1 + (payload >> LengthShift);
+		return ptrlen * PointerSize;
+	}
+
+	@property
+	const(void*)[] range() {
+		auto base = cast(void**) ptr;
+		return base[0 .. length / PointerSize];
+	}
+
+	this(const void* ptr, size_t length) {
+		assert(isAligned(ptr, PointerSize), "Invalid ptr!");
+
+		auto storedLength = length / PointerSize - 1;
+		assert(storedLength < (1 << FreeBits), "Invalid length!");
+
+		payload = cast(size_t) ptr;
+		payload |= storedLength << LengthShift;
+	}
+
+	this(const(void*)[] range) {
+		assert(range.length > 0, "WorkItem cannot be empty!");
+
+		payload = cast(size_t) range.ptr;
+		payload |= (range.length - 1) << LengthShift;
+	}
+
+	static extractFromRange(ref const(void*)[] range) {
+		assert(range.length > 0, "range cannot be empty!");
+
+		enum WorkUnit = 16 * PointerInPage;
+		enum SplitThresold = 3 * WorkUnit / 2;
+
+		// We use this split strategy as it guarantee that any straggler
+		// work item will be between 1/2 and 3/2 work unit.
+		if (range.length <= SplitThresold) {
+			scope(success) range = [];
+			return WorkItem(range);
+		}
+
+		scope(success) range = range[WorkUnit .. range.length];
+		return WorkItem(range.ptr, WorkUnit);
+	}
+}
+
+unittest WorkItem {
+	void* stackPtr;
+	void* ptr = &stackPtr;
+
+	foreach (i; 0 .. 1 << WorkItem.FreeBits) {
+		auto n = i + 1;
+
+		foreach (k; 0 .. PointerSize) {
+			auto item = WorkItem(ptr, n * PointerSize + k);
+			assert(item.ptr is ptr);
+			assert(item.length == n * PointerSize);
+
+			auto range = item.range;
+			assert(range.ptr is cast(const(void*)*) ptr);
+			assert(range.length == n);
+
+			auto ir = WorkItem(range);
+			assert(item.payload == ir.payload);
 		}
 	}
 }
