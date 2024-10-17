@@ -72,3 +72,25 @@ unittest ptr_to_int {
 	auto ptr2 = cast(void*) uint(-1);
 	assert(ptr2 is cast(void*) uint.max);
 }
+
+unittest ptr_to_int_overload {
+	uint fooint, fooptr;
+
+	void foo(size_t) {
+		fooint++;
+	}
+
+	void foo(void*) {
+		fooptr++;
+	}
+
+	foo(null);
+	assert(fooint == 0 && fooptr == 1);
+
+	foo(0);
+	assert(fooint == 1 && fooptr == 1);
+
+	void* ptr;
+	foo(ptr);
+	assert(fooint == 1 && fooptr == 2);
+}

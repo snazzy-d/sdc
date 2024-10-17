@@ -352,7 +352,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				assert(0, "Floating point casts are not implemented");
 
 			case Null:
-				if (canConvertToIntegral(bt)) {
+				if (isExplicit && canConvertToIntegral(bt)) {
 					return CastKind.PointerToInt;
 				}
 
