@@ -11,6 +11,8 @@ import d.gc.util;
 
 import sdc.intrinsics;
 
+enum ShouldZeroFreeSlabs = true;
+
 struct PageFiller {
 private:
 	@property
@@ -811,22 +813,6 @@ private:
 		e.slabMetadataFlags.rawContent[nimbleIndex] = metadataFlags;
 	}
 
-	static void zeroSlabNimble(ulong evicted, int sizeClass, Extent* e,
-	                           size_t nimbleIndex) {
-		assert(evicted != 0, "No slabs to clear!");
-		import d.gc.slab;
-		auto slotSize = binInfos[sizeClass].slotSize;
-		void* nimbleBase = e.address + (nimbleIndex * 64 * slotSize);
-
-		while (evicted != 0) {
-			auto index = countTrailingZeros(evicted);
-			void* ptr = nimbleBase + index * slotSize;
-
-			memset(ptr, 0, slotSize);
-			evicted &= (evicted - 1);
-		}
-	}
-
 	void collectDenseAllocations(
 		ref CachedExtentMap emap,
 		PriorityExtentHeap[] slabs,
@@ -877,6 +863,9 @@ private:
 				uint count = 0;
 				ulong occupancyMask = 0;
 
+				import d.gc.bitmap;
+				Bitmap!512 toZero;
+
 				foreach (i; 0 .. nimble) {
 					auto oldOccupancy = e.slabData.rawContent[i];
 					auto newOccupancy = oldOccupancy & bmp[i];
@@ -884,6 +873,9 @@ private:
 					occupancyMask |= newOccupancy;
 					auto evicted = oldOccupancy ^ newOccupancy;
 					count += popCount(evicted);
+					if (ShouldZeroFreeSlabs && containsPointers) {
+						toZero.rawContent[i] = evicted;
+					}
 
 					scope(success) e.slabData.rawContent[i] = newOccupancy;
 
@@ -893,16 +885,24 @@ private:
 
 					auto metadataFlags = e.slabMetadataFlags.rawContent[i];
 					finalizeSlabNimble(evicted, metadataFlags, sc, e, i);
-
-					if (containsPointers && evicted != 0) {
-						zeroSlabNimble(evicted, sc, e, i);
-					}
 				}
 
 				// The slab is empty.
 				if (occupancyMask == 0) {
 					deadExtents.insert(e);
 					continue;
+				}
+
+				if (ShouldZeroFreeSlabs && count && containsPointers) {
+					// Zero runs of freed slots.
+					auto slotSize = binInfos[sc].slotSize;
+					uint current, index, length;
+					while (current < nslots && toZero
+						       .nextOccupiedRange(current, index, length)) {
+						memset(e.address + index * slotSize, 0,
+						       length * slotSize);
+						current = index + length;
+					}
 				}
 
 				e.bits += count * Extent.FreeSlotsUnit;
@@ -1013,9 +1013,20 @@ private:
 					continue;
 				}
 
-				// Clear any dead slots if they might contain pointers
-				if (containsPointers && evicted != 0) {
-					zeroSlabNimble(evicted, ec.sizeClass, e, 0);
+				// Clear any dead slots if they might contain pointers.
+				if (ShouldZeroFreeSlabs && containsPointers && evicted != 0) {
+					import d.gc.bitmap;
+					Bitmap!64 toZero;
+					toZero.rawContent[0] = evicted;
+					import d.gc.slab;
+					auto slotSize = binInfos[ec.sizeClass].slotSize;
+					uint current, index, length;
+					while (current < 64 && toZero
+						       .nextOccupiedRange(current, index, length)) {
+						memset(e.address + index * slotSize, 0,
+						       length * slotSize);
+						current = index + length;
+					}
 				}
 
 				auto count = popCount(evicted);
