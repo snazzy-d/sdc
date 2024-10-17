@@ -14,6 +14,8 @@ import sdc.intrinsics;
 
 enum DefaultEventWait = 65536;
 
+enum ShouldZeroFreeSlabs = true;
+
 alias RNode = Node!ThreadCache;
 alias ThreadRing = Ring!ThreadCache;
 
@@ -412,7 +414,13 @@ private:
 		// We trigger the de-allocation event first as it might
 		// recycle the bin we are interested in, which increase
 		// our chances that free works.
-		triggerDeallocationEvent(binInfos[sc].slotSize);
+		auto slotSize = binInfos[sc].slotSize;
+		triggerDeallocationEvent(slotSize);
+
+		// If the allocation contains pointers, zero it before freeing it
+		if (ShouldZeroFreeSlabs && pd.containsPointers) {
+			memset(ptr, 0, slotSize);
+		}
 
 		auto index = getBinIndex(sc, pd.containsPointers);
 		auto bin = &bins[index];
