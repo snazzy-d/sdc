@@ -15,6 +15,7 @@ private:
 
 	uint activeThreads;
 	uint cursor;
+	uint workItems;
 	const(void*)[][] worklist;
 
 	ubyte _gcCycle;
@@ -83,10 +84,14 @@ public:
 	}
 
 	void addToWorkList(const(void*)[][] ranges) shared {
+		assert(ranges.length > 0);
+		// Compute new work items outside the lock.
+		auto newWorkItems = getWorkItems(ranges[ranges.length - 1]);
+
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(Scanner*) &this).addToWorkListImpl(ranges);
+		(cast(Scanner*) &this).addToWorkListImpl(ranges, newWorkItems);
 	}
 
 	void addToWorkList(const(void*)[] range) shared {
@@ -137,24 +142,29 @@ private:
 		 * and we shoudl stop.
 		 */
 		static hasWork(Scanner* w) {
-			return w.cursor != 0 || w.activeThreads == 0;
+			return w.workItems != 0 || w.activeThreads == 0;
 		}
 
 		auto w = (cast(Scanner*) &this);
 		mutex.waitFor(w.hasWork);
 
-		if (w.cursor == 0) {
+		if (w.workItems == 0) {
 			return false;
 		}
 
 		activeThreads++;
 
-		auto stop = w.cursor;
-		auto start = stop - 1;
+		if (--w.workItems == 0) {
+			worker.refill(w.worklist[w.cursor]);
+			if (w.cursor > 0) {
+				--w.cursor;
+				w.workItems = getWorkItems(w.worklist[w.cursor]);
+			}
 
-		w.cursor = start;
-		worker.refill(w.worklist[start .. stop]);
+			return true;
+		}
 
+		worker.refill(extractWork(w.worklist[w.cursor]));
 		return true;
 	}
 
@@ -182,22 +192,44 @@ private:
 		worklist = (cast(const(void*)[]*) ptr)[0 .. size / ElementSize];
 	}
 
-	void addToWorkListImpl(const(void*)[][] ranges) {
+	void addToWorkListImpl(const(void*)[][] ranges, uint newWorkItems) {
 		assert(mutex.isHeld(), "mutex not held!");
 		assert(0 < ranges.length && ranges.length < uint.max,
 		       "Invalid ranges count!");
 
-		auto capacity = cursor + ranges.length;
+		auto insertAt = cursor + (likely(workItems > 0) ? 1 : 0);
+		auto capacity = insertAt + ranges.length;
 		ensureWorklistCapacity(capacity);
 
 		foreach (r; ranges) {
 			assert(r.length > 0, "Cannot add empty range to the worklist!");
-			worklist[cursor++] = r;
+			worklist[insertAt++] = r;
 		}
+
+		cursor = insertAt - 1;
+		workItems = newWorkItems;
 	}
 }
 
 private:
+
+enum WorkUnit = 16 * PointerInPage;
+
+// Gets the number of work items in a range.
+uint getWorkItems(const(void*)[] range) {
+	assert(range.length > 0);
+	if (range.length < WorkUnit) {
+		return 1;
+	}
+
+	return cast(uint) range.length / WorkUnit;
+}
+
+const(void*)[] extractWork(ref const(void*)[] range) {
+	assert(range.length >= WorkUnit * 2);
+	scope(exit) range = range[WorkUnit .. range.length];
+	return range[0 .. WorkUnit];
+}
 
 struct Worker {
 	enum WorkListCapacity = 16;
@@ -219,6 +251,13 @@ public:
 
 		import d.gc.tcache;
 		this.emap = threadCache.emap;
+	}
+
+	void refill(const(void*)[] range) {
+		assert(cursor == 0, "Refilling a worker that is not empty!");
+
+		worklist[0] = range;
+		cursor = 1;
 	}
 
 	void refill(const(void*)[][] ranges) {
@@ -429,42 +468,18 @@ private:
 		       "Range is not aligned properly!");
 		assert(range.length > 0, "Cannot add empty range to the worklist!");
 
-		// In order to expose some parallelism, we split the range
-		// into smaller chunks to be distributed.
-		static next(ref const(void*)[] range) {
-			enum WorkUnit = 16 * PointerInPage;
-			enum SplitThresold = 3 * WorkUnit / 2;
-
-			if (range.length <= SplitThresold) {
-				scope(success) range = [];
-				return range;
-			}
-
-			scope(success) range = range[WorkUnit .. range.length];
-			return range[0 .. WorkUnit];
-		}
-
 		// Make sure we do not starve ourselves. If we do not have
 		// work in advance, then just keep some of it for ourselves.
 		if (cursor == 0) {
 			cursor = 1;
-			worklist[0] = next(range);
-		}
-
-		while (range.length > 0) {
-			uint count;
-			const(void*)[][16] units;
-
-			foreach (ref u; units) {
-				if (range.length == 0) {
-					break;
-				}
-
-				count++;
-				u = next(range);
+			if (range.length < WorkUnit * 2) {
+				worklist[0] = range;
+				return;
 			}
 
-			scanner.addToWorkList(units[0 .. count]);
+			worklist[0] = extractWork(range);
 		}
+
+		scanner.addToWorkList(range);
 	}
 }
