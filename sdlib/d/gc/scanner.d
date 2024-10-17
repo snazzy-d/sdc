@@ -131,7 +131,8 @@ private:
 		 * 
 		 * This is NOT good! So we scan here to make sure we don't miss anything.
 		 */
-		__sd_gc_thread_scan(worker.scan);
+		import d.gc.thread;
+		threadScan(worker.scan);
 
 		while (waitForWork(worker)) {
 			worker.scan();

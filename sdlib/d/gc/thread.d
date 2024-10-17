@@ -16,7 +16,9 @@ void createProcess() {
 
 	import d.gc.hooks;
 	__sd_gc_register_global_segments();
-	__sd_gc_register_tls_segments();
+
+	import d.rt.elf;
+	registerTlsSegments();
 }
 
 void createThread() {
@@ -28,8 +30,8 @@ void createThread() {
 
 	initThread();
 
-	import d.gc.hooks;
-	__sd_gc_register_tls_segments();
+	import d.rt.elf;
+	registerTlsSegments();
 }
 
 void destroyThread() {
@@ -71,6 +73,16 @@ void stopTheWorld() {
 
 void restartTheWorld() {
 	gThreadState.restartTheWorld();
+}
+
+void threadScan(ScanDg scan) {
+	// Scan the registered TLS segments.
+	foreach (s; threadCache.tlsSegments) {
+		scan(s);
+	}
+
+	import d.gc.stack;
+	scanStack(scan);
 }
 
 void scanSuspendedThreads(ScanDg scan) {

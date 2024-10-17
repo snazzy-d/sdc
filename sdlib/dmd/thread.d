@@ -19,34 +19,40 @@ void thread_scanAll_C(ScanDg* context, typeof(&__sd_scanAllThreadsFn) scan);
 // use delegates (as those are not the same ABI)
 // the context pointer is just a pass-through for the druntime side, so we
 // type it based on what we are passing.
-void __sd_scanAllThreadsFn(ScanDg* context, void* start, void* end) {
+void __sd_scanAllThreadsFn(ScanDg* context, void* start, void* stop) {
 	import d.gc.range;
-	(*context)(makeRange(start, end));
+	(*context)(makeRange(start, stop));
 }
 
 // sdrt API.
-void __sd_gc_thread_scan(ScanDg scan) {
-	/**
-	 * Note, this is needed, even though druntime will pass in the thread
-	 * stacks to scan. The thread calling the collect will have its stack
-	 * passed in and added to the worklist (see scanner.d), but by the time the
-	 * stack is scanned, it may no longer have the saved registers. Therefore,
-	 * we need to scan the registers now.
-	 */
-	import d.gc.stack;
-	scanStack(scan);
-}
-
 void __sd_gc_global_scan(ScanDg scan) {
 	import d.gc.global;
 	// Scan all registered roots and ranges.
 	gState.scanRoots(scan);
 
+	import d.gc.thread;
+	scanSuspendedThreads(scan);
+
 	thread_scanAll_C(&scan, &__sd_scanAllThreadsFn);
 }
 
 void __sd_gc_pre_suspend_hook(void* stackTop) {
-	thread_preSuspend(stackTop);
+	if (thread_preSuspend(stackTop)) {
+		/**
+		 * If the thread is managed by druntime, then we'll get the
+		 * TLS segments when calling thread_scanAll_C, so we can remove
+		 * them from the thread cache in order to not scan them twice.
+		 * 
+		 * Note that we cannot do so with the stack, because we need to
+		 * scan it eagerly, as registers containing possible pointers gets
+		 * pushed on it.
+		 */
+		import d.gc.tcache;
+		if (threadCache.tlsSegments.ptr !is null) {
+			threadCache.free(threadCache.tlsSegments.ptr);
+			threadCache.tlsSegments = [];
+		}
+	}
 }
 
 void __sd_gc_post_suspend_hook() {
@@ -63,4 +69,3 @@ void __sd_gc_post_restart_the_world_hook() {
 
 // druntime handles this on its own.
 void __sd_gc_register_global_segments() {}
-void __sd_gc_register_tls_segments() {}

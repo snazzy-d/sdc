@@ -75,10 +75,6 @@ extern(C) {
 	void __sd_gc_global_scan() {
 		assert(0, "Do not run __sd_gc_global_scan in the evaluator!");
 	}
-
-	void __sd_gc_thread_scan() {
-		assert(0, "Do not run __sd_gc_thread_scan in the evaluator!");
-	}
 }
 
 final class LLVMEvaluator : Evaluator {
