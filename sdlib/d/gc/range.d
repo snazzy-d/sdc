@@ -96,13 +96,22 @@ private:
 	size_t length;
 
 public:
+	@property
+	void* ptr() {
+		return cast(void*) -base;
+	}
+
+	this(const void* ptr, size_t size) {
+		base = -(cast(ptrdiff_t) ptr);
+		length = size;
+	}
+
 	this(const void[] range) {
-		base = -(cast(ptrdiff_t) range.ptr);
-		length = range.length;
+		this(range.ptr, range.length);
 	}
 
 	this(const void* start, const void* stop) {
-		this(start[0 .. stop - start]);
+		this(start, stop - start);
 	}
 
 	bool contains(const void* ptr) const {
@@ -131,6 +140,7 @@ public:
 
 unittest AddressRange {
 	auto r = AddressRange(cast(void*) AddressSpace, null);
+	assert(r.ptr is cast(void*) AddressSpace);
 
 	assert(!r.contains(null));
 	assert(!r.contains(cast(void*) 1));
@@ -187,6 +197,10 @@ unittest AddressRange {
 	auto r1 = AddressRange(cast(void*) 4000, cast(void*) 4080);
 	auto r2 = AddressRange(cast(void*) 4160, cast(void*) 4240);
 	auto r3 = AddressRange(cast(void*) 4100, cast(void*) 4200);
+
+	assert(r1.ptr is cast(void*) 4000);
+	assert(r2.ptr is cast(void*) 4160);
+	assert(r3.ptr is cast(void*) 4100);
 
 	// Disjoint ranges.
 	auto r12 = AddressRange(cast(void*) 4000, cast(void*) 4240);

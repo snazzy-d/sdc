@@ -105,7 +105,7 @@ private:
 		 * Scan the stack and TLS.
 		 * 
 		 * It may seems counter intuitive that we do so for worker threads
-		 * as well,b ut it turns out to be necessary. NPTL caches resources
+		 * as well, but it turns out to be necessary. NPTL caches resources
 		 * necessary to start a thread after a thread exits, to be able to
 		 * restart new ones quickly and cheaply.
 		 * 
@@ -133,8 +133,8 @@ private:
 		 * If there is, then we pick it up and start marking.
 		 *
 		 * Alternatively, if there is no work to do, and the number
-		 * of active thread is 0, then we know no more work is comming
-		 * and we shoudl stop.
+		 * of active thread is 0, then we know no more work is coming
+		 * and we should stop.
 		 */
 		static hasWork(Scanner* w) {
 			return w.cursor != 0 || w.activeThreads == 0;
@@ -244,7 +244,7 @@ public:
 		auto ms = scanner.managedAddressSpace;
 		auto cycle = scanner.gcCycle;
 
-		const(void*)[] lastDenseSlab;
+		AddressRange lastDenseSlab;
 		PageDescriptor lastDenseSlabPageDescriptor;
 
 		import d.gc.slab;
@@ -263,7 +263,7 @@ public:
 
 				if (lastDenseSlab.contains(ptr)) {
 				MarkDense:
-					auto base = cast(void*) lastDenseSlab.ptr;
+					auto base = lastDenseSlab.ptr;
 					auto offset = ptr - base;
 					auto index = lastDenseBin.computeIndex(offset);
 
@@ -296,9 +296,9 @@ public:
 					lastDenseSlabPageDescriptor = pd;
 					lastDenseBin = binInfos[ec.sizeClass];
 
-					auto base = cast(void**) (aptr - pd.index * PageSize);
 					lastDenseSlab =
-						base[0 .. lastDenseBin.npages * PointerInPage];
+						AddressRange(aptr - pd.index * PageSize,
+						             lastDenseBin.npages * PointerInPage);
 
 					goto MarkDense;
 				}
@@ -311,7 +311,7 @@ public:
 			}
 
 			// In case we reached our limit, we bail. This ensures that
-			// we can scan iterratively.
+			// we can scan iteratively.
 			if (cursor == 0) {
 				return;
 			}
@@ -327,7 +327,7 @@ private:
 		/**
 		 * /!\ This is not thread safe.
 		 * 
-		 * In the context of concurent scans, slots might be
+		 * In the context of concurrent scans, slots might be
 		 * allocated/deallocated from the slab while we scan.
 		 * It is unclear how to handle this at this time.
 		 */
