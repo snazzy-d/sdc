@@ -264,7 +264,6 @@ public:
 	void scan(WorkItem item) {
 		auto ms = scanner.managedAddressSpace;
 		auto cycle = scanner.gcCycle;
-		auto range = item.range;
 
 		AddressRange lastDenseSlab;
 		PageDescriptor lastDenseSlabPageDescriptor;
@@ -273,6 +272,7 @@ public:
 		BinInfo lastDenseBin;
 
 		while (true) {
+			auto range = item.range;
 			auto current = range.ptr;
 			auto top = current + range.length;
 
@@ -338,7 +338,7 @@ public:
 				return;
 			}
 
-			range = worklist[--cursor].range;
+			item = worklist[--cursor];
 		}
 	}
 
@@ -518,7 +518,7 @@ public:
 		}
 
 		scope(success) range = range[WorkUnit .. range.length];
-		return WorkItem(range.ptr, WorkUnit);
+		return WorkItem(range[0 .. WorkUnit]);
 	}
 }
 
