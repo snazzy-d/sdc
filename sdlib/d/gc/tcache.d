@@ -151,7 +151,10 @@ public:
 	}
 
 	void destroyThread() {
-		free(tlsSegments.ptr);
+		state.enterBusyState();
+		scope(exit) state.exitBusyState();
+
+		clearTLSSegments();
 		flushCache();
 	}
 
@@ -625,6 +628,13 @@ private:
 
 		import d.gc.range;
 		tlsSegments[index] = makeRange(range);
+	}
+
+	void clearTLSSegments() {
+		if (tlsSegments.ptr !is null) {
+			free(tlsSegments.ptr);
+			tlsSegments = [];
+		}
 	}
 
 private:
