@@ -22,8 +22,8 @@ void createProcess() {
 void createThread() {
 	enterBusyState();
 	scope(exit) {
-		exitBusyState();
 		exitThreadCreation();
+		exitBusyState();
 	}
 
 	initThread();
