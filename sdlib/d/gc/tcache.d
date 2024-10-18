@@ -151,7 +151,7 @@ public:
 	}
 
 	void destroyThread() {
-		free(tlsSegments.ptr);
+		clearTLSSegments();
 		flushCache();
 	}
 
@@ -341,6 +341,15 @@ public:
 
 		foreach (ref b; bins) {
 			b.fullFlush(emap);
+		}
+	}
+
+	void clearTLSSegments() {
+		state.enterBusyState();
+		scope(exit) state.exitBusyState();
+		if (tlsSegments.ptr !is null) {
+			free(tlsSegments.ptr);
+			tlsSegments = [];
 		}
 	}
 
@@ -615,6 +624,9 @@ private:
 	 * TLS registration.
 	 */
 	void addTLSSegment(const void[] range) {
+		state.enterBusyState();
+		scope(exit) state.exitBusyState();
+
 		auto ptr = cast(void*) tlsSegments.ptr;
 		auto index = tlsSegments.length;
 		auto length = index + 1;
