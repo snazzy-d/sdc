@@ -167,7 +167,17 @@ private:
 		activeThreads++;
 
 		auto stop = w.cursor;
-		auto start = stop - 1;
+		auto start = stop;
+
+		uint length = 0;
+		foreach (_; 0 .. Worker.MaxRefill) {
+			length += w.worklist[--start].length;
+
+			enum RefillTargetSize = PageSize;
+			if (start == 0 || length >= RefillTargetSize) {
+				break;
+			}
+		}
 
 		w.cursor = start;
 		worker.refill(w.worklist[start .. stop]);
@@ -216,7 +226,7 @@ private:
 
 struct Worker {
 	enum WorkListCapacity = 16;
-	enum MaxRefill = 1;
+	enum MaxRefill = 4;
 
 private:
 	shared(Scanner)* scanner;
