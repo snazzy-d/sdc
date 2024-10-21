@@ -349,10 +349,45 @@ public:
 					goto MarkDense;
 				}
 
-				if (ec.isSlab()) {
-					markSparse(pd, ptr, cycle);
+				if (ec.isLarge()) {
+					if (!markLarge(pd, cycle)) {
+						continue;
+					}
+
+					auto capacity = e.usedCapacity;
+					if (!pd.containsPointers || capacity < PointerSize) {
+						continue;
+					}
+
+					auto range = makeRange(e.address, e.address + capacity);
+
+					// Make sure we do not starve ourselves. If we do not have
+					// work in advance, then just keep some of it for ourselves.
+					if (cursor == 0) {
+						worklist[cursor++] = WorkItem.extractFromRange(range);
+					}
+
+					scanner.addToWorkList(range);
+					continue;
+				}
+
+				import d.gc.slab;
+				auto se = SlabEntry(pd, ptr);
+				if (!markSparse(pd, se.index, cycle)) {
+					continue;
+				}
+
+				if (!pd.containsPointers) {
+					continue;
+				}
+
+				// Make sure we do not starve ourselves. If we do not have
+				// work in advance, then just keep some of it for ourselves.
+				auto i = WorkItem(se.computeRange());
+				if (cursor == 0) {
+					worklist[cursor++] = i;
 				} else {
-					markLarge(pd, cycle);
+					scanner.addToWorkList(i);
 				}
 			}
 
@@ -396,76 +431,37 @@ private:
 		return true;
 	}
 
-	void markSparse(PageDescriptor pd, const void* ptr, ubyte cycle) {
-		import d.gc.slab;
-		auto se = SlabEntry(pd, ptr);
-		auto bit = 0x100 << se.index;
+	static bool markSparse(PageDescriptor pd, uint index, ubyte cycle) {
+		auto bit = 0x100 << index;
 
 		auto e = pd.extent;
 		auto old = e.gcWord.load();
 		while ((old & 0xff) != cycle) {
 			if (e.gcWord.casWeak(old, cycle | bit)) {
-				goto Exit;
+				return true;
 			}
 		}
 
 		if (old & bit) {
-			return;
+			return false;
 		}
 
 		old = e.gcWord.fetchOr(bit);
-		if (old & bit) {
-			return;
-		}
-
-	Exit:
-		if (pd.containsPointers) {
-			auto r = se.computeRange();
-			addToSharedWorklist(WorkItem(r));
-		}
+		return (old & bit) == 0;
 	}
 
-	void addToSharedWorklist(WorkItem item) {
-		// Make sure we do not starve ourselves. If we do not have
-		// work in advance, then just keep some of it for ourselves.
-		if (cursor == 0) {
-			worklist[cursor++] = item;
-		} else {
-			scanner.addToWorkList(item);
-		}
-	}
-
-	void markLarge(PageDescriptor pd, ubyte cycle) {
+	static bool markLarge(PageDescriptor pd, ubyte cycle) {
 		auto e = pd.extent;
 		auto old = e.gcWord.load();
 		while (true) {
 			if (old == cycle) {
-				return;
+				return false;
 			}
 
 			if (e.gcWord.casWeak(old, cycle)) {
-				break;
+				return true;
 			}
 		}
-
-		if (pd.containsPointers && e.usedCapacity >= PointerSize) {
-			splitAndAddToWorklist(
-				makeRange(e.address, e.address + e.usedCapacity));
-		}
-	}
-
-	void splitAndAddToWorklist(const(void*)[] range) {
-		assert(isAligned(range.ptr, PageSize),
-		       "Range is not aligned properly!");
-		assert(range.length > 0, "Cannot add empty range to the worklist!");
-
-		// Make sure we do not starve ourselves. If we do not have
-		// work in advance, then just keep some of it for ourselves.
-		if (cursor == 0) {
-			worklist[cursor++] = WorkItem.extractFromRange(range);
-		}
-
-		scanner.addToWorkList(range);
 	}
 }
 
