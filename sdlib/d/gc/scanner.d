@@ -20,6 +20,8 @@ private:
 	ubyte _gcCycle;
 	AddressRange _managedAddressSpace;
 
+	enum MaxRefill = 4;
+
 public:
 	this(uint threadCount, ubyte gcCycle, AddressRange managedAddressSpace) {
 		activeThreads = threadCount;
@@ -134,12 +136,21 @@ private:
 		import d.gc.thread;
 		threadScan(worker.scan);
 
-		while (waitForWork(worker)) {
-			worker.scan();
+		WorkItem[MaxRefill] refill;
+		while (true) {
+			auto count = waitForWork(refill);
+			if (count == 0) {
+				// We are done, there is no more work items.
+				return;
+			}
+
+			foreach (i; 0 .. count) {
+				worker.scan(refill[i]);
+			}
 		}
 	}
 
-	bool waitForWork(ref Worker worker) shared {
+	uint waitForWork(ref WorkItem[MaxRefill] refill) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
@@ -161,28 +172,32 @@ private:
 		mutex.waitFor(w.hasWork);
 
 		if (w.cursor == 0) {
-			return false;
+			return 0;
 		}
 
 		activeThreads++;
 
-		auto stop = w.cursor;
-		auto start = stop;
+		uint count = 1;
+		uint top = w.cursor;
 
-		uint length = 0;
-		foreach (_; 0 .. Worker.MaxRefill) {
-			length += w.worklist[--start].length;
+		refill[0] = w.worklist[top - count];
+		auto length = refill[0].length;
 
-			enum RefillTargetSize = PageSize;
-			if (start == 0 || length >= RefillTargetSize) {
+		foreach (i; 1 .. min(top, MaxRefill)) {
+			auto next = w.worklist[top - count - 1];
+
+			auto nl = length + next.length;
+			if (nl > WorkItem.WorkUnit / 2) {
 				break;
 			}
+
+			count++;
+			length = nl;
+			refill[i] = next;
 		}
 
-		w.cursor = start;
-		worker.refill(w.worklist[start .. stop]);
-
-		return true;
+		w.cursor = top - count;
+		return count;
 	}
 
 	void ensureWorklistCapacity(size_t count) {
@@ -226,7 +241,6 @@ private:
 
 struct Worker {
 	enum WorkListCapacity = 16;
-	enum MaxRefill = 4;
 
 private:
 	shared(Scanner)* scanner;
@@ -244,25 +258,6 @@ public:
 
 		import d.gc.tcache;
 		this.emap = threadCache.emap;
-	}
-
-	void refill(WorkItem[] items) {
-		assert(cursor == 0, "Refilling a worker that is not empty!");
-
-		cursor = cast(uint) items.length;
-		assert(cursor > 0 && cursor <= MaxRefill, "Invalid refill amount!");
-
-		foreach (i, item; items) {
-			worklist[i] = item;
-		}
-	}
-
-	void scan() {
-		if (cursor > 0) {
-			scan(worklist[--cursor]);
-		}
-
-		assert(cursor == 0, "Scan left elements in the worklist!");
 	}
 
 	void scan(const(void*)[] range) {
@@ -476,6 +471,9 @@ private:
 	enum LengthShift = 48;
 	enum FreeBits = 8 * PointerSize - LengthShift;
 
+	// Scan parameter.
+	enum WorkUnit = 16 * PointerInPage;
+
 public:
 	@property
 	void* ptr() {
@@ -516,7 +514,6 @@ public:
 	static extractFromRange(ref const(void*)[] range) {
 		assert(range.length > 0, "range cannot be empty!");
 
-		enum WorkUnit = 16 * PointerInPage;
 		enum SplitThresold = 3 * WorkUnit / 2;
 
 		// We use this split strategy as it guarantee that any straggler
