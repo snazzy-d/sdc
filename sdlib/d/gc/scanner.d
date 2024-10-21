@@ -302,15 +302,29 @@ public:
 					auto pd = lastDenseSlabPageDescriptor;
 					auto slotSize = lastDenseBin.slotSize;
 
-					if (!markDense(base, index, pd)) {
+					if (!markDense(pd, index)) {
 						continue;
 					}
 
-					if (pd.containsPointers) {
-						auto item = WorkItem(base + index * slotSize, slotSize);
-						addToWorkList(item);
+					if (!pd.containsPointers) {
+						continue;
 					}
 
+					auto i = WorkItem(base + index * slotSize, slotSize);
+					if (likely(cursor < WorkListCapacity)) {
+						worklist[cursor++] = i;
+						continue;
+					}
+
+					/**
+					 * We want to make sure that no matter what, this worker processes
+					 * the WorkItem it is provided directly. Everything else in the
+					 * worklist can be sent to other threads.
+					 */
+					scanner.addToWorkList(worklist[0 .. WorkListCapacity]);
+
+					cursor = 1;
+					worklist[0] = i;
 					continue;
 				}
 
@@ -353,7 +367,7 @@ public:
 	}
 
 private:
-	bool markDense(const void* base, uint index, PageDescriptor pd) {
+	static bool markDense(PageDescriptor pd, uint index) {
 		auto e = pd.extent;
 
 		/**
@@ -380,19 +394,6 @@ private:
 		}
 
 		return true;
-	}
-
-	void addToWorkList(WorkItem item) {
-		if (likely(cursor < WorkListCapacity)) {
-			worklist[cursor++] = item;
-			return;
-		}
-
-		// Flush the current worklist and add the item.
-		scanner.addToWorkList(worklist[0 .. WorkListCapacity]);
-
-		cursor = 1;
-		worklist[0] = item;
 	}
 
 	void markSparse(PageDescriptor pd, const void* ptr, ubyte cycle) {
@@ -499,6 +500,7 @@ public:
 
 	this(const void* ptr, size_t length) {
 		assert(isAligned(ptr, PointerSize), "Invalid ptr!");
+		assert(length >= PointerSize, "WorkItem cannot be empty!");
 
 		auto storedLength = length / PointerSize - 1;
 		assert(storedLength < (1 << FreeBits), "Invalid length!");
@@ -509,6 +511,7 @@ public:
 
 	this(const(void*)[] range) {
 		assert(range.length > 0, "WorkItem cannot be empty!");
+		assert(range.length <= (1 << FreeBits), "Invalid length!");
 
 		payload = cast(size_t) range.ptr;
 		payload |= (range.length - 1) << LengthShift;
