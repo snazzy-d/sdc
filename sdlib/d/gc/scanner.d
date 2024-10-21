@@ -5,6 +5,7 @@ import sdc.intrinsics;
 import d.gc.emap;
 import d.gc.hooks;
 import d.gc.range;
+import d.gc.slab;
 import d.gc.spec;
 import d.gc.util;
 
@@ -239,18 +240,34 @@ private:
 
 private:
 
-struct Worker {
-	enum WorkListCapacity = 16;
+struct LastDenseSlabCache {
+	AddressRange slab;
+	PageDescriptor pageDescriptor;
+	BinInfo bin;
 
+	this(AddressRange slab, PageDescriptor pageDescriptor, BinInfo bin) {
+		this.slab = slab;
+		this.pageDescriptor = pageDescriptor;
+		this.bin = bin;
+	}
+}
+
+struct Worker {
 private:
 	shared(Scanner)* scanner;
-
-	uint cursor;
-	WorkItem[WorkListCapacity] worklist;
 
 	// TODO: Use a different caching layer that
 	//       can cache negative results.
 	CachedExtentMap emap;
+
+	/**
+	 * Cold elements that benefit from being kept alive
+	 * across scan calls.
+	 */
+	AddressRange managedAddressSpace;
+	ubyte gcCycle;
+
+	LastDenseSlabCache ldsCache;
 
 public:
 	this(shared(Scanner)* scanner) {
@@ -258,6 +275,9 @@ public:
 
 		import d.gc.tcache;
 		this.emap = threadCache.emap;
+
+		this.managedAddressSpace = scanner.managedAddressSpace;
+		this.gcCycle = scanner.gcCycle;
 	}
 
 	void scan(const(void*)[] range) {
@@ -267,14 +287,31 @@ public:
 	}
 
 	void scan(WorkItem item) {
-		auto ms = scanner.managedAddressSpace;
-		auto cycle = scanner.gcCycle;
+		scanImpl!true(item, ldsCache);
+	}
 
-		AddressRange lastDenseSlab;
-		PageDescriptor lastDenseSlabPageDescriptor;
+	void scanBreadthFirst(WorkItem item, LastDenseSlabCache cache) {
+		scanImpl!false(item, cache);
+	}
 
-		import d.gc.slab;
-		BinInfo lastDenseBin;
+	void scanImpl(bool DepthFirst)(WorkItem item, LastDenseSlabCache cache) {
+		auto ms = managedAddressSpace;
+
+		auto lds = cache.slab;
+		auto ldpd = cache.pageDescriptor;
+		auto ldb = cache.bin;
+		scope(success) {
+			if (DepthFirst) {
+				ldsCache = LastDenseSlabCache(lds, ldpd, ldb);
+			}
+		}
+
+		// Depth first doesn't really need a worklist,
+		// but this makes sharing code easier.
+		enum WorkListCapacity = DepthFirst ? 1 : 16;
+
+		uint cursor;
+		WorkItem[WorkListCapacity] worklist;
 
 		while (true) {
 			auto range = item.range;
@@ -288,14 +325,14 @@ public:
 					continue;
 				}
 
-				if (lastDenseSlab.contains(ptr)) {
+				if (lds.contains(ptr)) {
 				MarkDense:
-					auto base = lastDenseSlab.ptr;
+					auto base = lds.ptr;
 					auto offset = ptr - base;
-					auto index = lastDenseBin.computeIndex(offset);
+					auto index = ldb.computeIndex(offset);
 
-					auto pd = lastDenseSlabPageDescriptor;
-					auto slotSize = lastDenseBin.slotSize;
+					auto pd = ldpd;
+					auto slotSize = ldb.slotSize;
 
 					if (!markDense(pd, index)) {
 						continue;
@@ -306,16 +343,16 @@ public:
 					}
 
 					auto i = WorkItem(base + index * slotSize, slotSize);
+					if (DepthFirst) {
+						scanBreadthFirst(i, LastDenseSlabCache(lds, ldpd, ldb));
+						continue;
+					}
+
 					if (likely(cursor < WorkListCapacity)) {
 						worklist[cursor++] = i;
 						continue;
 					}
 
-					/**
-					 * We want to make sure that no matter what, this worker processes
-					 * the WorkItem it is provided directly. Everything else in the
-					 * worklist can be sent to other threads.
-					 */
 					scanner.addToWorkList(worklist[0 .. WorkListCapacity]);
 
 					cursor = 1;
@@ -334,18 +371,16 @@ public:
 
 				auto ec = pd.extentClass;
 				if (ec.dense) {
-					lastDenseSlabPageDescriptor = pd;
-					lastDenseBin = binInfos[ec.sizeClass];
-
-					lastDenseSlab =
-						AddressRange(aptr - pd.index * PageSize,
-						             lastDenseBin.npages * PointerInPage);
+					ldpd = pd;
+					ldb = binInfos[ec.sizeClass];
+					lds = AddressRange(aptr - pd.index * PageSize,
+					                   ldb.npages * PointerInPage);
 
 					goto MarkDense;
 				}
 
 				if (ec.isLarge()) {
-					if (!markLarge(pd, cycle)) {
+					if (!markLarge(pd, gcCycle)) {
 						continue;
 					}
 
@@ -358,7 +393,7 @@ public:
 
 					// Make sure we do not starve ourselves. If we do not have
 					// work in advance, then just keep some of it for ourselves.
-					if (cursor == 0) {
+					if (DepthFirst && cursor == 0) {
 						worklist[cursor++] = WorkItem.extractFromRange(range);
 					}
 
@@ -366,9 +401,8 @@ public:
 					continue;
 				}
 
-				import d.gc.slab;
 				auto se = SlabEntry(pd, ptr);
-				if (!markSparse(pd, se.index, cycle)) {
+				if (!markSparse(pd, se.index, gcCycle)) {
 					continue;
 				}
 
@@ -379,7 +413,7 @@ public:
 				// Make sure we do not starve ourselves. If we do not have
 				// work in advance, then just keep some of it for ourselves.
 				auto i = WorkItem(se.computeRange());
-				if (cursor == 0) {
+				if (DepthFirst && cursor == 0) {
 					worklist[cursor++] = i;
 				} else {
 					scanner.addToWorkList(i);
