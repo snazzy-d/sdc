@@ -82,7 +82,7 @@ public:
 
 		// The thread is busy, put it to sleep!
 		if (s != SignaledState) {
-			state.fetchAdd(1);
+			delaySuspension(s);
 			return false;
 		}
 
@@ -135,6 +135,20 @@ package:
 	}
 
 private:
+
+	void delaySuspension(size_t s) {
+		while (true) {
+			auto n = s + SuspendState.Signaled;
+
+			assert(status(s) == SuspendState.Signaled);
+			assert(status(n) == SuspendState.Delayed);
+
+			if (state.casWeak(s, n)) {
+				break;
+			}
+		}
+	}
+
 	bool exitBusyStateSlow(size_t s) {
 		while (true) {
 			assert(s >= BusyIncrement);
@@ -255,13 +269,6 @@ unittest suspend {
 
 	auto autoResumeThreadID = runThread(autoResume);
 
-	scope(exit) {
-		mustStop.store(1);
-
-		void* ret;
-		pthread_join(autoResumeThreadID, &ret);
-	}
-
 	void check(SuspendState ss, bool busy, uint suspendCount) {
 		assert(s.suspendState == ss);
 		assert(s.busy == busy);
@@ -294,4 +301,9 @@ unittest suspend {
 
 	assert(s.exitBusyState());
 	check(SuspendState.None, false, 2);
+
+	mustStop.store(1);
+
+	void* ret;
+	pthread_join(autoResumeThreadID, &ret);
 }
