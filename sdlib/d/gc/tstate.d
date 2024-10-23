@@ -77,19 +77,28 @@ public:
 	}
 
 	bool onSuspendSignal() {
-		// Sets the status to Delayed no matter what.
-		auto s = state.fetchAdd(1);
-		assert(status(s) == SuspendState.Signaled);
+		auto s = state.load();
 
-		// The thread is busy, put it to sleep!
-		if (s != SignaledState) {
-			return false;
+		while (true) {
+			assert(status(s) == SuspendState.Signaled);
+
+			// If the thread isn't busy, we can suspend
+			// from the signal handler.
+			if (s == SignaledState) {
+				import d.gc.signal;
+				suspendThreadFromSignal(&this);
+
+				return true;
+			}
+
+			// The thread is busy, delay suspension.
+			auto n = s + SuspendState.Signaled;
+			assert(status(n) == SuspendState.Delayed);
+
+			if (state.casWeak(s, n)) {
+				return false;
+			}
 		}
-
-		import d.gc.signal;
-		suspendThreadFromSignal(&this);
-
-		return true;
 	}
 
 	void sendResumeSignal() {
@@ -129,7 +138,7 @@ package:
 	void markSuspended() {
 		// The status to delayed because of the fetchAdd in onSuspendSignal.
 		auto s = state.load();
-		assert(s == DelayedState || s == MustSuspendState);
+		assert(s == SignaledState || s == MustSuspendState);
 
 		state.store(SuspendedState);
 	}
