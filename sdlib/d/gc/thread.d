@@ -9,6 +9,9 @@ void createProcess() {
 	enterBusyState();
 	scope(exit) exitBusyState();
 
+	import d.gc.fork;
+	setupFork();
+
 	import d.gc.signal;
 	setupSignals();
 

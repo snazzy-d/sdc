@@ -84,6 +84,17 @@ public:
 		}
 	}
 
+	/**
+	 * /!\: This will reset the state of the mutex.
+	 *      If it was locked, it is now unlocked.
+	 *      If there were thread witing for it, they are probably
+	 *      lost forever.
+	 *      This method is almost certainly not what you want to use.
+	 */
+	void __clear() shared {
+		word.store(0);
+	}
+
 private:
 	enum Handoff {
 		None,

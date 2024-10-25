@@ -97,6 +97,18 @@ private:
 	}
 }
 
+void collectorPrepareForFork() {
+	gCollectorState.mutex.lock();
+}
+
+void collectorPostForkParent() {
+	gCollectorState.mutex.unlock();
+}
+
+void collectorPostForkChild() {
+	gCollectorState.mutex.__clear();
+}
+
 private:
 struct CollectorState {
 private:

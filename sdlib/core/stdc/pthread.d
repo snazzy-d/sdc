@@ -15,6 +15,9 @@ int pthread_create(pthread_t* thread, const pthread_attr_t* attr,
 int pthread_cancel(pthread_t thread);
 int pthread_join(pthread_t th, void** thread_return);
 
+int pthread_atfork(void function() prepare, void function() parent,
+                   void function() child);
+
 version(linux) {
 	int pthread_getattr_np(pthread_t __th, pthread_attr_t* __attr);
 	int pthread_attr_getstack(const pthread_attr_t* __attr, void** __stackaddr,
