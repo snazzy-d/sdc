@@ -64,15 +64,16 @@ bool isDetached(pid_t tid) {
 		}
 	}
 
-	if (pending == 0) {
+	import d.gc.signal;
+	auto sigmask = 1UL << (SIGSUSPEND - 1);
+
+	if ((pending & sigmask) == 0) {
 		// There are no signal pending here, move on.
 		return false;
 	}
 
-	import d.gc.signal;
-	auto test = 1UL << (SIGSUSPEND - 1);
-	auto mask = blocked | ignored;
-	return (test & mask) != 0;
+	auto all = blocked | ignored;
+	return (all & sigmask) != 0;
 }
 
 private:
