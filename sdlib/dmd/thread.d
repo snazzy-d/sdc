@@ -26,8 +26,8 @@ void __sd_scanAllThreadsFn(ScanDg* context, void* start, void* stop) {
 
 // sdrt API.
 void __sd_gc_global_scan(ScanDg scan) {
-	import d.gc.global;
 	// Scan all registered roots and ranges.
+	import d.gc.global;
 	gState.scanRoots(scan);
 
 	import d.gc.thread;

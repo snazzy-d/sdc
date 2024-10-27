@@ -30,7 +30,7 @@ bool __sd_gc_fetch_alloc_info(void* ptr, void** base, size_t* size,
 	*pd = threadCache.maybeGetPageDescriptor(ptr);
 	auto e = pd.extent;
 	*flags = cast(BlkAttr) 0;
-	if (!e) {
+	if (e is null) {
 		return false;
 	}
 
@@ -71,7 +71,7 @@ bool __sd_gc_shrink_array_used(void* ptr, size_t newUsed, size_t existingUsed) {
 	assert(newUsed <= existingUsed);
 	auto pd = threadCache.maybeGetPageDescriptor(ptr);
 	auto e = pd.extent;
-	if (!e) {
+	if (e is null) {
 		return false;
 	}
 
