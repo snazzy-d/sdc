@@ -52,7 +52,7 @@ void* __sd_gc_realloc(void* ptr, size_t size) {
 }
 
 void __sd_gc_tl_flush_cache() {
-	threadCache.flushCache();
+	threadCache.flush();
 }
 
 /**

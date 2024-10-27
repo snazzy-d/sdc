@@ -71,7 +71,7 @@ private:
 		 * 
 		 * Alternatively, we could make sure the slots are marked.
 		 */
-		threadCache.flushCache();
+		threadCache.flush();
 
 		collect(gcCycle);
 	}

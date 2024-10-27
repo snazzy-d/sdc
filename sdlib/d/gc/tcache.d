@@ -155,7 +155,7 @@ public:
 		scope(exit) state.exitBusyState();
 
 		clearTLSSegments();
-		flushCache();
+		flush();
 	}
 
 	void* alloc(size_t size, bool containsPointers, bool zero) {
@@ -338,7 +338,7 @@ public:
 		return newPtr;
 	}
 
-	void flushCache() {
+	void flush() {
 		state.enterBusyState();
 		scope(exit) state.exitBusyState();
 
