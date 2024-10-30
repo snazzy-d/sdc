@@ -333,7 +333,8 @@ public:
 					auto index = ldb.computeIndex(offset);
 
 					auto pd = ldpd;
-					auto slotSize = ldb.slotSize;
+					assert(pd.extent !is null);
+					assert(pd.extent.contains(ptr));
 
 					if (!markDense(pd, index)) {
 						continue;
@@ -343,6 +344,7 @@ public:
 						continue;
 					}
 
+					auto slotSize = ldb.slotSize;
 					auto i = WorkItem(base + index * slotSize, slotSize);
 					if (DepthFirst) {
 						scanBreadthFirst(i, LastDenseSlabCache(lds, ldpd, ldb));
@@ -372,10 +374,12 @@ public:
 
 				auto ec = pd.extentClass;
 				if (ec.dense) {
+					assert(e !is ldpd.extent);
+
 					ldpd = pd;
 					ldb = binInfos[ec.sizeClass];
 					lds = AddressRange(aptr - pd.index * PageSize,
-					                   ldb.npages * PointerInPage);
+					                   ldb.npages * PageSize);
 
 					goto MarkDense;
 				}
