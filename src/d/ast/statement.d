@@ -201,8 +201,13 @@ class ForeachRangeStatement : LoopStatement {
  * continue statements
  */
 class ContinueStatement : Statement {
-	this(Location location) {
+	import source.name;
+	Name label;
+
+	this(Location location, Name label) {
 		super(location);
+
+		this.label = label;
 	}
 }
 
@@ -240,8 +245,13 @@ class CaseStatement : Statement {
  * break statements
  */
 class BreakStatement : Statement {
-	this(Location location) {
+	import source.name;
+	Name label;
+
+	this(Location location, Name label) {
 		super(location);
+
+		this.label = label;
 	}
 }
 

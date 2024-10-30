@@ -180,22 +180,31 @@ Statement parseStatement(ref TokenRange trange) {
 			return new ReturnStatement(location.spanTo(trange.previous), value);
 
 		case Break:
+			import source.name;
+			Name label;
+
 			trange.popFront();
 			if (trange.front.type == Identifier) {
+				label = trange.front.name;
 				trange.popFront();
 			}
 
 			trange.match(Semicolon);
-			return new BreakStatement(location.spanTo(trange.previous));
+			return new BreakStatement(location.spanTo(trange.previous), label);
 
 		case Continue:
+			import source.name;
+			Name label;
+
 			trange.popFront();
 			if (trange.front.type == Identifier) {
+				label = trange.front.name;
 				trange.popFront();
 			}
 
 			trange.match(Semicolon);
-			return new ContinueStatement(location.spanTo(trange.previous));
+			return
+				new ContinueStatement(location.spanTo(trange.previous), label);
 
 		case Switch:
 			trange.popFront();
@@ -237,10 +246,10 @@ Statement parseStatement(ref TokenRange trange) {
 			                            statement);
 
 		case Goto:
-			trange.popFront();
-
 			import source.name;
 			Name label;
+
+			trange.popFront();
 			switch (trange.front.type) {
 				case Identifier:
 				case Default:

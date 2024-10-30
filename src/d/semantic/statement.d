@@ -56,6 +56,7 @@ private:
 	Label continueLabel;
 
 	Label[Name] labels;
+	Label[Name] namedContinues;
 
 	// Forward goto can only be resolved when the label is reached.
 	struct UnresolvedGoto {
@@ -560,12 +561,17 @@ public:
 		return maybeBranchTo(location, l.block);
 	}
 
-	Label getBreakLabel(Location location) {
+	Label getBreakLabel(Location location, Name name = BuiltinName!"") {
+		if (name != BuiltinName!"") {
+			import source.exception;
+			throw new CompileException(
+				location, "Labeled break statement are not supported.");
+		}
+
 		if (breakLabel) {
 			return breakLabel;
 		}
 
-		Name name;
 		final switch (breakKind) with (BreakKind) {
 			case None:
 				import source.exception;
@@ -586,10 +592,21 @@ public:
 	}
 
 	void visit(BreakStatement s) {
-		unwindAndBranch(s.location, getBreakLabel(s.location));
+		unwindAndBranch(s.location, getBreakLabel(s.location, s.label));
 	}
 
-	Label getContinueLabel(Location location) {
+	Label getContinueLabel(Location location, Name name) {
+		if (name != BuiltinName!"") {
+			if (auto cPtr = name in namedContinues) {
+				return *cPtr;
+			}
+
+			import source.exception;
+			throw new CompileException(
+				location, "No corresponding label for this continue statement."
+			);
+		}
+
 		if (continueLabel) {
 			return continueLabel;
 		}
@@ -600,11 +617,11 @@ public:
 	}
 
 	void visit(ContinueStatement s) {
-		unwindAndBranch(s.location, getContinueLabel(s.location));
+		unwindAndBranch(s.location, getContinueLabel(s.location, s.label));
 	}
 
 	void visit(ReturnStatement s) {
-		// TODO: precompute autotype instead of managing it here.
+		// TODO: precompute auto type instead of managing it here.
 		auto rt = returnType.getType();
 		auto isAutoReturn = rt.kind == TypeKind.Builtin
 			&& rt.qualifier == TypeQualifier.Mutable
@@ -847,7 +864,12 @@ public:
 		labelStacks[name] = varStack;
 
 		fixupGoto(s.location, name, label);
-		visit(s.statement);
+
+		if (auto ls = cast(LoopStatement) s.statement) {
+			LoopVisitor(&this, name).visit(ls);
+		} else {
+			visit(s.statement);
+		}
 	}
 
 	void visit(GotoStatement s) {
@@ -1304,6 +1326,8 @@ struct LoopVisitor {
 	StatementVisitor* pass;
 	alias pass this;
 
+	Name label;
+
 	void visit(LoopStatement s) {
 		// FIXME: Remove fallback.
 		this.dispatch(s);
@@ -1362,6 +1386,21 @@ struct LoopVisitor {
 
 		continueLabel = Label(incBlock, cast(uint) unwindActions.length);
 		breakLabel = Label(BasicBlockRef.init, cast(uint) unwindActions.length);
+
+		/**
+		 * We could do the same for break statement, but this is more complex.
+		 * At this stage, we do not know if the break point is reachable or not,
+		 * and by the time we compute that, only the inner loop is available.
+		 */
+		if (label != BuiltinName!"") {
+			namedContinues[label] = continueLabel;
+		}
+
+		scope(exit) {
+			if (label != BuiltinName!"") {
+				namedContinues.remove(label);
+			}
+		}
 
 		if (element !is null) {
 			currentBlock.alloca(element.location, element);
