@@ -372,121 +372,31 @@ public:
 			.branch(s.location, buildCondition(s.condition), ifTrue, ifFalse);
 	}
 
-	void genLoop(
-		Location location,
-		Expression condition,
-		Statement statement,
-		Expression increment,
-		Variable element = null,
-		bool skipFirstCond = false,
-	) {
-		auto oldBreakKind = breakKind;
-		auto oldBreakLabel = breakLabel;
-		auto oldContinueLabel = continueLabel;
-		scope(exit) {
-			currentBlockRef = breakLabel.block;
-
-			breakKind = oldBreakKind;
-			breakLabel = oldBreakLabel;
-			continueLabel = oldContinueLabel;
-		}
-
-		breakKind = BreakKind.Loop;
-
-		auto entryBlock = currentBlockRef;
-		auto incBlock = startNewBranch(BuiltinName!"loop.continue");
-		if (increment) {
-			currentBlock.eval(increment.location, increment);
-		}
-
-		auto testBlock =
-			maybeBranchToNewBlock(location, BuiltinName!"loop.test");
-		auto bodyBlock = startNewBranch(BuiltinName!"loop.body");
-
-		continueLabel = Label(incBlock, cast(uint) unwindActions.length);
-		breakLabel = Label(BasicBlockRef.init, cast(uint) unwindActions.length);
-
-		if (element !is null) {
-			currentBlock.alloca(element.location, element);
-		}
-
-		autoBlock(statement);
-		maybeBranchTo(location, incBlock);
-
-		fbody[entryBlock]
-			.branch(location, skipFirstCond ? bodyBlock : testBlock);
-
-		if (condition) {
-			auto breakLabel = getBreakLabel(location);
-			fbody[testBlock]
-				.branch(location, condition, bodyBlock, breakLabel.block);
-		} else {
-			fbody[testBlock].branch(location, bodyBlock);
-		}
-	}
-
-	void genLoop(
-		Location location,
-		AstExpression condition,
-		Statement statement,
-		AstExpression increment = null,
-		Variable element = null,
-		bool skipFirstCond = false,
-	) {
-		Expression cond, inc;
-
-		static isTrivialTrue(AstExpression c) {
-			if (c is null) {
-				return true;
-			}
-
-			if (auto b = cast(BooleanLiteral) c) {
-				return b.value;
-			}
-
-			if (auto i = cast(IntegerLiteral) c) {
-				return i.value != 0;
-			}
-
-			return false;
-		}
-
-		if (!isTrivialTrue(condition)) {
-			cond = buildCondition(condition);
-		}
-
-		if (increment) {
-			inc = buildExpression(increment);
-		}
-
-		genLoop(location, cond, statement, inc, element, skipFirstCond);
-	}
-
 	void visit(WhileStatement w) {
-		genLoop(w.location, w.condition, w.statement);
+		LoopVisitor(&this).visit(w);
 	}
 
 	void visit(DoWhileStatement w) {
-		genLoop(w.location, w.condition, w.statement, null, null, true);
+		LoopVisitor(&this).visit(w);
 	}
 
 	void visit(ForStatement f) {
-		buildBlock(f.location, f);
+		LoopVisitor(&this).visit(f);
 	}
 
-	void process(ForStatement f) {
+	void process(ForStatement f, LoopVisitor* lv) {
 		if (f.initialize) {
 			visit(f.initialize);
 		}
 
-		genLoop(f.location, f.condition, f.statement, f.increment);
+		lv.genLoop(f.location, f.condition, f.statement, f.increment);
 	}
 
 	void visit(ForeachStatement f) {
-		buildBlock(f.location, f);
+		LoopVisitor(&this).visit(f);
 	}
 
-	void process(ForeachStatement f) {
+	void process(ForeachStatement f, LoopVisitor* lv) {
 		assert(!f.reverse, "foreach_reverse not supported at this point.");
 
 		import d.semantic.expression;
@@ -582,14 +492,14 @@ public:
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);
 
-		genLoop(loc, condition, f.statement, increment, element);
+		lv.genLoop(loc, condition, f.statement, increment, element);
 	}
 
 	void visit(ForeachRangeStatement f) {
-		buildBlock(f.location, f);
+		LoopVisitor(&this).visit(f);
 	}
 
-	void process(ForeachRangeStatement f) {
+	void process(ForeachRangeStatement f, LoopVisitor* lv) {
 		import d.semantic.expression;
 		auto start = ExpressionVisitor(pass).visit(f.start);
 		auto stop = ExpressionVisitor(pass).visit(f.stop);
@@ -641,7 +551,56 @@ public:
 				build!UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
 		}
 
-		genLoop(loc, condition, f.statement, increment);
+		lv.genLoop(loc, condition, f.statement, increment);
+	}
+
+	private BasicBlockRef unwindAndBranch(Location location, Label l)
+			in(l, "Invalid label") {
+		closeBlockTo(l.level);
+		return maybeBranchTo(location, l.block);
+	}
+
+	Label getBreakLabel(Location location) {
+		if (breakLabel) {
+			return breakLabel;
+		}
+
+		Name name;
+		final switch (breakKind) with (BreakKind) {
+			case None:
+				import source.exception;
+				throw new CompileException(
+					location, "Cannot break outside of switches and loops.");
+
+			case Loop:
+				name = BuiltinName!"loop.exit";
+				break;
+
+			case Switch:
+				name = BuiltinName!"endswitch";
+				break;
+		}
+
+		breakLabel.block = makeNewBranch(name);
+		return breakLabel;
+	}
+
+	void visit(BreakStatement s) {
+		unwindAndBranch(s.location, getBreakLabel(s.location));
+	}
+
+	Label getContinueLabel(Location location) {
+		if (continueLabel) {
+			return continueLabel;
+		}
+
+		import source.exception;
+		throw
+			new CompileException(location, "Cannot continue outside of loops.");
+	}
+
+	void visit(ContinueStatement s) {
+		unwindAndBranch(s.location, getContinueLabel(s.location));
 	}
 
 	void visit(ReturnStatement s) {
@@ -716,51 +675,6 @@ public:
 		if (!terminate) {
 			currentBlock.ret(s.location, check(value));
 		}
-	}
-
-	private BasicBlockRef unwindAndBranch(Location location, Label l)
-			in(l, "Invalid label") {
-		closeBlockTo(l.level);
-		return maybeBranchTo(location, l.block);
-	}
-
-	Label getBreakLabel(Location location) {
-		if (breakLabel) {
-			return breakLabel;
-		}
-
-		Name name;
-		final switch (breakKind) with (BreakKind) {
-			case None:
-				import source.exception;
-				throw new CompileException(
-					location, "Cannot break outside of switches and loops");
-
-			case Loop:
-				name = BuiltinName!"loop.exit";
-				break;
-
-			case Switch:
-				name = BuiltinName!"endswitch";
-				break;
-		}
-
-		breakLabel.block = makeNewBranch(name);
-		return breakLabel;
-	}
-
-	void visit(BreakStatement s) {
-		unwindAndBranch(s.location, getBreakLabel(s.location));
-	}
-
-	void visit(ContinueStatement s) {
-		if (!continueLabel) {
-			import source.exception;
-			throw new CompileException(s.location,
-			                           "Cannot continue outside of loops");
-		}
-
-		unwindAndBranch(s.location, continueLabel);
 	}
 
 	void visit(SwitchStatement s) {
@@ -924,7 +838,7 @@ public:
 
 		if (name in labels) {
 			import source.exception;
-			throw new CompileException(s.location, "Label is already defined");
+			throw new CompileException(s.location, "Label is already defined.");
 		}
 
 		auto labelBlock = maybeBranchToNewBlock(s.location, name);
@@ -1384,4 +1298,124 @@ unittest {
 		== ScopeKind.Success.asOriginalType());
 	static assert(UnwindKind.Failure.asOriginalType()
 		== ScopeKind.Failure.asOriginalType());
+}
+
+struct LoopVisitor {
+	StatementVisitor* pass;
+	alias pass this;
+
+	void visit(LoopStatement s) {
+		// FIXME: Remove fallback.
+		this.dispatch(s);
+	}
+
+	void visit(WhileStatement w) {
+		genLoop(w.location, w.condition, w.statement);
+	}
+
+	void visit(DoWhileStatement w) {
+		genLoop(w.location, w.condition, w.statement, null, null, true);
+	}
+
+	void visit(ForStatement f) {
+		buildBlock(f.location, f, &this);
+	}
+
+	void visit(ForeachStatement f) {
+		buildBlock(f.location, f, &this);
+	}
+
+	void visit(ForeachRangeStatement f) {
+		buildBlock(f.location, f, &this);
+	}
+
+	void genLoop(
+		Location location,
+		Expression condition,
+		Statement statement,
+		Expression increment,
+		Variable element = null,
+		bool skipFirstCond = false,
+	) {
+		auto oldBreakKind = breakKind;
+		auto oldBreakLabel = breakLabel;
+		auto oldContinueLabel = continueLabel;
+		scope(exit) {
+			currentBlockRef = breakLabel.block;
+
+			breakKind = oldBreakKind;
+			breakLabel = oldBreakLabel;
+			continueLabel = oldContinueLabel;
+		}
+
+		breakKind = BreakKind.Loop;
+
+		auto entryBlock = currentBlockRef;
+		auto incBlock = startNewBranch(BuiltinName!"loop.continue");
+		if (increment) {
+			currentBlock.eval(increment.location, increment);
+		}
+
+		auto testBlock =
+			maybeBranchToNewBlock(location, BuiltinName!"loop.test");
+		auto bodyBlock = startNewBranch(BuiltinName!"loop.body");
+
+		continueLabel = Label(incBlock, cast(uint) unwindActions.length);
+		breakLabel = Label(BasicBlockRef.init, cast(uint) unwindActions.length);
+
+		if (element !is null) {
+			currentBlock.alloca(element.location, element);
+		}
+
+		autoBlock(statement);
+		maybeBranchTo(location, incBlock);
+
+		fbody[entryBlock]
+			.branch(location, skipFirstCond ? bodyBlock : testBlock);
+
+		if (condition) {
+			auto breakLabel = getBreakLabel(location);
+			fbody[testBlock]
+				.branch(location, condition, bodyBlock, breakLabel.block);
+		} else {
+			fbody[testBlock].branch(location, bodyBlock);
+		}
+	}
+
+	void genLoop(
+		Location location,
+		AstExpression condition,
+		Statement statement,
+		AstExpression increment = null,
+		Variable element = null,
+		bool skipFirstCond = false,
+	) {
+		Expression cond, inc;
+
+		static isTrivialTrue(AstExpression c) {
+			if (c is null) {
+				return true;
+			}
+
+			if (auto b = cast(BooleanLiteral) c) {
+				return b.value;
+			}
+
+			if (auto i = cast(IntegerLiteral) c) {
+				return i.value != 0;
+			}
+
+			return false;
+		}
+
+		if (!isTrivialTrue(condition)) {
+			cond = buildCondition(condition);
+		}
+
+		if (increment) {
+			inc = buildExpression(increment);
+		}
+
+		genLoop(location, cond, statement, inc, element, skipFirstCond);
+	}
 }

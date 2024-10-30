@@ -17,6 +17,12 @@ class Statement : Node {
 	}
 }
 
+class LoopStatement : Statement {
+	this(Location location) {
+		super(location);
+	}
+}
+
 final:
 
 /**
@@ -102,7 +108,7 @@ class IfStatement : Statement {
 /**
  * while statements
  */
-class WhileStatement : Statement {
+class WhileStatement : LoopStatement {
 	AstExpression condition;
 	Statement statement;
 
@@ -117,7 +123,7 @@ class WhileStatement : Statement {
 /**
  * do .. while statements
  */
-class DoWhileStatement : Statement {
+class DoWhileStatement : LoopStatement {
 	AstExpression condition;
 	Statement statement;
 
@@ -132,7 +138,7 @@ class DoWhileStatement : Statement {
 /**
  * for statements
  */
-class ForStatement : Statement {
+class ForStatement : LoopStatement {
 	Statement initialize;
 	AstExpression condition;
 	AstExpression increment;
@@ -152,7 +158,7 @@ class ForStatement : Statement {
 /**
  * foreach statements
  */
-class ForeachStatement : Statement {
+class ForeachStatement : LoopStatement {
 	ParamDecl[] tupleElements;
 	AstExpression iterated;
 	Statement statement;
@@ -172,7 +178,7 @@ class ForeachStatement : Statement {
 /**
  * foreach statements
  */
-class ForeachRangeStatement : Statement {
+class ForeachRangeStatement : LoopStatement {
 	ParamDecl[] tupleElements;
 	AstExpression start;
 	AstExpression stop;
@@ -192,15 +198,11 @@ class ForeachRangeStatement : Statement {
 }
 
 /**
- * return statements
+ * continue statements
  */
-class ReturnStatement : Statement {
-	AstExpression value;
-
-	this(Location location, AstExpression value) {
+class ContinueStatement : Statement {
+	this(Location location) {
 		super(location);
-
-		this.value = value;
 	}
 }
 
@@ -244,11 +246,15 @@ class BreakStatement : Statement {
 }
 
 /**
- * continue statements
+ * return statements
  */
-class ContinueStatement : Statement {
-	this(Location location) {
+class ReturnStatement : Statement {
+	AstExpression value;
+
+	this(Location location, AstExpression value) {
 		super(location);
+
+		this.value = value;
 	}
 }
 
