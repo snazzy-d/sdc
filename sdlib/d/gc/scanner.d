@@ -298,12 +298,9 @@ public:
 	void scanImpl(bool DepthFirst)(WorkItem item, LastDenseSlabCache cache) {
 		auto ms = managedAddressSpace;
 
-		auto lds = cache.slab;
-		auto ldpd = cache.pageDescriptor;
-		auto ldb = cache.bin;
 		scope(success) {
 			if (DepthFirst) {
-				ldsCache = LastDenseSlabCache(lds, ldpd, ldb);
+				ldsCache = cache;
 			}
 		}
 
@@ -326,13 +323,15 @@ public:
 					continue;
 				}
 
-				if (lds.contains(ptr)) {
+				if (cache.slab.contains(ptr)) {
 				MarkDense:
-					auto base = lds.ptr;
+					auto base = cache.slab.ptr;
 					auto offset = ptr - base;
+
+					auto ldb = cache.bin;
 					auto index = ldb.computeIndex(offset);
 
-					auto pd = ldpd;
+					auto pd = cache.pageDescriptor;
 					assert(pd.extent !is null);
 					assert(pd.extent.contains(ptr));
 
@@ -347,7 +346,7 @@ public:
 					auto slotSize = ldb.slotSize;
 					auto i = WorkItem(base + index * slotSize, slotSize);
 					if (DepthFirst) {
-						scanBreadthFirst(i, LastDenseSlabCache(lds, ldpd, ldb));
+						scanBreadthFirst(i, cache);
 						continue;
 					}
 
@@ -374,13 +373,13 @@ public:
 
 				auto ec = pd.extentClass;
 				if (ec.dense) {
-					assert(e !is ldpd.extent);
+					assert(e !is cache.pageDescriptor.extent);
 
-					ldpd = pd;
-					ldb = binInfos[ec.sizeClass];
-					lds = AddressRange(aptr - pd.index * PageSize,
-					                   ldb.npages * PageSize);
+					auto ldb = binInfos[ec.sizeClass];
+					auto lds = AddressRange(aptr - pd.index * PageSize,
+					                        ldb.npages * PageSize);
 
+					cache = LastDenseSlabCache(lds, pd, ldb);
 					goto MarkDense;
 				}
 
