@@ -36,6 +36,7 @@ public:
 		auto nthreads = getCoreCount();
 		assert(nthreads >= 1, "Expected at least one thread!");
 
+		// nthreads = 1;
 		this(nthreads, gcCycle, managedAddressSpace);
 	}
 
@@ -384,7 +385,11 @@ public:
 						continue;
 					}
 
+					/*
 					auto capacity = e.usedCapacity;
+					/*/
+					auto capacity = e.size;
+					// */
 					if (!pd.containsPointers || capacity < PointerSize) {
 						continue;
 					}
@@ -581,5 +586,33 @@ unittest WorkItem {
 			auto ir = WorkItem(range);
 			assert(item.payload == ir.payload);
 		}
+	}
+
+	enum WorkUnit = WorkItem.WorkUnit;
+	enum MaxUnit = 3 * WorkUnit / 2;
+
+	foreach (size; 1 .. MaxUnit + 1) {
+		auto range = (cast(const(void*)*) ptr)[0 .. size];
+		auto w = WorkItem.extractFromRange(range);
+		assert(w.ptr is ptr);
+		assert(w.length is size * PointerSize);
+
+		assert(range.length == 0);
+	}
+
+	foreach (size; MaxUnit + 1 .. MaxUnit + WorkUnit + 1) {
+		auto range = (cast(const(void*)*) ptr)[0 .. size];
+		auto w = WorkItem.extractFromRange(range);
+
+		assert(w.ptr is ptr);
+		assert(w.length is WorkUnit * PointerSize);
+
+		assert(range.length == size - WorkUnit);
+
+		w = WorkItem.extractFromRange(range);
+		assert(w.ptr is ptr + WorkUnit * PointerSize);
+		assert(w.length is (size - WorkUnit) * PointerSize);
+
+		assert(range.length == 0);
 	}
 }
