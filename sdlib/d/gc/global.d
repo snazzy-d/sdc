@@ -18,8 +18,20 @@ private:
 
 public:
 	ubyte nextGCCycle() shared {
-		auto c = cycle.fetchAdd(1);
-		return (c + 1) & ubyte.max;
+		auto old = cycle.load();
+		while (true) {
+			/**
+			 * Because we initialize extents with cycle 0, we want to make sure
+			 * the chosen GC cycle is never 0. To do so, we ensure it is odd.
+			 * Alternatively, we could try to initialize the cycle to
+			 * a specific value. This is almost certainly necessary if we want
+			 * to go concurrent.
+			 */
+			ubyte c = ((old + 1) | 0x01) & 0xff;
+			if (cycle.casWeak(old, c)) {
+				return c;
+			}
+		}
 	}
 
 	/**
@@ -79,7 +91,7 @@ private:
 		auto index = roots.length;
 		auto length = index + 1;
 
-		// We realloc everytime. It doesn't really matter at this point.
+		// We realloc every time. It doesn't really matter at this point.
 		import d.gc.tcache;
 		ptr = threadCache.realloc(ptr, length * void*[].sizeof, true);
 		roots = (cast(const(void*)[]*) ptr)[0 .. length];
