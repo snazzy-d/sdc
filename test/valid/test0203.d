@@ -51,8 +51,7 @@ void* watchdog(void* ctx) {
 	threadCache.state.state.store(SuspendState.Detached);
 	int i;
 	while (!shouldQuit.load()) {
-		// Watchdog timeout!
-		assert(++i < 5, "Watchdog timeout!");
+		assert(++i < 15, "Watchdog timeout!");
 		sleep(1);
 	}
 

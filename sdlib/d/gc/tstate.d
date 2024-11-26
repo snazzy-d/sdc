@@ -158,7 +158,8 @@ public:
 			return;
 		}
 
-		// In Resumed state, we need to wait until the GC cycle is done before doing anything.
+		// In Probation state, we need to wait until the GC cycle is
+		// done before doing anything.
 		busyWaitMutex.lock();
 		scope(exit) busyWaitMutex.unlock();
 		busyWaitMutex.waitFor(offProbation);
@@ -304,9 +305,9 @@ unittest suspend {
 		mustStop = true;
 	}
 
-	bool waitForState(SuspendState state, bool noBusy) {
+	bool waitForState(SuspendState state, bool needBusy) {
 		// Wait for the main thread to progress to the given state
-		while (!mustStop && s.suspendState != state, && (noBusy || s.busy)) {
+		while (!mustStop && s.suspendState != state || (needBusy && !s.busy)) {
 			// Make sure we leave the opportunity to update mustStop!
 			mutex.unlock();
 			scope(exit) mutex.lock();
@@ -318,22 +319,6 @@ unittest suspend {
 		return !mustStop;
 	}
 
-	bool checkProbation() {
-		/*
-		 * Clear probation when in busy state, the main thread will
-		 * have locked and is waiting for an external thread to clear
-		 * it.
-		 */
-		if (s.suspendState != SuspendState.Probation || !s.busy) {
-			return false;
-		}
-
-		lockedProbationCount.fetchAdd(1);
-
-		s.clearProbationState();
-		return true;
-	}
-
 	void* autoResume() {
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -342,7 +327,7 @@ unittest suspend {
 		uint nextStep = 1;
 
 		while (true) {
-			if (!waitForState(SuspendState.Suspended, true)) {
+			if (!waitForState(SuspendState.Suspended, false)) {
 				break;
 			}
 
@@ -367,7 +352,7 @@ unittest suspend {
 			}
 
 			// wait for the probation state
-			if (!waitForState(SuspendState.Probation, false)) {
+			if (!waitForState(SuspendState.Probation, true)) {
 				break;
 			}
 
@@ -391,7 +376,8 @@ unittest suspend {
 		pthread_join(autoResumeThreadID, &ret);
 	}
 
-	void check(SuspendState ss, bool busy, uint suspendCount, uint probationCount) {
+	void check(SuspendState ss, bool busy, uint suspendCount,
+	           uint probationCount) {
 		assert(s.suspendState == ss);
 		assert(s.busy == busy);
 		assert(resumeCount.load() == suspendCount);
@@ -408,7 +394,7 @@ unittest suspend {
 	assert(s.onSuspendSignal());
 	check(SuspendState.Probation, false, 1, 0);
 
-	// Clear the probation
+	// Clear the probation.
 	s.clearProbationState();
 	check(SuspendState.None, false, 1, 0);
 	moveToNextStep();
@@ -431,7 +417,7 @@ unittest suspend {
 	check(SuspendState.Probation, false, 2, 0);
 	moveToNextStep();
 
-	// Enter busy state while on probation
+	// Enter busy state while on probation.
 	s.enterBusyState();
 	check(SuspendState.None, true, 2, 1);
 
