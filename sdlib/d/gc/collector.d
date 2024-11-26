@@ -74,6 +74,14 @@ private:
 		threadCache.flush();
 
 		collect(gcCycle);
+
+		/**
+		 * Removing roots cannot realloc while inside a finalizer,
+		 * because that could cause a deadlock. So we must periodically
+		 * minimize the roots array, never when inside the collect
+		 * phase.
+		 */
+		gState.minimizeRoots();
 	}
 
 	void prepareGCCycle() {
