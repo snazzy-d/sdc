@@ -603,7 +603,7 @@ private:
 	bool maybeRunGCCycle() {
 		// If the GC is disabled or we have not reached the point
 		// at which we try to collect, move on.
-		if (!enableGC || allocated < nextGCRun) {
+		if (likely(allocated < nextGCRun) || !enableGC) {
 			return false;
 		}
 
@@ -613,12 +613,11 @@ private:
 			return false;
 		}
 
+		nextGCRun = allocated + BlockSize;
+
 		import d.gc.collector;
 		auto collector = Collector(&this);
-		auto didRun = collector.maybeRunGCCycle();
-
-		nextGCRun = allocated + BlockSize;
-		return didRun;
+		return collector.maybeRunGCCycle();
 	}
 
 	/**
