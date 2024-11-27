@@ -55,35 +55,22 @@ public:
 		auto threadCount = activeThreads - 1;
 		auto threadsPtr =
 			cast(pthread_t*) alloca(pthread_t.sizeof * threadCount);
+
 		auto threads = threadsPtr[0 .. threadCount];
-
-		static void* markThreadEntry(void* ctx) {
-			import d.gc.tcache;
-			threadCache.activateGC(false);
-
-			(cast(shared(Scanner*)) ctx).runMark();
-			return null;
-		}
-
-		// First thing, start the worker threads, so they can do work ASAP.
-		foreach (ref tid; threads) {
-			pthread_create(&tid, null, markThreadEntry, cast(void*) &this);
-		}
+		import d.gc.threadpool;
+		shared ThreadPool threadPool;
+		threadPool.startThreads(threads);
 
 		// Scan the roots.
 		__sd_gc_global_scan(addToWorkList);
 
-		// Now send this thread marking!
-		runMark();
+		threadPool.dispatch(runMark, activeThreads, true);
 
-		// We now done, we can free the worklist.
+		threadPool.joinAll();
+
+		// We now are done, we can free the worklist.
 		import d.gc.tcache;
 		threadCache.free(cast(void*) worklist.ptr);
-
-		foreach (tid; threads) {
-			void* ret;
-			pthread_join(tid, &ret);
-		}
 	}
 
 	void addToWorkList(WorkItem[] items) shared {
@@ -118,7 +105,11 @@ public:
 	}
 
 private:
-	void runMark() shared {
+	void runMark(uint idx) shared {
+		import d.gc.tcache;
+		// Note: in the main thrad, the GC will be reactivated later,
+		// so it is always safe to do this here.
+		threadCache.activateGC(false);
 		auto worker = Worker(&this);
 
 		/**

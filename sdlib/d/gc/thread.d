@@ -78,6 +78,10 @@ void restartTheWorld() {
 	gThreadState.restartTheWorld();
 }
 
+void detachSelf() {
+	threadCache.state.detach();
+}
+
 void threadScan(ScanDg scan) {
 	// Scan the registered TLS segments.
 	foreach (s; threadCache.tlsSegments) {
@@ -263,7 +267,7 @@ private:
 			if (count > 32 && ss == SuspendState.Signaled) {
 				import d.gc.proc;
 				if (isDetached(tc.tid)) {
-					tc.state.detach();
+					tc.state.assumeDetached();
 					continue;
 				}
 			}
