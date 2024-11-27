@@ -390,7 +390,13 @@ private:
 		}
 
 		// We are about to allocate, make room for it if needed.
-		maybeRunGCCycle();
+		if (maybeRunGCCycle()) {
+			// The bin might have gained a pointer through a
+			// finalizer.
+			if (bin.allocate(ptr)) {
+				return ptr;
+			}
+		}
 
 		// The bin is empty, refill.
 		{
@@ -594,17 +600,17 @@ private:
 	/**
 	 * GC facilities
 	 */
-	void maybeRunGCCycle() {
+	bool maybeRunGCCycle() {
 		// If the GC is disabled or we have not reached the point
 		// at which we try to collect, move on.
 		if (!enableGC || allocated < nextGCRun) {
-			return;
+			return false;
 		}
 
 		// Do not run GC cycles when we are busy as another thread
 		// might be trying to run its own GC cycle and waiting on us.
 		if (state.busy) {
-			return;
+			return false;
 		}
 
 		import d.gc.collector;
@@ -612,6 +618,7 @@ private:
 		auto didRun = collector.maybeRunGCCycle();
 
 		nextGCRun = allocated + BlockSize;
+		return didRun;
 	}
 
 	/**
