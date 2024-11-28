@@ -83,6 +83,22 @@ public:
 		(cast(GCState*) &this).scanRootsImpl(scan);
 	}
 
+	/**
+	 * Tidy up any root structure. This should be called periodically to
+	 * ensure the roots structure does not become too large. Should not be
+	 * called during collection.
+	 */
+	void minimizeRoots() shared {
+		import d.gc.thread;
+		enterBusyState();
+		scope(exit) exitBusyState();
+
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		(cast(GCState*) &this).minimizeRootsImpl();
+	}
+
 private:
 	void addRootsImpl(const void[] range) {
 		assert(mutex.isHeld(), "Mutex not held!");
@@ -125,12 +141,21 @@ private:
 			roots[i] = roots[length];
 			roots[length] = [];
 
-			import d.gc.tcache;
-			auto newRoots =
-				threadCache.realloc(roots.ptr, length * void*[].sizeof, true);
-			roots = (cast(const(void*)[]*) newRoots)[0 .. length];
+			roots = roots[0 .. length];
+
 			break;
 		}
+	}
+
+	void minimizeRootsImpl() {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto length = roots.length;
+
+		import d.gc.tcache;
+		auto newRoots =
+			threadCache.realloc(roots.ptr, length * void*[].sizeof, true);
+		roots = (cast(const(void*)[]*) newRoots)[0 .. length];
 	}
 
 	void scanRootsImpl(ScanDg scan) {
