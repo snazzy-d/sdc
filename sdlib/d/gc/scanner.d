@@ -454,18 +454,7 @@ private:
 		}
 
 		auto ec = pd.extentClass;
-		if (ec.supportsInlineMarking) {
-			if (e.slabMetadataMarks.setBitAtomic(index)) {
-				return false;
-			}
-		} else {
-			auto bmp = &e.outlineMarks;
-			if (bmp is null || bmp.setBitAtomic(index)) {
-				return false;
-			}
-		}
-
-		return true;
+		return e.markDenseSlot(index);
 	}
 
 	static bool markSparse(PageDescriptor pd, uint index, ubyte cycle) {
