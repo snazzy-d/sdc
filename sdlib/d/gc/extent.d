@@ -526,6 +526,25 @@ public:
 		return bmp !is null && !bmp.setBitAtomic(index);
 	}
 
+	ulong getMarksSparse(ubyte gcCycle) {
+		assert(extentClass.sparse, "Size class not sparse!");
+		assert(!isLarge(), "Size class large!");
+
+		auto w = gcWord.load();
+		auto markCycle = w & 0xff;
+		if (markCycle == gcCycle) {
+			return w >> 8;
+		}
+
+		return 0;
+	}
+
+	bool isMarkedLarge(ubyte gcCycle) {
+		assert(isLarge(), "Size class not large!");
+
+		return gcCycle == gcWord.load();
+	}
+
 	@property
 	ref shared(Atomic!ulong) gcWord() {
 		assert(extentClass.sparse, "size class not sparse!");
