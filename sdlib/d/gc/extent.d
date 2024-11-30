@@ -482,6 +482,40 @@ public:
 		return *_gcMetadata.outlineBitmap;
 	}
 
+	bool markSparseSlot(ubyte gcCycle, uint index) {
+		assert(extentClass.sparse, "size class not sparse!");
+		assert(!isLarge(), "size class large!");
+		auto bit = 0x100 << index;
+
+		auto old = gcWord.load();
+		while ((old & 0xff) != gcCycle) {
+			if (gcWord.casWeak(old, gcCycle | bit)) {
+				return true;
+			}
+		}
+
+		if (old & bit) {
+			return false;
+		}
+
+		old = gcWord.fetchOr(bit);
+		return (old & bit) == 0;
+	}
+
+	bool markLarge(ubyte gcCycle) {
+		assert(isLarge(), "size class not large!");
+		auto old = gcWord.load();
+		while (true) {
+			if (old == gcCycle) {
+				return false;
+			}
+
+			if (gcWord.casWeak(old, gcCycle)) {
+				return true;
+			}
+		}
+	}
+
 	@property
 	ref shared(Atomic!ulong) gcWord() {
 		assert(extentClass.sparse, "size class not sparse!");
