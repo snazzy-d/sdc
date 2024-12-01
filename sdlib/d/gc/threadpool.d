@@ -5,8 +5,9 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	// How many threads are executing.
+	// How many threads are executing work.
 	uint activeThreads;
+	// Stop processing work, exit the thread.
 	bool exitFlag;
 
 	import core.stdc.pthread;
@@ -18,7 +19,7 @@ private:
 	uint scheduled;
 
 	static void* threadEntry(void* ctx) {
-		// detach this thread -- it should not be scanned or stopped.
+		// Detach this thread -- it should not be scanned or stopped.
 		import d.gc.thread;
 		detachSelf();
 		auto pool = cast(shared(ThreadPool*)) ctx;
@@ -28,6 +29,15 @@ private:
 
 public:
 
+	/**
+	 * Start threads using the given thread buffer. All threads will wait
+	 * for work dispatched to them using the `dispatch` function. Optimal
+	 * thread buffer size should be number of cores, or number of cores - 1
+	 * if you intend to not use the calling thread in the pool.
+	 *
+	 * Note that these threads will be marked as detached, so they will not
+	 * be scanned if a GC cycle is run.
+	 */
 	void startThreads(pthread_t[] threadBuffer) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -35,6 +45,19 @@ public:
 		(cast(ThreadPool*) &this).startThreadsImpl(threadBuffer);
 	}
 
+	/**
+	 * Dispatch work to the threads. `count` instances of the `work`
+	 * delegate are run, with each call to the delegate receiving an index
+	 * from `0` to `count - 1`. If `count` is greater than the number of
+	 * threads in the pool, threads will re-call the delegate, until
+	 * `count` calls to the delegate are made. No ordering of the index is
+	 * guaranteed, but it is guaranteed that only one instance of an index
+	 * will be used.
+	 *
+	 * If you pass `true` for `useThisThread`, then the calling thread will
+	 * also be given work, and this function will not return until all the
+	 * work is scheduled.
+	 */
 	void dispatch(void delegate(uint) work, uint count,
 	              bool useThisThread) shared {
 		{
@@ -56,6 +79,9 @@ public:
 		}
 	}
 
+	/**
+	 * Wait for all work to be complete.
+	 */
 	void waitForIdle() shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -64,7 +90,12 @@ public:
 		mutex.waitFor(tp.allThreadsIdle);
 	}
 
-	// joinAllThreads after current work is done
+	/**
+	 * Stop all threads, and join them. If you need to start the thread
+	 * pool up again, you can call `startThreads` again.
+	 *
+	 * Threads are not stopped until all scheduled work is completed.
+	 */
 	void joinAll() shared {
 		{
 			mutex.lock();
@@ -81,7 +112,7 @@ private:
 		assert(threads.length == 0);
 
 		threads = threadBuffer;
-		this.threads = threadBuffer;
+		exitFlag = false;
 		activeThreads = cast(uint) threadBuffer.length;
 		foreach (ref tid; threads) {
 			pthread_create(&tid, null, threadEntry, cast(void*) &this);
