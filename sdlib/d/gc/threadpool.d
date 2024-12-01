@@ -194,3 +194,64 @@ private:
 		return exitFlag || scheduled > 0;
 	}
 }
+
+unittest threadpool {
+	import core.stdc.pthread;
+	import core.stdc.unistd;
+	shared ThreadPool threadPool;
+	pthread_t[128] threads;
+
+	threadPool.startThreads(threads[0 .. threads.length]);
+	scope(exit) threadPool.joinAll();
+
+	assert(cast(pthread_t*) threadPool.threads.ptr is threads.ptr);
+	assert(threadPool.threads.length == threads.length);
+
+	uint[1000] data;
+	foreach (i, ref v; data) {
+		v = cast(uint) i;
+	}
+
+	void doubleIt(uint idx) {
+		data[idx] *= 2;
+	}
+
+	threadPool.dispatch(doubleIt, data.length, false);
+
+	threadPool.waitForIdle();
+	assert(threadPool.activeThreads == 0);
+	foreach (i, ref v; data) {
+		assert(v == i * 2);
+	}
+
+	threadPool.dispatch(doubleIt, data.length, true);
+
+	threadPool.waitForIdle();
+	assert(threadPool.activeThreads == 0);
+
+	foreach (i, ref v; data) {
+		assert(v == i * 4);
+	}
+
+	// Test dispatching multiple tasks
+	import d.sync.atomic;
+	shared Atomic!uint sum;
+	void otherTask(uint idx) {
+		sleep(2);
+		sum.fetchAdd(idx);
+	}
+
+	threadPool.dispatch(otherTask, 128, false);
+	sleep(1);
+	assert(threadPool.activeThreads == 128);
+	assert(threadPool.scheduled == 0);
+	threadPool.dispatch(doubleIt, data.length, true);
+	threadPool.waitForIdle();
+	assert(threadPool.activeThreads == 0);
+
+	foreach (i, ref v; data) {
+		assert(v == i * 8);
+	}
+
+	assert(sum.load() == 127 * 128 / 2);
+}
