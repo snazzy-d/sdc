@@ -516,6 +516,16 @@ public:
 		}
 	}
 
+	bool markDenseSlot(uint index) {
+		assert(extentClass.dense, "size class not dense!");
+		if (extentClass.supportsInlineMarking) {
+			return !slabMetadataMarks.setBitAtomic(index);
+		}
+
+		auto bmp = &outlineMarks;
+		return bmp !is null && !bmp.setBitAtomic(index);
+	}
+
 	@property
 	ref shared(Atomic!ulong) gcWord() {
 		assert(extentClass.sparse, "size class not sparse!");
