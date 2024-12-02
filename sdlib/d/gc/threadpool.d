@@ -23,7 +23,7 @@ private:
 		import d.gc.thread;
 		detachSelf();
 		auto pool = cast(shared(ThreadPool*)) ctx;
-		pool.executeWork();
+		pool.executeWork(false);
 		return null;
 	}
 
@@ -33,7 +33,7 @@ public:
 	 * Start threads using the given thread buffer. All threads will wait
 	 * for work dispatched to them using the `dispatch` function. Optimal
 	 * thread buffer size should be number of cores, or number of cores - 1
-	 * if you intend to not use the calling thread in the pool.
+	 * if you intend to use the calling thread for work.
 	 *
 	 * Note that these threads will be marked as detached, so they will not
 	 * be scanned if a GC cycle is run.
@@ -53,36 +53,23 @@ public:
 	 * `count` calls to the delegate are made. No ordering of the index is
 	 * guaranteed, but it is guaranteed that only one instance of an index
 	 * will be used.
-	 *
-	 * If you pass `true` for `useThisThread`, then the calling thread will
-	 * also be given work, and this function will not return until all the
-	 * work is scheduled.
 	 */
-	void dispatch(void delegate(uint) work, uint count,
-	              bool useThisThread) shared {
-		{
-			mutex.lock();
-			scope(exit) mutex.unlock();
+	void dispatch(void delegate(uint) work, uint count) shared {
+		mutex.lock();
+		scope(exit) mutex.unlock();
 
-			useThisThread = (cast(ThreadPool*) &this).dispatchImpl(work, count)
-				&& useThisThread;
-		}
-
-		if (!useThisThread) {
-			return;
-		}
-
-		// Utilize this thread to do some work as well.
-		uint idx;
-		while (getWorkMainThread(idx)) {
-			work(idx);
-		}
+		(cast(ThreadPool*) &this).dispatchImpl(work, count);
 	}
 
 	/**
-	 * Wait for all work to be complete.
+	 * Wait for all work to be complete. `useThisThread` set to true will
+	 * use the calling thread to also do work if needed.
 	 */
-	void waitForIdle() shared {
+	void waitForIdle(bool useThisThread = true) shared {
+		if (useThisThread) {
+			executeWork(true);
+		}
+
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
@@ -95,8 +82,15 @@ public:
 	 * pool up again, you can call `startThreads` again.
 	 *
 	 * Threads are not stopped until all scheduled work is completed.
+	 *
+	 * `useThisThread` = true will use the calling thread to do some work
+	 * if available.
 	 */
-	void joinAll() shared {
+	void joinAll(bool useThisThread = true) shared {
+		if (useThisThread) {
+			executeWork(true);
+		}
+
 		{
 			mutex.lock();
 			scope(exit) mutex.unlock();
@@ -104,6 +98,11 @@ public:
 			(cast(ThreadPool*) &this).stopAllThreads();
 		}
 
+		/**
+		  * This is called without the lock held, and not in a shared
+		  * method, because we are exiting all threads, and we don't
+		  * want to impede the message of the exitFlag.
+		  */
 		(cast(ThreadPool*) &this).joinAllThreadsImpl();
 	}
 
@@ -119,7 +118,7 @@ private:
 		}
 	}
 
-	bool dispatchImpl(void delegate(uint) work, uint count) {
+	void dispatchImpl(void delegate(uint) work, uint count) {
 		assert(mutex.isHeld(), "Mutex not held!");
 		auto sharedThis = cast(shared(ThreadPool)*) &this;
 		sharedThis.mutex.waitFor(noMoreWork);
@@ -128,10 +127,6 @@ private:
 
 		this.work = work;
 		this.scheduled = count;
-		import core.stdc.stdio;
-
-		// Return true if the current idle threads cannot consume all the work.
-		return activeThreads + scheduled > threads.length;
 	}
 
 	void stopAllThreads() {
@@ -164,57 +159,47 @@ private:
 		return activeThreads == 0;
 	}
 
-	void executeWork() shared {
+	void executeWork(bool mainThread) shared {
 		void delegate(uint) workItem;
 		uint idx;
-		while (getWork(workItem, idx)) {
+		while (getWork(mainThread, workItem, idx)) {
 			workItem(idx);
 		}
 	}
 
-	bool getWork(ref void delegate(uint) workItem, ref uint idx) shared {
+	bool getWork(bool mainThread, ref void delegate(uint) workItem,
+	             ref uint idx) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		return (cast(ThreadPool*) &this).getWorkImpl(workItem, idx);
+		return (cast(ThreadPool*) &this).getWorkImpl(mainThread, workItem, idx);
 	}
 
-	bool getWorkMainThread(ref uint idx) shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
-
-		return (cast(ThreadPool*) &this).getWorkMainThreadImpl(idx);
-	}
-
-	bool getWorkMainThreadImpl(ref uint idx) {
+	bool getWorkImpl(bool mainThread, ref void delegate(uint) workItem,
+	                 ref uint idx) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		if (scheduled == 0) {
-			return false;
+		if (mainThread) {
+			if (exitFlag || scheduled == 0) {
+				return false;
+			}
+		} else {
+			assert(activeThreads > 0);
+			activeThreads -= 1;
+
+			auto sharedThis = cast(shared(ThreadPool)*) &this;
+			sharedThis.mutex.waitFor(workReadyOrQuit);
+			if (exitFlag) {
+				return false;
+			}
+
+			assert(scheduled > 0);
+
+			activeThreads += 1;
 		}
-
-		scheduled -= 1;
-		idx = scheduled;
-		return true;
-	}
-
-	bool getWorkImpl(ref void delegate(uint) workItem, ref uint idx) {
-		assert(mutex.isHeld(), "Mutex not held!");
-
-		assert(activeThreads > 0);
-		activeThreads -= 1;
-
-		auto sharedThis = cast(shared(ThreadPool)*) &this;
-		sharedThis.mutex.waitFor(workReadyOrQuit);
-		if (exitFlag) {
-			return false;
-		}
-
-		assert(scheduled > 0);
 
 		workItem = work;
 
-		activeThreads += 1;
 		scheduled -= 1;
 		idx = scheduled;
 
@@ -247,15 +232,15 @@ unittest threadpool {
 		data[idx] *= 2;
 	}
 
-	threadPool.dispatch(doubleIt, data.length, false);
+	threadPool.dispatch(doubleIt, data.length);
 
-	threadPool.waitForIdle();
+	threadPool.waitForIdle(false);
 	assert(threadPool.activeThreads == 0);
 	foreach (i, ref v; data) {
 		assert(v == i * 2);
 	}
 
-	threadPool.dispatch(doubleIt, data.length, true);
+	threadPool.dispatch(doubleIt, data.length);
 
 	threadPool.waitForIdle();
 	assert(threadPool.activeThreads == 0);
@@ -272,11 +257,11 @@ unittest threadpool {
 		sum.fetchAdd(idx);
 	}
 
-	threadPool.dispatch(otherTask, 128, false);
+	threadPool.dispatch(otherTask, 128);
 	sleep(1);
 	assert(threadPool.activeThreads == 128);
 	assert(threadPool.scheduled == 0);
-	threadPool.dispatch(doubleIt, data.length, true);
+	threadPool.dispatch(doubleIt, data.length);
 	threadPool.waitForIdle();
 	assert(threadPool.activeThreads == 0);
 
