@@ -469,36 +469,13 @@ private:
 	}
 
 	static bool markSparse(PageDescriptor pd, uint index, ubyte cycle) {
-		auto bit = 0x100 << index;
-
 		auto e = pd.extent;
-		auto old = e.gcWord.load();
-		while ((old & 0xff) != cycle) {
-			if (e.gcWord.casWeak(old, cycle | bit)) {
-				return true;
-			}
-		}
-
-		if (old & bit) {
-			return false;
-		}
-
-		old = e.gcWord.fetchOr(bit);
-		return (old & bit) == 0;
+		return e.markSparseSlot(cycle, index);
 	}
 
 	static bool markLarge(PageDescriptor pd, ubyte cycle) {
 		auto e = pd.extent;
-		auto old = e.gcWord.load();
-		while (true) {
-			if (old == cycle) {
-				return false;
-			}
-
-			if (e.gcWord.casWeak(old, cycle)) {
-				return true;
-			}
-		}
+		return e.markLarge(cycle);
 	}
 }
 
