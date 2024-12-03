@@ -131,8 +131,17 @@ struct StatementGen {
 				break;
 
 			case Return:
+				LLVMValueRef ret;
 				if (bb.value) {
-					auto ret = genExpression(bb.value);
+					auto v = genExpression(bb.value);
+
+					// LLVM IR does not support void return.
+					if (LLVMGetTypeKind(LLVMTypeOf(v)) != LLVMTypeKind.Void) {
+						ret = v;
+					}
+				}
+
+				if (ret) {
 					LLVMBuildRet(builder, ret);
 				} else {
 					LLVMBuildRetVoid(builder);

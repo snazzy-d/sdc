@@ -248,6 +248,9 @@ public:
 			}
 		}
 
+		import d.llvm.global;
+		GlobalGen(pass).checkModule();
+
 		runLLVMPasses();
 
 		// Now that we generated the IR, we run the unittests.
