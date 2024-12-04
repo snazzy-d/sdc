@@ -86,8 +86,44 @@ public:
 		auto insert = _head - nfill;
 		assert(available <= insert);
 
-		_head = arena.batchAllocSmall(emap, sizeClass, _head, insert, slotSize);
+		auto filled =
+			arena.batchAllocSmall(emap, sizeClass, _head, insert, slotSize);
 		state.refilled = true;
+
+		/**
+		 * Note: If we are worried about security, we might want to shuffle
+		 *       our allocations around. This makes the uses of techniques
+		 *       like Heap Feng Shui difficult.
+		 *       We do not think it is worth the complication and performance
+		 *       hit in the general case, but something we might want to add
+		 *       in the future for security sensitive applications.
+		 * 
+		 * http://www.phreedom.org/research/heap-feng-shui/heap-feng-shui.html
+		 */
+
+		// The whole space was filled. We are done.
+		if (likely(filled is _head)) {
+			_head = insert;
+			return;
+		}
+
+		/**
+		 * We could simplify this code by inserting from top to bottom,
+		 * in order to avoid moving all the elements when the stack has not
+		 * been filled.
+		 * 
+		 * However, because we allocate from the best slab to the worse one,
+		 * this would result in a stack that allocate from the worse slab
+		 * before the best ones.
+		 * 
+		 * So we allocate from the bottom to the top, and move the whole stack
+		 * if we did not quite reach the top.
+		 */
+		while (filled > insert) {
+			*(--_head) = *(--filled);
+		}
+
+		assert(insert <= _head);
 	}
 
 	bool free(void* ptr) {

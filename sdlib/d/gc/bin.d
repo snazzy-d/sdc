@@ -35,51 +35,11 @@ struct Bin {
 		       "Invalid arena or sizeClass!");
 		assert(slotSize == binInfos[sizeClass].slotSize, "Invalid slot size!");
 
-		void** insert;
+		mutex.lock();
+		scope(exit) mutex.unlock();
 
-		{
-			mutex.lock();
-			scope(exit) mutex.unlock();
-
-			insert = (cast(Bin*) &this)
-				.batchAllocateImpl(filler, emap, sizeClass, top, bottom,
-				                   slotSize);
-		}
-
-		/**
-		 * Note: If we are worried about security, we might want to shuffle
-		 *       our allocations around. This makes the uses of techniques
-		 *       like Heap Feng Shui difficult.
-		 *       We do not think it is worth the complication and performance
-		 *       hit in the general case, but something we might want to add
-		 *       in the future for security sensitive applications.
-		 * 
-		 * http://www.phreedom.org/research/heap-feng-shui/heap-feng-shui.html
-		 */
-
-		// We filled the whole stack, done.
-		if (likely(insert is top)) {
-			return bottom;
-		}
-
-		/**
-		 * We could simplify this code by inserting from top to bottom,
-		 * in order to avoid moving all the elements when the stack has not
-		 * been filled.
-		 * 
-		 * However, because we allocate from the best slab to the worse one,
-		 * this would result in a stack that allocate from the worse slab
-		 * before the best ones.
-		 * 
-		 * So we allocate from the bottom to the top, and move the whole stack
-		 * if we did not quite reach the top.
-		 */
-		while (insert > bottom) {
-			*(--top) = *(--insert);
-		}
-
-		assert(bottom <= top);
-		return top;
+		return (cast(Bin*) &this)
+			.batchAllocateImpl(filler, emap, sizeClass, top, bottom, slotSize);
 	}
 
 	uint batchFree(const(void*)[] worklist, PageDescriptor* pds,
