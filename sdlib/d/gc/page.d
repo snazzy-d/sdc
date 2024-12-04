@@ -939,13 +939,12 @@ private:
 				auto npages = e.npages;
 				scope(success) i += npages;
 
-				auto w = e.gcWord.load();
 				auto ec = pd.extentClass;
 				if (ec.isLarge()) {
 					// Make sure we handle huge extents correctly.
 					npages = modUp(npages, PagesInBlock);
 
-					if (w == gcCycle) {
+					if (e.isMarkedLarge(gcCycle)) {
 						// It's alive.
 						continue;
 					}
@@ -961,20 +960,15 @@ private:
 					continue;
 				}
 
-				auto markCycle = w & 0xff;
-				auto markBits = w >> 8;
+				auto markBits = e.getMarksSparse(gcCycle);
+
 				auto metadataFlags = e.slabMetadataFlags.rawContent[0];
 
-				// If the cycle do not match, then all the element are dead.
-				if (markCycle != gcCycle) {
-					// If no metadata exists, we can short circuit here.
-					if (metadataFlags == 0) {
-						deadExtents.insert(e);
-						continue;
-					}
-
-					// Otherwise we run finalizers.
-					markBits = 0;
+				// If completely empty and no metadata exists,
+				// we can short circuit here.
+				if (markBits == 0 && metadataFlags == 0) {
+					deadExtents.insert(e);
+					continue;
 				}
 
 				auto oldOccupancy = e.slabData.rawContent[0];
