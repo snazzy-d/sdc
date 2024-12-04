@@ -38,6 +38,13 @@ void createThread() {
 }
 
 void destroyThread() {
+	/**
+	 * Note: we are about to remove the thread from the active thread
+	 * list, we do not want to suspend, because the thread will never be
+	 * woken up. Therefore -- no exitBusyState.
+	 */
+	enterBusyState();
+
 	threadCache.destroyThread();
 	gThreadState.remove(&threadCache);
 }
