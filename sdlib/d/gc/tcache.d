@@ -301,13 +301,13 @@ public:
 				auto npages = getPageCount(size);
 
 				if (epages < npages) {
-					if (!pd.arena.growLarge(emap, e, npages)) {
+					if (!growLarge(pd, emap, npages)) {
 						goto LargeResizeFailed;
 					}
 
 					triggerAllocationEvent((npages - epages) * PageSize);
 				} else if (epages > npages) {
-					if (!pd.arena.shrinkLarge(emap, e, npages)) {
+					if (!shrinkLarge(pd, emap, npages)) {
 						goto LargeResizeFailed;
 					}
 
@@ -713,7 +713,7 @@ private:
 
 		auto npages = getPageCount(newCapacity);
 		if (epages < npages) {
-			if (!pd.arena.growLarge(emap, e, npages)) {
+			if (!growLarge(pd, emap, npages)) {
 				return false;
 			}
 
@@ -725,6 +725,20 @@ private:
 		}
 
 		return true;
+	}
+
+	bool growLarge(PageDescriptor pd, ref CachedExtentMap emap, uint npages) {
+		state.enterBusyState();
+		scope(exit) state.exitBusyState();
+
+		return pd.arena.growLarge(emap, pd.extent, npages);
+	}
+
+	bool shrinkLarge(PageDescriptor pd, ref CachedExtentMap emap, uint npages) {
+		state.enterBusyState();
+		scope(exit) state.exitBusyState();
+
+		return pd.arena.shrinkLarge(emap, pd.extent, npages);
 	}
 
 	auto getPageDescriptor(void* ptr) {
