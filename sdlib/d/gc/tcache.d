@@ -493,6 +493,25 @@ private:
 	}
 
 	/**
+	 * Free directly to the arena, skip all threadCache metadata/caches.
+	 * Safe to call from a signal handler.
+	 */
+	void freeToArena(void* ptr) {
+		import d.gc.emap, d.gc.base;
+		auto emap = CachedExtentMap(&gExtentMap, &gBase);
+
+		auto aptr = alignDown(ptr, PageSize);
+		auto pd = emap.lookup(aptr);
+		if (!pd.isSlab()) {
+			pd.arena.freeLarge(emap, pd.extent);
+			return;
+		}
+
+		const(void*)[] worklist = (cast(const(void*)*) &ptr)[0 .. 1];
+		pd.arena.batchFree(emap, worklist, &pd);
+	}
+
+	/**
 	 * Bytes accounting and bin maintenance.
 	 */
 	void triggerAllocationEvent(size_t bytes) {
@@ -638,7 +657,10 @@ private:
 
 	void clearTLSSegments() {
 		if (tlsSegments.ptr !is null) {
-			free(tlsSegments.ptr);
+			// Do not call free directly, because that might try to
+			// change the cache bins, and this can be called from a
+			// signal handler.
+			freeToArena(tlsSegments.ptr);
 			tlsSegments = [];
 		}
 	}
