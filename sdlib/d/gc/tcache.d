@@ -154,7 +154,11 @@ public:
 		state.enterBusyState();
 		scope(exit) state.exitBusyState();
 
-		clearTLSSegments();
+		auto tls = clearTLSSegments();
+		if (tls.ptr !is null) {
+			free(tls.ptr);
+		}
+
 		flush();
 	}
 
@@ -636,11 +640,9 @@ private:
 		tlsSegments[index] = makeRange(range);
 	}
 
-	void clearTLSSegments() {
-		if (tlsSegments.ptr !is null) {
-			free(tlsSegments.ptr);
-			tlsSegments = [];
-		}
+	const(void*)[][] clearTLSSegments() {
+		scope(exit) tlsSegments = [];
+		return tlsSegments;
 	}
 
 private:

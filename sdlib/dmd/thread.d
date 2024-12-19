@@ -1,6 +1,7 @@
 module dmd.thread;
 
 import d.gc.types;
+import d.gc.emap;
 
 extern(C):
 
@@ -36,6 +37,23 @@ void __sd_gc_global_scan(ScanDg scan) {
 	thread_scanAll_C(&scan, &__sd_scanAllThreadsFn);
 }
 
+/**
+ * Free a pointer directly to an arena. Needed to avoid messing up threadCache
+ * bins in signal handler.
+ */
+private void arenaFree(ref CachedExtentMap emap, void* ptr) {
+	import d.gc.util, d.gc.spec;
+	auto aptr = alignDown(ptr, PageSize);
+	auto pd = emap.lookup(aptr);
+	if (!pd.isSlab()) {
+		pd.arena.freeLarge(emap, pd.extent);
+		return;
+	}
+
+	const(void*)[] worklist = (cast(const(void*)*) &ptr)[0 .. 1];
+	pd.arena.batchFree(emap, worklist, &pd);
+}
+
 void __sd_gc_pre_suspend_hook(void* stackTop) {
 	if (thread_preSuspend(stackTop)) {
 		/**
@@ -48,7 +66,14 @@ void __sd_gc_pre_suspend_hook(void* stackTop) {
 		 * pushed on it.
 		 */
 		import d.gc.tcache;
-		threadCache.clearTLSSegments();
+		auto tls = threadCache.clearTLSSegments();
+		if (tls.ptr !is null) {
+			// Arena needs a CachedExtentMap for freeing pages. Copy the
+			// threadCache to a temporary, so we don't mess with it.
+			auto emap = threadCache.emap;
+
+			arenaFree(emap, tls.ptr);
+		}
 	}
 }
 
