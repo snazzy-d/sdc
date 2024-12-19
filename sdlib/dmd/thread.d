@@ -66,12 +66,13 @@ void __sd_gc_pre_suspend_hook(void* stackTop) {
 		 * pushed on it.
 		 */
 		import d.gc.tcache;
-		auto tls = threadCache.clearTLSSegments();
+		auto tls = threadCache.tlsSegments;
 		if (tls.ptr !is null) {
-			// Arena needs a CachedExtentMap for freeing pages. Copy the
-			// threadCache to a temporary, so we don't mess with it.
-			auto emap = threadCache.emap;
+			threadCache.tlsSegments = [];
 
+			// Arena needs a CachedExtentMap for freeing pages.
+			auto emap =
+				CachedExtentMap(threadCache.emap.emap, threadCache.emap.base);
 			arenaFree(emap, tls.ptr);
 		}
 	}
