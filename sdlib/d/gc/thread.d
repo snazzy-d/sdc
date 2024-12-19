@@ -115,7 +115,8 @@ void initThread() {
 struct ThreadState {
 private:
 	import d.sync.atomic;
-	Atomic!uint startingThreadCount;
+	uint startingThreadCount;
+	enum uint PauseThreadCreationBit = 1 << 31;
 
 	import d.sync.mutex;
 	shared Mutex mStats;
@@ -128,17 +129,24 @@ private:
 
 	Mutex stopTheWorldMutex;
 
+	shared Mutex createThreadMutex;
+
 public:
 	/**
 	 * Thread management.
 	 */
 	void enterThreadCreation() shared {
-		startingThreadCount.fetchAdd(1);
+		createThreadMutex.lock();
+		scope(exit) createThreadMutex.unlock();
+
+		(cast(ThreadState*) &this).enterThreadCreationImpl();
 	}
 
 	void exitThreadCreation() shared {
-		auto s = startingThreadCount.fetchSub(1);
-		assert(s > 0, "enterThreadCreation was not called!");
+		createThreadMutex.lock();
+		scope(exit) createThreadMutex.unlock();
+
+		(cast(ThreadState*) &this).exitThreadCreationImpl();
 	}
 
 	void register(ThreadCache* tcache) shared {
@@ -183,15 +191,29 @@ public:
 
 		stopTheWorldMutex.lock();
 
+		pauseThreadCreation();
+
+		import d.gc.tcache;
+		threadCache.stoppingTheWorld = true;
+
 		uint count;
-		while (suspendRunningThreads(count++)
-			       || startingThreadCount.load() > 0) {
+
+		// Make sure no suspended threads have the create thread mutex locked.
+		createThreadMutex.lock();
+		scope(exit) createThreadMutex.unlock();
+		while (suspendRunningThreads(count++)) {
 			import sys.posix.sched;
 			sched_yield();
 		}
 	}
 
 	void restartTheWorld() shared {
+		import d.gc.tcache;
+		assert(threadCache.stoppingTheWorld);
+		threadCache.stoppingTheWorld = false;
+
+		allowThreadCreation();
+
 		while (resumeSuspendedThreads()) {
 			import sys.posix.sched;
 			sched_yield();
@@ -223,6 +245,68 @@ private:
 		}
 
 		registeredThreads.insert(tcache);
+	}
+
+	void enterThreadCreationImpl() {
+		assert(createThreadMutex.isHeld(), "Mutex not held!");
+
+		// Wait for the world to not be stopping by another thread.
+		import d.gc.tcache;
+		if (!threadCache.stoppingTheWorld) {
+			createThreadMutex.waitFor(canCreateThreads);
+			assert(!(startingThreadCount & PauseThreadCreationBit));
+		}
+
+		++startingThreadCount;
+	}
+
+	bool canCreateThreads() {
+		return !(startingThreadCount & PauseThreadCreationBit);
+	}
+
+	void exitThreadCreationImpl() {
+		assert(createThreadMutex.isHeld(), "Mutex not held!");
+		assert((startingThreadCount & ~PauseThreadCreationBit) > 0,
+		       "enterThreadCreation was not called!");
+
+		startingThreadCount--;
+	}
+
+	void pauseThreadCreation() shared {
+		createThreadMutex.lock();
+		scope(exit) createThreadMutex.unlock();
+
+		(cast(ThreadState*) &this).pauseThreadCreationImpl();
+	}
+
+	void pauseThreadCreationImpl() {
+		assert(createThreadMutex.isHeld(), "Mutex not held!");
+		assert((startingThreadCount & PauseThreadCreationBit) == 0);
+
+		/**
+		 * Wait for threads in the process of starting to finish
+		 * starting, prevent any new threads from starting.
+		 */
+		startingThreadCount += PauseThreadCreationBit;
+		createThreadMutex.waitFor(canStopTheWorld);
+	}
+
+	bool canStopTheWorld() {
+		return startingThreadCount == PauseThreadCreationBit;
+	}
+
+	void allowThreadCreation() shared {
+		createThreadMutex.lock();
+		scope(exit) createThreadMutex.unlock();
+
+		(cast(ThreadState*) &this).allowThreadCreationImpl();
+	}
+
+	void allowThreadCreationImpl() {
+		assert(createThreadMutex.isHeld(), "Mutex not held!");
+		assert(startingThreadCount == PauseThreadCreationBit);
+
+		startingThreadCount -= PauseThreadCreationBit;
 	}
 
 	void removeImpl(ThreadCache* tcache) {
