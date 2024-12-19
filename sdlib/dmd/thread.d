@@ -55,27 +55,30 @@ private void arenaFree(ref CachedExtentMap emap, void* ptr) {
 }
 
 void __sd_gc_pre_suspend_hook(void* stackTop) {
-	if (thread_preSuspend(stackTop)) {
-		/**
-		 * If the thread is managed by druntime, then we'll get the
-		 * TLS segments when calling thread_scanAll_C, so we can remove
-		 * them from the thread cache in order to not scan them twice.
-		 * 
-		 * Note that we cannot do so with the stack, because we need to
-		 * scan it eagerly, as registers containing possible pointers gets
-		 * pushed on it.
-		 */
-		import d.gc.tcache;
-		auto tls = threadCache.tlsSegments;
-		if (tls.ptr !is null) {
-			threadCache.tlsSegments = [];
-
-			// Arena needs a CachedExtentMap for freeing pages.
-			auto emap =
-				CachedExtentMap(threadCache.emap.emap, threadCache.emap.base);
-			arenaFree(emap, tls.ptr);
-		}
+	if (!thread_preSuspend(stackTop)) {
+		return;
 	}
+
+	/**
+	 * If the thread is managed by druntime, then we'll get the
+	 * TLS segments when calling thread_scanAll_C, so we can remove
+	 * them from the thread cache in order to not scan them twice.
+	 * 
+	 * Note that we cannot do so with the stack, because we need to
+	 * scan it eagerly, as registers containing possible pointers gets
+	 * pushed on it.
+	 */
+	import d.gc.tcache;
+	auto tls = threadCache.tlsSegments;
+	if (tls.ptr is null) {
+		return;
+	}
+
+	threadCache.tlsSegments = [];
+
+	// Arena needs a CachedExtentMap for freeing pages.
+	auto emap = CachedExtentMap(threadCache.emap.emap, threadCache.emap.base);
+	arenaFree(emap, tls.ptr);
 }
 
 void __sd_gc_post_suspend_hook() {
