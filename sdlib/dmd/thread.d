@@ -50,8 +50,8 @@ private void arenaFree(ref CachedExtentMap emap, void* ptr) {
 		return;
 	}
 
-	const(void*)[] worklist = (cast(const(void*)*) &ptr)[0 .. 1];
-	pd.arena.batchFree(emap, worklist, &pd);
+	const(void*)[1] worklist = [ptr];
+	pd.arena.batchFree(emap, worklist[0 .. 1], &pd);
 }
 
 void __sd_gc_pre_suspend_hook(void* stackTop) {
