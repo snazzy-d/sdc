@@ -154,7 +154,9 @@ public:
 		state.enterBusyState();
 		scope(exit) state.exitBusyState();
 
-		clearTLSSegments();
+		free(tlsSegments.ptr);
+		tlsSegments = [];
+
 		flush();
 	}
 
@@ -634,13 +636,6 @@ private:
 
 		import d.gc.range;
 		tlsSegments[index] = makeRange(range);
-	}
-
-	void clearTLSSegments() {
-		if (tlsSegments.ptr !is null) {
-			free(tlsSegments.ptr);
-			tlsSegments = [];
-		}
 	}
 
 private:
