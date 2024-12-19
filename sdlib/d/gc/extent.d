@@ -545,6 +545,20 @@ public:
 		return gcCycle == gcWord.load();
 	}
 
+	ulong* getMarksDense(bool clearOutlines = false) {
+		assert(extentClass.dense, "Size class not dense!");
+		if (extentClass.supportsInlineMarking) {
+			return cast(ulong*) &slabMetadataMarks;
+		} else {
+			auto bmp = outlineMarksBuffer;
+			if (clearOutlines) {
+				outlineMarksBuffer = null;
+			}
+
+			return bmp;
+		}
+	}
+
 	@property
 	ref shared(Atomic!ulong) gcWord() {
 		assert(extentClass.sparse, "size class not sparse!");
