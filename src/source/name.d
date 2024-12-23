@@ -103,8 +103,7 @@ public:
 		}
 
 		// As we are cloning, make sure it is 0 terminated as to pass to C.
-		import std.string;
-		auto s = str.toStringz()[0 .. str.length];
+		auto s = cast(string) (str ~ '\0')[0 .. str.length];
 
 		// Make sure we do not keep around slice of potentially large input.
 		scope(exit) assert(str.ptr !is s.ptr, s);
@@ -121,6 +120,13 @@ public:
 			writeln(lookups[s], "\t=> ", s);
 		}
 	}
+}
+
+unittest {
+	string nameWithZeros = "hello\0world\0";
+	auto nm = NameManager.get();
+	auto s = nm.getName(nameWithZeros);
+	assert(nm.names[s.id] == nameWithZeros);
 }
 
 private:
