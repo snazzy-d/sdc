@@ -1,4 +1,4 @@
-module d.sync.rwlock;
+module d.sync.sharedlock;
 
 import d.sync.mutex;
 
@@ -112,7 +112,8 @@ unittest rwlock {
 		void signalFinish() {
 			lock.exclusiveLock();
 			assert(lock.mutex.isHeld(), "Mutex not held!");
-			assert(lock.count == SharedLock.Exclusive, "Not an exclusive lock!");
+			assert(lock.count == SharedLock.Exclusive,
+			       "Not an exclusive lock!");
 			scope(exit) lock.exclusiveUnlock();
 			finish = true;
 		}
