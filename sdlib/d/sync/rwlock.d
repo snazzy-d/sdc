@@ -3,15 +3,17 @@ module d.sync.rwlock;
 import d.sync.mutex;
 
 /**
- * RWLock allows either one exclusive writer, or N readers. While any reader
- * has the lock, a writer must wait. While a writer is waiting, no new readers
- * are allowed to lock, but existing readers can unlock.
+ * SharedLock allows either one exclusive holder, or N shared holders. While any thread
+ * has the lock shared, one looking to exclusively lock must wait. When
+ * exclusive lock is requested, no new requests to lock will be granted, but
+ * existing holders can unlock.
  */
-struct RWLock {
+struct SharedLock {
 private:
 	shared Mutex mutex;
-	uint count;
-	enum uint Exclusive = 1 << 31;
+	size_t count;
+	enum size_t Exclusive = 1 << 31;
+
 public:
 	/**
 	 * Lock for reading.
@@ -19,36 +21,36 @@ public:
 	 * Can be locked for reading by any number of readers. No writers can
 	 * acquire the lock until all readers have unlocked.
 	 */
-	void beginRead() shared {
+	void sharedLock() shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(RWLock*) &this).lockReadImpl();
+		(cast(SharedLock*) &this).sharedLockImpl();
 	}
 
-	void endRead() shared {
+	void sharedUnlock() shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		(cast(RWLock*) &this).unlockReadImpl();
+		(cast(SharedLock*) &this).exclusiveUnlockImpl();
 	}
 
 	/**
-	 * Lock for writing.
+	 * Lock exclusively.
 	 *
-	 * Locks exclusively for the calling thread.
+	 * Upon return, no other threads can hold this locked.
 	 */
-	void beginWrite() shared {
+	void exclusiveLock() shared {
 		mutex.lock();
 
-		(cast(RWLock*) &this).lockWriteImpl();
+		(cast(SharedLock*) &this).exclusiveLockImpl();
 	}
 
-	void endWrite() shared {
+	void exclusiveUnlock() shared {
 		assert(mutex.isHeld());
 		scope(exit) mutex.unlock();
 
-		(cast(RWLock*) &this).unlockWriteImpl();
+		(cast(SharedLock*) &this).unlockWriteImpl();
 	}
 
 private:
@@ -56,7 +58,7 @@ private:
 		return count < Exclusive;
 	}
 
-	void lockReadImpl() {
+	void sharedLockImpl() {
 		assert(mutex.isHeld());
 		mutex.waitFor(noWriteLock);
 		++count;
@@ -66,7 +68,7 @@ private:
 		return count == Exclusive;
 	}
 
-	void lockWriteImpl() {
+	void exclusiveLockImpl() {
 		assert(mutex.isHeld());
 		// Wait for no other exclusive lock.
 		mutex.waitFor(noWriteLock);
@@ -74,7 +76,7 @@ private:
 		mutex.waitFor(hasExclusiveLock);
 	}
 
-	void unlockReadImpl() {
+	void exclusiveUnlockImpl() {
 		assert(mutex.isHeld());
 		assert((count & ~Exclusive) > 0);
 		--count;
@@ -90,12 +92,12 @@ private:
 unittest rwlock {
 	import core.stdc.pthread;
 	static struct State {
-		shared RWLock lock;
+		shared SharedLock lock;
 		bool finish;
 		bool checkFinishState() {
-			lock.beginRead();
-			scope(exit) lock.endRead();
-			assert((lock.count & ~RWLock.Exclusive) > 0);
+			lock.sharedLock();
+			scope(exit) lock.sharedUnlock();
+			assert((lock.count & ~SharedLock.Exclusive) > 0);
 
 			return finish;
 		}
@@ -108,10 +110,10 @@ unittest rwlock {
 		}
 
 		void signalFinish() {
-			lock.beginWrite();
+			lock.exclusiveLock();
 			assert(lock.mutex.isHeld(), "Mutex not held!");
-			assert(lock.count == RWLock.Exclusive, "Not an exclusive lock!");
-			scope(exit) lock.endWrite();
+			assert(lock.count == SharedLock.Exclusive, "Not an exclusive lock!");
+			scope(exit) lock.exclusiveUnlock();
 			finish = true;
 		}
 	}
@@ -120,17 +122,17 @@ unittest rwlock {
 	assert(state.lock.count == 0);
 	assert(!state.checkFinishState());
 	assert(state.lock.count == 0);
-	state.lock.beginRead();
+	state.lock.sharedLock();
 	assert(state.lock.count == 1);
 	assert(!state.lock.mutex.isHeld());
-	state.lock.beginRead();
+	state.lock.sharedLock();
 	assert(state.lock.count == 2);
-	state.lock.endRead();
+	state.lock.sharedUnlock();
 	assert(state.lock.count == 1);
 	pthread_t writer;
 	static void* lockForWrite(void* ctx) {
 		auto state = cast(State*) ctx;
-		state.lock.beginWrite();
+		state.lock.exclusiveLock();
 		return cast(void*) cast(size_t) state.lock.count;
 	}
 
@@ -147,12 +149,12 @@ unittest rwlock {
 		sched_yield();
 	}
 
-	assert(state.lock.count == RWLock.Exclusive + 1);
-	state.lock.endRead();
+	assert(state.lock.count == SharedLock.Exclusive + 1);
+	state.lock.sharedUnlock();
 	void* ret;
 	pthread_join(writer, &ret);
-	assert(cast(size_t) ret == RWLock.Exclusive);
-	state.lock.endWrite();
+	assert(cast(size_t) ret == SharedLock.Exclusive);
+	state.lock.exclusiveUnlock();
 	assert(state.lock.count == 0);
 
 	// thread test
