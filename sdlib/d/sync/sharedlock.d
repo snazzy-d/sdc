@@ -12,14 +12,14 @@ struct SharedLock {
 private:
 	shared Mutex mutex;
 	size_t count;
-	enum size_t Exclusive = 1 << 31;
+	enum size_t Exclusive = 1 << (size_t.sizeof * 8 - 1);
 
 public:
 	/**
-	 * Lock for reading.
+	 * Lock unexclusively.
 	 *
-	 * Can be locked for reading by any number of readers. No writers can
-	 * acquire the lock until all readers have unlocked.
+	 * Can be locked by any number of threads unexclusively. An exclusive
+	 * lock cannot be obtained until all unexclusive locks are released.
 	 */
 	void sharedLock() shared {
 		mutex.lock();
@@ -89,91 +89,252 @@ private:
 	}
 }
 
-unittest rwlock {
-	import core.stdc.pthread;
-	static struct State {
-		shared SharedLock lock;
-		bool finish;
-		bool checkFinishState() {
-			lock.sharedLock();
-			scope(exit) lock.sharedUnlock();
-			assert((lock.count & ~SharedLock.Exclusive) > 0);
-
-			return finish;
+unittest sharedLocks {
+	static runThread(void* delegate() dg) {
+		static struct Delegate {
+			void* ctx;
+			void* function(void*) fun;
 		}
 
-		void waitForFinish() {
-			while (!checkFinishState()) {
-				import sys.posix.sched;
-				sched_yield();
-			}
-		}
+		auto x = *(cast(Delegate*) &dg);
 
-		void signalFinish() {
-			lock.exclusiveLock();
-			assert(lock.mutex.isHeld(), "Mutex not held!");
-			assert(lock.count == SharedLock.Exclusive,
-			       "Not an exclusive lock!");
-			scope(exit) lock.exclusiveUnlock();
-			finish = true;
-		}
+		import core.stdc.pthread;
+		pthread_t tid;
+		auto r = pthread_create(&tid, null, x.fun, x.ctx);
+		assert(r == 0, "Failed to create thread!");
+
+		return tid;
 	}
 
-	State state;
-	assert(state.lock.count == 0);
-	assert(!state.checkFinishState());
-	assert(state.lock.count == 0);
-	state.lock.sharedLock();
-	assert(state.lock.count == 1);
-	assert(!state.lock.mutex.isHeld());
-	state.lock.sharedLock();
-	assert(state.lock.count == 2);
-	state.lock.sharedUnlock();
-	assert(state.lock.count == 1);
-	pthread_t writer;
-	static void* lockForWrite(void* ctx) {
-		auto state = cast(State*) ctx;
-		state.lock.exclusiveLock();
-		return cast(void*) cast(size_t) state.lock.count;
-	}
+	shared SharedLock lock;
+	assert(lock.count == 0);
+	lock.sharedLock();
+	assert(lock.count == 1);
+	assert(!lock.mutex.isHeld());
+	lock.sharedLock();
+	assert(lock.count == 2);
+	lock.sharedUnlock();
+	assert(lock.count == 1);
 
-	auto r = pthread_create(&writer, null, lockForWrite, &state);
-	assert(r == 0);
-	while (true) {
-		state.lock.mutex.lock();
-		scope(exit) state.lock.mutex.unlock();
-		if (state.lock.count > 1) {
-			break;
+	import d.sync.atomic;
+	shared Mutex mutex;
+	shared Atomic!uint numLocked;
+	bool exitThread;
+	void* run() {
+		lock.sharedLock();
+		scope(exit) lock.sharedUnlock();
+		numLocked.fetchAdd(1);
+		mutex.lock();
+		scope(exit) mutex.unlock();
+		bool shouldExit() {
+			return exitThread;
 		}
 
-		import sys.posix.sched;
-		sched_yield();
-	}
-
-	assert(state.lock.count == SharedLock.Exclusive + 1);
-	state.lock.sharedUnlock();
-	void* ret;
-	pthread_join(writer, &ret);
-	assert(cast(size_t) ret == SharedLock.Exclusive);
-	state.lock.exclusiveUnlock();
-	assert(state.lock.count == 0);
-
-	// thread test
-	static void* readerTest(void* ctx) {
-		auto state = cast(State*) ctx;
-		state.waitForFinish();
+		mutex.waitFor(shouldExit);
 		return null;
 	}
 
-	pthread_t[50] ts;
-	foreach (i; 0 .. ts.length) {
-		r = pthread_create(&ts[i], null, readerTest, &state);
-		assert(r == 0);
+	import core.stdc.pthread;
+	pthread_t[50] tids;
+	foreach (i; 0 .. tids.length) {
+		tids[i] = runThread(run);
 	}
 
-	state.signalFinish();
+	{
+		bool allThreadsReady() {
+			return numLocked.load() == tids.length;
+		}
 
-	foreach (i; 0 .. ts.length) {
-		pthread_join(ts[i], &ret);
+		mutex.lock();
+		scope(exit) mutex.unlock();
+		mutex.waitFor(allThreadsReady);
 	}
+
+	assert(lock.count == 51);
+	{
+		mutex.lock();
+		scope(exit) mutex.unlock();
+		exitThread = true;
+	}
+
+	void* ret;
+	foreach (i; 0 .. tids.length) {
+		pthread_join(tids[i], &ret);
+	}
+
+	assert(lock.count == 1);
+	lock.sharedUnlock();
+	assert(lock.count == 0);
+}
+
+unittest exclusiveLock {
+	static runThread(void* delegate() dg) {
+		static struct Delegate {
+			void* ctx;
+			void* function(void*) fun;
+		}
+
+		auto x = *(cast(Delegate*) &dg);
+
+		import core.stdc.pthread;
+		pthread_t tid;
+		auto r = pthread_create(&tid, null, x.fun, x.ctx);
+		assert(r == 0, "Failed to create thread!");
+
+		return tid;
+	}
+
+	shared SharedLock lock;
+	lock.exclusiveLock();
+	assert(lock.count == SharedLock.Exclusive);
+	lock.exclusiveUnlock();
+	assert(lock.count == 0);
+	lock.sharedLock();
+	assert(lock.count == 1);
+
+	// Attempt to exclusive lock while the shared lock is held.
+	import core.stdc.pthread;
+	import d.sync.atomic;
+	shared Atomic!uint state;
+	void* takeExclusiveLock() {
+		state.fetchAdd(1);
+		lock.exclusiveLock();
+		state.fetchAdd(1);
+		return cast(void*) cast(size_t) lock.count;
+	}
+
+	auto writer = runThread(takeExclusiveLock);
+	{
+		bool triedExclusiveLock() {
+			return lock.count >= SharedLock.Exclusive;
+		}
+
+		lock.mutex.lock();
+		scope(exit) lock.mutex.unlock();
+
+		lock.mutex.waitFor(triedExclusiveLock);
+		assert(lock.count == SharedLock.Exclusive + 1);
+		assert(state.load() == 1);
+	}
+
+	lock.sharedUnlock();
+	assert(lock.count == SharedLock.Exclusive);
+	void* ret;
+	pthread_join(writer, &ret);
+	assert(cast(size_t) ret == SharedLock.Exclusive);
+	assert(state.load() == 2);
+	lock.exclusiveUnlock();
+	assert(lock.count == 0);
+}
+
+unittest threadStressTest {
+	static runThread(void* delegate() dg) {
+		static struct Delegate {
+			void* ctx;
+			void* function(void*) fun;
+		}
+
+		auto x = *(cast(Delegate*) &dg);
+
+		import core.stdc.pthread;
+		pthread_t tid;
+		auto r = pthread_create(&tid, null, x.fun, x.ctx);
+		assert(r == 0, "Failed to create thread!");
+
+		return tid;
+	}
+
+	import d.sync.atomic;
+	shared SharedLock lock;
+	shared Atomic!uint numSharedLocks;
+	shared Atomic!uint numExclusiveLocks;
+	shared Mutex mutex;
+	bool runTest;
+
+	bool shouldRunTest() {
+		return runTest;
+	}
+
+	enum MaxExclusive = 5;
+	enum MaxShared = 50;
+
+	void* runExclusive() {
+		mutex.lock();
+		mutex.waitFor(shouldRunTest);
+		mutex.unlock();
+
+		foreach (i; 0 .. 10000) {
+			lock.exclusiveLock();
+			scope(exit) lock.exclusiveUnlock();
+			auto ne = numExclusiveLocks.fetchAdd(1);
+			auto ns = numSharedLocks.load();
+			assert(ne == 0);
+			assert(ns == 0);
+			import sys.posix.sched;
+			sched_yield();
+			ne = numExclusiveLocks.fetchSub(1);
+			assert(ne == 1);
+		}
+
+		return null;
+	}
+
+	void* runShared() {
+		mutex.lock();
+		mutex.waitFor(shouldRunTest);
+		mutex.unlock();
+
+		size_t highWater = 0;
+		foreach (i; 0 .. 10000) {
+			lock.sharedLock();
+			scope(exit) lock.sharedUnlock();
+
+			auto ne = numExclusiveLocks.load();
+			auto ns = numSharedLocks.fetchAdd(1);
+			assert(ne == 0);
+			assert(ns >= 0 && ns < MaxShared);
+			import sys.posix.sched;
+			sched_yield();
+			ns = numSharedLocks.fetchSub(1);
+			assert(ns > 0 && ns <= MaxShared);
+			if (ns > highWater) {
+				highWater = ns;
+			}
+		}
+
+		return cast(void*) highWater;
+	}
+
+	import core.stdc.pthread;
+	pthread_t[MaxExclusive] exclusives;
+	pthread_t[MaxShared] sharers;
+
+	foreach (i; 0 .. exclusives.length) {
+		exclusives[i] = runThread(runExclusive);
+	}
+
+	foreach (i; 0 .. sharers.length) {
+		sharers[i] = runThread(runShared);
+	}
+
+	mutex.lock();
+	runTest = true;
+	mutex.unlock();
+
+	foreach (i; 0 .. exclusives.length) {
+		void* ret;
+		pthread_join(exclusives[i], &ret);
+	}
+
+	size_t highWater;
+	foreach (i; 0 .. sharers.length) {
+		size_t ret;
+		pthread_join(sharers[i], cast(void**) &ret);
+		if (ret > highWater) {
+			highWater = ret;
+		}
+	}
+
+	import core.stdc.stdio;
+	printf("simultaneous sharers highWater = %lld\n", highWater);
 }
