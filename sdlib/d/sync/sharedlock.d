@@ -90,6 +90,8 @@ private:
 }
 
 unittest sharedLocks {
+	// Simple testing of shared locks, then test multiple threads acquiring
+	// the lock.
 	static runThread(void* delegate() dg) {
 		static struct Delegate {
 			void* ctx;
@@ -107,12 +109,14 @@ unittest sharedLocks {
 	}
 
 	shared SharedLock lock;
-	assert(lock.count == 0);
+
 	lock.sharedLock();
 	assert(lock.count == 1);
 	assert(!lock.mutex.isHeld());
+
 	lock.sharedLock();
 	assert(lock.count == 2);
+
 	lock.sharedUnlock();
 	assert(lock.count == 1);
 
@@ -120,17 +124,22 @@ unittest sharedLocks {
 	shared Mutex mutex;
 	shared Atomic!uint numLocked;
 	bool exitThread;
+
 	void* run() {
 		lock.sharedLock();
-		scope(exit) lock.sharedUnlock();
+
 		numLocked.fetchAdd(1);
+
 		mutex.lock();
 		scope(exit) mutex.unlock();
+
 		bool shouldExit() {
 			return exitThread;
 		}
 
 		mutex.waitFor(shouldExit);
+		lock.sharedUnlock();
+		numLocked.fetchSub(1);
 		return null;
 	}
 
@@ -141,20 +150,24 @@ unittest sharedLocks {
 	}
 
 	{
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
 		bool allThreadsReady() {
 			return numLocked.load() == tids.length;
 		}
 
-		mutex.lock();
-		scope(exit) mutex.unlock();
 		mutex.waitFor(allThreadsReady);
-	}
+		assert(lock.count == 51);
 
-	assert(lock.count == 51);
-	{
-		mutex.lock();
-		scope(exit) mutex.unlock();
 		exitThread = true;
+
+		bool allThreadsDone() {
+			return numLocked.load() == 0;
+		}
+
+		mutex.waitFor(allThreadsDone);
+		assert(lock.count == 1);
 	}
 
 	void* ret;
@@ -162,12 +175,15 @@ unittest sharedLocks {
 		pthread_join(tids[i], &ret);
 	}
 
-	assert(lock.count == 1);
 	lock.sharedUnlock();
 	assert(lock.count == 0);
 }
 
 unittest exclusiveLock {
+	// Test using the exclusive lock. First, check that the state is as
+	// expected, then test trying to lock exclusively while holding a
+	// shared lock, and finally test exclusive locks as a mutex between 2
+	// threads.
 	static runThread(void* delegate() dg) {
 		static struct Delegate {
 			void* ctx;
@@ -187,8 +203,10 @@ unittest exclusiveLock {
 	shared SharedLock lock;
 	lock.exclusiveLock();
 	assert(lock.count == SharedLock.Exclusive);
+
 	lock.exclusiveUnlock();
 	assert(lock.count == 0);
+
 	lock.sharedLock();
 	assert(lock.count == 1);
 
@@ -196,6 +214,7 @@ unittest exclusiveLock {
 	import core.stdc.pthread;
 	import d.sync.atomic;
 	shared Atomic!uint state;
+
 	void* takeExclusiveLock() {
 		state.fetchAdd(1);
 		lock.exclusiveLock();
@@ -203,7 +222,14 @@ unittest exclusiveLock {
 		return cast(void*) cast(size_t) lock.count;
 	}
 
-	auto writer = runThread(takeExclusiveLock);
+	void* takeSharedLock() {
+		lock.sharedLock();
+		state.fetchAdd(1);
+		return null;
+	}
+
+	auto t1 = runThread(takeExclusiveLock);
+
 	{
 		bool triedExclusiveLock() {
 			return lock.count >= SharedLock.Exclusive;
@@ -217,17 +243,80 @@ unittest exclusiveLock {
 		assert(state.load() == 1);
 	}
 
+	auto t2 = runThread(takeSharedLock);
+
+	// Give t2 some time to try locking, sleep 0.5s
+	import core.stdc.unistd;
+	usleep(1000 * 500);
+	assert(lock.count == SharedLock.Exclusive + 1);
+	assert(state.load() == 1);
+
 	lock.sharedUnlock();
 	assert(lock.count == SharedLock.Exclusive);
+
 	void* ret;
-	pthread_join(writer, &ret);
+	pthread_join(t1, &ret);
+
+	assert(lock.mutex.isHeld());
 	assert(cast(size_t) ret == SharedLock.Exclusive);
 	assert(state.load() == 2);
+
 	lock.exclusiveUnlock();
+	pthread_join(t2, &ret);
+	assert(lock.count == 1);
+	assert(state.load() == 3);
+
+	lock.sharedUnlock();
 	assert(lock.count == 0);
+
+	void* run1() {
+		assert(state.load() == 0);
+
+		lock.exclusiveLock();
+		assert(lock.count == SharedLock.Exclusive, "Invalid lock state!");
+		assert(lock.mutex.isHeld(), "Mutex not held while exclusively locked!");
+		state.store(1);
+		lock.exclusiveUnlock();
+
+		while (state.load() != 2) {
+			import sys.posix.sched;
+			sched_yield();
+		}
+
+		return null;
+	}
+
+	void* run2() {
+		while (state.load() != 1) {
+			import sys.posix.sched;
+			sched_yield();
+		}
+
+		assert(state.load() == 1);
+
+		lock.exclusiveLock();
+		assert(lock.count == SharedLock.Exclusive, "Invalid lock state!");
+		assert(lock.mutex.isHeld(), "Mutex not held while exclusively locked!");
+		state.store(2);
+		lock.exclusiveUnlock();
+
+		return null;
+	}
+
+	state.store(0);
+	auto t3 = runThread(run1);
+	auto t4 = runThread(run2);
+
+	pthread_join(t3, &ret);
+	pthread_join(t4, &ret);
+
+	assert(!lock.mutex.isHeld(), "Mutex not held!");
+	assert(lock.count == 0, "Invalid lock state!");
 }
 
 unittest threadStressTest {
+	// Stress the lock by creating many threads that try both exclusive and
+	// shared locking.
 	static runThread(void* delegate() dg) {
 		static struct Delegate {
 			void* ctx;
@@ -248,31 +337,23 @@ unittest threadStressTest {
 	shared SharedLock lock;
 	shared Atomic!uint numSharedLocks;
 	shared Atomic!uint numExclusiveLocks;
-	shared Mutex mutex;
-	bool runTest;
-
-	bool shouldRunTest() {
-		return runTest;
-	}
 
 	enum MaxExclusive = 5;
 	enum MaxShared = 50;
 
 	void* runExclusive() {
-		mutex.lock();
-		mutex.waitFor(shouldRunTest);
-		mutex.unlock();
-
 		foreach (i; 0 .. 10000) {
 			lock.exclusiveLock();
 			scope(exit) lock.exclusiveUnlock();
+
 			auto ne = numExclusiveLocks.fetchAdd(1);
 			auto ns = numSharedLocks.load();
+
 			assert(ne == 0);
 			assert(ns == 0);
-			import sys.posix.sched;
-			sched_yield();
+
 			ne = numExclusiveLocks.fetchSub(1);
+
 			assert(ne == 1);
 		}
 
@@ -280,10 +361,6 @@ unittest threadStressTest {
 	}
 
 	void* runShared() {
-		mutex.lock();
-		mutex.waitFor(shouldRunTest);
-		mutex.unlock();
-
 		size_t highWater = 0;
 		foreach (i; 0 .. 10000) {
 			lock.sharedLock();
@@ -291,12 +368,16 @@ unittest threadStressTest {
 
 			auto ne = numExclusiveLocks.load();
 			auto ns = numSharedLocks.fetchAdd(1);
+
 			assert(ne == 0);
 			assert(ns >= 0 && ns < MaxShared);
+
 			import sys.posix.sched;
 			sched_yield();
 			ns = numSharedLocks.fetchSub(1);
+
 			assert(ns > 0 && ns <= MaxShared);
+
 			if (ns > highWater) {
 				highWater = ns;
 			}
@@ -304,6 +385,8 @@ unittest threadStressTest {
 
 		return cast(void*) highWater;
 	}
+
+	lock.exclusiveLock(); // To sync all thread starts.
 
 	import core.stdc.pthread;
 	pthread_t[MaxExclusive] exclusives;
@@ -317,9 +400,7 @@ unittest threadStressTest {
 		sharers[i] = runThread(runShared);
 	}
 
-	mutex.lock();
-	runTest = true;
-	mutex.unlock();
+	lock.exclusiveUnlock(); // Release all the threads.
 
 	foreach (i; 0 .. exclusives.length) {
 		void* ret;
