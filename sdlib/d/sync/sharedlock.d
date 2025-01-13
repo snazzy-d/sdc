@@ -206,8 +206,45 @@ unittest exclusiveLock {
 	lock.exclusiveUnlock();
 	assert(lock.count == 0);
 
-	import d.sync.atomic;
-	shared Atomic!uint state;
+	static struct State {
+		uint state;
+		shared Mutex mutex;
+
+		void store(uint s) {
+			mutex.lock();
+			scope(exit) mutex.unlock();
+
+			state = s;
+		}
+
+		uint load() {
+			mutex.lock();
+			scope(exit) mutex.unlock();
+
+			return state;
+		}
+
+		void waitFor(uint value) {
+			static struct Waiter {
+				State* state;
+				uint value;
+
+				bool matches() {
+					return state.state == value;
+				}
+			}
+
+			Waiter waiter;
+			waiter.state = &this;
+			waiter.value = value;
+
+			mutex.lock();
+			scope(exit) mutex.unlock();
+			mutex.waitFor(waiter.matches);
+		}
+	}
+
+	State state;
 
 	void* run1() {
 		assert(state.load() == 0);
@@ -218,19 +255,13 @@ unittest exclusiveLock {
 		state.store(1);
 		lock.exclusiveUnlock();
 
-		while (state.load() != 2) {
-			import sys.posix.sched;
-			sched_yield();
-		}
+		state.waitFor(2);
 
 		return null;
 	}
 
 	void* run2() {
-		while (state.load() != 1) {
-			import sys.posix.sched;
-			sched_yield();
-		}
+		state.waitFor(1);
 
 		assert(state.load() == 1);
 
@@ -287,24 +318,56 @@ unittest exclusiveAndSharedLock {
 
 	shared SharedLock lock;
 
-	import d.sync.atomic;
-	import sys.posix.sched;
-	shared Atomic!uint exclusiveLockState;
-	shared Atomic!uint sharedLockCount;
-	shared Atomic!uint attemptedSharedLockCount;
-	shared Atomic!uint desiredSharedLocks;
+	enum SharerThreads = 5;
+
+	struct ExclusiveState {
+		shared Mutex mutex;
+		uint state;
+
+		uint load() {
+			mutex.lock();
+			scope(exit) mutex.unlock();
+			return state;
+		}
+
+		void store(uint newval) {
+			mutex.lock();
+			scope(exit) mutex.unlock();
+			state = newval;
+		}
+
+		bool cmdReady() {
+			return (state & 1) == 1;
+		}
+
+		uint waitForCmd() {
+			mutex.lock();
+			scope(exit) mutex.unlock();
+
+			mutex.waitFor(cmdReady);
+			return state;
+		}
+
+		bool responseReady() {
+			return (state & 1) == 0;
+		}
+
+		uint waitForResponse() {
+			mutex.lock();
+			scope(exit) mutex.unlock();
+
+			mutex.waitFor(responseReady);
+			return state;
+		}
+	}
+
+	ExclusiveState exclusiveState;
 
 	void* exclusiveLocker() {
 		while (true) {
-			uint cur = exclusiveLockState.load();
-			auto s = cur;
-			assert((s & 1) == 0);
-			while (s == cur) {
-				sched_yield();
-				s = exclusiveLockState.load();
-			}
+			auto s = exclusiveState.waitForCmd();
 
-			scope(exit) exclusiveLockState.fetchAdd(1);
+			scope(exit) exclusiveState.store(s + 1);
 
 			switch (s) {
 				case 1: // Lock
@@ -319,32 +382,138 @@ unittest exclusiveAndSharedLock {
 		}
 	}
 
+	static struct SharedState {
+		shared Mutex sharedLockerMutex;
+		uint _locked;
+		uint _attempted;
+		uint _desired;
+		uint _lockerId;
+		shared(SharedLock)* slock;
+
+		this(shared(SharedLock)* slock) {
+			this.slock = slock;
+		}
+
+		uint inc(ref uint var) {
+			sharedLockerMutex.lock();
+			scope(exit) sharedLockerMutex.unlock();
+			return var++;
+		}
+
+		uint dec(ref uint var) {
+			sharedLockerMutex.lock();
+			scope(exit) sharedLockerMutex.unlock();
+			return var--;
+		}
+
+		uint load(ref uint var) {
+			sharedLockerMutex.lock();
+			scope(exit) sharedLockerMutex.unlock();
+			return var;
+		}
+
+		void store(ref uint var, uint newval) {
+			sharedLockerMutex.lock();
+			scope(exit) sharedLockerMutex.unlock();
+			var = newval;
+		}
+
+		uint nextId() {
+			return inc(_lockerId);
+		}
+
+		void lock() {
+			inc(_attempted);
+			slock.sharedLock();
+			dec(_attempted);
+			inc(_locked);
+		}
+
+		void unlock() {
+			slock.sharedUnlock();
+			dec(_locked);
+		}
+
+		void waitForState(uint locked, uint attempted) {
+			static struct StateWaiter {
+				SharedState* state;
+				uint locked;
+				uint attempted;
+				bool stateMatched() {
+					return state._locked == locked
+						&& state._attempted == attempted;
+				}
+			}
+
+			StateWaiter waiter;
+			waiter.state = &this;
+			waiter.locked = locked;
+			waiter.attempted = attempted;
+
+			sharedLockerMutex.lock();
+			sharedLockerMutex.waitFor(waiter.stateMatched);
+			sharedLockerMutex.unlock();
+
+			// Sleep a tiny bit (10ms) to ensure a steady state
+			import core.stdc.unistd;
+			usleep(10 * 1000);
+
+			assert(load(_locked) == locked,
+			       "Unexpected change of shared locks!");
+			assert(load(_attempted) == attempted,
+			       "Unexpected change of shared attempts!");
+		}
+
+		void waitForDesiredChanged(uint current) {
+			static struct StateWaiter {
+				SharedState* state;
+				uint current;
+				bool desiredChanged() {
+					return state._desired != current;
+				}
+			}
+
+			StateWaiter waiter;
+			waiter.state = &this;
+			waiter.current = current;
+
+			sharedLockerMutex.lock();
+			scope(exit) sharedLockerMutex.unlock();
+
+			sharedLockerMutex.waitFor(waiter.desiredChanged);
+		}
+
+		uint desired() {
+			return load(_desired);
+		}
+
+		void setDesired(uint count) {
+			store(_desired, count);
+		}
+	}
+
+	auto sharedState = SharedState(&lock);
+
 	void* sharedLocker() {
-		uint id = sharedLockCount.fetchAdd(1);
+		uint id = sharedState.nextId();
 		bool lockHeld = false;
 		while (true) {
-			uint cmd = desiredSharedLocks.load();
+			uint cmd = sharedState.desired();
 			if (cmd == uint.max) {
 				return null;
 			}
 
 			if (cmd > id && !lockHeld) {
-				attemptedSharedLockCount.fetchAdd(1);
-				lock.sharedLock();
-				attemptedSharedLockCount.fetchSub(1);
+				sharedState.lock();
 				lockHeld = true;
-				sharedLockCount.fetchAdd(1);
 			} else if (cmd <= id && lockHeld) {
-				lock.sharedUnlock();
+				sharedState.unlock();
 				lockHeld = false;
-				sharedLockCount.fetchSub(1);
 			} else {
-				sched_yield();
+				sharedState.waitForDesiredChanged(cmd);
 			}
 		}
 	}
-
-	enum SharerThreads = 5;
 
 	import core.stdc.pthread;
 	pthread_t[SharerThreads + 1] tids;
@@ -353,95 +522,70 @@ unittest exclusiveAndSharedLock {
 		tids[i] = runThread(sharedLocker);
 	}
 
-	void waitForShared(uint count, uint attempts) {
-		while (sharedLockCount.load() != count
-			       && attemptedSharedLockCount.load() != attempts) {
-			sched_yield();
-		}
-
-		// Sleep a tiny bit (10ms) to ensure a steady state
-		import core.stdc.unistd;
-		usleep(10 * 1000);
-
-		assert(sharedLockCount.load() == count,
-		       "Unexpected change of shared locks!");
-		assert(attemptedSharedLockCount.load() == attempts,
-		       "Unexpected change of shared attempts!");
-	}
-
-	// Wait for all ids to be assigned.
-	waitForShared(SharerThreads, 0);
-	assert(lock.count == 0, "Expected count not correct!");
-	assert(!lock.mutex.isHeld(), "Mutex is held!");
-
-	sharedLockCount.store(0);
-
 	// 1. When a shared lock is held, exclusively locking waits.
-	desiredSharedLocks.store(2);
+	sharedState.setDesired(2);
 
-	waitForShared(2, 0);
+	sharedState.waitForState(2, 0);
 	assert(lock.count == 2, "Expected count not correct!");
 	assert(!lock.mutex.isHeld(), "Mutex is held!");
 
-	exclusiveLockState.store(1);
-	while (lock.count < SharedLock.Exclusive) {
-		sched_yield();
+	exclusiveState.store(1);
+	bool exclusiveAttempted() {
+		return lock.count >= SharedLock.Exclusive;
 	}
 
-	// Take the lock mutex temporarily to ensure it's not locked.
 	lock.mutex.lock();
+	lock.mutex.waitFor(exclusiveAttempted);
 	lock.mutex.unlock();
 
 	assert(lock.count == SharedLock.Exclusive + 2);
 	assert(!lock.mutex.isHeld());
-	assert(exclusiveLockState.load() == 1);
-	waitForShared(2, 0);
+	assert(exclusiveState.load() == 1);
+	sharedState.waitForState(2, 0);
 
 	// 2. When a shared lock is held, and exclusive lock is sought, further
 	//    shared locks should wait.
-	desiredSharedLocks.store(SharerThreads);
+	sharedState.setDesired(SharerThreads);
 
-	waitForShared(2, SharerThreads - 2);
+	sharedState.waitForState(2, SharerThreads - 2);
 	assert(lock.count == SharedLock.Exclusive + 2);
-	assert(!lock.mutex.isHeld());
-	assert(exclusiveLockState.load() == 1);
+	// Lock here, to make sure the lock isn't held by the exclusive thread.
+	lock.mutex.lock();
+	assert(exclusiveState.load() == 1);
+	lock.mutex.unlock();
 
 	// 3. When all shared locks are released, the exclusive lock is taken.
-	desiredSharedLocks.store(0);
+	sharedState.setDesired(0);
+	auto response = exclusiveState.waitForResponse();
 
-	waitForShared(0, SharerThreads - 2);
-	while (exclusiveLockState.load() != 2) {
-		sched_yield();
-	}
-
+	sharedState.waitForState(0, SharerThreads - 2);
+	assert(response == 2);
 	assert(lock.count == SharedLock.Exclusive);
 	assert(lock.mutex.isHeld());
 
 	// 4. When the exclusive lock is released, shared locks can again be taken.
-	desiredSharedLocks.store(SharerThreads);
-	waitForShared(0, SharerThreads);
+	sharedState.setDesired(SharerThreads);
 
+	sharedState.waitForState(0, SharerThreads);
 	assert(lock.count == SharedLock.Exclusive);
 	assert(lock.mutex.isHeld());
-	assert(exclusiveLockState.load() == 2);
+	assert(exclusiveState.load() == 2);
 
 	// Unlock the exclusive lock.
-	exclusiveLockState.store(3);
+	exclusiveState.store(3);
+	response = exclusiveState.waitForResponse();
 
-	waitForShared(SharerThreads, 0);
-	while (exclusiveLockState.load() != 4) {
-		sched_yield();
-	}
-
+	sharedState.waitForState(SharerThreads, 0);
+	assert(response == 4);
 	assert(lock.count == SharerThreads);
 	assert(!lock.mutex.isHeld());
 
-	desiredSharedLocks.store(0);
-	waitForShared(0, 0);
+	sharedState.setDesired(0);
+	sharedState.waitForState(0, 0);
 
 	// Cleanup.
-	desiredSharedLocks.store(uint.max);
-	exclusiveLockState.store(uint.max);
+	sharedState.setDesired(uint.max);
+	exclusiveState.store(uint.max);
 	foreach (i; 0 .. tids.length) {
 		void* ret;
 		pthread_join(tids[i], &ret);
