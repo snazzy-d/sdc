@@ -54,13 +54,13 @@ public:
 	}
 
 private:
-	bool noWriteLock() {
+	bool noExclusiveLock() {
 		return count < Exclusive;
 	}
 
 	void sharedLockImpl() {
 		assert(mutex.isHeld());
-		mutex.waitFor(noWriteLock);
+		mutex.waitFor(noExclusiveLock);
 		++count;
 	}
 
@@ -71,7 +71,7 @@ private:
 	void exclusiveLockImpl() {
 		assert(mutex.isHeld());
 		// Wait for no other exclusive lock.
-		mutex.waitFor(noWriteLock);
+		mutex.waitFor(noExclusiveLock);
 		count += Exclusive;
 		mutex.waitFor(hasExclusiveLock);
 	}
@@ -225,22 +225,14 @@ unittest exclusiveLock {
 		}
 
 		void waitFor(uint value) {
-			static struct Waiter {
-				State* state;
-				uint value;
-
-				bool matches() {
-					return state.state == value;
-				}
+			auto ths = &this;
+			bool matches() {
+				return ths.state == value;
 			}
-
-			Waiter waiter;
-			waiter.state = &this;
-			waiter.value = value;
 
 			mutex.lock();
 			scope(exit) mutex.unlock();
-			mutex.waitFor(waiter.matches);
+			mutex.waitFor(matches);
 		}
 	}
 
@@ -320,7 +312,7 @@ unittest exclusiveAndSharedLock {
 
 	enum SharerThreads = 5;
 
-	struct ExclusiveState {
+	static struct ExclusiveState {
 		shared Mutex mutex;
 		uint state;
 
@@ -383,7 +375,7 @@ unittest exclusiveAndSharedLock {
 	}
 
 	static struct SharedState {
-		shared Mutex sharedLockerMutex;
+		shared Mutex mutex;
 		uint _locked;
 		uint _attempted;
 		uint _desired;
@@ -395,26 +387,26 @@ unittest exclusiveAndSharedLock {
 		}
 
 		uint inc(ref uint var) {
-			sharedLockerMutex.lock();
-			scope(exit) sharedLockerMutex.unlock();
+			mutex.lock();
+			scope(exit) mutex.unlock();
 			return var++;
 		}
 
 		uint dec(ref uint var) {
-			sharedLockerMutex.lock();
-			scope(exit) sharedLockerMutex.unlock();
+			mutex.lock();
+			scope(exit) mutex.unlock();
 			return var--;
 		}
 
 		uint load(ref uint var) {
-			sharedLockerMutex.lock();
-			scope(exit) sharedLockerMutex.unlock();
+			mutex.lock();
+			scope(exit) mutex.unlock();
 			return var;
 		}
 
 		void store(ref uint var, uint newval) {
-			sharedLockerMutex.lock();
-			scope(exit) sharedLockerMutex.unlock();
+			mutex.lock();
+			scope(exit) mutex.unlock();
 			var = newval;
 		}
 
@@ -435,24 +427,14 @@ unittest exclusiveAndSharedLock {
 		}
 
 		void waitForState(uint locked, uint attempted) {
-			static struct StateWaiter {
-				SharedState* state;
-				uint locked;
-				uint attempted;
-				bool stateMatched() {
-					return state._locked == locked
-						&& state._attempted == attempted;
-				}
+			auto ths = &this;
+			bool stateMatched() {
+				return ths._locked == locked && ths._attempted == attempted;
 			}
 
-			StateWaiter waiter;
-			waiter.state = &this;
-			waiter.locked = locked;
-			waiter.attempted = attempted;
-
-			sharedLockerMutex.lock();
-			sharedLockerMutex.waitFor(waiter.stateMatched);
-			sharedLockerMutex.unlock();
+			mutex.lock();
+			mutex.waitFor(stateMatched);
+			mutex.unlock();
 
 			// Sleep a tiny bit (10ms) to ensure a steady state
 			import core.stdc.unistd;
@@ -465,22 +447,15 @@ unittest exclusiveAndSharedLock {
 		}
 
 		void waitForDesiredChanged(uint current) {
-			static struct StateWaiter {
-				SharedState* state;
-				uint current;
-				bool desiredChanged() {
-					return state._desired != current;
-				}
+			auto ths = &this;
+			bool desiredChanged() {
+				return ths._desired != current;
 			}
 
-			StateWaiter waiter;
-			waiter.state = &this;
-			waiter.current = current;
+			mutex.lock();
+			scope(exit) mutex.unlock();
 
-			sharedLockerMutex.lock();
-			scope(exit) sharedLockerMutex.unlock();
-
-			sharedLockerMutex.waitFor(waiter.desiredChanged);
+			mutex.waitFor(desiredChanged);
 		}
 
 		uint desired() {
