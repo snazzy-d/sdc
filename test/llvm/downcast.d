@@ -15,13 +15,13 @@ auto downcastToA(Object o) {
 
 	// CHECK: [[DOWNCAST]]:
 	// CHECK: [[CLASSINFO:%[a-z0-9\.]+]] = load ptr, ptr %arg.o, align 8
-	// CHECK: [[DEPTH_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds i8, ptr [[CLASSINFO]], i64 8
+	// CHECK: [[DEPTH_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds nuw i8, ptr [[CLASSINFO]], i64 8
 	// CHECK: [[DEPTH:%[a-z0-9\.]+]] = load i64, ptr [[DEPTH_ADDR]], align 8
 	// CHECK: [[DEPTH_CMP:%[a-z0-9\.]+]] = icmp eq i64 [[DEPTH]], 0
 	// CHECK: br i1 [[DEPTH_CMP]], label %[[EXIT]], label %[[CONTINUE:[A-Za-z0-9\._]+]]
 
 	// CHECK: [[CONTINUE]]:
-	// CHECK: [[PRIMARIES_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds i8, ptr [[CLASSINFO]], i64 16
+	// CHECK: [[PRIMARIES_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds nuw i8, ptr [[CLASSINFO]], i64 16
 	// CHECK: [[PRIMARIES:%[a-z0-9\.]+]] = load ptr, ptr [[PRIMARIES_ADDR]], align 8
 	// CHECK: [[BASE:%[a-z0-9\.]+]] = load ptr, ptr [[PRIMARIES]], align 8
 	// CHECK: [[BASE_CMP:%[a-z0-9\.]+]] = icmp eq ptr [[BASE]], @C8downcast1A.vtbl
@@ -41,15 +41,15 @@ auto downcastToB(Object o) {
 
 	// CHECK: [[DOWNCAST]]:
 	// CHECK: [[CLASSINFO:%[a-z0-9\.]+]] = load ptr, ptr %arg.o, align 8
-	// CHECK: [[DEPTH_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds i8, ptr [[CLASSINFO]], i64 8
+	// CHECK: [[DEPTH_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds nuw i8, ptr [[CLASSINFO]], i64 8
 	// CHECK: [[DEPTH:%[a-z0-9\.]+]] = load i64, ptr [[DEPTH_ADDR]], align 8
 	// CHECK: [[DEPTH_CMP:%[a-z0-9\.]+]] = icmp ugt i64 [[DEPTH]], 1
 	// CHECK: br i1 [[DEPTH_CMP]], label %[[CONTINUE:[A-Za-z0-9\._]+]], label %[[EXIT]]
 
 	// CHECK: [[CONTINUE]]:
-	// CHECK: [[PRIMARIES_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds i8, ptr [[CLASSINFO]], i64 16
+	// CHECK: [[PRIMARIES_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds nuw i8, ptr [[CLASSINFO]], i64 16
 	// CHECK: [[PRIMARIES:%[a-z0-9\.]+]] = load ptr, ptr [[PRIMARIES_ADDR]], align 8
-	// CHECK: [[BASE_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds i8, ptr [[PRIMARIES]], i64 8
+	// CHECK: [[BASE_ADDR:%[a-z0-9\.]+]] = getelementptr inbounds nuw i8, ptr [[PRIMARIES]], i64 8
 	// CHECK: [[BASE:%[a-z0-9\.]+]] = load ptr, ptr [[BASE_ADDR]], align 8
 	// CHECK: [[BASE_CMP:%[a-z0-9\.]+]] = icmp eq ptr [[BASE]], @C8downcast1B.vtbl
 	// CHECK: [[SELECT:%[a-z0-9\.]+]] = select i1 [[BASE_CMP]], ptr %arg.o, ptr null

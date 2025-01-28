@@ -49,7 +49,7 @@ also build [SDC's runtime library][21], that is compiled using SDC.
 
 # Compiling SDC on Linux
 
-You'll need `make` and the latest DMD installed and LLVM 19.
+You'll need `make` and the latest DMD installed and LLVM 20.
 
 Run `make`.
 
