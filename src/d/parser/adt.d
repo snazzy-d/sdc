@@ -195,10 +195,9 @@ Declaration parseEnum(ref TokenRange trange, StorageClass stc)
 	VariableDeclaration[] enumEntries;
 
 	while (trange.front.type != TokenType.CloseBrace) {
-		auto entryName = trange.front.name;
-		auto entryLocation = trange.front.location;
-
-		trange.match(TokenType.Identifier);
+		auto entry = trange.match(TokenType.Identifier);
+		auto entryName = entry.name;
+		auto entryLocation = entry.location;
 
 		AstExpression entryValue;
 		if (trange.front.type == TokenType.Equal) {
