@@ -321,7 +321,7 @@ private:
 			return null;
 		}
 
-		auto block = acquireBlock(false, extraBlocks);
+		auto block = acquireSparseBlock(extraBlocks);
 		if (unlikely(block is null)) {
 			unusedExtents.insert(e);
 			return null;
@@ -513,20 +513,28 @@ private:
 	BlockDescriptor* extractBlock(uint pages, uint mask, bool dense) {
 		assert(mutex.isHeld(), "Mutex not held!");
 
-		auto filter = getFilterPtr(dense);
+		return dense
+			? extractBlockImpl!true(pages, mask)
+			: extractBlockImpl!false(pages, mask);
+	}
+
+	BlockDescriptor* extractBlockImpl(bool Dense)(uint pages, uint mask) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		auto filter = getFilterPtr(Dense);
 		auto acfilter = *filter & mask;
 		if (acfilter == 0) {
-			return acquireBlock(dense);
+			return acquireBlock!Dense();
 		}
 
 		auto index = countTrailingZeros(acfilter);
-		auto heaps = getHeaps(dense);
+		auto heaps = getHeaps(Dense);
 
 		auto block = heaps[index].pop();
 		*filter &= ~(uint(heaps[index].empty) << index);
 
 		assert(block !is null);
-		assert(block.dense == dense);
+		assert(block.dense == Dense);
 		return block;
 	}
 
@@ -576,9 +584,21 @@ private:
 		return dense ? &denseBlocks : &sparseBlocks;
 	}
 
-	BlockDescriptor* acquireBlock(bool dense, uint extraBlocks = 0) {
+	BlockDescriptor* acquireDenseBlock() {
 		assert(mutex.isHeld(), "Mutex not held!");
-		assert(!dense || extraBlocks == 0, "Huge allocations cannot be dense!");
+
+		return acquireBlock!true(0);
+	}
+
+	BlockDescriptor* acquireSparseBlock(uint extraBlocks = 0) {
+		assert(mutex.isHeld(), "Mutex not held!");
+
+		return acquireBlock!false(extraBlocks);
+	}
+
+	BlockDescriptor* acquireBlock(bool Dense)(uint extraBlocks = 0) {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(!Dense || extraBlocks == 0, "Huge allocations cannot be dense!");
 
 		if (!refillBlockDescriptors()) {
 			return null;
@@ -592,8 +612,8 @@ private:
 		auto block = unusedBlockDescriptors.pop();
 		assert(block !is null);
 
-		block.at(address, dense);
-		getAllBlocks(dense).insert(block);
+		block.at(address, Dense);
+		getAllBlocks(Dense).insert(block);
 		return block;
 	}
 
