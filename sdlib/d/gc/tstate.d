@@ -238,34 +238,62 @@ unittest suspend {
 
 	import d.sync.atomic;
 	shared Atomic!uint resumeCount;
-	shared Atomic!uint mustStop;
+
+	import d.sync.mutex;
+	shared Mutex mutex;
+	uint step = 0;
+	bool mustStop = false;
+
+	void moveToNextStep() {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		step++;
+	}
+
+	void setMustStop() {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		mustStop = true;
+	}
 
 	void* autoResume() {
-		while (mustStop.load() == 0) {
+		mutex.lock();
+		scope(exit) mutex.unlock();
+		assert(step == 0, "Unexpected step when starting.");
+
+		uint nextStep = 1;
+
+		while (!mustStop) {
+			// Wait for the main thread to be suspended.
 			if (s.suspendState != SuspendState.Suspended) {
 				import sys.posix.sched;
 				sched_yield();
 				continue;
 			}
 
+			// It is suspend, resume it.
 			resumeCount.fetchAdd(1);
 
 			import d.gc.signal;
 			signalThreadResume(tc);
 
-			while (s.suspendState == SuspendState.Suspended) {
-				import sys.posix.sched;
-				sched_yield();
+			// Wait for the next test.
+			bool hasReachedNextStep() {
+				return step >= nextStep;
 			}
+
+			mutex.waitFor(hasReachedNextStep);
+			nextStep = step + 1;
 		}
 
 		return null;
 	}
 
 	auto autoResumeThreadID = runThread(autoResume);
-
 	scope(exit) {
-		mustStop.store(1);
+		setMustStop();
 
 		void* ret;
 		pthread_join(autoResumeThreadID, &ret);
@@ -286,6 +314,7 @@ unittest suspend {
 
 	assert(s.onSuspendSignal());
 	check(SuspendState.None, false, 1);
+	moveToNextStep();
 
 	// Signal while busy.
 	s.sendSuspendSignal();
@@ -303,4 +332,5 @@ unittest suspend {
 
 	assert(s.exitBusyState());
 	check(SuspendState.None, false, 2);
+	moveToNextStep();
 }
