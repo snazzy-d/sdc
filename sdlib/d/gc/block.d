@@ -25,13 +25,13 @@ private:
 	/**
 	 * This is a bitfield containing the following elements:
 	 *  - f: The longest free range.
-	 *  - c: The allocation class associated with the longest free range.
 	 *  - s: The allocation score.
+	 *  - c: The allocation class associated with the longest free range.
 	 *  - a: The address of the block itself.
 	 *  - d: indicates if the block is dense.
 	 * 
 	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
-	 * ......ff ffffffff ccccc.ss ssssssss aaaaaaaa aaaaaaaa aaaaaaaa aaa....d
+	 * ......ff ffffffff ssssssss ss.ccccc aaaaaaaa aaaaaaaa aaaaaaaa aaa....d
 	 * 
 	 * We want that bitfield to be usable as a discriminant to prioritize
 	 * from which block we want to allocate.
@@ -71,14 +71,14 @@ private:
 	enum LongestFreeRangeSize = 10;
 	enum LongestFreeRangeMask = (1 << LongestFreeRangeSize) - 1;
 
-	enum FreeRangeClassIndex = 43;
-	enum FreeRangeClassSize = 5;
-	enum FreeRangeClassMask = (1 << FreeRangeClassSize) - 1;
-
-	enum AllocScoreIndex = 32;
+	enum AllocScoreIndex = 38;
 	enum AllocScoreSize = 10;
 	enum AllocScoreUnit = 1UL << AllocScoreIndex;
 	enum AllocScoreMask = (1 << AllocScoreSize) - 1;
+
+	enum FreeRangeClassIndex = 32;
+	enum FreeRangeClassSize = 5;
+	enum FreeRangeClassMask = (1 << FreeRangeClassSize) - 1;
 
 	union Links {
 		PHNode phnode;
