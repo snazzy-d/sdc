@@ -16,7 +16,7 @@ alias AllBlockRing = Ring!(BlockDescriptor, "allrnode");
  * Each BlockDescriptor manages a 2MB system's huge page.
  *
  * In order to reduce TLB pressure, we try to layout the memory in
- * such a way that the OS can back it with huge pages. We organise
+ * such a way that the OS can back it with huge pages. We organize
  * the memory in blocks that correspond to a huge page, and allocate
  * in blocks that are unlikely to empty themselves any time soon.
  */
@@ -31,14 +31,14 @@ private:
 	 *  - d: indicates if the block is dense.
 	 * 
 	 * 63    56 55    48 47    40 39    32 31    24 23    16 15     8 7      0
-	 * .fffffff fffccccc ......ss ssssssss aaaaaaaa aaaaaaaa aaaaaaaa aaa....d
+	 * ......ff ffffffff ccccc.ss ssssssss aaaaaaaa aaaaaaaa aaaaaaaa aaa....d
 	 * 
 	 * We want that bitfield to be usable as a discriminant to prioritize
 	 * from which block we want to allocate.
 	 * 
 	 *  1. Reduce fragmentation.
 	 *     We therefore try to select the block with the shortest free range
-	 *     possible, so we avoid unecesserly breaking large free ranges.
+	 *     possible, so we avoid unnecessarily breaking large free ranges.
 	 * 
 	 *  2. Use block which already host many allocations.
 	 *     We do so in order to maximize our chances to be able to free blocks.
@@ -67,11 +67,11 @@ private:
 	              "Unable to pack the free range class!");
 
 	// Useful constants for bit manipulations.
-	enum LongestFreeRangeIndex = 53;
+	enum LongestFreeRangeIndex = 48;
 	enum LongestFreeRangeSize = 10;
 	enum LongestFreeRangeMask = (1 << LongestFreeRangeSize) - 1;
 
-	enum FreeRangeClassIndex = 48;
+	enum FreeRangeClassIndex = 43;
 	enum FreeRangeClassSize = 5;
 	enum FreeRangeClassMask = (1 << FreeRangeClassSize) - 1;
 
@@ -737,7 +737,7 @@ unittest track_dirty {
 	checkRangeState(1, 5, 10, PagesInBlock - 10);
 
 	// A new allocation that doesn't fit in the space left
-	// by the first one is done in the trailign space.
+	// by the first one is done in the trailing space.
 	checkReserve(7, 10, true);
 	checkRangeState(2, 12, 17, PagesInBlock - 17);
 
@@ -754,7 +754,7 @@ unittest track_dirty {
 	checkRangeState(1, 5, 17, PagesInBlock - 10);
 
 	// Check that allocating something that do not fit in
-	// the first slot allocates in the apropriate free range.
+	// the first slot allocates in the appropriate free range.
 	checkReserve(10, 10, false);
 	checkRangeState(2, 15, 20, PagesInBlock - 20);
 }
