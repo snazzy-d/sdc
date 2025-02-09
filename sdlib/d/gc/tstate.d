@@ -175,7 +175,7 @@ unittest busy {
 	check(SuspendState.None, false);
 
 	void checkForState(SuspendState ss) {
-		// Check simply busy/unbusy state transtion.
+		// Check simply busy/unbusy state transition.
 		s.state.store(ss);
 		check(ss, false);
 
@@ -268,6 +268,10 @@ unittest suspend {
 		while (!mustStop) {
 			// Wait for the main thread to be suspended.
 			if (s.suspendState != SuspendState.Suspended) {
+				// Make sure we leave the opportunity to update mustStop!
+				mutex.unlock();
+				scope(exit) mutex.lock();
+
 				import sys.posix.sched;
 				sched_yield();
 				continue;
