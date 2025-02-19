@@ -100,6 +100,15 @@ int resolve_pthread_create(pthread_t* thread, const pthread_attr_t* attr,
 		exit(1);
 	}
 
+	// NOTE: without casting to void*, this does not work in SDC.
+	if (cast(void*) real_pthread_create is cast(void*) pthread_create) {
+		import core.stdc.stdlib, core.stdc.stdio;
+		printf(
+			"Could not load subsequent pthread_create! Avoiding stack overflow\n"
+		);
+		exit(1);
+	}
+
 Forward:
 	// Rebind the trampoline so we never resolve again.
 	pthread_create_trampoline = real_pthread_create;
