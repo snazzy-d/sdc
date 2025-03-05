@@ -88,9 +88,24 @@ private:
 	this(this);
 
 public:
+	Position registerFileZeroTerminated(
+		Location location,
+		Name filename,
+		Name directory,
+		string content
+	) out(result; result.isFile()) {
+		return files
+			.registerFileZeroTerminated(location, filename, directory, content);
+	}
+
 	Position registerFile(Location location, Name filename, Name directory,
 	                      string content) out(result; result.isFile()) {
 		return files.registerFile(location, filename, directory, content);
+	}
+
+	Position registerMixinZeroTerminated(Location location, string content)
+			out(result; result.isMixin()) {
+		return mixins.registerMixinZeroTerminated(location, content);
 	}
 
 	Position registerMixin(Location location, string content)
@@ -219,23 +234,39 @@ struct SourceEntries {
 		lastFileID = FileID(0, nextSourcePos.isMixin());
 	}
 
-	Position registerFile(Location location, Name filename, Name directory,
-	                      string content) in(nextSourcePos.isFile()) {
+	Position registerFileZeroTerminated(Location location, Name filename,
+	                                    Name directory, string content) in {
+		assert(nextSourcePos.isFile());
+		assert(content.isZeroTerminated());
+	} do {
 		auto base = nextSourcePos;
-		content ~= '\0';
 		nextSourcePos = nextSourcePos.getWithOffset(cast(uint) content.length);
 		sourceEntries ~=
 			SourceEntry(base, location, filename, directory, content);
 		return base;
 	}
 
-	Position registerMixin(Location location, string content)
-			in(nextSourcePos.isMixin()) {
-		auto base = nextSourcePos;
+	Position registerFile(Location location, Name filename, Name directory,
+	                      string content) in(nextSourcePos.isFile()) {
 		content ~= '\0';
+		return
+			registerFileZeroTerminated(location, filename, directory, content);
+	}
+
+	Position registerMixinZeroTerminated(Location location, string content) in {
+		assert(nextSourcePos.isMixin());
+		assert(content.isZeroTerminated());
+	} do {
+		auto base = nextSourcePos;
 		nextSourcePos = nextSourcePos.getWithOffset(cast(uint) content.length);
 		sourceEntries ~= SourceEntry(base, location, content);
 		return base;
+	}
+
+	Position registerMixin(Location location, string content)
+			in(nextSourcePos.isMixin()) {
+		content ~= '\0';
+		return registerMixinZeroTerminated(location, content);
 	}
 
 	bool isPositionInFileID(Position p, FileID fileID) {
@@ -387,4 +418,8 @@ immutable(uint)[] getLines(string content) in(content.length < uint.max) {
 	}
 
 	return LineBreakLexer(content).computeLineSplits();
+}
+
+private bool isZeroTerminated(string content) {
+	return content.length != 0 && content[$ - 1] == '\0';
 }
