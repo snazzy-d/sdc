@@ -272,20 +272,21 @@ private:
 
 	@property
 	bool finalizerEnabled() {
-		// Right now we fetch hasMetadata eagerly, but the FinalizerBit check
-		// is cheaper. But it may be worthwhile to return early if FinalizerBit
-		// is clear, i.e. to snoop the extent's metadata lazily. The reasons:
-		// 1) If the slot is not full, the bit at the FinalizerBit position
-		//    is most likely 0.
-		// 2) If it has metadata, usually it won't have a finalizer: still 0.
-		// 3) If the metadata space contains an aligned pointer, the last byte
-		//    will be the MSB of that pointer, which will always be 0.
-		// 4) If the space contains a number, its MSB will likely be zero,
-		//    as most numbers are small.
-		// 5) If there is something else in there, that is not heavily biased
-		//    (float, random/compressed data) then we're still at 50/50.
-		// We should expect to find a zero in there the VAST majority of the time.
-
+		/**
+		 * Right now we fetch hasMetadata eagerly, but the FinalizerBit check
+		 * is cheaper. But it may be worthwhile to return early if FinalizerBit
+		 * is clear, i.e. to snoop the extent's metadata lazily. The reasons:
+		 * 1. If the slot is not full, the bit at the FinalizerBit position
+		 *    is most likely 0.
+		 * 2. If it has metadata, usually it won't have a finalizer: still 0.
+		 * 3. If the metadata space contains an aligned pointer, the last byte
+		 *    will be the MSB of that pointer, which will always be 0.
+		 * 4. If the space contains a number, its MSB will likely be zero,
+		 *    as most numbers are small.
+		 * 5. If there is something else in there, that is not heavily biased
+		 *    (float, random/compressed data) then we're still at 50/50.
+		 * We should expect to find a zero in there the VAST majority of the time.
+		 */
 		return _hasMetadata && slotMetadata.hasFinalizer;
 	}
 }
