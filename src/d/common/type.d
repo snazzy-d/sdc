@@ -361,6 +361,31 @@ private:
 		auto parameters() inout {
 			return params[ctxCount .. ctxCount + paramCount];
 		}
+
+		string toString(const Context c) const {
+			auto lnk = "";
+			if (linkage != Linkage.D) {
+				import std.format;
+				lnk = format!"extern(%s) "(linkage);
+			}
+
+			auto ret = returnType.toString(c);
+			auto base = "function";
+			auto ctx = "";
+
+			if (contexts.length > 0) {
+				base = "delegate";
+
+				import std.format, std.algorithm;
+				ctx =
+					format!" <{%-(%s, %)}>"(contexts.map!(p => p.toString(c)));
+			}
+
+			import std.format, std.algorithm;
+			return format!"%s%s %s(%-(%s, %)%s)%s"(
+				lnk, ret, base, parameters.map!(p => p.toString(c)),
+				isVariadic ? ", ..." : "", ctx);
+		}
 	}
 
 public:

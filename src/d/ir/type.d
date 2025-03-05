@@ -415,29 +415,7 @@ public:
 					this.splat.map!(e => e.toString(c, qualifier)));
 
 			case Function:
-				auto f = asFunctionType();
-
-				auto linkage = "";
-				if (f.linkage != Linkage.D) {
-					linkage = format!"extern(%s) "(f.linkage);
-				}
-
-				auto ret = f.returnType.toString(c);
-				auto base = "function";
-				auto ctx = "";
-
-				if (f.contexts.length > 0) {
-					base = "delegate";
-
-					import std.algorithm;
-					ctx = format!" <{%-(%s, %)}>"(
-						f.contexts.map!(p => p.toString(c)));
-				}
-
-				import std.format, std.algorithm;
-				return format!"%s%s %s(%-(%s, %)%s)%s"(
-					linkage, ret, base, f.parameters.map!(p => p.toString(c)),
-					f.isVariadic ? ", ..." : "", ctx);
+				return asFunctionType().toString(c);
 
 			case Pattern:
 				return pattern.toString(c);

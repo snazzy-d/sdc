@@ -264,12 +264,7 @@ public:
 				return element.toString(c) ~ "[" ~ ikey.toString(c) ~ "]";
 
 			case Function:
-				auto f = asFunctionType();
-				auto ret = f.returnType.toString(c);
-				auto base = f.contexts.length ? " delegate(" : " function(";
-				import std.algorithm, std.range;
-				auto args = f.parameters.map!(p => p.toString(c)).join(", ");
-				return ret ~ base ~ args ~ (f.isVariadic ? ", ...)" : ")");
+				return asFunctionType().toString(c);
 
 			case TypeOf:
 				return desc.data
