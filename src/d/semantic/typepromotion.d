@@ -17,7 +17,7 @@ Type getPromotedType(SemanticPass pass, Location location, Type t1, Type t2) {
 }
 
 // XXX: type promotion and finding common type are mixed up in there.
-// This need to be splitted.
+// This need to be split.
 struct TypePromoter {
 	// XXX: Used only to get to super class, should probably go away.
 	private SemanticPass pass;
@@ -56,12 +56,10 @@ struct TypePromoter {
 			return Type.get(promoteBuiltin(bt, t.builtin));
 		}
 
-		import std.conv;
+		import std.format;
 		return getError(
-			t,
-			location,
-			"Can't coerce " ~ bt.to!string() ~ " to " ~ t.toString(context),
-		).type;
+			t, location,
+			format!"Can't coerce %s to %s."(bt, t1.toString(context))).type;
 	}
 
 	Type visitPointerOf(Type t) {
@@ -96,16 +94,18 @@ struct TypePromoter {
 	}
 
 	Type visit(Struct s) {
-		if (t1.kind == TypeKind.Struct && t1.dstruct is s) {
+		auto t = t1.getCanonicalAndPeelEnum();
+		if (t.kind == TypeKind.Struct && t.dstruct is s) {
 			return Type.get(s);
 		}
 
-		import source.exception;
-		throw new CompileException(
+		import std.format;
+		return getError(
+			t,
 			location,
-			"Incompatible struct type " ~ s.name.toString(context) ~ " and "
-				~ t1.toString(context)
-		);
+			format!"Incompatible struct type %s and %s."(
+				s.name.toString(context), t1.toString(context)),
+		).type;
 	}
 
 	Type visit(Class c) {
@@ -119,7 +119,7 @@ struct TypePromoter {
 
 		auto r = t1.dclass;
 
-		// Find a common superclass.
+		// Find a common super-class.
 		scheduler.require(c, Step.Signed);
 		auto cp = c.primaries;
 
