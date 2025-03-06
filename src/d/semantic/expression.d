@@ -151,6 +151,7 @@ private:
 
 			case Add, Sub:
 				auto isSub = op == Sub;
+				auto isAdd = op == Add;
 
 				auto lct = lhs.type.getCanonical();
 				auto rct = rhs.type.getCanonical();
@@ -158,22 +159,20 @@ private:
 				auto isLPtr = lct.kind == TypeKind.Pointer;
 				auto isRPtr = rct.kind == TypeKind.Pointer;
 
-				if (!isLPtr) {
-					if (!isRPtr) {
-						goto TransparentBinaryOp;
-					}
+				// This is a good old add/sub.
+				if (!isLPtr && !isRPtr) {
+					goto TransparentBinaryOp;
+				}
 
-					if (isSub) {
-						return
-							getError(lhs, location, "Invalid operand types.");
-					}
-
+				// Add is commutative, put the pointer on the lhs.
+				if (isAdd && !isLPtr && isRPtr) {
 					import std.algorithm;
 					swap(lhs, rhs);
 					swap(lct, rct);
 					swap(isLPtr, isRPtr);
 				}
 
+				// Pointer arithmetic.
 				if (!isRPtr) {
 					auto t = pass.object.getSizeT().type;
 					auto index = buildImplicitCast(pass, rhs.location, t, rhs);
@@ -188,28 +187,28 @@ private:
 					                             UnaryOp.AddressOf, i);
 				}
 
-				if (!isSub) {
-					return new CompileError(location, "Invalid operand types.")
-						.expression;
+				// Pointer difference.
+				if (isSub && isLPtr && isRPtr) {
+					auto t = pass.object.getPtrDiffT().type;
+					lhs = buildExplicitCast(pass, lhs.location, t, lhs);
+					rhs = buildExplicitCast(pass, rhs.location, t, rhs);
+
+					auto d = build!BinaryExpression(location, t, BinaryOp.Sub,
+					                                lhs, rhs);
+
+					import d.semantic.typepromotion;
+					auto etype = getPromotedType(pass, location, lct, rct);
+
+					import d.semantic.sizeof;
+					auto isize = SizeofVisitor(pass).visit(etype.element);
+					auto esize = new ConstantExpression(
+						location, new IntegerConstant(isize, t.builtin));
+
+					return build!BinaryExpression(location, t, BinaryOp.SDiv, d,
+					                              esize);
 				}
 
-				auto t = pass.object.getPtrDiffT().type;
-				lhs = buildExplicitCast(pass, lhs.location, t, lhs);
-				rhs = buildExplicitCast(pass, rhs.location, t, rhs);
-
-				auto d =
-					build!BinaryExpression(location, t, BinaryOp.Sub, lhs, rhs);
-
-				import d.semantic.typepromotion;
-				auto etype = getPromotedType(pass, location, lct, rct);
-
-				import d.semantic.sizeof;
-				auto isize = SizeofVisitor(pass).visit(etype.element);
-				auto esize = new ConstantExpression(
-					location, new IntegerConstant(isize, t.builtin));
-
-				return build!BinaryExpression(location, t, BinaryOp.SDiv, d,
-				                              esize);
+				return getError(lhs, location, "Invalid operand types.");
 
 			case Mul, Pow:
 				goto TransparentBinaryOp;
