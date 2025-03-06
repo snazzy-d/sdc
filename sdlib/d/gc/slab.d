@@ -350,6 +350,9 @@ unittest SlabAllocInfo {
 			si.setUsedCapacity(size);
 			assert(si.usedCapacity == size);
 			assert(si.hasMetadata == (size != slotCapacity));
+			// Ensure SlotMetadata can be dirty when adjusting free space
+			auto slotData = (cast(ubyte*) si.address)[0 .. size];
+			slotData[size - 1] = 0xff;
 			assert(si.freeSpace == slotCapacity - size);
 			assert(!si.setUsedCapacity(slotCapacity + 1));
 
