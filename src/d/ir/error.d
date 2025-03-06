@@ -53,9 +53,13 @@ final:
 	}
 }
 
-CompileError getError(T)(T t, Location location, string msg)
-		if (isErrorizable!T) {
-	if (auto e = errorize(t)) {
+enum isErrorizable(T) = is(typeof(errorize(T.init)));
+enum isAllErrorizable(T...) =
+	T.length == 0 || (isErrorizable!(T[0]) && isAllErrorizable!(T[1 .. $]));
+
+CompileError getError(T...)(T ts, Location location, string msg)
+		if (isAllErrorizable!T) {
+	if (auto e = errorize(ts)) {
 		return e;
 	}
 
@@ -106,7 +110,9 @@ CompileError errorize(Type t) {
 	return null;
 }
 
-enum isErrorizable(T) = is(typeof(errorize(T.init)));
+CompileError errorize() {
+	return null;
+}
 
 CompileError errorize(T)(T[] ts) if (isErrorizable!T) {
 	foreach (t; ts) {
@@ -133,7 +139,7 @@ CompileError errorize(T...)(T ts) if (T.length > 1) {
 
 final:
 /**
- * An Error occured but a Symbol is expected.
+ * An Error occurred but a Symbol is expected.
  * Useful for speculative compilation.
  */
 class ErrorSymbol : Symbol {
@@ -156,7 +162,7 @@ public:
 }
 
 /**
- * An Error occured but an Expression is expected.
+ * An Error occurred but an Expression is expected.
  * Useful for speculative compilation.
  */
 class ErrorExpression : Expression {
@@ -181,7 +187,7 @@ public:
 }
 
 /**
- * An Error occured but a Constant is expected.
+ * An Error occurred but a Constant is expected.
  * Useful for speculative compilation.
  */
 class ErrorConstant : Constant {

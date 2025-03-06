@@ -64,20 +64,12 @@ struct ExpressionVisitor {
 	}
 
 private:
-	ErrorExpression getError(Expression base, Location location, string msg) {
-		return .getError(base, location, msg).expression;
+	ErrorExpression getError(T...)(T ts, Location location, string msg) {
+		return .getError(ts, location, msg).expression;
 	}
 
 	ErrorExpression getError(Expression base, string msg) {
 		return getError(base, base.location, msg);
-	}
-
-	ErrorExpression getError(Symbol base, Location location, string msg) {
-		return .getError(base, location, msg).expression;
-	}
-
-	ErrorExpression getError(Type t, Location location, string msg) {
-		return .getError(t, location, msg).expression;
 	}
 
 	Expression getTemporary(Expression value) {
@@ -208,7 +200,7 @@ private:
 					                              esize);
 				}
 
-				return getError(lhs, location, "Invalid operand types.");
+				return getError(rhs, lhs, location, "Invalid operand types.");
 
 			case Mul, Pow:
 				goto TransparentBinaryOp;
@@ -973,8 +965,7 @@ public:
 			return match;
 		}
 
-		return new CompileError(location, "No candidate for function call.")
-			.expression;
+		return getError(location, "No candidate for function call.");
 	}
 
 	private Expression findCallable(Location location, Expression callee,
@@ -1170,9 +1161,8 @@ public:
 				static if (is(typeof(identified) : Expression)) {
 					return identified;
 				} else {
-					return new CompileError(
-						location, "Cannot find a suitable this pointer."
-					).expression;
+					return getError(location,
+					                "Cannot find a suitable this pointer.");
 				}
 			})();
 
