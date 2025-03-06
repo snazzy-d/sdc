@@ -109,15 +109,16 @@ struct TypePromoter {
 	}
 
 	Type visit(Class c) {
-		if (t1.kind == TypeKind.Builtin && t1.builtin == BuiltinType.Null) {
+		auto t = t1.getCanonicalAndPeelEnum();
+		if (t.kind == TypeKind.Builtin && t.builtin == BuiltinType.Null) {
 			return Type.get(c);
 		}
 
-		if (t1.kind != TypeKind.Class) {
+		if (t.kind != TypeKind.Class) {
 			assert(0, "Not Implemented.");
 		}
 
-		auto r = t1.dclass;
+		auto r = t.dclass;
 
 		// Find a common super-class.
 		scheduler.require(c, Step.Signed);
