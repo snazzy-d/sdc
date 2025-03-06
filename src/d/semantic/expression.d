@@ -215,7 +215,8 @@ private:
 				goto TransparentBinaryOp;
 
 			TransparentBinaryOp:
-				bop = cast(BinaryOp) op;
+				import d.common.binaryop;
+				bop = getTransparentBinaryOp(op);
 				goto PromotedBinaryOp;
 
 			case Div, Rem:
@@ -225,15 +226,14 @@ private:
 				auto bt = type.builtin;
 				auto signed = isIntegral(bt) && isSigned(bt);
 
-				// FIXME: We need some wrapper asserting + unitest for these.
-				bop =
-					cast(BinaryOp) (((op - Div) * 2) + BinaryOp.UDiv + signed);
+				import d.common.binaryop;
+				bop = getSignedBinaryOp(op, signed);
 				goto CastBinaryOp;
 
 			case Or, And, Xor:
 			case LeftShift, UnsignedRightShift:
-				// FIXME: We need some wrapper asserting + unitest for these.
-				bop = cast(BinaryOp) (op - Or + BinaryOp.Or);
+				import d.common.binaryop;
+				bop = getBitwizeBinaryOp(op);
 				goto PromotedBinaryOp;
 
 			PromotedBinaryOp:
@@ -256,8 +256,8 @@ private:
 			case LogicalOr, LogicalAnd:
 				type = Type.get(BuiltinType.Bool);
 
-				// FIXME: We need some wrapper asserting + unitest for these.
-				bop = cast(BinaryOp) (op - LogicalOr + BinaryOp.LogicalOr);
+				import d.common.binaryop;
+				bop = getLogicalBinaryOp(op);
 
 				lhs = buildExplicitCast(pass, lhs.location, type, lhs);
 				rhs = buildExplicitCast(pass, rhs.location, type, rhs);
