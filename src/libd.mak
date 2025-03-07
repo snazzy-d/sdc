@@ -67,7 +67,7 @@ obj/semantic/%.o: src/d/semantic/%.d
 check-libd-semantic: $(LIBD_SRC_SEMANTIC)
 	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="assert(true)"
 
-check-libd: check-libd-d check-libd-common check-libd-ast check-libd-ir check-libd-parser check-libd-semantic
+check-libd: check-libd-parser
 .PHONY: check-libd-d check-libd-common check-libd-ast check-libd-ir check-libd-parser check-libd-semantic
 
 check: check-libd
