@@ -58,7 +58,7 @@ obj/parser.o: $(LIBD_SRC_PARSER)
 	$(DMD) -c -of"$@" $(LIBD_SRC_PARSER) -makedeps="$@.deps" $(DFLAGS)
 
 check-libd-parser: $(LIBD_SRC_PARSER)
-	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="assert(true)"
+	$(RDMD) --chatty $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="assert(true)"
 
 obj/semantic/%.o: src/d/semantic/%.d
 	@mkdir -p obj/semantic
