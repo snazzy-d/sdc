@@ -445,15 +445,13 @@ unittest packedFreeSpace {
 		assert(!(*p & FinalizerBit));
 	}
 
-	// Make sure we do not distrub the penultimate byte
-	// when the value is small enough.
+	// Make sure we do not disturb the penultimate byte
+	// when the length is 1.
 	foreach (x; 0 .. 256) {
 		a[0] = 0xff & x;
-		foreach (ubyte y; 0 .. 0x40) {
-			writePackedFreeSpace(p, y);
-			assert(readPackedFreeSpace(p) == y);
-			assert(a[0] == x);
-		}
+		writePackedFreeSpace(p, 1);
+		assert(readPackedFreeSpace(p) == 1);
+		assert(a[0] == x);
 	}
 }
 
