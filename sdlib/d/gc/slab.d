@@ -118,7 +118,7 @@ public:
 	}
 
 	@property
-	ushort freeSpace() {
+	size_t freeSpace() {
 		return readPackedFreeSpace(&data.freeSpaceData.freeSpace);
 	}
 
@@ -425,12 +425,12 @@ enum FinalizerBit = 1 << 14;
 enum SingleByteBit = 1 << 15;
 enum FreeSpaceMask = ushort.max & ~(FinalizerBit | SingleByteBit);
 
-ushort readPackedFreeSpace(ushort* ptr) {
+size_t readPackedFreeSpace(ushort* ptr) {
 	assert(isLittleEndian(),
 	       "Packed free space not implemented for big endian!");
 	auto data = *ptr;
-	ushort value = data & FreeSpaceMask;
-	return ((data & SingleByteBit) ? 1 : value) & ushort.max;
+	auto value = data & FreeSpaceMask;
+	return (data & SingleByteBit) ? 1 : value;
 }
 
 void writeFreshPackedFreeSpace(ushort* ptr, size_t x) {
@@ -455,8 +455,8 @@ void writePackedFreeSpaceImpl(bool PreserveFinalizer)(ushort* ptr, size_t x) {
 		small &= ~FinalizerBit;
 	}
 
-	ushort value = (x == 1 ? small : large) & ushort.max;
-	*ptr = value;
+	auto value = (x == 1 ? small : large);
+	*ptr = value & ushort.max;
 }
 
 unittest packedFreeSpace {
@@ -476,6 +476,12 @@ unittest packedFreeSpace {
 		assert(readPackedFreeSpace(p) == i);
 		writePackedFreeSpace(p, i);
 		assert(!(*p & FinalizerBit));
+
+		// Ensure a fresh write always clears the finalizer bit.
+		*p |= FinalizerBit;
+		writeFreshPackedFreeSpace(p, i);
+		assert(readPackedFreeSpace(p) == i);
+		assert(~(*p & FinalizerBit));
 	}
 
 	// Make sure we do not disturb the penultimate byte
