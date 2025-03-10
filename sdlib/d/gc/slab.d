@@ -112,16 +112,20 @@ private:
 
 	Data data;
 
-	enum FinalizerBit = nativeToBigEndian!size_t(0x2);
-
 public:
 	static SlotMetadata* fromBlock(void* ptr, size_t slotSize) {
 		return cast(SlotMetadata*) (ptr + slotSize) - 1;
 	}
 
 	@property
-	ushort freeSpace() {
+	size_t freeSpace() {
 		return readPackedFreeSpace(&data.freeSpaceData.freeSpace);
+	}
+
+	void setFreshFreeSpace(size_t size) {
+		assert(size > 0, "Attempt to set a slot metadata size of 0!");
+
+		writeFreshPackedFreeSpace(&data.freeSpaceData.freeSpace, size);
 	}
 
 	void setFreeSpace(size_t size) {
@@ -139,7 +143,7 @@ public:
 
 	@property
 	bool hasFinalizer() {
-		return (data.finalizerData & FinalizerBit) != 0;
+		return (data.freeSpaceData.freeSpace & FinalizerBit) != 0;
 	}
 }
 
@@ -223,12 +227,16 @@ public:
 		       "New finalizer pointer is invalid!");
 
 		auto freeSpaceValue = slotSize - initialUsedCapacity;
-		bool isLarge = freeSpaceValue > 0x3f;
-		auto finalizerSet = hasFinalizer << 1;
-		ushort native =
-			(freeSpaceValue << 2 | isLarge | finalizerSet) & ushort.max;
+		ushort native;
+		if (freeSpaceValue == 1) {
+			assert(!hasFinalizer);
+			native = SingleByteBit;
+		} else {
+			auto finalizerSet = hasFinalizer ? FinalizerBit : 0;
+			native = (freeSpaceValue | finalizerSet) & ushort.max;
+		}
 
-		auto newMetadata = nativeToBigEndian!size_t(native);
+		auto newMetadata = size_t(native) << 48;
 
 		// TODO: Currently only works on little-endian!!!
 		// On a big-endian machine, the unused high 16 bits of a pointer will be
@@ -263,10 +271,12 @@ private:
 			return;
 		}
 
-		slotMetadata.setFreeSpace(size);
 		if (!_hasMetadata) {
+			slotMetadata.setFreshFreeSpace(size);
 			e.enableMetadata(index);
 			_hasMetadata = true;
+		} else {
+			slotMetadata.setFreeSpace(size);
 		}
 	}
 
@@ -350,6 +360,9 @@ unittest SlabAllocInfo {
 			si.setUsedCapacity(size);
 			assert(si.usedCapacity == size);
 			assert(si.hasMetadata == (size != slotCapacity));
+			// Ensure SlotMetadata can be dirty when adjusting free space
+			auto slotData = (cast(ubyte*) si.address)[0 .. size];
+			slotData[size - 1] = 0xff;
 			assert(si.freeSpace == slotCapacity - size);
 			assert(!si.setUsedCapacity(slotCapacity + 1));
 
@@ -389,44 +402,64 @@ unittest SlabAllocInfo {
 }
 
 /**
- * Packed Free Space is stored as a 14-bit unsigned integer, in one or two bytes:
+ * Packed Free Space is stored as a 14-bit unsigned integer, with 2 bits for flags.
  *
- * /---- byte at ptr ----\ /-- byte at ptr + 1 --\
- * B7 B6 B5 B4 B3 B2 B1 B0 A7 A6 A5 A4 A3 A2 A1 A0
- * \_______14 bits unsigned integer________/  \  \_ Set if and only if B0..B7 used.
- *                                             \_ Set when finalizer is present;
- *                                                preserved when writing.
+ * 15     8 7      0
+ * sfvvvvvv vvvvvvvv
+ *
+ * s: small bit set if length == 1
+ * f: finalizer bit = 1 if a finalizer is stored in allocation
+ * v: free space, only set if length > 1
+ *
+ * If free space is only 1 byte, then the lower byte of the 16-bit value is
+ * used by the allocation itself, and is not used while reading. Nor is it set
+ * when writing the upper byte
+ *
+ * Note: little endian only! The lower 8 bits are stored first in memory.
+ * For big endian support, we likely have to change the end where the bits go.
  */
 static assert(MaxSmallSize < 0x4000,
               "Max small alloc size doesn't fit in 14 bits!");
 
-ushort readPackedFreeSpace(ushort* ptr) {
-	auto data = loadBigEndian(ptr);
-	auto mask = 0x3f | -(data & 1);
-	return (data >> 2) & mask;
+enum FinalizerBit = 1 << 14;
+enum SingleByteBit = 1 << 15;
+enum FreeSpaceMask = ushort.max & ~(FinalizerBit | SingleByteBit);
+
+size_t readPackedFreeSpace(ushort* ptr) {
+	assert(isLittleEndian(),
+	       "Packed free space not implemented for big endian!");
+	auto data = *ptr;
+	auto value = data & FreeSpaceMask;
+	return (data & SingleByteBit) ? 1 : value;
+}
+
+void writeFreshPackedFreeSpace(ushort* ptr, size_t x) {
+	return writePackedFreeSpaceImpl!false(ptr, x);
 }
 
 void writePackedFreeSpace(ushort* ptr, size_t x) {
+	return writePackedFreeSpaceImpl!true(ptr, x);
+}
+
+void writePackedFreeSpaceImpl(bool PreserveFinalizer)(ushort* ptr, size_t x) {
 	assert(x < 0x4000, "x does not fit in 14 bits!");
-
-	bool isLarge = x > 0x3f;
-	ushort native = (x << 2 | isLarge) & ushort.max;
-	auto base = nativeToBigEndian(native);
-
-	auto smallMask = nativeToBigEndian!ushort(0xfd);
-	auto largeMask = nativeToBigEndian!ushort(0xfffd);
-	auto mask = isLarge ? largeMask : smallMask;
+	assert(isLittleEndian(),
+	       "Packed free space not implemented for big endian!");
 
 	auto current = *ptr;
-	auto delta = (current ^ base) & mask;
-	auto value = current ^ delta;
+	auto small = current | SingleByteBit;
+	auto large = x;
+	if (PreserveFinalizer) {
+		large |= current & FinalizerBit;
+	} else {
+		small &= ~FinalizerBit;
+	}
 
+	auto value = (x == 1 ? small : large);
 	*ptr = value & ushort.max;
 }
 
 unittest packedFreeSpace {
-	enum FinalizerBit = nativeToBigEndian!ushort(0x2);
-
 	ubyte[2] a;
 	auto p = cast(ushort*) a.ptr;
 
@@ -443,6 +476,12 @@ unittest packedFreeSpace {
 		assert(readPackedFreeSpace(p) == i);
 		writePackedFreeSpace(p, i);
 		assert(!(*p & FinalizerBit));
+
+		// Ensure a fresh write always clears the finalizer bit.
+		*p |= FinalizerBit;
+		writeFreshPackedFreeSpace(p, i);
+		assert(readPackedFreeSpace(p) == i);
+		assert(~(*p & FinalizerBit));
 	}
 
 	// Make sure we do not disturb the penultimate byte
