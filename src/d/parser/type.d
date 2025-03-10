@@ -14,7 +14,8 @@ AstType parseType(ParseMode mode = ParseMode.Greedy)(ref TokenRange trange) {
 	return trange.parseTypeSuffix!mode(base);
 }
 
-auto parseBasicType(ref TokenRange trange) {
+// Note: was auto function, but hit https://github.com/dlang/dmd/issues/20965
+AstType parseBasicType(ref TokenRange trange) {
 	auto processQualifier(TypeQualifier qualifier)() {
 		trange.popFront();
 
