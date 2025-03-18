@@ -297,10 +297,10 @@ private:
 		auto iloc = i.location;
 		auto instance = finalize(
 			i.identifier.location,
-			visit(i.identifier)
+			visit(i.identifier),
 		).apply!(delegate TemplateInstance(identified) {
 			static if (is(typeof(identified) : Symbol)) {
-				// If we are within a pattern, we are not looking to instanciate.
+				// If we are within a pattern, we are not looking to instantiate.
 				// XXX: Arguably, we'd like the TemplateInstancier to figure out if
 				// this is a pattern instead of using this hack.
 				if (inPattern) {

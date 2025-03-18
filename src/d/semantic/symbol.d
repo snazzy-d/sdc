@@ -98,7 +98,7 @@ struct SymbolAnalyzer {
 		auto mangle = m.mangle = context.getName(manglePrefix);
 
 		import source.name;
-		// All modules implicitely import object.
+		// All modules implicitly import object.
 		auto obj = importModule([BuiltinName!"object"]);
 		m.addImport(obj);
 
@@ -335,7 +335,7 @@ struct SymbolAnalyzer {
 			if (f.hasThis) {
 				assert(
 					thisType.getType().isAggregate(),
-					"thisType must be defined if funtion has a this pointer."
+					"thisType must be defined if function has a this pointer."
 				);
 
 				auto thisParameter = new Variable(f.location, thisType,
@@ -662,7 +662,7 @@ struct SymbolAnalyzer {
 		s.step = Step.Signed;
 
 		// Must be done once the struct is signed, but really is part
-		// of the process to get it signed, so we do it immediatly.
+		// of the process to get it signed, so we do it immediately.
 		s.isSmall = (dataLayout.getSize(Type.get(s)) <= 32);
 
 		scheduler.require(s.members);
@@ -1004,7 +1004,7 @@ struct SymbolAnalyzer {
 	}
 
 	void analyze(EnumDeclaration d, Enum e)
-			in(e.name.isDefined, "Anonymous enums must be flattened!") {
+			in(e.name.isDefined, "Anonymous enum must be flattened!") {
 		auto oldManglePrefix = manglePrefix;
 		auto oldScope = currentScope;
 
@@ -1278,7 +1278,7 @@ struct SymbolAnalyzer {
 	}
 
 	void analyze(UnittestDeclaration ud, Function f) {
-		// Functions are always populated as resolution is order dependant.
+		// Functions are always populated as resolution is order dependent.
 		f.step = Step.Populated;
 
 		// Prepare statement visitor for return type.
@@ -1329,7 +1329,7 @@ struct SymbolAnalyzer {
 		f.step = Step.Processed;
 
 		// Register the test at the module level.
-		// XXX: This may not be the right module when instanciating templates.
+		// XXX: This may not be the right module when instantiating templates.
 		currentScope.getModule().tests ~= f;
 	}
 }
