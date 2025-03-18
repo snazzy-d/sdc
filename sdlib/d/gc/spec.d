@@ -24,6 +24,8 @@ enum LgCacheLine = 6;
 enum CacheLine = One << LgCacheLine;
 enum CacheLineMask = CacheLine - 1;
 
+enum uint PointerInCacheLine = CacheLine / PointerSize;
+
 // Page size.
 enum LgPageSize = 12;
 enum PageSize = One << LgPageSize;
