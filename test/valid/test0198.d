@@ -9,10 +9,10 @@ extern(C) void __sd_gc_collect();
 extern(C) void* __sd_gc_alloc_finalizer(size_t size, void* finalizer);
 extern(C) void __sd_gc_free(void* ptr);
 
-static int destructorSum;
-struct SlabDestructor(size_t size) {
+int destructorSum;
+struct SlabDestructor(size_t S) {
 	// The -1 is for the metadata storage.
-	size_t[size / size_t.sizeof - 1] x;
+	size_t[S / size_t.sizeof - 1] x;
 
 	~this() {
 		destructorSum += x[0];
@@ -25,7 +25,7 @@ void destroyItem(T)(void* item, size_t size) {
 }
 
 void allocateItem(size_t S)() {
-	alias T = SlabDestructor!(S);
+	alias T = SlabDestructor!S;
 	auto ptr = __sd_gc_alloc_finalizer(T.sizeof, &destroyItem!T);
 	auto iptr = cast(size_t) ptr;
 
