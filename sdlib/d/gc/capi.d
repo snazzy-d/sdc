@@ -32,7 +32,7 @@ void* __sd_gc_alloc(size_t size) {
 }
 
 void* __sd_gc_array_alloc(size_t size) {
-	return __sd_gc_alloc(size);
+	return threadCache.allocAppendable(size, true, false);
 }
 
 void* __sd_gc_alloc_finalizer(size_t size, void* finalizer) {
