@@ -1,5 +1,17 @@
 module d.gc.util;
 
+struct Padding(size_t N) {
+	import d.gc.spec;
+	size_t[PointerInCacheLine - N] padding;
+}
+
+unittest Padding {
+	import d.gc.spec;
+	assert(Padding!0.sizeof == CacheLine);
+	assert(Padding!1.sizeof == CacheLine - PointerSize);
+	assert(Padding!7.sizeof == CacheLine - 7 * PointerSize);
+}
+
 T min(T)(T a, T b) {
 	return a <= b ? a : b;
 }
