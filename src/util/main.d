@@ -28,7 +28,7 @@ int runMain(alias run)(string[] args) {
 		return run(context, args);
 	} catch (GetOptException ex) {
 		import std.stdio;
-		writefln("%s", ex.msg);
+		writeln(ex.msg);
 		writeln("Please use -h to get a list of valid options.");
 		return 1;
 	} catch (CompileException e) {
