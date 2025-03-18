@@ -839,7 +839,7 @@ union Payload {
 	// For function and delegates.
 	// ParamType* params;
 
-	// For template instanciation.
+	// For template instantiation.
 	Pattern.Payload patternPayload;
 
 	// For speculative compilation.

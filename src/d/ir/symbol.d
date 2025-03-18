@@ -157,7 +157,7 @@ class Function : ValueSymbol, Scope {
 }
 
 /**
- * Entry for template parameters
+ * Entry for template parameters.
  */
 class TemplateParameter : Symbol {
 	this(Location location, Name name, uint index) {
@@ -410,7 +410,7 @@ class Template : ScopeSymbol {
 }
 
 /**
- * Template type parameter
+ * Template type parameter.
  */
 class TypeTemplateParameter : TemplateParameter {
 	Type specialization;
@@ -433,7 +433,7 @@ class TypeTemplateParameter : TemplateParameter {
 }
 
 /**
- * Template value parameter
+ * Template value parameter.
  */
 class ValueTemplateParameter : TemplateParameter {
 	Type type;
@@ -455,7 +455,7 @@ class ValueTemplateParameter : TemplateParameter {
 }
 
 /**
- * Template alias parameter
+ * Template alias parameter.
  */
 class AliasTemplateParameter : TemplateParameter {
 	this(Location location, Name name, uint index) {
@@ -469,7 +469,7 @@ class AliasTemplateParameter : TemplateParameter {
 }
 
 /**
- * Template typed alias parameter
+ * Template typed alias parameter.
  */
 class TypedAliasTemplateParameter : TemplateParameter {
 	Type type;
@@ -487,7 +487,7 @@ class TypedAliasTemplateParameter : TemplateParameter {
 }
 
 /**
- * Template instance
+ * Template instance.
  */
 class TemplateInstance : Symbol, Scope {
 	mixin ScopeImpl!(ScopeType.WithParent, Template);
@@ -544,7 +544,7 @@ unittest {
 }
 
 /**
- * Alias of symbols
+ * Alias of symbols.
  */
 class SymbolAlias : Symbol {
 	Symbol symbol;
@@ -557,7 +557,7 @@ class SymbolAlias : Symbol {
 }
 
 /**
- * Alias of types
+ * Alias of types.
  */
 class TypeAlias : Symbol {
 	Type type;
@@ -570,7 +570,7 @@ class TypeAlias : Symbol {
 }
 
 /**
- * Alias of values
+ * Alias of values.
  */
 class ValueAlias : ValueSymbol {
 	Constant value;
