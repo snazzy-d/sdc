@@ -268,7 +268,6 @@ private:
 			in(acquireThis() is null) {
 		alias astapply = d.ast.identifier.apply;
 
-		import d.semantic.dtemplate : TemplateInstancier;
 		import d.ast.type : AstType;
 		import std.algorithm, std.array;
 		auto args = i.arguments.map!(a => astapply!((a) {
@@ -296,37 +295,32 @@ private:
 		CompileError ce;
 		Symbol instantiated;
 
-		auto iloc = i.location;
-		auto instance = finalize(
-			i.identifier.location,
-			visit(i.identifier),
-		).apply!(delegate TemplateInstance(identified) {
-			static if (is(typeof(identified) : Symbol)) {
-				// If we are within a pattern, we are not looking to instantiate.
-				// XXX: Arguably, we'd like the TemplateInstancier to figure out if
-				// this is a pattern instead of using this hack.
-				if (inPattern) {
-					instantiated = identified;
-					return null;
-				}
-
-				if (auto s = cast(OverloadSet) identified) {
-					return TemplateInstancier(pass.pass)
-						.instanciate(iloc, s, args, fargs);
-				}
-
-				if (auto t = cast(Template) identified) {
-					return TemplateInstancier(pass.pass)
-						.instanciate(iloc, t, args, fargs);
-				}
+		TemplateInstance instanciateSymbol(S : Symbol)(S s) {
+			// If we are within a pattern, we are not looking to instantiate.
+			// XXX: Arguably, we'd like the TemplateInstancier to figure out if
+			// this is a pattern instead of using this hack.
+			if (inPattern) {
+				instantiated = s;
+				return null;
 			}
 
-			import std.format;
-			ce = getError(identified, iloc,
-			              format!"Unexpected %s."(typeid(identified)));
+			import d.semantic.dtemplate;
+			return TemplateInstancier(pass.pass, iloc, args, fargs).visit(s);
+		}
 
-			return null;
-		})();
+		auto iloc = i.location;
+		auto instance = finalize(i.identifier.location, visit(i.identifier))
+			.apply!(delegate TemplateInstance(identified) {
+				static if (is(typeof(identified) : Symbol)) {
+					return instanciateSymbol(identified);
+				} else {
+					import std.format;
+					ce = getError(identified, iloc,
+					              format!"Unexpected %s."(typeid(identified)));
+
+					return null;
+				}
+			})();
 
 		if (inPattern && instantiated) {
 			return Identifiable(Pattern(instantiated, args).getType());

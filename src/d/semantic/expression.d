@@ -823,7 +823,7 @@ public:
 		TemplateArgument[] targs;
 		targs.length = t.parameters.length;
 
-		auto i = TemplateInstancier(pass).instanciate(location, t, [], args);
+		auto i = TemplateInstancier(pass, location, [], args).visit(t);
 		scheduler.require(i);
 
 		import d.semantic.identifier;

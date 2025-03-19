@@ -12,15 +12,206 @@ import d.ir.type;
 import source.location;
 
 struct TemplateInstancier {
-	private SemanticPass pass;
+private:
+	SemanticPass pass;
 	alias pass this;
 
-	this(SemanticPass pass) {
+	Location location;
+	TemplateArgument[] args;
+	Expression[] fargs;
+
+public:
+	this(SemanticPass pass, Location location, TemplateArgument[] args,
+	     Expression[] fargs = []) {
 		this.pass = pass;
+		this.location = location;
+		this.args = args;
+		this.fargs = fargs;
 	}
 
-	auto instanciate(Location location, OverloadSet s, TemplateArgument[] args,
-	                 Expression[] fargs) {
+	TemplateInstance visit(Symbol s) {
+		if (auto t = cast(Template) s) {
+			return visit(t);
+		}
+
+		if (auto os = cast(OverloadSet) s) {
+			return visit(os);
+		}
+
+		import source.exception, std.format;
+		throw new CompileException(
+			s.location,
+			format!"%s cannot be instantiated."(s.toString(context))
+		);
+	}
+
+	TemplateInstance visit(Template t) {
+		return instanciate(t);
+	}
+
+	TemplateInstance visit(OverloadSet s) {
+		return instanciate(s);
+	}
+
+private:
+	bool matchArgument(TemplateParameter p, TemplateArgument a,
+	                   TemplateArgument[] matchedArgs) {
+		return a.apply!(delegate bool() {
+			if (auto t = cast(TypeTemplateParameter) p) {
+				return TypeParameterMatcher(pass, matchedArgs, t.defaultValue)
+					.visit(t);
+			}
+
+			if (auto v = cast(ValueTemplateParameter) p) {
+				if (v.defaultValue !is null) {
+					import d.semantic.caster;
+					auto e = evaluate(
+						buildImplicitCast(pass, v.location, v.type,
+						                  v.defaultValue));
+
+					return ConstantMatcher(pass, matchedArgs, v.location, e)
+						.visit(v);
+				}
+			}
+
+			return false;
+		}, (identified) {
+			static if (is(typeof(identified) : Symbol)) {
+				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
+			} else static if (is(typeof(identified) : Constant)) {
+				return ConstantMatcher(pass, matchedArgs, p.location,
+				                       identified).visit(p);
+			} else static if (is(typeof(identified) : Type)) {
+				return TypeParameterMatcher(pass, matchedArgs, identified)
+					.visit(p);
+			} else {
+				return false;
+			}
+		})();
+	}
+
+	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs,
+	                    TemplateArgument[] matchedArgs) in {
+		assert(t.step == Step.Processed);
+		assert(t.parameters.length >= args.length);
+		assert(matchedArgs.length == t.parameters.length);
+	} do {
+		if (t.parameters.length == 0) {
+			// Short circuit if there is nothing to match.
+			return true;
+		}
+
+		uint i = 0;
+		foreach (a; args) {
+			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
+				return false;
+			}
+		}
+
+		if (fargs.length == t.ifti.length) {
+			foreach (j, a; fargs) {
+				IftiTypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j]);
+			}
+		}
+
+		// Match unspecified parameters.
+		foreach (a; matchedArgs[i .. $]) {
+			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	auto instanciateFromResolvedArgs(Template t, TemplateArgument[] args) in {
+		assert(t.step == Step.Processed);
+		assert(t.parameters.length == args.length);
+	} do {
+		auto i = 0;
+		Symbol[] argSyms;
+
+		// XXX: have to put array once again to avoid multiple map.
+		import std.algorithm, std.array;
+		string id = args.map!(a => a.apply!(function string() {
+			assert(0, "All passed argument must be defined.");
+		}, delegate string(identified) {
+			auto p = t.parameters[i++];
+
+			alias T = typeof(identified);
+			static if (is(T : Symbol)) {
+				auto a = new SymbolAlias(p.location, p.name, identified);
+
+				import d.semantic.symbol;
+				SymbolAnalyzer(pass).process(a);
+
+				argSyms ~= a;
+				return "S" ~ a.mangle.toString(pass.context);
+			} else static if (is(T : Constant)) {
+				auto a = new ValueAlias(p.location, p.name, identified);
+
+				import d.semantic.mangler;
+				auto typeMangle = TypeMangler(pass).visit(identified.type);
+				auto valueMangle = ConstantMangler().visit(identified);
+				a.mangle = pass.context.getName(typeMangle ~ valueMangle);
+				a.step = Step.Processed;
+
+				argSyms ~= a;
+				return "V" ~ a.mangle.toString(pass.context);
+			} else static if (is(T : Type)) {
+				auto a = new TypeAlias(p.location, p.name, identified);
+
+				import d.semantic.mangler;
+				a.mangle =
+					pass.context.getName(TypeMangler(pass).visit(identified));
+				a.step = Step.Processed;
+
+				argSyms ~= a;
+				return "T" ~ a.mangle.toString(pass.context);
+			} else {
+				import std.format;
+				assert(0, format!"%s is not supported."(typeid(identified)));
+			}
+		})).array().join();
+
+		return t.instances.get(id, {
+			auto oldManglePrefix = pass.manglePrefix;
+			auto oldScope = pass.currentScope;
+			scope(exit) {
+				pass.manglePrefix = oldManglePrefix;
+				pass.currentScope = oldScope;
+			}
+
+			auto i = new TemplateInstance(location, t, args);
+			auto mangle = t.mangle.toString(pass.context);
+			i.mangle = pass.context.getName(mangle ~ "T" ~ id ~ "Z");
+			i.storage = t.storage;
+
+			// Prefill arguments.
+			foreach (a; argSyms) {
+				i.addSymbol(a);
+			}
+
+			pass.scheduler.schedule(t, i);
+			return t.instances[id] = i;
+		}());
+	}
+
+	auto instanciate(Template t) {
+		scheduler.require(t);
+
+		TemplateArgument[] matchedArgs;
+		matchedArgs.length = t.parameters.length;
+
+		if (matchArguments(t, args, fargs, matchedArgs)) {
+			return instanciateFromResolvedArgs(t, matchedArgs);
+		}
+
+		import source.exception;
+		throw new CompileException(location, "No match");
+	}
+
+	auto instanciate(OverloadSet s) {
 		import std.algorithm;
 		auto cds = s.set.filter!((s) {
 			if (auto t = cast(Template) s) {
@@ -95,171 +286,11 @@ struct TemplateInstancier {
 		}
 
 		if (match) {
-			return instanciateFromResolvedArgs(location, match, matchedArgs);
+			return instanciateFromResolvedArgs(match, matchedArgs);
 		}
 
 		import source.exception;
 		throw new CompileException(location, "No match");
-	}
-
-	auto instanciate(Location location, Template t, TemplateArgument[] args,
-	                 Expression[] fargs = []) {
-		scheduler.require(t);
-
-		TemplateArgument[] matchedArgs;
-		matchedArgs.length = t.parameters.length;
-
-		if (matchArguments(t, args, fargs, matchedArgs)) {
-			return instanciateFromResolvedArgs(location, t, matchedArgs);
-		}
-
-		import source.exception;
-		throw new CompileException(location, "No match");
-	}
-
-private:
-	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs,
-	                    TemplateArgument[] matchedArgs) in {
-		assert(t.step == Step.Processed);
-		assert(t.parameters.length >= args.length);
-		assert(matchedArgs.length == t.parameters.length);
-	} do {
-		if (t.parameters.length == 0) {
-			// Short circuit if there is nothing to match.
-			return true;
-		}
-
-		uint i = 0;
-		foreach (a; args) {
-			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
-				return false;
-			}
-		}
-
-		if (fargs.length == t.ifti.length) {
-			foreach (j, a; fargs) {
-				IftiTypeMatcher(pass, matchedArgs, a.type).visit(t.ifti[j]);
-			}
-		}
-
-		// Match unspecified parameters.
-		foreach (a; matchedArgs[i .. $]) {
-			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	bool matchArgument(TemplateParameter p, TemplateArgument a,
-	                   TemplateArgument[] matchedArgs) {
-		return a.apply!(delegate bool() {
-			if (auto t = cast(TypeTemplateParameter) p) {
-				return TypeParameterMatcher(pass, matchedArgs, t.defaultValue)
-					.visit(t);
-			}
-
-			if (auto v = cast(ValueTemplateParameter) p) {
-				if (v.defaultValue !is null) {
-					import d.semantic.caster;
-					auto e = evaluate(
-						buildImplicitCast(pass, v.location, v.type,
-						                  v.defaultValue));
-
-					return ConstantMatcher(pass, matchedArgs, v.location, e)
-						.visit(v);
-				}
-			}
-
-			return false;
-		}, (identified) {
-			static if (is(typeof(identified) : Symbol)) {
-				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
-			} else static if (is(typeof(identified) : Constant)) {
-				return ConstantMatcher(pass, matchedArgs, p.location,
-				                       identified).visit(p);
-			} else static if (is(typeof(identified) : Type)) {
-				return TypeParameterMatcher(pass, matchedArgs, identified)
-					.visit(p);
-			} else {
-				return false;
-			}
-		})();
-	}
-
-	auto instanciateFromResolvedArgs(Location location, Template t,
-	                                 TemplateArgument[] args) in {
-		assert(t.step == Step.Processed);
-		assert(t.parameters.length == args.length);
-	} do {
-		auto i = 0;
-		Symbol[] argSyms;
-
-		// XXX: have to put array once again to avoid multiple map.
-		import std.algorithm, std.array;
-		string id = args.map!(a => a.apply!(function string() {
-			assert(0, "All passed argument must be defined.");
-		}, delegate string(identified) {
-			auto p = t.parameters[i++];
-
-			alias T = typeof(identified);
-			static if (is(T : Symbol)) {
-				auto a = new SymbolAlias(p.location, p.name, identified);
-
-				import d.semantic.symbol;
-				SymbolAnalyzer(pass).process(a);
-
-				argSyms ~= a;
-				return "S" ~ a.mangle.toString(pass.context);
-			} else static if (is(T : Constant)) {
-				auto a = new ValueAlias(p.location, p.name, identified);
-
-				import d.semantic.mangler;
-				auto typeMangle = TypeMangler(pass).visit(identified.type);
-				auto valueMangle = ConstantMangler().visit(identified);
-				a.mangle = pass.context.getName(typeMangle ~ valueMangle);
-				a.step = Step.Processed;
-
-				argSyms ~= a;
-				return "V" ~ a.mangle.toString(pass.context);
-			} else static if (is(T : Type)) {
-				auto a = new TypeAlias(p.location, p.name, identified);
-
-				import d.semantic.mangler;
-				a.mangle =
-					pass.context.getName(TypeMangler(pass).visit(identified));
-				a.step = Step.Processed;
-
-				argSyms ~= a;
-				return "T" ~ a.mangle.toString(pass.context);
-			} else {
-				import std.format;
-				assert(0, format!"%s is not supported."(typeid(identified)));
-			}
-		})).array().join();
-
-		return t.instances.get(id, {
-			auto oldManglePrefix = pass.manglePrefix;
-			auto oldScope = pass.currentScope;
-			scope(exit) {
-				pass.manglePrefix = oldManglePrefix;
-				pass.currentScope = oldScope;
-			}
-
-			auto i = new TemplateInstance(location, t, args);
-			auto mangle = t.mangle.toString(pass.context);
-			i.mangle = pass.context.getName(mangle ~ "T" ~ id ~ "Z");
-			i.storage = t.storage;
-
-			// Prefill arguments.
-			foreach (a; argSyms) {
-				i.addSymbol(a);
-			}
-
-			pass.scheduler.schedule(t, i);
-			return t.instances[id] = i;
-		}());
 	}
 }
 
@@ -501,9 +532,9 @@ struct TypeMatcher(bool isIFTI) {
 
 			auto sym = arg.get!(TemplateArgument.Tag.Symbol);
 			auto p = cast(TemplateParameter) sym;
-			assert(p !is null, "Expected a tepmplate parameter.");
+			assert(p !is null, "Expected a template parameter.");
 
-			if (!TemplateInstancier(pass)
+			if (!TemplateInstancier(pass, p.location, [], [])
 				    .matchArgument(p, ti.args[i], matchedArgs)) {
 				return false;
 			}
