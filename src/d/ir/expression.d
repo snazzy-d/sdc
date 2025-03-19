@@ -635,7 +635,7 @@ class FieldExpression : Expression {
 }
 
 /**
- * Delegate from a function + contextes.
+ * Delegate from a function + contexts.
  */
 class DelegateExpression : Expression {
 	Expression[] contexts;

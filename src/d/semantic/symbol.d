@@ -178,7 +178,7 @@ struct SymbolAnalyzer {
 			return new Variable(p.location, t, p.name, value);
 		}).array();
 
-		// Functions are always populated as resolution is order dependant
+		// Functions are always populated as resolution is order dependent.
 		f.step = Step.Populated;
 
 		// Prepare statement visitor for return type.

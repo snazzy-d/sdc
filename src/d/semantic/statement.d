@@ -790,7 +790,7 @@ public:
 
 		scope(success) inFlightGotosStacks.remove(name);
 		foreach (igs; inFlightGotosStacks[name]) {
-			// Check that all inflight goto to thta label are valid.
+			// Check that all inflight goto to that label are valid.
 			import std.algorithm.searching;
 			bool isValid = igs.startsWith(varStack);
 			if (!isValid) {
@@ -1055,7 +1055,7 @@ public:
 			visit(item);
 		}
 
-		// Do not error on unrechable statement after static if.
+		// Do not error on unreachable statement after static if.
 		allowUnreachable = true;
 	}
 
