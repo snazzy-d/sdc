@@ -163,8 +163,8 @@ public:
 		auto s = *sPtr;
 
 		static if (ST == ScopeType.Nested) {
-			// For nested scope we unpack and/or mark overloadset as already
-			// resolved so we make copy of it when adding new overloads.
+			// For nested scope we unpack and/or mark the overload set as
+			// already resolved to enable copy on write.
 			if (auto os = cast(OverloadSet) s) {
 				os.isPoisoned = isPoisoning;
 				if (os.set.length == 1) {
@@ -183,7 +183,7 @@ public:
 		}
 
 		static if (ST != ScopeType.Nested) {
-			// If we have an overloadset, make it poisoned.
+			// If we have an overload set, make it poisoned.
 			if (auto os = cast(OverloadSet) s) {
 				os.isPoisoned = true;
 				return s;
@@ -294,7 +294,7 @@ public:
 				continue;
 			}
 
-			// Replace conditional entrie by whatever they resolve to.
+			// Replace conditional entries by whatever they resolve to.
 			if (auto cs = cast(ConditionalSet) s) {
 				if (cs.set.length) {
 					import source.exception;
