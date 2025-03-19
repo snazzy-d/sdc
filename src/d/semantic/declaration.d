@@ -56,6 +56,9 @@ struct DeclarationVisitor {
 		));
 	}
 
+	import source.name;
+	Name eponymousName;
+
 	static assert(DeclarationVisitor.init.linkage == Linkage.D);
 	static assert(DeclarationVisitor.init.visibility == Visibility.Private);
 	static assert(DeclarationVisitor.init.storage == Storage.Local);
@@ -70,7 +73,7 @@ struct DeclarationVisitor {
 	Symbol[] flatten(S)(Declaration[] decls, S dscope)
 			if (is(S : Symbol) && is(S : Scope)) {
 		static assert(!is(S : Class),
-		              "Classes need to have fieldIndex and methodIndex");
+		              "Classes need to have fieldIndex and methodIndex!");
 
 		uint fi = is(S : Aggregate) ? dscope.hasContext : 0;
 		return flattenImpl(decls, dscope, fi, 0);
@@ -112,6 +115,8 @@ struct DeclarationVisitor {
 			addThis = dscope.hasThis;
 			addContext = dscope.hasContext;
 			storage = dscope.storage;
+
+			eponymousName = dscope.getTemplate().name;
 		}
 
 		this.fieldIndex = fieldIndex;
@@ -201,9 +206,7 @@ struct DeclarationVisitor {
 			               d.name, []);
 		}
 
-		f.linkage = getLinkage(stc);
-		f.visibility = getVisibility(stc);
-		f.inTemplate = inTemplate;
+		setBaseAttributes(f, stc);
 
 		f.hasThis = isStatic ? false : addThis;
 		f.hasContext = isStatic ? false : addContext;
@@ -217,9 +220,7 @@ struct DeclarationVisitor {
 	}
 
 	auto register(S)(VariableDeclaration d, S s, StorageClass stc) {
-		s.linkage = getLinkage(stc);
-		s.visibility = getVisibility(stc);
-		s.inTemplate = inTemplate;
+		setBaseAttributes(s, stc);
 
 		addSymbol(s);
 		select(d, s);
@@ -265,9 +266,7 @@ struct DeclarationVisitor {
 
 		auto s = new Struct(d.location, currentScope, d.name);
 
-		s.linkage = getLinkage(stc);
-		s.visibility = getVisibility(stc);
-		s.inTemplate = inTemplate;
+		setBaseAttributes(s, stc);
 
 		s.hasContext = storage.isGlobal ? false : addContext;
 
@@ -281,9 +280,7 @@ struct DeclarationVisitor {
 
 		auto u = new Union(d.location, currentScope, d.name);
 
-		u.linkage = getLinkage(stc);
-		u.visibility = getVisibility(stc);
-		u.inTemplate = inTemplate;
+		setBaseAttributes(u, stc);
 
 		u.hasContext = storage.isGlobal ? false : addContext;
 
@@ -297,9 +294,7 @@ struct DeclarationVisitor {
 
 		auto c = new Class(d.location, currentScope, d.name);
 
-		c.linkage = getLinkage(stc);
-		c.visibility = getVisibility(stc);
-		c.inTemplate = inTemplate;
+		setBaseAttributes(c, stc);
 
 		c.hasThis = storage.isGlobal ? false : addThis;
 		c.hasContext = storage.isGlobal ? false : addContext;
@@ -317,9 +312,7 @@ struct DeclarationVisitor {
 
 		auto i = new Interface(d.location, currentScope, d.name, []);
 
-		i.linkage = getLinkage(stc);
-		i.visibility = getVisibility(stc);
-		i.inTemplate = inTemplate;
+		setBaseAttributes(i, stc);
 
 		addSymbol(i);
 		select(d, i);
@@ -379,10 +372,9 @@ struct DeclarationVisitor {
 		auto t =
 			new Template(d.location, currentScope, d.name, [], d.declarations);
 
-		t.linkage = linkage;
-		t.visibility = visibility;
+		setBaseAttributes(t, d.storageClass);
+
 		t.hasThis = addThis;
-		t.inTemplate = inTemplate;
 		t.storage = storage;
 
 		addOverloadableSymbol(t);
@@ -392,9 +384,7 @@ struct DeclarationVisitor {
 	void visit(IdentifierAliasDeclaration d) {
 		auto a = new SymbolAlias(d.location, d.name, null);
 
-		a.linkage = linkage;
-		a.visibility = visibility;
-		a.inTemplate = inTemplate;
+		setBaseAttributes(a, d.storageClass);
 
 		addSymbol(a);
 		select(d, a);
@@ -403,9 +393,7 @@ struct DeclarationVisitor {
 	void visit(TypeAliasDeclaration d) {
 		auto a = new TypeAlias(d.location, d.name, Type.get(BuiltinType.None));
 
-		a.linkage = linkage;
-		a.visibility = visibility;
-		a.inTemplate = inTemplate;
+		setBaseAttributes(a, d.storageClass);
 
 		addSymbol(a);
 		select(d, a);
@@ -414,9 +402,7 @@ struct DeclarationVisitor {
 	void visit(ValueAliasDeclaration d) {
 		auto a = new ValueAlias(d.location, d.name, null);
 
-		a.linkage = linkage;
-		a.visibility = visibility;
-		a.inTemplate = inTemplate;
+		setBaseAttributes(a, d.storageClass);
 
 		addSymbol(a);
 		select(d, a);
@@ -430,7 +416,7 @@ struct DeclarationVisitor {
 		// - keep the location of the alias for error messages.
 		// - not redo identifier resolution all the time.
 		auto a = cast(Aggregate) currentScope;
-		assert(a !is null, "Aggergate expected");
+		assert(a !is null, "Aggregate expected");
 
 		a.aliasThis ~= d.name;
 	}
@@ -449,8 +435,8 @@ struct DeclarationVisitor {
 
 		scope(exit) {
 			storage = oldStorage;
-			visibility = oldVisibility;
 			linkage = oldLinkage;
+			visibility = oldVisibility;
 
 			isRef = oldIsRef;
 			isOverride = oldIsOverride;
@@ -464,8 +450,8 @@ struct DeclarationVisitor {
 
 		storage = getStorage(stc);
 		// qualifier = getQualifier(stc);
-		visibility = getVisibility(stc);
 		linkage = getLinkage(stc);
+		visibility = getVisibility(stc);
 
 		isRef = isRef || stc.isRef;
 		isOverride = isOverride || stc.isOverride;
@@ -505,6 +491,13 @@ struct DeclarationVisitor {
 
 	private Linkage getLinkage(StorageClass stc) {
 		return stc.hasLinkage ? stc.linkage : linkage;
+	}
+
+	private void setBaseAttributes(S)(S s, StorageClass stc) {
+		s.linkage = getLinkage(stc);
+		s.visibility = getVisibility(stc);
+		s.inTemplate = inTemplate;
+		s.eponymous = inTemplate && s.name == eponymousName;
 	}
 
 	void visit(ImportDeclaration d) {

@@ -35,13 +35,14 @@ class Symbol : Node {
 		Linkage, "linkage", 3,
 		Visibility, "visibility", 3,
 		InTemplate, "inTemplate", 1,
+		bool, "eponymous", 1,
 		bool, "hasThis", 1,
 		bool, "hasContext", 1,
 		bool, "isPoisoned", 1,
 		bool, "isAbstract", 1,
 		bool, "isFinal", 1,
 		bool, "isProperty", 1,
-		uint, "__derived", 17,
+		uint, "__derived", 16,
 		// sdfmt on
 	));
 
@@ -221,7 +222,7 @@ class OverloadSet : Symbol {
 
 	@property
 	bool isResolved() const {
-		return !!derived;
+		return derived != 0;
 	}
 
 	@property

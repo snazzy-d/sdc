@@ -38,6 +38,14 @@ public:
 			return visit(os);
 		}
 
+		if (auto f = cast(Function) s) {
+			return visit(f);
+		}
+
+		if (auto a = cast(Aggregate) s) {
+			return visit(a);
+		}
+
 		import source.exception, std.format;
 		throw new CompileException(
 			s.location,
@@ -51,6 +59,14 @@ public:
 
 	TemplateInstance visit(OverloadSet s) {
 		return instanciate(s);
+	}
+
+	TemplateInstance visit(Function f) {
+		return instancateEponymous(f);
+	}
+
+	TemplateInstance visit(Aggregate a) {
+		return instancateEponymous(a);
 	}
 
 private:
@@ -292,6 +308,32 @@ private:
 		import source.exception;
 		throw new CompileException(location, "No match");
 	}
+
+	TemplateInstance instancateEponymous(S)(S s) {
+		if (!s.eponymous) {
+			import source.exception, std.format;
+			throw new CompileException(
+				s.location,
+				format!"Function %s cannot be instantiated."(
+					s.toString(context))
+			);
+		}
+
+		auto ti = cast(TemplateInstance) s.getParentScope();
+		assert(ti !is null,
+		       "Expected eponymous s to be at the top level of a template!");
+
+		auto t = ti.getTemplate();
+		assert(t.name == s.name, "Expected s to be eponymous!");
+
+		// Resolve outside the template and try with that.
+		auto ns = t.getParentScope().resolve(location, s.name);
+
+		// We must find at least the template itself.
+		assert(ns !is null, "Invalid outer scope");
+
+		return visit(ns);
+	}
 }
 
 // Conflict with Interface in object.di
@@ -503,7 +545,7 @@ struct TypeMatcher(bool isIFTI) {
 
 		// If this is not a templated type, bail.
 		auto a = matchee.aggregate;
-		if (!a.inTemplate) {
+		if (!a.eponymous) {
 			return false;
 		}
 
@@ -534,7 +576,7 @@ struct TypeMatcher(bool isIFTI) {
 			auto p = cast(TemplateParameter) sym;
 			assert(p !is null, "Expected a template parameter.");
 
-			if (!TemplateInstancier(pass, p.location, [], [])
+			if (!TemplateInstancier(pass, p.location, args, [])
 				    .matchArgument(p, ti.args[i], matchedArgs)) {
 				return false;
 			}
