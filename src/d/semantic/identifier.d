@@ -53,8 +53,10 @@ public:
 		}
 
 		// FIXME: This is an abominable error message and it needs to go!
-		auto e = getError(thisExpr, thisExpr.location,
-		                  "thisExpr has not been consumed.");
+		import std.format;
+		auto e = getError(
+			thisExpr, thisExpr.location,
+			format!"%s has not been consumed."(thisExpr.toString(context)));
 
 		import source.exception;
 		throw new CompileException(e.location, e.message);
