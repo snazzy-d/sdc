@@ -174,6 +174,10 @@ public:
 		return cast(BuiltinType) desc.data;
 	}
 
+	bool isNone() const {
+		return kind == TypeKind.Builtin && builtin == BuiltinType.None;
+	}
+
 	bool isAggregate() const {
 		return (kind >= TypeKind.Struct) && (kind <= TypeKind.Union);
 	}
@@ -470,6 +474,22 @@ static:
 	Type get(CompileError e, TypeQualifier q = TypeQualifier.Mutable) {
 		return Type(Desc(TypeKind.Error, q), e);
 	}
+}
+
+unittest {
+	// Make sure we default initialize to None.
+	Type t;
+	assert(t.isNone());
+	assert(t.kind == TypeKind.Builtin);
+	assert(t.builtin == BuiltinType.None);
+	assert(t.qualifier == TypeQualifier.Mutable);
+
+	// Qualified None is still None.
+	auto ct = t.qualify(TypeQualifier.Const);
+	assert(ct.isNone());
+	assert(ct.kind == TypeKind.Builtin);
+	assert(ct.builtin == BuiltinType.None);
+	assert(ct.qualifier == TypeQualifier.Const);
 }
 
 unittest {

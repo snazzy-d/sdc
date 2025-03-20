@@ -342,6 +342,10 @@ private:
 		//        in as alias parameter, but so far DMD fail to handle this.
 		return matchee.apply!(delegate bool() {
 			static if (is(P : TypeTemplateParameter)) {
+				if (p.defaultValue.isNone()) {
+					return false;
+				}
+
 				return TypeParameterMatcher(pass, matchedArgs, p.defaultValue)
 					.visit(p);
 			} else static if (is(P : ValueTemplateParameter)) {
@@ -443,7 +447,16 @@ struct TypeMatcher(bool isIFTI) {
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Type matchee) {
 		this.pass = pass;
 		this.matchedArgs = matchedArgs;
-		this.matchee = matchee.getCanonical();
+
+		auto ct = matchee.getCanonical();
+		this.matchee = ct;
+
+		import std.format;
+		assert(
+			!ct.isNone(),
+			format!"Do not assign %s (none) to a template parameter!"(
+				matchee.toString(context)),
+		);
 	}
 
 	bool visit(Type t) {
