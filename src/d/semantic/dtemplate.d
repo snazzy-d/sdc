@@ -551,10 +551,8 @@ struct TypeMatcher(bool isIFTI) {
 
 		auto name = a.name;
 		auto ti = cast(TemplateInstance) a.getParentScope();
-		if (ti is null) {
-			// Cannot find the template instance.
-			return false;
-		}
+		assert(ti !is null,
+		       "Expected eponymous a to be at the top level of a template!");
 
 		if (args.length > ti.args.length) {
 			// Incompatible argument count.
