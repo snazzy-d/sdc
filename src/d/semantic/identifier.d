@@ -338,7 +338,7 @@ private:
 	                               I index) {
 		// XXX: dafuq alias this :/
 		return
-			pass.build(base).apply!(i => resolveBracket(location, i, index))();
+			pass.build(base).apply!(b => resolveBracket(location, b, index))();
 	}
 
 	Identifiable resolveBracket(B)(Location location, B base, Identifier index)
@@ -378,13 +378,27 @@ private:
 
 	Identifiable resolveBracket(Location location, Expression base,
 	                            Type index) {
-		assert(0, "Wat wat wat ?");
+		import std.format;
+		return Identifiable(getError(
+			base,
+			index,
+			location,
+			format!"Cannot index expression %s using type %s."(
+				base.toString(context), index.toString(context)),
+		).symbol);
 	}
 
 	Identifiable resolveBracket(S1, S2)(Location location, S1 base, S2 index)
 			if ((is(S1 : Symbol) || is(S2 : Symbol))
 				    && !(is(S1 : Identifier) || is(S2 : Identifier))) {
-		assert(0, "Wat wat wat ?");
+		import std.format;
+		return Identifiable(getError(
+			base,
+			index,
+			location,
+			format!"%s[%s] is not valid."(base.toString(context),
+			                              index.toString(context)),
+		).symbol);
 	}
 }
 
