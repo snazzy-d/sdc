@@ -70,42 +70,6 @@ public:
 	}
 
 private:
-	bool matchArgument(TemplateParameter p, TemplateArgument a,
-	                   TemplateArgument[] matchedArgs) {
-		return a.apply!(delegate bool() {
-			if (auto t = cast(TypeTemplateParameter) p) {
-				return TypeParameterMatcher(pass, matchedArgs, t.defaultValue)
-					.visit(t);
-			}
-
-			if (auto v = cast(ValueTemplateParameter) p) {
-				if (v.defaultValue !is null) {
-					import d.semantic.caster;
-					auto e = evaluate(
-						buildImplicitCast(pass, v.location, v.type,
-						                  v.defaultValue));
-
-					return ConstantMatcher(pass, matchedArgs, v.location, e)
-						.visit(v);
-				}
-			}
-
-			return false;
-		}, (identified) {
-			static if (is(typeof(identified) : Symbol)) {
-				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
-			} else static if (is(typeof(identified) : Constant)) {
-				return ConstantMatcher(pass, matchedArgs, p.location,
-				                       identified).visit(p);
-			} else static if (is(typeof(identified) : Type)) {
-				return TypeParameterMatcher(pass, matchedArgs, identified)
-					.visit(p);
-			} else {
-				return false;
-			}
-		})();
-	}
-
 	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs,
 	                    TemplateArgument[] matchedArgs) in {
 		assert(t.step == Step.Processed);
@@ -119,7 +83,8 @@ private:
 
 		uint i = 0;
 		foreach (a; args) {
-			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
+			if (!ArgumentMatcher(pass, matchedArgs, a)
+				    .visit(t.parameters[i++])) {
 				return false;
 			}
 		}
@@ -132,7 +97,8 @@ private:
 
 		// Match unspecified parameters.
 		foreach (a; matchedArgs[i .. $]) {
-			if (!matchArgument(t.parameters[i++], a, matchedArgs)) {
+			if (!ArgumentMatcher(pass, matchedArgs, a)
+				    .visit(t.parameters[i++])) {
 				return false;
 			}
 		}
@@ -288,8 +254,8 @@ private:
 			dummy = null;
 			dummy.length = match.parameters.length;
 			asArg = t.parameters.map!buildArg.array();
-			bool t2match = matchArguments(match, asArg, [], dummy);
 
+			bool t2match = matchArguments(match, asArg, [], dummy);
 			if (t2match == match2t) {
 				assert(0, "Ambiguous template.");
 			}
@@ -336,15 +302,65 @@ private:
 	}
 }
 
+struct ArgumentMatcher {
+	SemanticPass pass;
+	alias pass this;
+
+	TemplateArgument[] matchedArgs;
+	TemplateArgument matchee;
+
+	this(SemanticPass pass, TemplateArgument[] matchedArgs,
+	     TemplateArgument matchee) {
+		this.pass = pass;
+		this.matchedArgs = matchedArgs;
+		this.matchee = matchee;
+	}
+
+	bool visit(TemplateParameter p) {
+		return matchee.apply!(delegate bool() {
+			if (auto t = cast(TypeTemplateParameter) p) {
+				return TypeParameterMatcher(pass, matchedArgs, t.defaultValue)
+					.visit(t);
+			}
+
+			if (auto v = cast(ValueTemplateParameter) p) {
+				if (v.defaultValue !is null) {
+					import d.semantic.caster;
+					auto e = evaluate(
+						buildImplicitCast(pass, v.location, v.type,
+						                  v.defaultValue));
+
+					return ConstantMatcher(pass, matchedArgs, v.location, e)
+						.visit(v);
+				}
+			}
+
+			return false;
+		}, (identified) {
+			static if (is(typeof(identified) : Symbol)) {
+				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
+			} else static if (is(typeof(identified) : Constant)) {
+				return ConstantMatcher(pass, matchedArgs, p.location,
+				                       identified).visit(p);
+			} else static if (is(typeof(identified) : Type)) {
+				return TypeParameterMatcher(pass, matchedArgs, identified)
+					.visit(p);
+			} else {
+				return false;
+			}
+		})();
+	}
+}
+
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
 struct TypeParameterMatcher {
-	TemplateArgument[] matchedArgs;
-	Type matchee;
-
 	SemanticPass pass;
 	alias pass this;
+
+	TemplateArgument[] matchedArgs;
+	Type matchee;
 
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Type matchee) {
 		this.pass = pass;
@@ -400,7 +416,6 @@ struct TypeMatcher(bool isIFTI) {
 	alias pass this;
 
 	TemplateArgument[] matchedArgs;
-
 	Type matchee;
 
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Type matchee) {
@@ -574,8 +589,7 @@ struct TypeMatcher(bool isIFTI) {
 			auto p = cast(TemplateParameter) sym;
 			assert(p !is null, "Expected a template parameter.");
 
-			if (!TemplateInstancier(pass, p.location, args, [])
-				    .matchArgument(p, ti.args[i], matchedArgs)) {
+			if (!ArgumentMatcher(pass, matchedArgs, ti.args[i]).visit(p)) {
 				return false;
 			}
 		}
