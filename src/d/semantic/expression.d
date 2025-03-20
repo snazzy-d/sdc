@@ -609,7 +609,7 @@ public:
 			? new ConstantExpression(location, new FunctionConstant(f))
 			: build!DelegateExpression(location, ctxs, f);
 
-		// If this is not a property, things are straigforward.
+		// If this is not a property, things are straightforward.
 		if (!f.isProperty) {
 			return e;
 		}
@@ -788,7 +788,7 @@ public:
 
 					if (auto s = cast(OverloadSet) i) {
 						// FIXME: overload resolution doesn't do alias this
-						// or vrp trunc, so we need a workaround here.
+						// or VRP trunc, so we need a workaround here.
 						if (s.set.length == 1) {
 							if (auto f = cast(Function) s.set[0]) {
 								return getFrom(calleeLoc, thisExpr, f);
@@ -930,7 +930,7 @@ public:
 				level = candidateLevel;
 				match = candidate;
 			} else if (candidateLevel == level) {
-				// Check for specialisation.
+				// Check for specialization.
 				auto mt = match.type.getCanonical();
 				assert(mt.kind == TypeKind.Function,
 				       "We should have filtered function at this point.");
@@ -1036,8 +1036,8 @@ public:
 		return null;
 	}
 
-	// XXX: This assume that calable is the right one,
-	// but not all call sites do the check.
+	// XXX: This assume that callable is the right one,
+	//      but not all call sites do the check.
 	private Expression callCallable(Location location, Expression callee,
 	                                Expression[] args) in {
 		auto k = callee.type.getCanonical().kind;
@@ -1069,8 +1069,8 @@ public:
 			auto params = fun.params[start .. stop];
 			foreach (p; params) {
 				if (p.value is null) {
-					return
-						getError(callee, location, "Insuffiscient parameters.");
+					return getError(callee, location,
+					                "Insufficient parameter count.");
 				}
 
 				args ~= p.value;
@@ -1134,7 +1134,7 @@ public:
 					}
 				}
 
-				assert(0, "Gimme some construtor!");
+				assert(0, "Gimme some constructor!");
 			})();
 
 		// First parameter is compiler magic.
