@@ -218,7 +218,7 @@ private:
 			size = MinWorklistSize;
 		} else {
 			import d.gc.sizeclass;
-			size = getAllocSize(count * WorkItem.sizeof);
+			size = getAllocSize(size);
 		}
 
 		import d.gc.tcache;
