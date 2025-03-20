@@ -175,8 +175,9 @@ public:
 
 	void* allocAppendable(size_t size, bool containsPointers, bool zero,
 	                      Finalizer finalizer = null, size_t capacity = 0) {
-		// Reserve bytes for the finalizer if needed.
 		capacity = max(capacity, size);
+
+		// Reserve bytes for the finalizer if needed.
 		auto asize = capacity + (finalizer !is null) * PointerSize;
 		if (!isAllocatableSize(asize)) {
 			return null;
