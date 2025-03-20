@@ -317,25 +317,47 @@ struct ArgumentMatcher {
 	}
 
 	bool visit(TemplateParameter p) {
+		return this.dispatch(p);
+	}
+
+	bool visit(TypeTemplateParameter p) {
+		return matchParameter(p);
+	}
+
+	bool visit(AliasTemplateParameter p) {
+		return matchParameter(p);
+	}
+
+	bool visit(ValueTemplateParameter p) {
+		return matchParameter(p);
+	}
+
+	bool visit(TypedAliasTemplateParameter p) {
+		return matchParameter(p);
+	}
+
+private:
+	bool matchParameter(P)(P p) if (is(P : TemplateParameter)) {
+		// FIXME: It would be better if each parameter type could pass a lambda
+		//        in as alias parameter, but so far DMD fail to handle this.
 		return matchee.apply!(delegate bool() {
-			if (auto t = cast(TypeTemplateParameter) p) {
-				return TypeParameterMatcher(pass, matchedArgs, t.defaultValue)
-					.visit(t);
-			}
-
-			if (auto v = cast(ValueTemplateParameter) p) {
-				if (v.defaultValue !is null) {
-					import d.semantic.caster;
-					auto e = evaluate(
-						buildImplicitCast(pass, v.location, v.type,
-						                  v.defaultValue));
-
-					return ConstantMatcher(pass, matchedArgs, v.location, e)
-						.visit(v);
+			static if (is(P : TypeTemplateParameter)) {
+				return TypeParameterMatcher(pass, matchedArgs, p.defaultValue)
+					.visit(p);
+			} else static if (is(P : ValueTemplateParameter)) {
+				if (p.defaultValue is null) {
+					return false;
 				}
-			}
 
-			return false;
+				import d.semantic.caster;
+				auto e =
+					buildImplicitCast(pass, p.location, p.type, p.defaultValue);
+
+				return ConstantMatcher(pass, matchedArgs, p.location,
+				                       evaluate(e)).visit(p);
+			} else {
+				return false;
+			}
 		}, (identified) {
 			static if (is(typeof(identified) : Symbol)) {
 				return SymbolMatcher(pass, matchedArgs, identified).visit(p);
