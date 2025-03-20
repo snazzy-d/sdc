@@ -609,7 +609,11 @@ struct TypeMatcher(bool isIFTI) {
 
 			auto sym = arg.get!(TemplateArgument.Tag.Symbol);
 			auto p = cast(TemplateParameter) sym;
-			assert(p !is null, "Expected a template parameter.");
+			if (p is null) {
+				// I don't think we want to check anything else
+				// other than template parameters here.
+				continue;
+			}
 
 			if (!ArgumentMatcher(pass, matchedArgs, ti.args[i]).visit(p)) {
 				return false;
@@ -685,7 +689,6 @@ struct SymbolMatcher {
 	alias pass this;
 
 	TemplateArgument[] matchedArgs;
-
 	Symbol matchee;
 
 	this(SemanticPass pass, TemplateArgument[] matchedArgs, Symbol matchee) {
@@ -699,7 +702,7 @@ struct SymbolMatcher {
 			return visit(p);
 		}
 
-		// Peel aliases
+		// Peel aliases.
 		while (true) {
 			auto a = cast(SymbolAlias) s;
 			if (a is null) {
