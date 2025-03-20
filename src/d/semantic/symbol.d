@@ -528,10 +528,19 @@ struct SymbolAnalyzer {
 		import d.semantic.identifier;
 		a.symbol = IdentifierResolver(
 			pass
-		).resolve(iad.identifier).apply!(function Symbol(identified) {
+		).resolve(iad.identifier).apply!(delegate Symbol(identified) {
 			alias T = typeof(identified);
 			static if (is(T : Symbol)) {
 				return identified;
+			} else static if (is(T : Type)) {
+				/**
+				 * Its not ideal to turn the alias into an alias to an alias,
+				 * but it's hard to figure out whether the identifier will
+				 * resolve to a symbol or something else.
+				 * 
+				 * This will do for now.
+				 */
+				return process(new TypeAlias(a.location, a.name, identified));
 			} else {
 				import std.format;
 				assert(0, format!"Not implemented for %s."(typeid(identified)));
@@ -562,10 +571,15 @@ struct SymbolAnalyzer {
 			a.type = f.withLinkage(a.linkage).getType(a.type.qualifier);
 		}
 
+		process(a);
+	}
+
+	auto process(TypeAlias a) {
 		import d.semantic.mangler;
 		a.mangle = context.getName(TypeMangler(pass).visit(a.type));
 
 		a.step = Step.Processed;
+		return a;
 	}
 
 	void analyze(ValueAliasDeclaration d, ValueAlias a) {
