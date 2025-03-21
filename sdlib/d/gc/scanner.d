@@ -4,6 +4,7 @@ import sdc.intrinsics;
 
 import d.gc.emap;
 import d.gc.hooks;
+import d.gc.mtqueue;
 import d.gc.range;
 import d.gc.slab;
 import d.gc.spec;
@@ -14,18 +15,28 @@ private:
 	import d.sync.mutex;
 	Mutex mutex;
 
-	uint activeThreads;
-	uint cursor;
-	WorkItem[] worklist;
-
 	ubyte _gcCycle;
 	AddressRange _managedAddressSpace;
 
-	enum MaxRefill = 4;
+	// We do not want false sharing between the mutex and
+	// the work queue, so we add padding here.
+	Padding!4 _pad0;
+
+	alias WorkQueue = ConcurentQueue!WorkItem;
+	WorkQueue workQueue;
+
+	import d.sync.atomic;
+	shared Atomic!uint totalThreads;
+	shared Atomic!uint activeThreads;
+
+	// We do not want false sharing with whatever comes after this
+	// struct in memory here, so we add padding here.
+	Padding!1 _pad1;
 
 public:
 	this(uint threadCount, ubyte gcCycle, AddressRange managedAddressSpace) {
-		activeThreads = threadCount;
+		totalThreads.store(threadCount);
+		activeThreads.store(threadCount);
 
 		this._gcCycle = gcCycle;
 		this._managedAddressSpace = managedAddressSpace;
@@ -50,8 +61,17 @@ public:
 	}
 
 	void mark() shared {
+		enum QueueSize = 4096;
+		auto size = QueueSize * WorkItem.sizeof;
+
+		import d.gc.tcache;
+		auto ptr = cast(WorkItem*) threadCache.alloc(size, false, false);
+		scope(exit) threadCache.free(ptr);
+
+		(cast(Scanner*) &this).workQueue = WorkQueue(ptr[0 .. QueueSize]);
+
 		import core.stdc.pthread;
-		auto threadCount = activeThreads - 1;
+		auto threadCount = totalThreads.load() - 1;
 		auto threadsPtr =
 			cast(pthread_t*) alloca(pthread_t.sizeof * threadCount);
 		auto threads = threadsPtr[0 .. threadCount];
@@ -82,108 +102,78 @@ public:
 		// Now send this thread marking!
 		worker.runMark();
 
-		// We now done, we can free the worklist.
-		import d.gc.tcache;
-		threadCache.free(cast(void*) worklist.ptr);
-
 		foreach (tid; threads) {
 			void* ret;
 			pthread_join(tid, &ret);
 		}
 	}
 
-	void addToWorkList(WorkItem[] items) shared {
-		mutex.lock();
-		scope(exit) mutex.unlock();
+	void addToWorkQueue(WorkItem[] items,
+	                    ref Overflow!WorkItem overflow) shared {
+		workQueue.insert(items, overflow);
 
-		(cast(Scanner*) &this).addToWorkListImpl(items);
+		// If some threads are starved, notify them.
+		// This inherently race-y, but it always eventually
+		// picks up starved threads, so this is good enough.
+		if (activeThreads.load() < totalThreads.load()) {
+			// FIXME: Add a notify feature to the mutex.
+			mutex.lock();
+			mutex.unlock();
+		}
+	}
+
+	size_t popFromWorkQueue(WorkItem[] items,
+	                        ref Overflow!WorkItem overflow) shared {
+		return workQueue.pop(items, overflow);
 	}
 
 private:
-	uint waitForWork(ref WorkItem[MaxRefill] refill) shared {
+	size_t waitForWork(ref Worker worker, WorkItem[] items) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
-		activeThreads--;
+		activeThreads.fetchSub(1);
 
-		/**
-		 * We wait for work to be present in the worklist.
-		 * If there is, then we pick it up and start marking.
-		 *
-		 * Alternatively, if there is no work to do, and the number
-		 * of active thread is 0, then we know no more work is coming
-		 * and we should stop.
-		 */
-		static hasWork(Scanner* w) {
-			return w.cursor != 0 || w.activeThreads == 0;
-		}
+		static struct Waiter {
+			Worker* worker;
+			size_t count;
 
-		auto w = (cast(Scanner*) &this);
-		mutex.waitFor(w.hasWork);
+			WorkItem[] items;
 
-		if (w.cursor == 0) {
-			return 0;
-		}
-
-		activeThreads++;
-
-		uint count = 1;
-		uint top = w.cursor;
-
-		refill[0] = w.worklist[top - count];
-		auto length = refill[0].length;
-
-		foreach (i; 1 .. min(top, MaxRefill)) {
-			auto next = w.worklist[top - count - 1];
-
-			auto nl = length + next.length;
-			if (nl > WorkItem.WorkUnit / 2) {
-				break;
+			this(Worker* worker, WorkItem[] items) {
+				this.worker = worker;
+				this.items = items;
 			}
 
-			count++;
-			length = nl;
-			refill[i] = next;
+			bool hasWork() {
+				// There is no more work to be done.
+				if (worker.scanner.activeThreads.load() == 0) {
+					return true;
+				}
+
+				count = worker.popFromWorkQueue(items);
+				return count > 0;
+			}
 		}
 
-		w.cursor = top - count;
-		return count;
-	}
+		/**
+		 * The fact all the waiters use a different delegate
+		 * as condition (because the waiter itself is different)
+		 * will cause a loop where they wake up each others as they
+		 * fail their condition.
+		 * 
+		 * This is somewhat wasteful, but will do for now.
+		 * FIXME: Actually put multiple thread to sleep if
+		 *        multiple threads are starved.
+		 */
+		auto waiter = Waiter(&worker, items);
+		mutex.waitFor(waiter.hasWork);
 
-	void ensureWorklistCapacity(size_t count) {
-		assert(mutex.isHeld(), "mutex not held!");
-		assert(count < uint.max, "Cannot reserve this much capacity!");
-
-		if (likely(count <= worklist.length)) {
-			return;
+		if (waiter.count > 0) {
+			activeThreads.fetchAdd(1);
 		}
 
-		enum MinWorklistSize = 4 * PageSize;
-
-		auto size = count * WorkItem.sizeof;
-		if (size < MinWorklistSize) {
-			size = MinWorklistSize;
-		} else {
-			import d.gc.sizeclass;
-			size = getAllocSize(size);
-		}
-
-		import d.gc.tcache;
-		auto ptr = threadCache.realloc(worklist.ptr, size, false);
-		worklist = (cast(WorkItem*) ptr)[0 .. size / WorkItem.sizeof];
-	}
-
-	void addToWorkListImpl(WorkItem[] items) {
-		assert(mutex.isHeld(), "mutex not held!");
-		assert(0 < items.length && items.length < uint.max,
-		       "Invalid item count!");
-
-		auto capacity = cursor + items.length;
-		ensureWorklistCapacity(capacity);
-
-		foreach (item; items) {
-			worklist[cursor++] = item;
-		}
+		return waiter.count;
 	}
 }
 
@@ -218,6 +208,8 @@ private:
 
 	LastDenseSlabCache ldsCache;
 
+	Overflow!WorkItem overflow;
+
 public:
 	this(shared(Scanner)* scanner) {
 		this.scanner = scanner;
@@ -229,7 +221,20 @@ public:
 		this.gcCycle = scanner.gcCycle;
 	}
 
+	size_t waitForWork(WorkItem[] items) {
+		auto count = popFromWorkQueue(items);
+		if (count > 0) {
+			return count;
+		}
+
+		// We are starving, defer to the scanner.
+		return scanner.waitForWork(this, items);
+	}
+
 	void runMark() {
+		// Make sure we cleanup after ourselves when done.
+		scope(exit) overflow.clear();
+
 		/**
 		 * Scan the stack and TLS.
 		 * 
@@ -239,17 +244,18 @@ public:
 		 * restart new ones quickly and cheaply.
 		 * 
 		 * Because we start and stop threads during the mark phase, we are
-		 * at risk of missing pointers allocated for thread management resources
-		 * and corrupting the internal of the standard C library.
+		 * at risk of missing pointers allocated for thread management
+		 * resources and corrupting the internal of the standard C library.
 		 * 
 		 * This is NOT good! So we scan here to make sure we don't miss anything.
 		 */
 		import d.gc.thread;
 		threadScan(scan);
 
-		WorkItem[Scanner.MaxRefill] refill;
+		enum MaxRefill = 4;
+		WorkItem[MaxRefill] refill;
 		while (true) {
-			auto count = scanner.waitForWork(refill);
+			auto count = waitForWork(refill[0 .. MaxRefill]);
 			if (count == 0) {
 				// We are done, there is no more work items.
 				return;
@@ -277,19 +283,19 @@ public:
 		} else {
 			// Either a TLS range, or the stack of a suspended
 			// thread. Can be scanned at any time.
-			addToWorkList(range);
+			addToWorkQueue(range);
 		}
 	}
 
-	void addToWorkList(WorkItem[] items) {
-		scanner.addToWorkList(items);
+	void addToWorkQueue(WorkItem[] items) {
+		scanner.addToWorkQueue(items, overflow);
 	}
 
-	void addToWorkList(WorkItem item) {
-		addToWorkList((&item)[0 .. 1]);
+	void addToWorkQueue(WorkItem item) {
+		addToWorkQueue((&item)[0 .. 1]);
 	}
 
-	void addToWorkList(const(void*)[] range) {
+	void addToWorkQueue(const(void*)[] range) {
 		// In order to expose some parallelism, we split the range
 		// into smaller chunks to be distributed.
 		while (range.length > 0) {
@@ -305,8 +311,12 @@ public:
 				u = WorkItem.extractFromRange(range);
 			}
 
-			addToWorkList(units[0 .. count]);
+			addToWorkQueue(units[0 .. count]);
 		}
+	}
+
+	size_t popFromWorkQueue(WorkItem[] items) {
+		return scanner.popFromWorkQueue(items, overflow);
 	}
 
 	void scan(const(void*)[] range) {
@@ -332,7 +342,7 @@ public:
 			}
 		}
 
-		// Depth first doesn't really need a worklist,
+		// Depth first doesn't really need a work list,
 		// but this makes sharing code easier.
 		enum WorkListCapacity = DepthFirst ? 1 : 16;
 
@@ -383,7 +393,7 @@ public:
 						continue;
 					}
 
-					addToWorkList(worklist[0 .. WorkListCapacity]);
+					addToWorkQueue(worklist[0 .. WorkListCapacity]);
 
 					cursor = 1;
 					worklist[0] = i;
@@ -429,7 +439,7 @@ public:
 						worklist[cursor++] = WorkItem.extractFromRange(range);
 					}
 
-					addToWorkList(range);
+					addToWorkQueue(range);
 					continue;
 				}
 
@@ -448,7 +458,7 @@ public:
 				if (DepthFirst && cursor == 0) {
 					worklist[cursor++] = i;
 				} else {
-					addToWorkList(i);
+					addToWorkQueue(i);
 				}
 			}
 
