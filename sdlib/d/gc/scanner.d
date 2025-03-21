@@ -36,7 +36,6 @@ public:
 		auto nthreads = getCoreCount();
 		assert(nthreads >= 1, "Expected at least one thread!");
 
-		// nthreads = 1;
 		this(nthreads, gcCycle, managedAddressSpace);
 	}
 
@@ -61,7 +60,9 @@ public:
 			import d.gc.tcache;
 			threadCache.activateGC(false);
 
-			(cast(shared(Scanner*)) ctx).runMark();
+			auto worker = Worker(cast(shared(Scanner*)) ctx);
+			worker.runMark();
+
 			return null;
 		}
 
@@ -75,7 +76,8 @@ public:
 		__sd_gc_global_scan(addToWorkList);
 
 		// Now send this thread marking!
-		runMark();
+		auto worker = Worker(&this);
+		worker.runMark();
 
 		// We now done, we can free the worklist.
 		import d.gc.tcache;
@@ -119,40 +121,6 @@ public:
 	}
 
 private:
-	void runMark() shared {
-		auto worker = Worker(&this);
-
-		/**
-		 * Scan the stack and TLS.
-		 * 
-		 * It may seems counter intuitive that we do so for worker threads
-		 * as well, but it turns out to be necessary. NPTL caches resources
-		 * necessary to start a thread after a thread exits, to be able to
-		 * restart new ones quickly and cheaply.
-		 * 
-		 * Because we start and stop threads during the mark phase, we are
-		 * at risk of missing pointers allocated for thread management resources
-		 * and corrupting the internal of the standard C library.
-		 * 
-		 * This is NOT good! So we scan here to make sure we don't miss anything.
-		 */
-		import d.gc.thread;
-		threadScan(worker.scan);
-
-		WorkItem[MaxRefill] refill;
-		while (true) {
-			auto count = waitForWork(refill);
-			if (count == 0) {
-				// We are done, there is no more work items.
-				return;
-			}
-
-			foreach (i; 0 .. count) {
-				worker.scan(refill[i]);
-			}
-		}
-	}
-
 	uint waitForWork(ref WorkItem[MaxRefill] refill) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
@@ -282,6 +250,38 @@ public:
 		this.gcCycle = scanner.gcCycle;
 	}
 
+	void runMark() {
+		/**
+		 * Scan the stack and TLS.
+		 * 
+		 * It may seems counter intuitive that we do so for worker threads
+		 * as well, but it turns out to be necessary. NPTL caches resources
+		 * necessary to start a thread after a thread exits, to be able to
+		 * restart new ones quickly and cheaply.
+		 * 
+		 * Because we start and stop threads during the mark phase, we are
+		 * at risk of missing pointers allocated for thread management resources
+		 * and corrupting the internal of the standard C library.
+		 * 
+		 * This is NOT good! So we scan here to make sure we don't miss anything.
+		 */
+		import d.gc.thread;
+		threadScan(scan);
+
+		WorkItem[Scanner.MaxRefill] refill;
+		while (true) {
+			auto count = scanner.waitForWork(refill);
+			if (count == 0) {
+				// We are done, there is no more work items.
+				return;
+			}
+
+			foreach (i; 0 .. count) {
+				scan(refill[i]);
+			}
+		}
+	}
+
 	void scan(const(void*)[] range) {
 		while (range.length > 0) {
 			scan(WorkItem.extractFromRange(range));
@@ -389,11 +389,7 @@ public:
 						continue;
 					}
 
-					/*
-					auto capacity = e.usedCapacity;
-					/*/
 					auto capacity = e.size;
-					// */
 					if (!pd.containsPointers || capacity < PointerSize) {
 						continue;
 					}
