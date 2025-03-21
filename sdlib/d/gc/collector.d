@@ -56,7 +56,7 @@ private:
 		prepareGCCycle();
 
 		import d.gc.scanner;
-		shared(Scanner) scanner = Scanner(gcCycle, managedAddressSpace);
+		auto scanner = shared(Scanner)(gcCycle, managedAddressSpace);
 
 		// Go on and on until all worklists are empty.
 		scanner.mark();
