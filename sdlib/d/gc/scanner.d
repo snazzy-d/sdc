@@ -72,11 +72,14 @@ public:
 			createGCThread(&tid, null, markThreadEntry, cast(void*) &this);
 		}
 
+		// We are goign to use this worker with __sd_gc_global_scan
+		// so the workflow in the main thread is slightly different.
+		auto worker = Worker(&this);
+
 		// Scan the roots.
-		__sd_gc_global_scan(addToWorkList);
+		__sd_gc_global_scan(worker.addToWorkList);
 
 		// Now send this thread marking!
-		auto worker = Worker(&this);
 		worker.runMark();
 
 		// We now done, we can free the worklist.
@@ -94,30 +97,6 @@ public:
 		scope(exit) mutex.unlock();
 
 		(cast(Scanner*) &this).addToWorkListImpl(items);
-	}
-
-	void addToWorkList(WorkItem item) shared {
-		addToWorkList((&item)[0 .. 1]);
-	}
-
-	void addToWorkList(const(void*)[] range) shared {
-		// In order to expose some parallelism, we split the range
-		// into smaller chunks to be distributed.
-		while (range.length > 0) {
-			uint count;
-			WorkItem[16] units;
-
-			foreach (ref u; units) {
-				if (range.length == 0) {
-					break;
-				}
-
-				count++;
-				u = WorkItem.extractFromRange(range);
-			}
-
-			addToWorkList(units[0 .. count]);
-		}
 	}
 
 private:
@@ -282,6 +261,34 @@ public:
 		}
 	}
 
+	void addToWorkList(WorkItem[] items) {
+		scanner.addToWorkList(items);
+	}
+
+	void addToWorkList(WorkItem item) {
+		addToWorkList((&item)[0 .. 1]);
+	}
+
+	void addToWorkList(const(void*)[] range) {
+		// In order to expose some parallelism, we split the range
+		// into smaller chunks to be distributed.
+		while (range.length > 0) {
+			uint count;
+			WorkItem[16] units;
+
+			foreach (ref u; units) {
+				if (range.length == 0) {
+					break;
+				}
+
+				count++;
+				u = WorkItem.extractFromRange(range);
+			}
+
+			addToWorkList(units[0 .. count]);
+		}
+	}
+
 	void scan(const(void*)[] range) {
 		while (range.length > 0) {
 			scan(WorkItem.extractFromRange(range));
@@ -356,7 +363,7 @@ public:
 						continue;
 					}
 
-					scanner.addToWorkList(worklist[0 .. WorkListCapacity]);
+					addToWorkList(worklist[0 .. WorkListCapacity]);
 
 					cursor = 1;
 					worklist[0] = i;
@@ -402,7 +409,7 @@ public:
 						worklist[cursor++] = WorkItem.extractFromRange(range);
 					}
 
-					scanner.addToWorkList(range);
+					addToWorkList(range);
 					continue;
 				}
 
@@ -421,7 +428,7 @@ public:
 				if (DepthFirst && cursor == 0) {
 					worklist[cursor++] = i;
 				} else {
-					scanner.addToWorkList(i);
+					addToWorkList(i);
 				}
 			}
 
