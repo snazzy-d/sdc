@@ -32,6 +32,10 @@ struct S(uint N) {
 	auto set(T)(ref Array!(T, N) a, uint i, uint v) {
 		a.elements[i] = v;
 	}
+
+	auto get(T)(ref const Array!(T, N) a, uint i) {
+		return a.elements[i];
+	}
 }
 
 unittest patterns {
@@ -45,4 +49,5 @@ unittest patterns {
 	Array!(uint, 7) a;
 	s.set!uint(a, 3, 42);
 	assert(a.elements[3] == 42);
+	assert(s.get!uint(a, 3) == 42);
 }

@@ -156,6 +156,9 @@ public:
 			case Array:
 				return element.qualify(nq).getArray(size, nq);
 
+			case Pattern:
+				return pattern.getType(nq);
+
 			default:
 				import std.format;
 				assert(0, format!"%s is not implemented!"(kind));
