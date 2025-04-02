@@ -373,7 +373,7 @@ private:
 			 * scanning of the stack is done elsewhere (e.g.
 			 * Druntime).
 			 */
-			if (tc.stackTop !is null) {
+			if (tc.stackTop > SkipScanStack) {
 				import d.gc.range;
 				scan(makeRange(tc.stackTop, tc.stackBottom));
 			}

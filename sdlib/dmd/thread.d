@@ -63,7 +63,7 @@ void __sd_gc_pre_suspend_hook(void* stackTop) {
 	// the stacks, because druntime has a complex mechanism to deal with
 	// stacks (for fiber support).
 	import d.gc.tcache;
-	threadCache.stackTop = null;
+	threadCache.stackTop = SkipScanStack;
 
 	/**
 	 * If the thread is managed by druntime, then we'll get the
