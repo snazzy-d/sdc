@@ -364,8 +364,8 @@ private:
 			// Only suspended thread have their stack properly set.
 			// For detached threads, we just hope nothing's in there.
 			if (ss == SuspendState.Suspended) {
-				import d.gc.range;
-				scan(makeRange(tc.stackTop, tc.stackBottom));
+				import d.gc.stack;
+				scanStackRange(scan, tc.stackTop, tc.stackBottom);
 			}
 		}
 	}

@@ -59,6 +59,12 @@ void __sd_gc_pre_suspend_hook(void* stackTop) {
 		return;
 	}
 
+	// Druntime is managing this thread, do not use our mechanism to scan
+	// the stacks, because druntime has a complex mechanism to deal with
+	// stacks (for fiber support).
+	import d.gc.tcache, d.gc.stack;
+	threadCache.stackBottom = SkipScanStack;
+
 	/**
 	 * If the thread is managed by druntime, then we'll get the
 	 * TLS segments when calling thread_scanAll_C, so we can remove
@@ -68,7 +74,6 @@ void __sd_gc_pre_suspend_hook(void* stackTop) {
 	 * scan it eagerly, as registers containing possible pointers gets
 	 * pushed on it.
 	 */
-	import d.gc.tcache;
 	auto tls = threadCache.tlsSegments;
 	if (tls.ptr is null) {
 		return;
@@ -88,6 +93,15 @@ void __sd_gc_post_suspend_hook() {
 void __sd_gc_pre_stop_the_world_hook() {
 	thread_preStopTheWorld();
 
+	/**
+	 * For druntime, we need to determine if this thread is going to be
+	 * scanned by druntime. This means we have to call the suspend hook.
+	 * However, if this thread isn't being handled by druntime, we want to
+	 * defer to the normal thread scanning done in the mark function.
+	 * Therefore, the stack top should be either null or SkipScanStack.
+	 */
+	import d.gc.tcache;
+	threadCache.stackBottom = null;
 	__sd_gc_pre_suspend_hook(null);
 }
 
