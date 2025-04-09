@@ -85,7 +85,7 @@ void __sd_gc_post_suspend_hook() {
 	thread_postSuspend();
 }
 
-void __sd_gc_pre_stop_the_world_hook(void* stackTop) {
+void __sd_gc_pre_stop_the_world_hook() {
 	thread_preStopTheWorld();
 }
 
