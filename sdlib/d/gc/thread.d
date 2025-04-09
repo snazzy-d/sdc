@@ -88,18 +88,33 @@ void restartTheWorld() {
 	gThreadState.restartTheWorld();
 }
 
-void threadScan(ScanDg scan) {
+void threadScan(ThreadCache* tc, ScanDg scan) {
 	// Scan the registered TLS segments.
-	foreach (s; threadCache.tlsSegments) {
+	foreach (s; tc.tlsSegments) {
 		scan(s);
 	}
 
-	import d.gc.stack;
-	scanStack(scan);
+	// Skip scanning the stack if someone else is handling it.
+	if (tc.stackTop == SkipScanStack) {
+		return;
+	}
+
+	// Scan a valid stack as described by the threadCache.
+	if (tc.stackTop > SkipScanStack) {
+		import d.gc.range;
+		scan(makeRange(tc.stackTop, tc.stackBottom));
+		return;
+	}
+
+	// Scan our own stack with registers if requested.
+	if (tc is &threadCache) {
+		import d.gc.stack;
+		scanStack(scan);
+	}
 }
 
-void scanThreads(ScanDg scan) {
-	gThreadState.scanThreads(scan);
+void scanSuspendedThreads(ScanDg scan) {
+	gThreadState.scanSuspendedThreads(scan);
 }
 
 private:
@@ -181,8 +196,11 @@ public:
 	}
 
 	void stopTheWorld() shared {
+		import sdc.intrinsics;
+		auto stackTop = readFramePointer();
+
 		import d.gc.hooks;
-		__sd_gc_pre_stop_the_world_hook();
+		__sd_gc_pre_stop_the_world_hook(stackTop);
 
 		// Prevent any new threads from being created
 		stopTheWorldLock.exclusiveLock();
@@ -196,9 +214,6 @@ public:
 	}
 
 	void restartTheWorld() shared {
-		import d.gc.hooks;
-		__sd_gc_post_suspend_hook();
-
 		while (resumeSuspendedThreads()) {
 			import sys.posix.sched;
 			sched_yield();
@@ -207,16 +222,17 @@ public:
 		// Allow thread creation again.
 		stopTheWorldLock.exclusiveUnlock();
 
+		import d.gc.hooks;
 		__sd_gc_post_restart_the_world_hook();
 	}
 
-	void scanThreads(ScanDg scan) shared {
+	void scanSuspendedThreads(ScanDg scan) shared {
 		assert(stopTheWorldLock.count == SharedLock.Exclusive);
 
 		mThreadList.lock();
 		scope(exit) mThreadList.unlock();
 
-		(cast(ThreadState*) &this).scanThreadsImpl(scan);
+		(cast(ThreadState*) &this).scanSuspendedThreadsImpl(scan);
 	}
 
 private:
@@ -344,7 +360,7 @@ private:
 		return retry;
 	}
 
-	void scanThreadsImpl(ScanDg scan) {
+	void scanSuspendedThreadsImpl(ScanDg scan) {
 		assert(mThreadList.isHeld(), "Mutex not held!");
 
 		auto r = registeredThreads.range;
@@ -352,31 +368,13 @@ private:
 			auto tc = r.front;
 			scope(success) r.popFront();
 
-			// We want to scan the current thread, and any
-			// suspended or detached threads. Other threads are
-			// likely GC helper threads, and don't need scanning.
+			// If the thread isn't suspended or detached, move on.
 			auto ss = tc.state.suspendState;
-			if (tc !is &threadCache && ss != SuspendState.Suspended
-				    && ss != SuspendState.Detached) {
+			if (ss != SuspendState.Suspended && ss != SuspendState.Detached) {
 				continue;
 			}
 
-			// Scan the registered TLS segments.
-			foreach (s; tc.tlsSegments) {
-				scan(s);
-			}
-
-			/**
-			 * Only GC-managed threads have their stack properly
-			 * set. For detached threads, we just hope nothing's in
-			 * there. If stackTop is null for any attached threads,
-			 * scanning of the stack is done elsewhere (e.g.
-			 * Druntime).
-			 */
-			if (tc.stackTop > SkipScanStack) {
-				import d.gc.range;
-				scan(makeRange(tc.stackTop, tc.stackBottom));
-			}
+			threadScan(tc, scan);
 		}
 	}
 }

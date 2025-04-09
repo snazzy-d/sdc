@@ -9,13 +9,20 @@ void __sd_gc_global_scan(ScanDg scan) {
 	gState.scanRoots(scan);
 
 	import d.gc.thread;
-	scanThreads(scan);
+	scanSuspendedThreads(scan);
 }
 
-void __sd_gc_pre_suspend_hook(void* stackTop) {}
-void __sd_gc_post_suspend_hook() {}
+void __sd_gc_pre_suspend_hook(void* stackTop) {
+	import d.gc.tcache;
+	threadCache.stackTop = stackTop;
+}
 
-void __sd_gc_pre_stop_the_world_hook() {}
+void __sd_gc_post_suspend_hook() {
+	import d.gc.tcache;
+	threadCache.stackTop = null;
+}
+
+void __sd_gc_pre_stop_the_world_hook(void* stackTop) {}
 void __sd_gc_post_restart_the_world_hook() {}
 
 void __sd_gc_register_global_segments() {

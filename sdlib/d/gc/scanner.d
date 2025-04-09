@@ -50,37 +50,18 @@ public:
 	}
 
 	void mark() shared {
-		// Need to save the registers of this thread on the stack, so
-		// the scanning of it is the same as all other threads that are
-		// suspended.
-		import d.gc.stack;
-		__sd_gc_push_registers(markImpl);
-	}
-
-	void markImpl() shared {
 		import core.stdc.pthread;
 		auto threadCount = activeThreads - 1;
 		auto threadsPtr =
 			cast(pthread_t*) alloca(pthread_t.sizeof * threadCount);
 		auto threads = threadsPtr[0 .. threadCount];
 
-		// Record the info that would normally be stored by the signal handler.
-		import sdc.intrinsics;
-		auto stackTop = readFramePointer();
-
-		import d.gc.tcache;
-		threadCache.stackTop = stackTop;
-		scope(exit) threadCache.stackTop = null;
-
-		import d.gc.hooks;
-		__sd_gc_pre_suspend_hook(stackTop);
-		scope(exit) __sd_gc_post_suspend_hook();
-
 		static void* markThreadEntry(void* ctx) {
+			import d.gc.tcache;
 			threadCache.activateGC(false);
 
 			auto worker = Worker(cast(shared(Scanner*)) ctx);
-			worker.runMark(true);
+			worker.runMark();
 
 			return null;
 		}
@@ -91,19 +72,18 @@ public:
 			createGCThread(&tid, null, markThreadEntry, cast(void*) &this);
 		}
 
-		// We are goign to use this worker with __sd_gc_global_scan
+		// We are going to use this worker with __sd_gc_global_scan
 		// so the workflow in the main thread is slightly different.
 		auto worker = Worker(&this);
 
 		// Scan the roots.
-		__sd_gc_global_scan(worker.addToWorkList);
+		__sd_gc_global_scan(worker.processRootRange);
 
-		// Now send this thread marking! Do not scan the thread
-		// stack/TLS for this thread because that's done as part of the
-		// global scan.
-		worker.runMark(false);
+		// Now send this thread marking!
+		worker.runMark();
 
 		// We now done, we can free the worklist.
+		import d.gc.tcache;
 		threadCache.free(cast(void*) worklist.ptr);
 
 		foreach (tid; threads) {
@@ -249,7 +229,7 @@ public:
 		this.gcCycle = scanner.gcCycle;
 	}
 
-	void runMark(bool scanThread) {
+	void runMark() {
 		/**
 		 * Scan the stack and TLS.
 		 * 
@@ -264,10 +244,9 @@ public:
 		 * 
 		 * This is NOT good! So we scan here to make sure we don't miss anything.
 		 */
-		if (scanThread) {
-			import d.gc.thread;
-			threadScan(scan);
-		}
+		import d.gc.thread;
+		import d.gc.tcache;
+		threadScan(&threadCache, scan);
 
 		WorkItem[Scanner.MaxRefill] refill;
 		while (true) {
@@ -280,6 +259,26 @@ public:
 			foreach (i; 0 .. count) {
 				scan(refill[i]);
 			}
+		}
+	}
+
+	void processRootRange(const(void*)[] range) {
+		/**
+		 * This specialized function either adds the range to the work
+		 * list, or scans directly the range, depending if the range
+		 * contains the Worker `this` pointer. If the range contains
+		 * the Worker `this` pointer, then we are scanning our own
+		 * stack. This can only happen in cases where a custom function
+		 * has decided to scan our stack, and has pushed registers
+		 * (i.e. druntime). In this case, we need to scan immediately,
+		 * to avoid losing the register data!
+		 */
+		if (range.contains(&this)) {
+			scan(range);
+		} else {
+			// Either a TLS range, or the stack of a suspended
+			// thread. Can be scanned at any time.
+			addToWorkList(range);
 		}
 	}
 
