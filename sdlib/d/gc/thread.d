@@ -88,14 +88,29 @@ void restartTheWorld() {
 	gThreadState.restartTheWorld();
 }
 
-void threadScan(ScanDg scan) {
+void threadScan(ThreadCache* tc, ScanDg scan) {
 	// Scan the registered TLS segments.
-	foreach (s; threadCache.tlsSegments) {
+	foreach (s; tc.tlsSegments) {
 		scan(s);
 	}
 
-	import d.gc.stack;
-	scanStack(scan);
+	// Skip scanning the stack if someone else is handling it.
+	if (tc.stackTop == SkipScanStack) {
+		return;
+	}
+
+	// Scan a valid stack as described by the threadCache.
+	if (tc.stackTop > SkipScanStack) {
+		import d.gc.range;
+		scan(makeRange(tc.stackTop, tc.stackBottom));
+		return;
+	}
+
+	// Scan our own stack with registers if requested.
+	if (tc is &threadCache) {
+		import d.gc.stack;
+		scanStack(scan);
+	}
 }
 
 void scanSuspendedThreads(ScanDg scan) {
@@ -181,8 +196,11 @@ public:
 	}
 
 	void stopTheWorld() shared {
+		import sdc.intrinsics;
+		auto stackTop = readFramePointer();
+
 		import d.gc.hooks;
-		__sd_gc_pre_stop_the_world_hook();
+		__sd_gc_pre_stop_the_world_hook(stackTop);
 
 		// Prevent any new threads from being created
 		stopTheWorldLock.exclusiveLock();
@@ -356,17 +374,7 @@ private:
 				continue;
 			}
 
-			// Scan the registered TLS segments.
-			foreach (s; tc.tlsSegments) {
-				scan(s);
-			}
-
-			// Only suspended thread have their stack properly set.
-			// For detached threads, we just hope nothing's in there.
-			if (ss == SuspendState.Suspended) {
-				import d.gc.range;
-				scan(makeRange(tc.stackTop, tc.stackBottom));
-			}
+			threadScan(tc, scan);
 		}
 	}
 }

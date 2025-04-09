@@ -16,6 +16,11 @@ enum DefaultEventWait = 65536;
 
 enum ShouldZeroFreeSlabs = true;
 
+@property
+void* SkipScanStack() {
+	return cast(void*) 1;
+}
+
 alias RNode = Node!ThreadCache;
 alias ThreadRing = Ring!ThreadCache;
 

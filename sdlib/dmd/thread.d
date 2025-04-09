@@ -55,9 +55,16 @@ private void arenaFree(ref CachedExtentMap emap, void* ptr) {
 }
 
 void __sd_gc_pre_suspend_hook(void* stackTop) {
+	import d.gc.tcache;
 	if (!thread_preSuspend(stackTop)) {
+		threadCache.stackTop = stackTop;
 		return;
 	}
+
+	// Druntime is managing this thread, do not use our mechanism to scan
+	// the stacks, because druntime has a complex mechanism to deal with
+	// stacks (for fiber support).
+	threadCache.stackTop = SkipScanStack;
 
 	/**
 	 * If the thread is managed by druntime, then we'll get the
@@ -68,7 +75,6 @@ void __sd_gc_pre_suspend_hook(void* stackTop) {
 	 * scan it eagerly, as registers containing possible pointers gets
 	 * pushed on it.
 	 */
-	import d.gc.tcache;
 	auto tls = threadCache.tlsSegments;
 	if (tls.ptr is null) {
 		return;
@@ -83,13 +89,32 @@ void __sd_gc_pre_suspend_hook(void* stackTop) {
 
 void __sd_gc_post_suspend_hook() {
 	thread_postSuspend();
+
+	import d.gc.tcache;
+	threadCache.stackTop = null;
 }
 
 void __sd_gc_pre_stop_the_world_hook() {
 	thread_preStopTheWorld();
+
+	/**
+	 * For druntime, we need to determine if this thread is going to be
+	 * scanned by druntime. This means we have to call the suspend hook.
+	 * However, if this thread isn't being handled by druntime, we want to
+	 * defer to the normal thread scanning done in the mark function.
+	 * Therefore, the stack top should be either null or SkipScanStack.
+	 */
+	__sd_gc_pre_suspend_hook(stackTop);
+	import d.gc.tcache;
+	if (threadCache.stackTop > SkipScanStack) {
+		threadCache.stackTop = null;
+	}
 }
 
 void __sd_gc_post_restart_the_world_hook() {
+	// We called pre_suspend, so we must call post_suspend.
+	__sd_gc_post_suspend_hook();
+
 	thread_postRestartTheWorld();
 }
 
