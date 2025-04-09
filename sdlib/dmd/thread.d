@@ -87,9 +87,14 @@ void __sd_gc_post_suspend_hook() {
 
 void __sd_gc_pre_stop_the_world_hook() {
 	thread_preStopTheWorld();
+
+	__sd_gc_pre_suspend_hook(null);
 }
 
 void __sd_gc_post_restart_the_world_hook() {
+	// We called pre_suspend, so we must call post_suspend.
+	__sd_gc_post_suspend_hook();
+
 	thread_postRestartTheWorld();
 }
 
