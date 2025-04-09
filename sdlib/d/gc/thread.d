@@ -326,7 +326,7 @@ private:
 			suspended += ss == SuspendState.Suspended;
 			retry |= ss != SuspendState.None;
 
-			// If the thread isn't suspended, move on.
+			// If the thread isn't suspended or detached, move on.
 			if (ss != SuspendState.Suspended) {
 				continue;
 			}
@@ -350,7 +350,7 @@ private:
 			auto tc = r.front;
 			scope(success) r.popFront();
 
-			// If the thread isn't suspended, move on.
+			// If the thread isn't suspended or detached, move on.
 			auto ss = tc.state.suspendState;
 			if (ss != SuspendState.Suspended && ss != SuspendState.Detached) {
 				continue;

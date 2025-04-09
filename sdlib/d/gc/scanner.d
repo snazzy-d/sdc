@@ -72,7 +72,7 @@ public:
 			createGCThread(&tid, null, markThreadEntry, cast(void*) &this);
 		}
 
-		// We are goign to use this worker with __sd_gc_global_scan
+		// We are going to use this worker with __sd_gc_global_scan
 		// so the workflow in the main thread is slightly different.
 		auto worker = Worker(&this);
 
