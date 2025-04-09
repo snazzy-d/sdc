@@ -77,7 +77,7 @@ public:
 		auto worker = Worker(&this);
 
 		// Scan the roots.
-		__sd_gc_global_scan(worker.addToWorkList);
+		__sd_gc_global_scan(worker.processRootRange);
 
 		// Now send this thread marking!
 		worker.runMark();
@@ -258,6 +258,26 @@ public:
 			foreach (i; 0 .. count) {
 				scan(refill[i]);
 			}
+		}
+	}
+
+	void processRootRange(const(void*)[] range) {
+		/**
+		 * This specialized function either adds the range to the work
+		 * list, or scans directly the range, depending if the range
+		 * contains the Worker `this` pointer. If the range contains
+		 * the Worker `this` pointer, then we are scanning our own
+		 * stack. This can only happen in cases where a custom function
+		 * has decided to scan our stack, and has pushed registers
+		 * (i.e. druntime). In this case, we need to scan immediately,
+		 * to avoid losing the register data!
+		 */
+		if (range.contains(&this)) {
+			scan(range);
+		} else {
+			// Either a TLS range, or the stack of a suspended
+			// thread. Can be scanned at any time.
+			addToWorkList(range);
 		}
 	}
 
