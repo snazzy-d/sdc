@@ -599,8 +599,8 @@ unittest refill {
 	import d.gc.arena;
 	shared Arena arena;
 
-	auto base = &arena.base;
-	scope(exit) arena.base.clear();
+	auto base = &arena.filler.base;
+	scope(exit) base.clear();
 
 	import d.gc.emap;
 	static shared ExtentMap emapStorage;
@@ -739,8 +739,8 @@ unittest recycle {
 	import d.gc.arena;
 	shared Arena arena;
 
-	auto base = &arena.base;
-	scope(exit) arena.base.clear();
+	auto base = &arena.filler.base;
+	scope(exit) base.clear();
 
 	import d.gc.emap;
 	static shared ExtentMap emapStorage;

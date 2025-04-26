@@ -1042,8 +1042,8 @@ unittest allocPages {
 	import d.gc.arena;
 	shared Arena arena;
 
-	auto base = &arena.base;
-	scope(exit) arena.base.clear();
+	auto base = &arena.filler.base;
+	scope(exit) base.clear();
 
 	import d.gc.region;
 	shared RegionAllocator regionAllocator;
@@ -1105,8 +1105,8 @@ unittest allocHuge {
 	import d.gc.arena;
 	shared Arena arena;
 
-	auto base = &arena.base;
-	scope(exit) arena.base.clear();
+	auto base = &arena.filler.base;
+	scope(exit) base.clear();
 
 	import d.gc.region;
 	shared RegionAllocator regionAllocator;

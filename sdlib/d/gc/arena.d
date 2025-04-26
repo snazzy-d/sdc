@@ -18,9 +18,6 @@ private:
 	import d.gc.page;
 	PageFiller filler;
 
-	import d.gc.base;
-	Base base;
-
 	enum InitializedBit = 1UL << 63;
 
 	@property
@@ -225,8 +222,8 @@ unittest allocLarge {
 	import d.gc.arena;
 	shared Arena arena;
 
-	auto base = &arena.base;
-	scope(exit) arena.base.clear();
+	auto base = &arena.filler.base;
+	scope(exit) base.clear();
 
 	import d.gc.emap;
 	static shared ExtentMap emapStorage;
@@ -306,8 +303,8 @@ unittest shrinklarge {
 	import d.gc.arena;
 	shared Arena arena;
 
-	auto base = &arena.base;
-	scope(exit) arena.base.clear();
+	auto base = &arena.filler.base;
+	scope(exit) base.clear();
 
 	import d.gc.emap;
 	static shared ExtentMap emapStorage;
@@ -468,8 +465,8 @@ unittest growLarge {
 	import d.gc.arena;
 	shared Arena arena;
 
-	auto base = &arena.base;
-	scope(exit) arena.base.clear();
+	auto base = &arena.filler.base;
+	scope(exit) base.clear();
 
 	import d.gc.emap;
 	static shared ExtentMap emapStorage;
