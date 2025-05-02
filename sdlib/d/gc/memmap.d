@@ -133,21 +133,18 @@ void pages_zero(void* addr, size_t size) {
  * check for the first case, that the page is not aligned or the size is
  * negative (which is odd, since size_t is unsigned, even in C).
  */
+bool pages_hugify(void* addr, size_t size) {
+	assert(isAligned(addr, BlockSize), "Invalid addr!");
+	assert(size > 0 && isAligned(size, BlockSize), "Invalid size!");
 
-void pages_hugify(void* addr, size_t size) {
-	assert(isAligned(addr, PageSize), "Not aligned!");
-	assert(cast(long) size > 0, "Negative size!");
-	auto ret = madvise(addr, size, Madv.HugePage);
-	// See note above.
-	// assert(ret == 0, "madvise failed!");
+	return madvise(addr, size, Madv.HugePage) != 0;
 }
 
-void pages_dehugify(void* addr, size_t size) {
-	assert(isAligned(addr, PageSize), "Not aligned!");
-	assert(cast(long) size > 0, "Negative size!");
-	auto ret = madvise(addr, size, Madv.NoHugePage);
-	// See note above.
-	//assert(ret == 0, "madvise failed!");
+bool pages_dehugify(void* addr, size_t size) {
+	assert(isAligned(addr, BlockSize), "Invalid addr!");
+	assert(size > 0 && isAligned(size, BlockSize), "Invalid size!");
+
+	return madvise(addr, size, Madv.NoHugePage) != 0;
 }
 
 private:
