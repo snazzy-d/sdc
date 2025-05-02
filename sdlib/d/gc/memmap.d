@@ -86,14 +86,68 @@ void pages_zero(void* addr, size_t size) {
 	}
 }
 
+/**
+ * Note about how we check the result of madvise in the following 2 functions.
+*
+ * From madvise(2):
+ *
+ *    The MADV_HUGEPAGE, MADV_NOHUGEPAGE, and MADV_COLLAPSE operations are
+ *    available only if the kernel was configured with
+ *    CONFIG_TRANSPARENT_HUGEPAGE
+ *
+ * This means that if a kernel is not configured with the right option, madvise
+ * will fail with EINVAL. The cases where EINVAL happens are listed as follows:
+ *
+ *     EINVAL addr is not page-aligned or size is negative.
+ *
+ *     EINVAL advice is not a valid.
+ *
+ *     EINVAL advice is MADV_COLD or MADV_PAGEOUT and the specified
+ *            address range includes locked, Huge TLB pages, or VM_PFNMAP
+ *            pages.
+ *
+ *     EINVAL advice is MADV_DONTNEED or MADV_REMOVE and the specified
+ *            address range includes locked, Huge TLB pages, or VM_PFNMAP
+ *            pages.
+ *
+ *     EINVAL advice is MADV_MERGEABLE or MADV_UNMERGEABLE, but the
+ *            kernel was not configured with CONFIG_KSM.
+ *
+ *     EINVAL advice is MADV_FREE or MADV_WIPEONFORK but the specified
+ *            address range includes file, Huge TLB, MAP_SHARED, or
+ *            VM_PFNMAP ranges.
+ *
+ *     EINVAL advice is MADV_POPULATE_READ or MADV_POPULATE_WRITE, but
+ *            the specified address range includes ranges with
+ *            insufficient permissions or special mappings, for example,
+ *            mappings marked with kernel-internal flags such a VM_IO or
+ *            VM_PFNMAP, or secret memory regions created using
+ *            memfd_secret(2).
+ *
+ *     EINVAL advice is MADV_GUARD_INSTALL or MADV_GUARD_REMOVE, but the
+ *            specified address range contains an unsupported mapping.
+ *
+ * We do not have to worry about anything other than the first two. For a
+ * kernel without the right configuration, EINVAL will happen for MADV_HUGEPAGE
+ * and MADV_NOHUGEPAGE, because the advice is not valid. But we should also
+ * check for the first case, that the page is not aligned or the size is
+ * negative (which is odd, since size_t is unsigned, even in C).
+ */
+
 void pages_hugify(void* addr, size_t size) {
+	assert(isAligned(addr, PageSize), "Not aligned!");
+	assert(cast(long) size > 0, "Negative size!");
 	auto ret = madvise(addr, size, Madv.HugePage);
-	assert(ret == 0, "madvise failed!");
+	// See note above.
+	// assert(ret == 0, "madvise failed!");
 }
 
 void pages_dehugify(void* addr, size_t size) {
+	assert(isAligned(addr, PageSize), "Not aligned!");
+	assert(cast(long) size > 0, "Negative size!");
 	auto ret = madvise(addr, size, Madv.NoHugePage);
-	assert(ret == 0, "madvise failed!");
+	// See note above.
+	//assert(ret == 0, "madvise failed!");
 }
 
 private:
