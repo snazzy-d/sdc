@@ -72,6 +72,7 @@ private:
 	 */
 	size_t nextGCRun;
 	bool enableGC;
+	bool runningCollect;
 
 	int nextGCRunClassOffset;
 	uint consecutiveSuccessfulGCRuns;
@@ -148,6 +149,18 @@ public:
 	bool activateGC(bool activated = true) {
 		scope(exit) enableGC = activated;
 		return enableGC;
+	}
+
+	package void startCollect() {
+		runningCollect = true;
+	}
+
+	package void endCollect() {
+		runningCollect = false;
+	}
+
+	bool isCollecting() {
+		return runningCollect;
 	}
 
 	void destroyThread() {

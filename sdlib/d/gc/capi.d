@@ -64,6 +64,10 @@ void __sd_gc_collect() {
 	collector.runGCCycle();
 }
 
+bool __sd_gc_isCollecting() {
+	return threadCache.isCollecting();
+}
+
 void __sd_gc_add_roots(const void[] range) {
 	import d.gc.global;
 	gState.addRoots(range);
