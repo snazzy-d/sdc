@@ -20,6 +20,15 @@ module llvm.c.target;
 
 public import llvm.c.types;
 
+private auto genTargets(string Path, string Prefix)() {
+  enum Match = Prefix ~ '(';
+
+  import std.algorithm, std.range, std.string;
+  return import(Path)
+    .splitLines().filter!(l => l.startsWith(Match) && l.endsWith(")"))
+    .map!(l => l[Match.length .. $ - 1]).array;
+}
+
 extern(C) nothrow:
 
 /**
@@ -29,17 +38,18 @@ extern(C) nothrow:
  * @{
  */
 
-enum LLVMByteOrdering { BigEndian, LittleEndian };
+enum LLVMByteOrdering { BigEndian, LittleEndian }
 
-struct __LLVMOpaqueTargetData {};
+struct __LLVMOpaqueTargetData {}
 alias LLVMTargetDataRef = __LLVMOpaqueTargetData*;
-struct __LLVMOpaqueTargetLibraryInfotData {};
+struct __LLVMOpaqueTargetLibraryInfotData {}
 alias LLVMTargetLibraryInfoRef = __LLVMOpaqueTargetLibraryInfotData*;
 
-// FIXME: Find the list of targets from the LLVM build in llvm/Config/Targets.def.
 extern(D) string LLVM_TARGET(string delegate(string) nothrow fun) {
+  enum Targets = genTargets!("llvm/Config/Targets.def", "LLVM_TARGET");
+
   string ret;
-  foreach (str; ["AArch64", "X86"]) {
+  foreach (str; Targets) {
     ret ~= fun(str) ~ "\n";
   }
 
@@ -47,16 +57,18 @@ extern(D) string LLVM_TARGET(string delegate(string) nothrow fun) {
 }
 
 /* Declare all of the target-initialization functions that are available. */
-extern(D) mixin(LLVM_TARGET(name => "extern(C) void LLVMInitialize" ~ name ~ "TargetInfo();"));
+mixin(LLVM_TARGET(name => "void LLVMInitialize" ~ name ~ "TargetInfo();"));
 
-extern(D) mixin(LLVM_TARGET(name => "extern(C) void LLVMInitialize" ~ name ~ "Target();"));
+mixin(LLVM_TARGET(name => "void LLVMInitialize" ~ name ~ "Target();"));
 
-extern(D) mixin(LLVM_TARGET(name => "extern(C) void LLVMInitialize" ~ name ~ "TargetMC();"));
+mixin(LLVM_TARGET(name => "void LLVMInitialize" ~ name ~ "TargetMC();"));
 
-// FIXME: Find the list of targets from the LLVM build in llvm/Config/AsmPrinters.def.
 extern(D) string LLVM_ASM_PRINTER(string delegate(string) nothrow fun) {
+  enum Targets =
+    genTargets!("llvm/Config/AsmPrinters.def", "LLVM_ASM_PRINTER");
+
   string ret;
-  foreach (str; ["AArch64", "X86"]) {
+  foreach (str; Targets) {
     ret ~= fun(str) ~ "\n";
   }
 
@@ -64,12 +76,13 @@ extern(D) string LLVM_ASM_PRINTER(string delegate(string) nothrow fun) {
 }
 
 /* Declare all of the available assembly printer initialization functions. */
-extern(D) mixin(LLVM_ASM_PRINTER(name => "extern(C) void LLVMInitialize" ~ name ~ "AsmPrinter();"));
+mixin(LLVM_ASM_PRINTER(name => "void LLVMInitialize" ~ name ~ "AsmPrinter();"));
 
-// FIXME: Find the list of targets from the LLVM build in llvm/Config/AsmParsers.def.
 extern(D) string LLVM_ASM_PARSER(string delegate(string) nothrow fun) {
+  enum Targets = genTargets!("llvm/Config/AsmParsers.def", "LLVM_ASM_PARSER");
+
   string ret;
-  foreach (str; ["AArch64", "X86"]) {
+  foreach (str; Targets) {
     ret ~= fun(str) ~ "\n";
   }
 
@@ -77,12 +90,14 @@ extern(D) string LLVM_ASM_PARSER(string delegate(string) nothrow fun) {
 }
 
 /* Declare all of the available assembly parser initialization functions. */
-extern(D) mixin(LLVM_ASM_PARSER(name => "extern(C) void LLVMInitialize" ~ name ~ "AsmParser();"));
+mixin(LLVM_ASM_PARSER(name => "void LLVMInitialize" ~ name ~ "AsmParser();"));
 
-// FIXME: Find the list of targets from the LLVM build in llvm/Config/Disassemblers.def.
 extern(D) string LLVM_DISASSEMBLER(string delegate(string) nothrow fun) {
+  enum Targets =
+    genTargets!("llvm/Config/Disassemblers.def", "LLVM_DISASSEMBLER");
+
   string ret;
-  foreach (str; ["AArch64", "X86"]) {
+  foreach (str; Targets) {
     ret ~= fun(str) ~ "\n";
   }
 
@@ -90,7 +105,7 @@ extern(D) string LLVM_DISASSEMBLER(string delegate(string) nothrow fun) {
 }
 
 /* Declare all of the available disassembler initialization functions. */
-extern(D) mixin(LLVM_DISASSEMBLER(name => "extern(C) void LLVMInitialize" ~ name ~ "Disassembler();"));
+mixin(LLVM_DISASSEMBLER(name => "void LLVMInitialize" ~ name ~ "Disassembler();"));
 
 /** LLVMInitializeAllTargetInfos - The main program should call this function if
     it wants access to all available targets that LLVM is configured to

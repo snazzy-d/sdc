@@ -7,6 +7,9 @@ LIBD_LLVM_IMPORTS = -Iimport
 LLVM_CONFIG ?= llvm-config
 LDFLAGS_LLVM = $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs) $(shell $(LLVM_CONFIG) --system-libs)
 
+LLVM_INCLUDE_DIR = $(shell $(LLVM_CONFIG) --includedir)
+DFLAGS += -J$(LLVM_INCLUDE_DIR)
+
 obj/libd-llvm.o: $(LIBD_LLVM_SRC)
 	@mkdir -p lib obj
 	$(DMD) -c -of"$@" $(LIBD_LLVM_SRC) -makedeps="$@.deps" $(DFLAGS) $(LIBD_LLVM_IMPORTS)
