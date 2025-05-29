@@ -16,7 +16,7 @@ jobs:
 
         steps:
             - name: Install system dependencies
-              run: sudo apt install nasm lld
+              run: sudo apt install lld
             - name: Install D compiler
               uses: dlang-community/setup-dlang@v1
               with:

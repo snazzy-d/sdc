@@ -68,9 +68,7 @@ been tested is to use [Homebrew][40], a package manager for OS X. After
 installing it by following instructions from the web page, run the command
 `brew install llvm11`, followed by `LLVM_CONFIG=llvm-config-11 make` . If you
 are using [MacPorts][41] instead, you can run `sudo port install llvm-11`,
-followed by `LLVM_CONFIG=llvm-config-mp-11 make` . You'll also need a recent
-version of `nasm`; if `nasm` does not recognise the `macho64` output format, try
-upgrading `nasm` to a newer version.
+followed by `LLVM_CONFIG=llvm-config-mp-11 make` .
 
 [40]: http://brew.sh/
 [41]: http://www.macports.org

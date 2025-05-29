@@ -83,7 +83,7 @@ obj/osx/%.o: sdlib/sys/osx/%.d $(LIBSDRT_OSX_SRC_D) $(SDLIB_DEPS)
 
 obj/x64/%.o: sdlib/sys/x64/%.asm $(LIBSDRT_X64_SRC)
 	@mkdir -p obj/x64
-	$(NASM) -o $@ $< $(NASMFLAGS)
+	$(AS) -o $@ $< $(ASFLAGS)
 
 $(LIBSDRT): $(LIBSDRT_DEPS)
 	@mkdir -p lib

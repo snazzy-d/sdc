@@ -1,20 +1,16 @@
 DMD ?= dmd
-NASM ?= nasm
 RDMD ?= rdmd
+AS ?= as
+
+ARCH ?= $(shell uname -m)
+PLATFORM = $(shell uname -s)
 
 ARCHFLAG ?= -m64
 DFLAGS = $(ARCHFLAG) -Isrc -w -debug -g
-PLATFORM = $(shell uname -s)
-
 # DFLAGS = $(ARCHFLAG) -w -O -release
 
-# dmd.conf doesn't set the proper -L flags.  
-# Fix it here until dmd installer is updated
-ifeq ($(PLATFORM),Darwin)
-	LD_PATH ?= /Library/D/dmd/lib
-endif
+ASFLAGS ?=
 
-NASMFLAGS ?=
 LDFLAGS ?=
 ifdef LD_PATH
 	override LDFLAGS += $(addprefix -L, $(LD_PATH))
@@ -26,15 +22,12 @@ ifeq ($(PLATFORM),Linux)
 		override LDFLAGS += -fuse-ld=lld
 	endif
 	override LDFLAGS += -lstdc++ -export-dynamic
-	override NASMFLAGS += -f elf64
 endif
 ifeq ($(PLATFORM),Darwin)
 	override LDFLAGS += -lc++ -Wl,-export_dynamic
-	override NASMFLAGS += -f macho64
 endif
 ifeq ($(PLATFORM),FreeBSD)
 	override LDFLAGS += -lc++
-	override NASMFLAGS += -f elf64
 endif
 
 # To make sure make calls all
