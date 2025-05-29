@@ -18,6 +18,8 @@
 
 module llvm.c.target;
 
+import llvm.c.config;
+
 public import llvm.c.types;
 
 private auto genTargets(string Path, string Prefix)() {
@@ -64,8 +66,7 @@ mixin(LLVM_TARGET(name => "void LLVMInitialize" ~ name ~ "Target();"));
 mixin(LLVM_TARGET(name => "void LLVMInitialize" ~ name ~ "TargetMC();"));
 
 extern(D) string LLVM_ASM_PRINTER(string delegate(string) nothrow fun) {
-  enum Targets =
-    genTargets!("llvm/Config/AsmPrinters.def", "LLVM_ASM_PRINTER");
+  enum Targets = genTargets!("llvm/Config/AsmPrinters.def", "LLVM_ASM_PRINTER");
 
   string ret;
   foreach (str; Targets) {
@@ -154,34 +155,34 @@ static void LLVMInitializeAllDisassemblers() {
     for JIT applications to ensure that the target gets linked in correctly. */
 static LLVMBool LLVMInitializeNativeTarget() {
   /* If we have a native target, initialize it to ensure it is linked in. */
-  // FIXME: LLVM_NATIVE_TARGETINFO();
-  //        LLVM_NATIVE_TARGET();
-  //        LLVM_NATIVE_TARGETMC();
-  return 1;
+  mixin(LLVM_NATIVE_TARGETINFO ~ "();");
+  mixin(LLVM_NATIVE_TARGET ~ "();");
+  mixin(LLVM_NATIVE_TARGETMC ~ "();");
+  return 0;
 }
 
 /** LLVMInitializeNativeTargetAsmParser - The main program should call this
     function to initialize the parser for the native target corresponding to the
     host. */
 static LLVMBool LLVMInitializeNativeAsmParser() {
-  // FIXME: Use LLVM_NATIVE_ASMPARSER();
-  return 1;
+  mixin(LLVM_NATIVE_ASMPARSER ~ "();");
+  return 0;
 }
 
 /** LLVMInitializeNativeTargetAsmPrinter - The main program should call this
     function to initialize the printer for the native target corresponding to
     the host. */
 static LLVMBool LLVMInitializeNativeAsmPrinter() {
-  // FIXME: Use LLVM_NATIVE_ASMPRINTER();
-  return 1;
+  mixin(LLVM_NATIVE_ASMPRINTER ~ "();");
+  return 0;
 }
 
 /** LLVMInitializeNativeTargetDisassembler - The main program should call this
     function to initialize the disassembler for the native target corresponding
     to the host. */
 static LLVMBool LLVMInitializeNativeDisassembler() {
-  // FIXME: Use LLVM_NATIVE_DISASSEMBLER();
-  return 1;
+  mixin(LLVM_NATIVE_DISASSEMBLER ~ "();");
+  return 0;
 }
 
 /*===-- Target Data -------------------------------------------------------===*/

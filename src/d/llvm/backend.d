@@ -31,10 +31,8 @@ public:
 		import llvm.c.executionEngine;
 		LLVMLinkInMCJIT();
 
-		LLVMInitializeX86TargetInfo();
-		LLVMInitializeX86Target();
-		LLVMInitializeX86TargetMC();
-		LLVMInitializeX86AsmPrinter();
+		LLVMInitializeNativeTarget();
+		LLVMInitializeNativeAsmPrinter();
 
 		version(linux) {
 			enum Reloc = LLVMRelocMode.PIC;
