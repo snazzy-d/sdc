@@ -16,39 +16,38 @@ LIBSDRT = lib/libsdrt.a
 LIBDMDALLOC = lib/libdmdalloc.a
 
 SDFLAGS ?=
-LIBSDRT_IMPORTS = -Isdlib
 
 obj/object.o: sdlib/object.d $(SDLIB_DEPS)
 	@mkdir -p obj
-	$(SDC) -c -o $@ $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDC) -c -o $@ $< $(SDFLAGS)
 
 obj/sdlib/d.o: $(LIBSDRT_D_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_D_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDC) -c -o $@ $(LIBSDRT_D_SRC) $(SDFLAGS)
 
 obj/sdlib/gc.o: $(LIBSDRT_GC_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_GC_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDC) -c -o $@ $(LIBSDRT_GC_SRC) $(SDFLAGS)
 
 obj/sdlib/rt.o: $(LIBSDRT_RT_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_RT_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDC) -c -o $@ $(LIBSDRT_RT_SRC) $(SDFLAGS)
 
 obj/sdlib/sdc.o: $(LIBSDRT_SDC_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_SDC_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDC) -c -o $@ $(LIBSDRT_SDC_SRC) $(SDFLAGS)
 
 obj/sdlib/stdc.o: $(LIBSDRT_STDC_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_STDC_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDC) -c -o $@ $(LIBSDRT_STDC_SRC) $(SDFLAGS)
 
 obj/sdlib/sync.o: $(LIBSDRT_SYNC_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_SYNC_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDC) -c -o $@ $(LIBSDRT_SYNC_SRC) $(SDFLAGS)
 
 obj/sdlib/dmd.o: $(LIBSDRT_DMD_SRC) $(SDLIB_DEPS)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_DMD_SRC) $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDC) -c -o $@ $(LIBSDRT_DMD_SRC) $(SDFLAGS)
 
 $(LIBSDRT): $(LIBSDRT_DEPS)
 	@mkdir -p lib
@@ -78,7 +77,7 @@ ALL_TOOLS = $(TOOLS_SRC:sdlib/tools/%.d=bin/tools/%)
 
 bin/tools/%: sdlib/tools/%.d $(SDC) $(LIBSDRT) $(PHOBOS)
 	@mkdir -p bin/tools
-	$(SDC) -o "$@" $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDC) -o "$@" $< $(SDFLAGS)
 
 # Tests
 CHECK_LIBSDRT_GC = $(LIBSDRT_GC_SRC:sdlib/d/gc/%.d=check-sdlib-gc-%)
@@ -87,19 +86,19 @@ CHECK_LIBSDRT_STDC = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=check-sdlib-stdc-%)
 CHECK_LIBSDRT_SYNC = $(LIBSDRT_SYNC_SRC:sdlib/d/sync/%.d=check-sdlib-sync-%)
 
 check-sdlib-gc-%: sdlib/d/gc/%.d $(SDUNIT)
-	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDUNIT) $< $(SDFLAGS)
 
 check-sdlib-rt-%: sdlib/d/rt/%.d $(SDUNIT)
-	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDUNIT) $< $(SDFLAGS)
 
 check-sdlib-stdc-%: sdlib/core/stdc/%.d $(SDUNIT)
-	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDUNIT) $< $(SDFLAGS)
 
 check-sdlib-sync-%: sdlib/d/sync/%.d $(SDUNIT)
-	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDUNIT) $< $(SDFLAGS)
 
 check-sdlib-sync-futex/%: sdlib/d/sync/futex/%.d $(SDUNIT)
-	$(SDUNIT) $< $(SDFLAGS) $(LIBSDRT_IMPORTS)
+	$(SDUNIT) $< $(SDFLAGS)
 
 check-sdlib-gc: $(CHECK_LIBSDRT_GC)
 check-sdlib-rt: $(CHECK_LIBSDRT_RT)

@@ -57,6 +57,10 @@ int run(Context context, string[] args) {
 		return 0;
 	}
 
+	if (includePaths == []) {
+		includePaths = ["."];
+	}
+
 	conf.includePaths = includePaths ~ conf.includePaths;
 	conf.linkerPaths = linkerPaths ~ conf.linkerPaths;
 

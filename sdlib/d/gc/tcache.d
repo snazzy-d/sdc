@@ -794,7 +794,7 @@ private:
 		 * of glibc thanks to rseqs, but we might want to find
 		 * an alternative on other systems.
 		 */
-		import sys.posix.sched;
+		import sched;
 		return sched_getcpu();
 	}
 

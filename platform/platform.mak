@@ -1,3 +1,6 @@
+# Platform import to use for libsdrt
+PLATFORM_IMPORTS =
+
 # Platform objects to link into libsdrt
 LIBSDRT_PLATFORM_OBJ =
 
@@ -12,7 +15,9 @@ PLATFORM_C_OBJ =
 PLATFORM_ASM_SRC =
 PLATFORM_ASM_OBJ =
 
-ifeq ($(PLATFORM),Darwin)
+ifeq ($(PLATFORM),Linux)
+	include platform/linux/linux.mak
+else ifeq ($(PLATFORM),Darwin)
 	include platform/osx/osx.mak
 endif
 

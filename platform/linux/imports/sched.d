@@ -1,8 +1,7 @@
-module sys.posix.sched;
+module sched;
 
 import sys.posix.types;
 
-version(Posix):
 extern(C):
 
 int sched_yield();

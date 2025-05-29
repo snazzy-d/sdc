@@ -13,7 +13,7 @@ private:
 shared uint gCoreCount;
 
 auto computeCoreCount() {
-	import sys.posix.sched;
+	import sched;
 	cpu_set_t set;
 	sched_getaffinity(0, cpu_set_t.sizeof, &set);
 	return CPU_COUNT(&set);

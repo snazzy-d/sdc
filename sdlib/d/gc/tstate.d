@@ -272,7 +272,7 @@ unittest suspend {
 				mutex.unlock();
 				scope(exit) mutex.lock();
 
-				import sys.posix.sched;
+				import sched;
 				sched_yield();
 				continue;
 			}

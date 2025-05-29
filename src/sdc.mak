@@ -37,9 +37,12 @@ $(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCO
 	@mkdir -p bin
 	$(DMD) -of"$@" $+ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS)) $(addprefix -Xcc=,$(LDFLAGS_LLVM))
 
+IMPORTS_JSON_SEPARATOR = "\", \"$(PWD)/"
+SDCONFIG_IMPORTS = "[\"$(PWD)/$(addsuffix $(IMPORTS_JSON_SEPARATOR), $(PLATFORM_IMPORTS))sdlib\"]"
+
 bin/sdconfig:
 	@mkdir -p bin
-	printf "{\n\t\"includePaths\": [\"$(PWD)/sdlib\", \".\"],\n\t\"libPaths\": [\"$(PWD)/lib\"],\n}\n" > $@
+	printf "{\n\t\"includePaths\": $(SDCONFIG_IMPORTS),\n\t\"libPaths\": [\"$(PWD)/lib\"],\n}\n" > $@
 
 SDLIB_DEPS = $(SDC) bin/sdconfig
 
