@@ -7,6 +7,7 @@ module sys.linux.link;
 
 version(linux):
 extern(C):
+
 // nothrow:
 
 import core.stdc.stdint /+ : uintptr_t, uint32_t +/;
@@ -16,46 +17,47 @@ alias Lmid_t = long;
 import sys.linux.elf;
 
 // <bits/elfclass.h>
-version (X86) {
+version(X86) {
 	// http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
 	alias __ELF_NATIVE_CLASS = __WORDSIZE;
 	alias Elf_Symndx = uint32_t;
-} else version (X86_64) {
+} else version(X86_64) {
 	// http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
 	alias __ELF_NATIVE_CLASS = __WORDSIZE;
 	alias Elf_Symndx = uint32_t;
-} else version (MIPS32) {
+} else version(MIPS32) {
 	// http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
 	alias __ELF_NATIVE_CLASS = __WORDSIZE;
 	alias Elf_Symndx = uint32_t;
-} else version (MIPS64) {
+} else version(MIPS64) {
 	// http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
 	alias __ELF_NATIVE_CLASS = __WORDSIZE;
 	alias Elf_Symndx = uint32_t;
-} else version (PPC) {
+} else version(PPC) {
 	// http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
 	alias __ELF_NATIVE_CLASS = __WORDSIZE;
 	alias Elf_Symndx = uint32_t;
-} else version (PPC64) {
+} else version(PPC64) {
 	// http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
 	alias __ELF_NATIVE_CLASS = __WORDSIZE;
 	alias Elf_Symndx = uint32_t;
-} else version (ARM) {
+} else version(ARM) {
 	// http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
 	alias __ELF_NATIVE_CLASS = __WORDSIZE;
 	alias Elf_Symndx = uint32_t;
-} else version (AArch64) {
+} else version(AArch64) {
 	// http://sourceware.org/git/?p=glibc.git;a=blob;f=bits/elfclass.h
 	alias __ELF_NATIVE_CLASS = __WORDSIZE;
 	alias Elf_Symndx = uint32_t;
 } else {
 	static assert(0, "unimplemented");
 }
+
 // <bits/elfclass.h>
 
 template ElfW(string Type) {
 	// mixin("alias Elf"~__ELF_NATIVE_CLASS.stringof~"_"~type~" ElfW;");
-	
+
 	// stringof not implemented, hardcode 64 in there.
 	mixin("alias ElfW = Elf64_" ~ Type ~ ";");
 }
@@ -117,32 +119,32 @@ struct dl_phdr_info {
 	const(char)* dlpi_name;
 	const(ElfW!"Phdr")* dlpi_phdr;
 	ElfW!"Half" dlpi_phnum;
-	
+
 	// check the SIZE argument of the dl_iterate_phdr callback whether
 	// the following members are available
 	ulong dlpi_adds;
 	ulong dlpi_subs;
-	
+
 	size_t dlpi_tls_modid;
-	void *dlpi_tls_data;
+	void* dlpi_tls_data;
 }
 
-private alias __Callback = /+ extern(C) +/ int function(dl_phdr_info*, size_t, void *);
-/+ extern +/ int dl_iterate_phdr(__Callback __callback, void*__data);
-
+private
+alias __Callback = /+ extern(C) +/ int function(dl_phdr_info*, size_t, void*);
+/+ extern +/ int dl_iterate_phdr(__Callback __callback, void* __data);
 
 // ld.so auditing interfaces prototypes have to be defined by the auditing DSO.
 /+ extern +/ uint la_version(uint __version);
-/+ extern +/ void la_activity(uintptr_t *__cookie, uint __flag);
+/+ extern +/ void la_activity(uintptr_t* __cookie, uint __flag);
 /+ extern +/ char* la_objsearch(const(char)* __name, uintptr_t* __cookie,
-                          uint __flag);
+                                uint __flag);
 /+ extern +/ uint la_objopen(link_map* __map, Lmid_t __lmid,
-                       uintptr_t* __cookie);
+                             uintptr_t* __cookie);
 /+ extern +/ void la_preinit(uintptr_t* __cookie);
-/+ extern +/ uintptr_t la_symbind32(Elf32_Sym* __sym, uint __ndx,
-                              uintptr_t* __refcook, uintptr_t* __defcook,
-                              uint *__flags, const(char)* __symname);
-/+ extern +/ uintptr_t la_symbind64(Elf64_Sym* __sym, uint __ndx,
-                              uintptr_t* __refcook, uintptr_t* __defcook,
-                              uint* __flags, const(char)* __symname);
-/+ extern +/ uint la_objclose(uintptr_t *__cookie);
+/+ extern +/ uintptr_t la_symbind32(
+	Elf32_Sym* __sym, uint __ndx, uintptr_t* __refcook, uintptr_t* __defcook,
+	uint* __flags, const(char)* __symname);
+/+ extern +/ uintptr_t la_symbind64(
+	Elf64_Sym* __sym, uint __ndx, uintptr_t* __refcook, uintptr_t* __defcook,
+	uint* __flags, const(char)* __symname);
+/+ extern +/ uint la_objclose(uintptr_t* __cookie);
