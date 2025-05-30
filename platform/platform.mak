@@ -18,6 +18,8 @@ endif
 
 ifeq ($(ARCH),x86_64)
 	include platform/x64/x64.mak
+else ifeq ($(ARCH),arm64)
+	include platform/arm64/arm64.mak
 endif
 
 # FIXME: depfiles.

@@ -2,13 +2,7 @@ module d.gc.stack;
 
 import d.gc.types;
 
-version(OSX) {
-	// For some reason OSX's symbol get a _ prepended.
-	extern(C) void _sd_gc_push_registers(void delegate());
-	alias __sd_gc_push_registers = _sd_gc_push_registers;
-} else {
-	extern(C) void __sd_gc_push_registers(void delegate());
-}
+extern(C) void __sd_gc_push_registers(void delegate());
 
 @property
 void* SkipScanStack() {
