@@ -15,6 +15,7 @@ include src/libutil.mak
 include src/libsource.mak
 include src/libconfig.mak
 
+include platform/platform.mak
 include sdlib/sdmd.mak
 
 obj/sdc.o: $(LIBSDC_SRC)
