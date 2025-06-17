@@ -642,74 +642,55 @@ unittest ThreadBinState {
 
 	// Setup the state.
 	ThreadBinState state;
-	assert(!state.refilled, "Thread bin refilled!");
-	assert(!state.flushed, "Thread bin flushed!");
-	assert(state.getFill(BinSize) == BinSize, "Unexpected fill!");
+
+	auto checkState(bool refilled, bool flushed, uint nfill) {
+		assert(state.refilled == refilled, "Thread bin refilled!");
+		assert(state.flushed == flushed, "Thread bin flushed!");
+		assert(state.getFill(BinSize) == nfill, "Unexpected fill!");
+	}
+
+	checkState(false, false, BinSize);
 
 	// When we flush, we reduce the max fill.
 	state.onFlush();
-
-	assert(!state.refilled, "Thread bin refilled!");
-	assert(state.flushed, "Thread bin not flushed!");
-	assert(state.getFill(BinSize) == BinSize / 2, "Unexpected fill!");
+	checkState(false, true, BinSize / 2);
 
 	// On repeat, nothing happens.
 	state.onFlush();
-
-	assert(!state.refilled, "Thread bin refilled!");
-	assert(state.flushed, "Thread bin not flushed!");
-	assert(state.getFill(BinSize) == BinSize / 2, "Unexpected fill!");
+	checkState(false, true, BinSize / 2);
 
 	// When flushed is cleared, we redo, but never
 	// reduce fill to less than half the bin.
 	state.flushed = false;
 	state.onFlush();
-
-	assert(!state.refilled, "Thread bin refilled!");
-	assert(state.flushed, "Thread bin not flushed!");
-	assert(state.getFill(BinSize) == BinSize / 2, "Unexpected fill!");
+	checkState(false, true, BinSize / 2);
 
 	// On low water, we do nothing if we haven't refilled.
 	state.onLowWater();
-
-	assert(!state.refilled, "Thread bin refilled!");
-	assert(state.flushed, "Thread bin not flushed!");
-	assert(state.getFill(BinSize) == BinSize / 2, "Unexpected fill!");
+	checkState(false, true, BinSize / 2);
 
 	// If we refilled, but also flushed, we clear the flags,
 	// but don't increase the size past BinSize / 2.
 	state.refilled = true;
 	state.flushed = true;
 	state.onLowWater();
-
-	assert(!state.refilled, "Thread bin refilled!");
-	assert(!state.flushed, "Thread bin flushed!");
-	assert(state.getFill(BinSize) == BinSize / 2, "Unexpected fill!");
+	checkState(false, false, BinSize / 2);
 
 	// If we refilled but not flushed, we can go to the max.
 	state.refilled = true;
 	state.onLowWater();
-
-	assert(!state.refilled, "Thread bin refilled!");
-	assert(!state.flushed, "Thread bin flushed!");
-	assert(state.getFill(BinSize) == BinSize, "Unexpected fill!");
+	checkState(false, false, BinSize);
 
 	// If we filled too much, we reduce the fill.
 	foreach (s; 1 .. 7) {
 		state.onExtraFill(BinSize);
-
-		assert(!state.refilled, "Thread bin refilled!");
-		assert(!state.flushed, "Thread bin flushed!");
-		assert(state.getFill(BinSize) == BinSize >> s, "Unexpected fill!");
+		checkState(false, false, BinSize >> s);
 	}
 
 	// But we always fill at least 1 element!
 	foreach (s; 0 .. 2) {
 		state.onExtraFill(BinSize);
-
-		assert(!state.refilled, "Thread bin refilled!");
-		assert(!state.flushed, "Thread bin flushed!");
-		assert(state.getFill(BinSize) == 1, "Unexpected fill!");
+		checkState(false, false, 1);
 	}
 
 	// If we refilled, but also flushed, the increase in fill is capped.
@@ -717,11 +698,7 @@ unittest ThreadBinState {
 		state.refilled = true;
 		state.flushed = true;
 		state.onLowWater();
-
-		assert(!state.refilled, "Thread bin refilled!");
-		assert(!state.flushed, "Thread bin flushed!");
-		assert(state.getFill(BinSize) == BinSize >> (6 - s),
-		       "Unexpected fill!");
+		checkState(false, false, BinSize >> (6 - s));
 	}
 
 	foreach (s; 0 .. 2) {
@@ -729,9 +706,7 @@ unittest ThreadBinState {
 		state.flushed = true;
 		state.onLowWater();
 
-		assert(!state.refilled, "Thread bin refilled!");
-		assert(!state.flushed, "Thread bin flushed!");
-		assert(state.getFill(BinSize) == BinSize / 2, "Unexpected fill!");
+		checkState(false, false, BinSize / 2);
 	}
 }
 
