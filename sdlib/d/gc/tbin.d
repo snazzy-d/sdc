@@ -88,7 +88,7 @@ public:
 
 		auto filled =
 			arena.batchAllocSmall(emap, sizeClass, _head, insert, slotSize);
-		state.refilled = true;
+		state.onRefill();
 
 		/**
 		 * Note: If we are worried about security, we might want to shuffle
@@ -248,7 +248,7 @@ public:
 
 		// We allocated too much since the last recycling, so we reduce
 		// the amount by which we refill for next time.
-		state.onExtraFill(nmax);
+		state.onRecycle(nmax);
 	}
 
 private:
@@ -366,53 +366,88 @@ private:
 }
 
 struct ThreadBinState {
-	bool refilled;
-	bool flushed;
-	ubyte fillShift;
 	ubyte recycleDelay;
 
+	/**
+	 * The base/offset pair is used to determine how much elements
+	 * we should refill when the bin is empty.
+	 *
+	 * Refilling too much causes the bin to retain a ton of unused memory,
+	 * and unnecessary flushes in case the user wants to free. Not refilling
+	 * enough will cause unnecessary refills.
+	 * 
+	 * We track the "base" demand in the `base` field. This tracks how much
+	 * long term demand there is for elements in that bin. This is updated
+	 * every time the bin is recycled, based on what happened since the last
+	 * recycle event.
+	 * 
+	 * Recycle event don't happened regularly, and we want to make sure we
+	 * don't choke the program in case there is a sudden burst in demand
+	 * for a certain size class. To avoid this, we increase the `offset`
+	 * after every refill. As soon as it looks like we might be allocating
+	 * too much, `offset` is reset to 0. This happens when we need to flush
+	 * and when we notice low demand when recycling the bin.
+	 */
+	ubyte base;
+	ubyte offset;
+
+	bool refilled;
+	bool flushed;
+
 	uint getFill(ushort nmax) const {
-		return nmax >> fillShift;
+		assert(base >= offset, "Corrupted base/offset pair!");
+		return nmax >> (base - offset);
 	}
 
-	bool onFlush() {
-		if (flushed) {
-			return false;
+	void onRefill() {
+		refilled = true;
+		if (offset < base) {
+			offset++;
+		}
+	}
+
+	void onFlush() {
+		// If we need to flush, the burst in demand is over.
+		offset = 0;
+
+		// Make sure we'll have room to free after the next refill.
+		// This ensures we don't refill/flush full bins.
+		if (!flushed && base == 0) {
+			base++;
 		}
 
 		flushed = true;
-		if (fillShift == 0) {
-			fillShift++;
-		}
-
-		return true;
 	}
 
-	bool onLowWater() {
+	void onLowWater() {
 		// We do not have high demand, do nothing.
 		if (!refilled) {
-			return false;
+			return;
 		}
 
 		// We have high demand, so we increase how much we fill,
 		// while making sure we have room left to free.
-		if (fillShift > flushed) {
-			fillShift--;
+		if (base > flushed) {
+			base--;
+		}
+
+		// Make sure we maintain offset invariant.
+		if (offset > base) {
+			offset--;
 		}
 
 		refilled = false;
 		flushed = false;
-		return true;
 	}
 
-	bool onExtraFill(ushort nmax) {
-		// Make sure we do not reduce fill as to never refill.
-		if ((nmax >> fillShift) <= 1) {
-			return false;
-		}
+	void onRecycle(ushort nmax) {
+		// It does look like the burst in demand is over.
+		offset = 0;
 
-		fillShift++;
-		return true;
+		// Make sure we do not reduce fill as to never refill.
+		if ((nmax >> base) > 1) {
+			base++;
+		}
 	}
 }
 
@@ -622,7 +657,7 @@ unittest refill {
 
 		// Setup the state.
 		ThreadBinState state;
-		state.fillShift = shift;
+		state.base = shift;
 
 		import d.gc.slab;
 		enum SizeClass = 0;
@@ -632,6 +667,8 @@ unittest refill {
 		tbin.refill(emap, &arena, state, SizeClass, slotSize);
 
 		assert(state.refilled, "Thread bin not refilled!");
+		assert(state.base == shift, "Invalid thread bin base!");
+		assert(state.offset == (shift > 0), "Invalid thread bin offset!");
 		assert(tbin.ncached == BinSize >> shift,
 		       "Invalid cached element count!");
 	}
@@ -683,13 +720,13 @@ unittest ThreadBinState {
 
 	// If we filled too much, we reduce the fill.
 	foreach (s; 1 .. 7) {
-		state.onExtraFill(BinSize);
+		state.onRecycle(BinSize);
 		checkState(false, false, BinSize >> s);
 	}
 
 	// But we always fill at least 1 element!
 	foreach (s; 0 .. 2) {
-		state.onExtraFill(BinSize);
+		state.onRecycle(BinSize);
 		checkState(false, false, 1);
 	}
 
@@ -708,6 +745,62 @@ unittest ThreadBinState {
 
 		checkState(false, false, BinSize / 2);
 	}
+}
+
+unittest ThreadBinStateOffset {
+	enum BinSize = 200;
+
+	// Setup the state.
+	ThreadBinState state;
+	state.base = 2;
+
+	auto checkState(bool refilled, bool flushed, ubyte base, ubyte offset,
+	                uint nfill) {
+		assert(state.refilled == refilled, "Thread bin refilled!");
+		assert(state.flushed == flushed, "Thread bin flushed!");
+		assert(state.base == base, "Invalid base!");
+		assert(state.offset == offset, "Invalid offset!");
+		assert(state.getFill(BinSize) == nfill, "Unexpected fill!");
+	}
+
+	checkState(false, false, 2, 0, BinSize / 4);
+
+	state.onRefill();
+	checkState(true, false, 2, 1, BinSize / 2);
+
+	state.onRefill();
+	checkState(true, false, 2, 2, BinSize);
+
+	// When we reached the point where we fill the bin,
+	// we stop increasing the offset.
+	state.onRefill();
+	checkState(true, false, 2, 2, BinSize);
+
+	// When recycling, we reset the offset.
+	state.onRecycle(BinSize);
+	checkState(true, false, 3, 0, BinSize / 8);
+
+	// When flushing, the offset is reset to zero.
+	state.offset = 3;
+	checkState(true, false, 3, 3, BinSize);
+
+	state.onFlush();
+	checkState(true, true, 3, 0, BinSize / 8);
+
+	// On low water, we decrease the offset if necessary.
+	state.offset = 3;
+	checkState(true, true, 3, 3, BinSize);
+
+	state.onLowWater();
+	checkState(false, false, 2, 2, BinSize);
+
+	// But we do not if it is not necessary.
+	state.offset = 1;
+	state.refilled = true;
+	checkState(true, false, 2, 1, BinSize / 2);
+
+	state.onLowWater();
+	checkState(false, false, 1, 1, BinSize);
 }
 
 unittest recycle {
@@ -760,7 +853,7 @@ unittest recycle {
 	//        but there is no sensible way to do this at the moment.
 
 	// Allocating from a bin that is in high demand increase the refill capacity.
-	state.fillShift = 3;
+	state.base = 3;
 	for (uint s = 3; s > 0; s--) {
 		state.refilled = true;
 		tbin._low_water = tbin._top;
@@ -780,7 +873,7 @@ unittest recycle {
 	}
 
 	// If we have flushed, do not increase the size past BinSize / 2.
-	state.fillShift = 3;
+	state.base = 3;
 	for (uint s = 3; s > 0; s--) {
 		state.refilled = true;
 		state.flushed = true;
