@@ -235,20 +235,14 @@ public:
 			return;
 		}
 
-		// We aim to flush 3/4 of the items bellow the low water mark.
-		auto nflush = lw - (lw >> 2);
-		if (nflush < state.recycleDelay) {
-			state.recycleDelay -= nflush;
-			return;
-		}
-
-		// FIXME: Compute recycleDelay properly.
-		state.recycleDelay = 0;
-		flush(emap, ncached - nflush);
-
 		// We allocated too much since the last recycling, so we reduce
 		// the amount by which we refill for next time.
 		state.onRecycle(nmax);
+
+		// FIXME: Ensure there is a delay here to avoid frequent flushes.
+		// We aim to flush 3/4 of the items bellow the low water mark.
+		auto nflush = lw - (lw >> 2);
+		flush(emap, ncached - nflush);
 	}
 
 private:
@@ -366,8 +360,6 @@ private:
 }
 
 struct ThreadBinState {
-	ubyte recycleDelay;
-
 	/**
 	 * The base/offset pair is used to determine how much elements
 	 * we should refill when the bin is empty.
