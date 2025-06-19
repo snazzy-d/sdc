@@ -161,9 +161,9 @@ public:
 		flush(emap, 0);
 	}
 
-	void flush(ref CachedExtentMap emap, uint nretain) {
+	bool flush(ref CachedExtentMap emap, uint nretain) {
 		if (nretain >= ncached) {
-			return;
+			return false;
 		}
 
 		// We precompute all we need so we can work out of local variables.
@@ -223,26 +223,27 @@ public:
 		while (ptr < newHead) {
 			*(ptr++) = null;
 		}
+
+		return true;
 	}
 
-	void recycle(ref CachedExtentMap emap, ref ThreadBinState state,
+	bool recycle(ref CachedExtentMap emap, ref ThreadBinState state,
 	             ubyte sizeClass) {
 		auto lw = nlowWater;
 		scope(success) _low_water = current;
 
 		if (lw == 0) {
 			state.onLowWater();
-			return;
+			return false;
 		}
 
 		// We allocated too much since the last recycling, so we reduce
 		// the amount by which we refill for next time.
 		state.onRecycle(nmax);
 
-		// FIXME: Ensure there is a delay here to avoid frequent flushes.
 		// We aim to flush 3/4 of the items bellow the low water mark.
 		auto nflush = lw - (lw >> 2);
-		flush(emap, ncached - nflush);
+		return flush(emap, ncached - nflush);
 	}
 
 private:
@@ -840,7 +841,7 @@ unittest recycle {
 
 	// Recycling a bin that is full with a low water mark of zero will
 	// raise the low water mark and reset the refilled flag.
-	tbin.recycle(emap, state, SizeClass);
+	assert(!tbin.recycle(emap, state, SizeClass), "Unexpected flush!");
 	checkState(false, false, BinSize, BinSize, BinSize);
 
 	// FIXME: We have a non zero low water mark, we should flush,
@@ -856,7 +857,7 @@ unittest recycle {
 
 		checkState(true, false, BinSize >> s, BinSize, 0);
 
-		tbin.recycle(emap, state, SizeClass);
+		assert(!tbin.recycle(emap, state, SizeClass), "Unexpected flush!");
 		checkState(false, false, BinSize >> (s - 1), BinSize, BinSize);
 	}
 
@@ -869,7 +870,7 @@ unittest recycle {
 
 		checkState(true, true, BinSize >> s, BinSize, 0);
 
-		tbin.recycle(emap, state, SizeClass);
+		assert(!tbin.recycle(emap, state, SizeClass), "Unexpected flush!");
 
 		auto ps = s > 1 ? s - 1 : 1;
 		checkState(false, false, BinSize >> ps, BinSize, BinSize);

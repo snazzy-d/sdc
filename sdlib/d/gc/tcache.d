@@ -83,6 +83,7 @@ private:
 	 */
 	static assert(ThreadBinCount < ubyte.max, "Too many thread bin!");
 	ubyte nextBinToRecycle;
+	ulong lastRecyleTime;
 
 	ThreadBinState[ThreadBinCount] binStates;
 
@@ -517,7 +518,7 @@ private:
 		if (allocated >= nextAllocationEvent) {
 			reassociateArena();
 
-			recycleNextBin();
+			recycleBins();
 
 			nextAllocationEvent = allocated + DefaultEventWait;
 		}
@@ -527,27 +528,45 @@ private:
 		deallocated += bytes;
 
 		if (deallocated >= nextDeallocationEvent) {
-			recycleNextBin();
+			recycleBins();
 
 			nextDeallocationEvent = deallocated + DefaultEventWait;
 		}
 	}
 
-	void recycleNextBin() {
+	void recycleBins() {
+		import d.gc.time;
+		enum RecycleInterval = 10 * Millisecond;
+
+		auto now = getMonotonicTime();
+		assert(now >= lastRecyleTime, "Expected monotonic time!");
+
+		if ((now - lastRecyleTime) < RecycleInterval) {
+			// We only trigger recycling every 10ms.
+			return;
+		}
+
+		state.enterBusyState();
+		scope(exit) state.exitBusyState();
+
+		// Flush at most MaxFlush thread bins.
+		enum MaxFlush = ThreadBinCount / 8;
+		uint nflushed = 0;
+
 		auto index = nextBinToRecycle;
-		ubyte sizeClass = index / 2;
+		for (uint i = 0; i < ThreadBinCount && nflushed < MaxFlush; i++) {
+			ubyte sizeClass = index / 2;
+			if (bins[index].recycle(emap, binStates[index], sizeClass)) {
+				nflushed++;
+			}
 
-		{
-			state.enterBusyState();
-			scope(exit) state.exitBusyState();
-
-			bins[index].recycle(emap, binStates[index], sizeClass);
+			index++;
+			if (index >= ThreadBinCount) {
+				index = 0;
+			}
 		}
 
-		nextBinToRecycle++;
-		if (nextBinToRecycle >= ThreadBinCount) {
-			nextBinToRecycle = 0;
-		}
+		nextBinToRecycle = index;
 	}
 
 	/**
