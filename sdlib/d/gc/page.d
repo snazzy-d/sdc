@@ -242,8 +242,33 @@ public:
 	}
 
 	void freeExtent(ref CachedExtentMap emap, Extent* e) shared {
-		emap.clear(e);
-		freePages(e);
+		assert(e.arenaIndex == arena.index, "Invalid arena!");
+		batchFreeExtents(emap, (&e)[0 .. 1]);
+	}
+
+	void batchFreeExtents(ref CachedExtentMap emap, Extent*[] extents) shared {
+		// FIXME: in contract.
+		foreach (e; extents) {
+			assert(e.arenaIndex == arena.index, "Invalid arena!");
+		}
+
+		// Avoid locking if there is nothing to do.
+		if (extents.length == 0) {
+			return;
+		}
+
+		// Clear the emap.
+		foreach (e; extents) {
+			emap.clear(e);
+		}
+
+		// Free the pages.
+		mutex.lock();
+		scope(exit) mutex.unlock();
+
+		foreach (e; extents) {
+			(cast(PageFiller*) &this).freePagesImpl(e);
+		}
 	}
 
 	void freePages(Extent* e) shared {
@@ -340,6 +365,16 @@ private:
 		auto leadSize = extraBlocks * BlockSize;
 		auto ptr = block.address - leadSize;
 		return e.at(ptr, npages, block);
+	}
+
+	void freePagesImpl(Extent* e) {
+		assert(mutex.isHeld(), "Mutex not held!");
+		assert(isAligned(e.address, PageSize), "Invalid extent address!");
+
+		uint n = e.blockIndex;
+		uint pages = modUp(e.npages, PagesInBlock);
+
+		freePagesImpl(e, n, pages);
 	}
 
 	void freePagesImpl(Extent* e, uint n, uint pages) {
@@ -1030,11 +1065,7 @@ private:
 		assert(isAligned(e.address, PageSize), "Invalid extent address!");
 
 		emap.clear(e);
-
-		uint n = e.blockIndex;
-		uint pages = modUp(e.npages, PagesInBlock);
-
-		(cast(PageFiller*) &this).freePagesImpl(e, n, pages);
+		freePagesImpl(e);
 	}
 }
 

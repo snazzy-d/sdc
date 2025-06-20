@@ -144,15 +144,9 @@ public:
 		assert(worklist.length > 0, "Worklist is empty!");
 		assert(pds[0].arenaIndex == index, "Erroneous arena index!");
 
-		auto dallocSlabs = cast(Extent**) alloca(worklist.length * PointerSize);
-
 		uint ndalloc = 0;
-		scope(success) if (ndalloc > 0) {
-			foreach (i; 0 .. ndalloc) {
-				// FIXME: batch free to go through the lock once using freeExtentLocked.
-				filler.freeExtent(emap, dallocSlabs[i]);
-			}
-		}
+		auto dallocSlabs = cast(Extent**) alloca(worklist.length * PointerSize);
+		scope(success) filler.batchFreeExtents(emap, dallocSlabs[0 .. ndalloc]);
 
 		auto ec = pds[0].extentClass;
 		auto sc = ec.sizeClass;
