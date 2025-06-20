@@ -160,21 +160,10 @@ public:
 	}
 
 	bool flush(ref CachedExtentMap emap, uint nretain) {
-		if (nretain >= ncached) {
+		auto size = ncached;
+		if (nretain >= size) {
 			return false;
 		}
-
-		// We precompute all we need so we can work out of local variables.
-		auto newHead = top;
-		auto oldHead = _head;
-		auto base = oldHead + nretain;
-
-		auto nlw = nlowWater;
-		auto nflush = ncached - nretain;
-		assert(nflush <= ncached,
-		       "Cannot flush more elements than are cached!");
-
-		auto worklist = base[0 .. nflush];
 
 		/**
 		 * TODO: Statistically, a lot of the pointers are going to
@@ -182,32 +171,28 @@ public:
 		 *       optimizations that can be done based on that fact.
 		 *       We need a batch emap lookup facility.
 		 */
+		auto nflush = size - nretain;
 		auto pds = cast(PageDescriptor*) alloca(nflush * PageDescriptor.sizeof);
 
+		auto base = _head;
+		auto worklist = base[nretain .. size];
 		foreach (i, ptr; worklist) {
 			import d.gc.util;
 			auto aptr = alignDown(ptr, PageSize);
 			pds[i] = emap.lookup(aptr);
 		}
 
-		// Actually do flush to the arenas.
-		while (worklist.length > 0) {
-			auto ndeferred = pds[0].arena.batchFree(emap, worklist, pds);
-			worklist = base[0 .. ndeferred];
+		flushImpl(emap, worklist, pds);
+
+		// Adjust bin markers to reflect the flush.
+		_head = top - nretain;
+		if (nretain < nlowWater) {
+			_low_water = current;
 		}
 
 		// Move the remaining items on top of the stack if necessary.
-		if (nretain > 0) {
-			auto src = base;
-			while (src > oldHead) {
-				*(--newHead) = *(--src);
-			}
-		}
-
-		// Adjust bin markers to reflect the flush.
-		_head = newHead;
-		if (nretain < nlw) {
-			_low_water = current;
+		for (uint i = nretain; i-- > 0;) {
+			_head[i] = base[i];
 		}
 
 		/**
@@ -218,7 +203,7 @@ public:
 		 *        due to leftover pointers in there.
 		 */
 		auto ptr = bottom;
-		while (ptr < newHead) {
+		while (ptr < _head) {
 			*(ptr++) = null;
 		}
 
@@ -330,6 +315,15 @@ private:
 		_head++;
 		_low_water += PointerSize;
 		return true;
+	}
+
+	void flushImpl(ref CachedExtentMap emap, const(void*)[] worklist,
+	               PageDescriptor* pds) {
+		// Actually do flush to the arenas.
+		while (worklist.length > 0) {
+			auto ndeferred = pds[0].arena.batchFree(emap, worklist, pds);
+			worklist = worklist[0 .. ndeferred];
+		}
 	}
 
 	void checkIsEarlier(ushort earlier, ushort later) const {
