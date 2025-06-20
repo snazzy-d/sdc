@@ -408,8 +408,7 @@ private:
 
 		// We are about to allocate, make room for it if needed.
 		if (maybeRunGCCycle()) {
-			// The bin might have gained a pointer through a
-			// finalizer.
+			// The bin might have gained a pointer through a finalizer.
 			if (bin.allocate(ptr)) {
 				return ptr;
 			}
