@@ -27,6 +27,7 @@ struct Bin {
 		ubyte sizeClass,
 		void** top,
 		void** bottom,
+		void** requested,
 		size_t slotSize,
 	) shared {
 		import d.gc.sizeclass;
@@ -37,6 +38,9 @@ struct Bin {
 
 		assert(bottom < top, "Invalid stack boundaries!");
 		assert((top - bottom) < uint.max, "Invalid stack size!");
+
+		assert(bottom < requested && requested <= top,
+		       "Invalid requested slot count!");
 
 		/**
 		 * When we run out of slab with free space, we allocate a fresh slab.
@@ -112,8 +116,20 @@ struct Bin {
 		assert(freshSlab is null);
 		assert(progressed);
 
-		freshSlab = filler.allocSlab(emap, sizeClass);
+		/**
+		 * We want to avoid leaving partially filled slabs behind us,
+		 * so, before allocating a new slab, we make sure that it'll
+		 * either be required to meet the requested number of slot,
+		 * or that it'll be completely filled.
+		 */
+		assert(bottom <= insert && insert < top, "Invalid insertion point!");
+		auto navailable = top - insert;
 		auto nslots = binInfos[sizeClass].nslots;
+		if (requested <= insert && navailable <= nslots) {
+			return insert;
+		}
+
+		freshSlab = filler.allocSlab(emap, sizeClass);
 		assert(freshSlab is null || freshSlab.nfree == nslots);
 
 		progressed = false;

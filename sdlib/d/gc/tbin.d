@@ -78,16 +78,14 @@ public:
 		auto nfill = state.getFill(nmax);
 		assert(nfill > 0);
 
-		/**
-		 * TODO: We should pass available in addition to nfill to batchAllocSmall.
-		 *       This would ensure batchAllocSmall has some wiggle room to provide
-		 *       as many slots as possible without allocating new slabs.
-		 */
 		auto insert = _head - nfill;
 		assert(available <= insert);
 
-		auto filled =
-			arena.batchAllocSmall(emap, sizeClass, _head, insert, slotSize);
+		auto requested = insert + (nfill >> 1) + 1;
+		assert(insert < requested && requested <= _head);
+
+		auto filled = arena.batchAllocSmall(emap, sizeClass, _head, insert,
+		                                    requested, slotSize);
 		state.onRefill();
 
 		/**
