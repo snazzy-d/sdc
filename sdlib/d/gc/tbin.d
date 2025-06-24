@@ -174,29 +174,7 @@ public:
 		emap.batchLookup(worklist, pds);
 
 		flushImpl(emap, worklist, pds);
-
-		// Adjust bin markers to reflect the flush.
-		_head = top - nretain;
-		if (nretain < nlowWater) {
-			_low_water = current;
-		}
-
-		// Move the remaining items on top of the stack if necessary.
-		for (uint i = nretain; i-- > 0;) {
-			_head[i] = base[i];
-		}
-
-		/**
-		 * FIXME: This shouldn't be necessary, but we currently have no way
-		 *        to ensure the thread cache is not marked as part of the
-		 *        regular TLS marking.
-		 *        In turns, this means we are going to keep garbage alive
-		 *        due to leftover pointers in there.
-		 */
-		auto ptr = bottom;
-		while (ptr < _head) {
-			*(ptr++) = null;
-		}
+		finalizeFlush(base, nretain);
 
 		return true;
 	}
@@ -315,6 +293,33 @@ private:
 			auto ndeferred = pds[0].arena.batchFree(emap, worklist, pds);
 			worklist = worklist[0 .. ndeferred];
 		}
+	}
+
+	bool finalizeFlush(void** base, uint nretain) {
+		// Adjust bin markers to reflect the flush.
+		_head = top - nretain;
+		if (nretain < nlowWater) {
+			_low_water = current;
+		}
+
+		// Move the remaining items on top of the stack if necessary.
+		for (uint i = nretain; i-- > 0;) {
+			_head[i] = base[i];
+		}
+
+		/**
+		 * FIXME: This shouldn't be necessary, but we currently have no way
+		 *        to ensure the thread cache is not marked as part of the
+		 *        regular TLS marking.
+		 *        In turns, this means we are going to keep garbage alive
+		 *        due to leftover pointers in there.
+		 */
+		auto ptr = bottom;
+		while (ptr < _head) {
+			*(ptr++) = null;
+		}
+
+		return true;
 	}
 
 	void checkIsEarlier(ushort earlier, ushort later) const {
