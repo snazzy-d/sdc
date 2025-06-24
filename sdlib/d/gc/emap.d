@@ -11,10 +11,11 @@ import sdc.intrinsics;
 shared ExtentMap gExtentMap;
 
 alias ExtentMapCache = RTreeCache!PageDescriptor;
+alias ExtentMapTree = RTree!PageDescriptor;
 
 struct ExtentMap {
 private:
-	RTree!PageDescriptor tree;
+	ExtentMapTree tree;
 
 public:
 	PageDescriptor lookup(ref ExtentMapCache cache, void* address) shared {
@@ -25,6 +26,26 @@ public:
 	BlockExtentMap blockLookup(ref ExtentMapCache cache, void* block) shared {
 		assert(isAligned(block, BlockSize), "Invalid block address!");
 		return BlockExtentMap(block, tree.get(cache, block));
+	}
+
+	void batchLookup(ref ExtentMapCache cache, void*[] addresses,
+	                 PageDescriptor* pds) shared {
+		// Just resuse the same buffer.
+		alias Leaf = ExtentMapTree.Leaf;
+		auto leaves = cast(shared(Leaf)**) pds;
+
+		// Fetch all the leaves in one scoop.
+		foreach (i, ptr; addresses) {
+			import d.gc.util;
+			auto aptr = alignDown(ptr, PageSize);
+			leaves[i] = tree.get(cache, aptr);
+		}
+
+		// Generate the page descriptors.
+		foreach (i, ptr; addresses) {
+			auto leaf = leaves[i];
+			pds[i] = leaf is null ? PageDescriptor(0) : leaf.load();
+		}
 	}
 
 	bool map(ref shared Base base, ref ExtentMapCache cache, void* address,
@@ -42,15 +63,15 @@ public:
  * After all, we are trading one lookup in the cache vs one lookup in the
  * base level of the ExtentMap, so it's not obvious where the win is.
  *
- * Each entry in the cache maps to 1GB of address space, so we expect the hiy
+ * Each entry in the cache maps to 1GB of address space, so we expect the hit
  * rate in the cache to be close to 100% . Realistically, most applications
  * won't use more than 16GB of address space, and for these which do, you'd
- * still need scattered access access accross this huge address space for the
+ * still need scattered access access across this huge address space for the
  * hit rate to degrade, in which case the performance of this cache is unlikely
  * to be of any significant importance.
  *
  * Each page that we expect to be hot in the GC is one less page that can be
- * hot for the applciation itself. So in general, we try to avoid touching
+ * hot for the application itself. So in general, we try to avoid touching
  * memory when we don't need to. We know the thread cache has to be hot as it
  * is the entry point for every GC operation. Adding this cache in the thread
  * cache ensures that we can have a close to 100% hit rate by only touching
@@ -58,7 +79,7 @@ public:
  *
  * If later on we want to support system with more than 48 bits of address
  * space, then we will need an extent map with 3 levels, and this cache will
- * avoid 2 lookups insteaf of 1, which is much more obvious win.
+ * avoid 2 lookups instead of 1, which is much more obvious win.
  */
 struct CachedExtentMap {
 private:
@@ -80,6 +101,10 @@ public:
 		assert(isAligned(address, BlockSize), "Invalid block address!");
 
 		return emap.blockLookup(cache, address);
+	}
+
+	void batchLookup(void*[] addresses, PageDescriptor* pds) {
+		emap.batchLookup(cache, addresses, pds);
 	}
 
 	bool map(void* address, uint pages, PageDescriptor pd) {
@@ -212,7 +237,7 @@ private:
 	void* block;
 	shared(Leaf[PagesInBlock])* leaves;
 
-	alias Leaf = RTree!PageDescriptor.Leaf;
+	alias Leaf = ExtentMapTree.Leaf;
 
 public:
 	this(void* block, shared(Leaf)* leaf) {
@@ -236,6 +261,31 @@ unittest ExtentMap {
 	static shared ExtentMap emapStorage;
 	auto emap = CachedExtentMap(&emapStorage, &base);
 
+	void checkExtentMapping(Extent* e) {
+		auto npages = e.npages + 2;
+		auto ptrs = cast(void**) alloca(npages * PointerSize);
+
+		auto ptr = e.address - PageSize;
+		foreach (i; 0 .. npages) {
+			ptrs[i] = ptr;
+			ptr += PageSize;
+		}
+
+		auto pds = cast(PageDescriptor*) alloca(npages * PageDescriptor.sizeof);
+		emap.batchLookup(ptrs[0 .. npages], pds);
+
+		// Check before and after.
+		assert(pds[0].extent !is e);
+		assert(pds[npages].extent !is e);
+
+		// Check the extent itself is mapped.
+		auto pd = PageDescriptor(e, e.extentClass);
+		foreach (i; 1 .. npages - 1) {
+			assert(pds[i].data == pd.data);
+			pd = pd.next();
+		}
+	}
+
 	// We have not mapped anything.
 	auto ptr = cast(void*) 0x56789abcd000;
 	assert(emap.lookup(ptr).data == 0);
@@ -246,14 +296,10 @@ unittest ExtentMap {
 
 	// Map a range.
 	emap.remap(e);
-	auto pd = PageDescriptor(e);
+	checkExtentMapping(e);
 
+	// Check that we have nothing after the extent.
 	auto end = ptr + e.size;
-	for (auto p = ptr; p < end; p += PageSize) {
-		assert(emap.lookup(p).data == pd.data);
-		pd = pd.next();
-	}
-
 	assert(emap.lookup(end).data == 0);
 
 	// Clear a range.
@@ -262,26 +308,26 @@ unittest ExtentMap {
 		assert(emap.lookup(p).data == 0);
 	}
 
+	// Same test, but with a slab.
 	auto ec = ExtentClass.slab(0);
 	e.at(ptr, 5, null, ec);
 	emap.remap(e, ec);
-	pd = PageDescriptor(e, ec);
 
-	for (auto p = ptr; p < end; p += PageSize) {
-		assert(emap.lookup(p).data == pd.data);
-		pd = pd.next();
-	}
+	checkExtentMapping(e);
+	assert(emap.lookup(end).data == 0);
 
 	emap.clear(e);
+	for (auto p = ptr; p < end; p += PageSize) {
+		assert(emap.lookup(p).data == 0);
+	}
 
 	// Shrink a range.
 	e.at(ptr, 5, null, ec);
 	emap.remap(e, ec);
-	pd = PageDescriptor(e, ec);
-
 	emap.clear(e.address + 3 * PageSize, 2);
 	e.at(ptr, 3, null, ec);
 
+	auto pd = PageDescriptor(e, ec);
 	for (auto p = ptr; p < e.address + 3 * PageSize; p += PageSize) {
 		assert(emap.lookup(p).data == pd.data);
 		pd = pd.next();

@@ -165,22 +165,13 @@ public:
 			return false;
 		}
 
-		/**
-		 * TODO: Statistically, a lot of the pointers are going to
-		 *       be from the same slab. There are a number of
-		 *       optimizations that can be done based on that fact.
-		 *       We need a batch emap lookup facility.
-		 */
-		auto nflush = size - nretain;
-		auto pds = cast(PageDescriptor*) alloca(nflush * PageDescriptor.sizeof);
-
 		auto base = _head;
 		auto worklist = base[nretain .. size];
-		foreach (i, ptr; worklist) {
-			import d.gc.util;
-			auto aptr = alignDown(ptr, PageSize);
-			pds[i] = emap.lookup(aptr);
-		}
+		auto nflush = size - nretain;
+		assert(worklist.length == nflush, "Invalid worklist length!");
+
+		auto pds = cast(PageDescriptor*) alloca(nflush * PageDescriptor.sizeof);
+		emap.batchLookup(worklist, pds);
 
 		flushImpl(emap, worklist, pds);
 

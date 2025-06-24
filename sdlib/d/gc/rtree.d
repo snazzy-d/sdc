@@ -82,19 +82,6 @@ public:
 		return &(*leaves)[subKey(address, 1)];
 	}
 
-	shared(Leaf)* getOrAllocate(ref Cache cache, void* address,
-	                            ref shared Base base) shared {
-		// FIXME: in contract.
-		assert(isValidAddress(address));
-
-		auto leaves = getOrAllocateLeaves(cache, address, base);
-		if (unlikely(leaves is null)) {
-			return null;
-		}
-
-		return &(*leaves)[subKey(address, 1)];
-	}
-
 	bool set(ref Cache cache, void* address, T value,
 	         ref shared Base base) shared {
 		// FIXME: in contract.
@@ -192,6 +179,19 @@ public:
 	}
 
 private:
+	shared(Leaf)* getOrAllocate(ref Cache cache, void* address,
+	                            ref shared Base base) shared {
+		// FIXME: in contract.
+		assert(isValidAddress(address));
+
+		auto leaves = getOrAllocateLeaves(cache, address, base);
+		if (unlikely(leaves is null)) {
+			return null;
+		}
+
+		return &(*leaves)[subKey(address, 1)];
+	}
+
 	auto getLeaves(ref Cache cache, void* address) shared {
 		return getLeavesImpl!false(cache, address, null);
 	}
