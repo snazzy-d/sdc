@@ -165,12 +165,6 @@ public:
 		data |= ulong(extent.arenaIndex) << 48;
 	}
 
-	this(Extent* extent) {
-		// FIXME: in contract.
-		assert(!extent.isSlab(), "Extent is a slab!");
-		this(extent, ExtentClass.large());
-	}
-
 	auto toLeafPayload() const {
 		return data;
 	}
