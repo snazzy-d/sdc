@@ -229,18 +229,20 @@ private:
 				scheduler.require(m, Step.Populated);
 
 				auto symInMod = m.resolve(location, name);
-				if (symInMod) {
-					if (symbol) {
-						import std.format;
-						return new CompileError(
-							location,
-							format!"Ambiguous symbol %s."(
-								name.toString(context))
-						).symbol;
-					}
-
-					symbol = symInMod;
+				if (symInMod is null) {
+					continue;
 				}
+
+				if (symbol is null) {
+					symbol = symInMod;
+					continue;
+				}
+
+				import std.format;
+				return new CompileError(
+					location,
+					format!"Ambiguous symbol %s."(name.toString(context))
+				).symbol;
 			}
 
 			if (symbol) {
