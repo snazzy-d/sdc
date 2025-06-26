@@ -812,7 +812,7 @@ private:
 		 * of glibc thanks to rseqs, but we might want to find
 		 * an alternative on other systems.
 		 */
-		import sched;
+		import core.stdc.sched;
 		return sched_getcpu();
 	}
 

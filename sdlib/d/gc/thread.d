@@ -190,14 +190,14 @@ public:
 		uint count;
 
 		while (suspendRunningThreads(count++)) {
-			import sched;
+			import core.stdc.sched;
 			sched_yield();
 		}
 	}
 
 	void restartTheWorld() shared {
 		while (resumeSuspendedThreads()) {
-			import sched;
+			import core.stdc.sched;
 			sched_yield();
 		}
 

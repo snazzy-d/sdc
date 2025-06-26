@@ -1,4 +1,4 @@
-module sched;
+module core.stdc.sched;
 
 import sys.posix.types;
 

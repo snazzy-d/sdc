@@ -4,7 +4,7 @@ import d.sync.waiter;
 
 import sdc.intrinsics;
 
-import sched;
+import core.stdc.sched;
 
 struct Mutex {
 private:

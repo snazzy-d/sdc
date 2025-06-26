@@ -1,5 +1,5 @@
 // FIXME: On OSX, this is a symlink to pthread/sched.h
-module sched;
+module core.stdc.sched;
 
 extern(C):
 

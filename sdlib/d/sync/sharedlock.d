@@ -628,7 +628,7 @@ unittest threadStressTest {
 			assert(ne == 0);
 			assert(ns >= 0 && ns < MaxShared);
 
-			import sched;
+			import core.stdc.sched;
 			sched_yield();
 			ns = numSharedLocks.fetchSub(1);
 
