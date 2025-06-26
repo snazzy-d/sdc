@@ -1,4 +1,4 @@
-module sys.linux.futex;
+module core.stdc.linux.futex;
 
 import sys.posix.types;
 

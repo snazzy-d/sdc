@@ -1,11 +1,11 @@
-module d.sync.futex.waiter;
+module d.sync.waiter;
 
 import d.sync.atomic;
-import d.sync.futex.futex;
+import d.sync.futex;
 
 import core.stdc.errno_;
 
-struct FutexWaiter {
+struct Waiter {
 	Atomic!uint wakeupCount;
 
 	bool block( /* TODO: timeout */ ) shared {

@@ -1,10 +1,10 @@
-module d.sync.futex.futex;
+module d.sync.futex;
 
 import d.sync.atomic;
 
 import sdc.intrinsics;
 
-import sys.linux.futex;
+import core.stdc.linux.futex;
 import core.stdc.errno_;
 
 enum SYS_futex = 202;

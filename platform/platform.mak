@@ -1,11 +1,15 @@
 # Platform import to use for libsdrt
 PLATFORM_IMPORTS =
+LIBSDRT_PLATFORM_IMPORTS =
+LIBSDMD_PLATFORM_IMPORTS =
 
-# Platform objects to link into libsdrt
+# Platform objects to link into libs
 LIBSDRT_PLATFORM_OBJ =
-
-# Platform objects to link into libsdmd
 LIBSDMD_PLATFORM_OBJ =
+
+# Platform D source files.
+LIBSDRT_PLATFORM_SRC =
+LIBDDMD_PLATFORM_SRC =
 
 # Platform C source and object files.
 PLATFORM_C_SRC =

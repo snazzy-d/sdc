@@ -29,22 +29,21 @@ obj/driver/%.o: src/driver/%.d
 	@mkdir -p obj/driver
 	$(DMD) -c -of"$@" "$<" -makedeps="$@.deps" $(DFLAGS) $(LIBD_LLVM_IMPORTS)
 
-$(SDC): obj/driver/sdc.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL)
+$(SDC): obj/driver/sdc.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL)| bin/sdconfig
 	@mkdir -p bin
 	$(DMD) -of"$@" $+ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS)) $(addprefix -Xcc=,$(LDFLAGS_LLVM))
 
-$(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL)
+$(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL) | bin/sdconfig
 	@mkdir -p bin
 	$(DMD) -of"$@" $+ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS)) $(addprefix -Xcc=,$(LDFLAGS_LLVM))
 
-IMPORTS_JSON_SEPARATOR = "\", \"$(PWD)/"
-SDCONFIG_IMPORTS = "[\"$(PWD)/$(addsuffix $(IMPORTS_JSON_SEPARATOR), $(PLATFORM_IMPORTS))sdlib\"]"
+IMPORTS_JSON_SEPARATOR = "\","
+SDCONFIG_IMPORTS = $(PLATFORM_IMPORTS) $(LIBSDRT_PLATFORM_IMPORTS)
+SDCONFIG_IMPORTS_JSON = "[$(addsuffix $(IMPORTS_JSON_SEPARATOR),$(addprefix "\"$(PWD)/", $(SDCONFIG_IMPORTS))) \"$(PWD)/sdlib\"]"
 
 bin/sdconfig:
 	@mkdir -p bin
-	printf "{\n\t\"includePaths\": $(SDCONFIG_IMPORTS),\n\t\"libPaths\": [\"$(PWD)/lib\"],\n}\n" > $@
-
-SDLIB_DEPS = $(SDC) bin/sdconfig
+	printf "{\n\t\"includePaths\": %s,\n\t\"libPaths\": [\"%s/lib\"],\n}\n" $(SDCONFIG_IMPORTS_JSON) $(PWD) > $@
 
 include sdlib/sdrt.mak
 
