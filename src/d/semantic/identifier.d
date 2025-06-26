@@ -292,46 +292,31 @@ private:
 			}
 		})(a)).array();
 
-		CompileError ce;
-		Symbol instantiated;
-
-		TemplateInstance instanciateSymbol(S : Symbol)(S s) {
-			// If we are within a pattern, we are not looking to instantiate.
-			// XXX: Arguably, we'd like the TemplateInstancier to figure out if
-			// this is a pattern instead of using this hack.
-			if (inPattern) {
-				instantiated = s;
-				return null;
-			}
-
-			import d.semantic.dtemplate;
-			return TemplateInstancier(pass.pass, iloc, args, fargs).visit(s);
-		}
-
 		auto iloc = i.location;
-		auto instance = finalize(i.identifier.location, visit(i.identifier))
-			.apply!(delegate TemplateInstance(identified) {
-				static if (is(typeof(identified) : Symbol)) {
-					return instanciateSymbol(identified);
-				} else {
-					import std.format;
-					ce = getError(identified, iloc,
-					              format!"Unexpected %s."(typeid(identified)));
-
-					return null;
+		return finalize(
+			i.identifier.location,
+			visit(i.identifier)
+		).apply!(delegate Identifiable(identified) {
+			static if (is(typeof(identified) : Symbol)) {
+				// If we are within a pattern, we are not looking to instantiate.
+				// XXX: Arguably, we'd like the TemplateInstancier to figure out
+				// if this is a pattern instead of using this hack.
+				if (inPattern) {
+					return Identifiable(Pattern(identified, args).getType());
 				}
-			})();
 
-		if (inPattern && instantiated) {
-			return Identifiable(Pattern(instantiated, args).getType());
-		}
-
-		if (instance is null) {
-			assert(ce, "No error reported :(");
-			return Identifiable(ce.symbol);
-		}
-
-		return Identifiable(instance);
+				import d.semantic.dtemplate;
+				auto ti = TemplateInstancier(pass.pass, iloc, args, fargs)
+					.visit(identified);
+				return Identifiable(ti);
+			} else {
+				import std.format;
+				return Identifiable(
+					getError(identified, iloc,
+					         format!"Unexpected %s."(typeid(identified))).symbol
+				);
+			}
+		})();
 	}
 
 	Identifiable resolveBracket(I)(Location location, Identifier base,
