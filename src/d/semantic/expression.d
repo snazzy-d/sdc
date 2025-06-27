@@ -559,74 +559,15 @@ public:
 		}
 	}
 
-	private Expression getContext(Location location, Function f)
-			in(f.step >= Step.Signed) {
-		import d.semantic.closure;
-		auto ctx = ContextFinder(pass).visit(f);
-		return build!ContextExpression(location, ctx);
-	}
-
 	Expression getFrom(Location location, Function f) {
-		scheduler.require(f, Step.Signed);
-
-		Expression[] ctxs;
-		ctxs.reserve(f.hasThis + f.hasContext);
-		if (f.hasContext) {
-			ctxs ~= getContext(location, f);
-		}
-
-		if (f.hasThis) {
-			ctxs ~= getThis(location);
-		}
-
-		return getFromImpl(location, f, ctxs);
+		import d.semantic.identifier;
+		return IdentifierResolver(pass).buildFunExpression(location, f);
 	}
 
 	Expression getFrom(Location location, Expression thisExpr, Function f) {
-		scheduler.require(f, Step.Signed);
-
-		Expression[] ctxs;
-		ctxs.reserve(f.hasContext + 1);
-
-		if (f.hasContext) {
-			ctxs ~= getContext(location, f);
-		}
-
-		ctxs ~= thisExpr;
-		return getFromImpl(location, f, ctxs);
-	}
-
-	private Expression getFromImpl(Location location, Function f,
-	                               Expression[] ctxs) in {
-		assert(f.step >= Step.Signed);
-		assert(ctxs.length >= f.hasContext + f.hasThis);
-	} do {
-		foreach (i, ref c; ctxs) {
-			c = buildArgument(c, f.type.parameters[i]);
-		}
-
-		auto e = (ctxs.length == 0)
-			? new ConstantExpression(location, new FunctionConstant(f))
-			: build!DelegateExpression(location, ctxs, f);
-
-		// If this is not a property, things are straightforward.
-		if (!f.isProperty) {
-			return e;
-		}
-
-		assert(!f.hasContext);
-		if (f.params.length != ctxs.length - f.hasContext) {
-			import std.format;
-			return getError(
-				e,
-				format!"Invalid number of argument for @property %s."(
-					f.name.toString(context))
-			);
-		}
-
-		Expression[] args;
-		return build!CallExpression(location, f.type.returnType.getType(), e,
-		                            args);
+		import d.semantic.identifier;
+		return
+			IdentifierResolver(pass).buildFunExpression(location, thisExpr, f);
 	}
 
 	Expression visit(AstCallExpression c) {

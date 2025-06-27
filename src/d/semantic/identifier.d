@@ -122,6 +122,18 @@ public:
 		})();
 	}
 
+	/* private */
+	Expression buildFunExpression(Location location, Function f) {
+		return SymbolPostProcessor(&this, location).buildFunExpression(f);
+	}
+
+	/* private */
+	Expression buildFunExpression(Location location, Expression thisExpr,
+	                              Function f) {
+		setThis(thisExpr);
+		return SymbolPostProcessor(&this, location).buildFunExpression(f);
+	}
+
 private:
 	Expression wrap(Location location, Expression e) {
 		if (thisExpr is null) {
@@ -484,21 +496,70 @@ struct IdentifierPostProcessor(bool asAlias) {
 			Identifiable(build!FieldExpression(location, getThis(location), f));
 	}
 
-	Identifiable buildFun(Function f) {
+	private Expression getContext(Function f) in(f.step >= Step.Signed) {
+		import d.semantic.closure;
+		auto ctx = ContextFinder(pass.pass).visit(f);
+
+		import d.ir.expression : build;
+		return build!ContextExpression(location, ctx);
+	}
+
+	private bool hasThis(Function f) {
+		return thisExpr || f.hasThis;
+	}
+
+	private Expression buildFunExpression(Function f) {
 		scheduler.require(f, Step.Signed);
-		if (thisExpr || f.hasThis) {
-			import d.semantic.expression;
-			return Identifiable(ExpressionVisitor(pass.pass)
-				.getFrom(location, getThis(location), f));
+
+		Expression[] ctxs;
+		ctxs.reserve(hasThis(f) + f.hasContext);
+		if (f.hasContext) {
+			ctxs ~= getContext(f);
 		}
 
-		static if (asAlias) {
-			return Identifiable(f);
-		} else {
-			import d.semantic.expression;
-			return
-				Identifiable(ExpressionVisitor(pass.pass).getFrom(location, f));
+		if (hasThis(f)) {
+			ctxs ~= getThis(location);
 		}
+
+		foreach (i, ref c; ctxs) {
+			import d.semantic.expression;
+			c = ExpressionVisitor(pass.pass)
+				.buildArgument(c, f.type.parameters[i]);
+		}
+
+		auto e = (ctxs.length == 0)
+			? new ConstantExpression(location, new FunctionConstant(f))
+			: build!DelegateExpression(location, ctxs, f);
+
+		// If this is not a property, things are straightforward.
+		if (!f.isProperty) {
+			return e;
+		}
+
+		assert(!f.hasContext, "Properties cannot have a context!");
+
+		if (f.params.length == ctxs.length - f.hasContext) {
+			Expression[] args;
+			return build!CallExpression(location, f.type.returnType.getType(),
+			                            e, args);
+		}
+
+		import std.format;
+		return getError(
+			e,
+			location,
+			format!"Invalid argument count for @property %s."(
+				f.name.toString(context)),
+		).expression;
+	}
+
+	Identifiable buildFun(Function f) {
+		scheduler.require(f, Step.Signed);
+		if (asAlias && !hasThis(f)) {
+			return Identifiable(f);
+		}
+
+		return Identifiable(buildFunExpression(f));
 	}
 
 	Identifiable visit(Function f) {
