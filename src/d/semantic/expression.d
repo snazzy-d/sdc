@@ -1154,19 +1154,8 @@ public:
 	}
 
 	Expression getThis(Location location) {
-		import source.name, d.semantic.identifier;
-		auto thisExpr = IdentifierResolver(pass)
-			.build(location, BuiltinName!"this")
-			.apply!(delegate Expression(identified) {
-				static if (is(typeof(identified) : Expression)) {
-					return identified;
-				} else {
-					return getError(location,
-					                "Cannot find a suitable this pointer.");
-				}
-			})();
-
-		return buildImplicitCast(pass, location, thisType.getType(), thisExpr);
+		import d.semantic.identifier;
+		return IdentifierResolver(pass).getThis(location);
 	}
 
 	Expression visit(ThisExpression e) {

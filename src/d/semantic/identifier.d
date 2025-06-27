@@ -104,6 +104,24 @@ public:
 		                IdentifierVisitor(&this).resolveIn(location, i, name));
 	}
 
+	Expression getThis(Location location) {
+		if (thisExpr) {
+			return acquireThis();
+		}
+
+		return build(location, BuiltinName!"this").apply!((identified) {
+			static if (is(typeof(identified) : Expression)) {
+				import d.semantic.caster;
+				return buildImplicitCast(pass, location, thisType.getType(),
+				                         identified);
+			} else {
+				return getError(location,
+				                "Cannot find a suitable this pointer.")
+					.expression;
+			}
+		})();
+	}
+
 private:
 	Expression wrap(Location location, Expression e) {
 		if (thisExpr is null) {
@@ -123,15 +141,6 @@ private:
 		// Make sure we don't consume this twice.
 		scope(exit) thisExpr = null;
 		return thisExpr;
-	}
-
-	Expression getThis(Location location) {
-		if (thisExpr) {
-			return acquireThis();
-		}
-
-		import d.semantic.expression;
-		return ExpressionVisitor(pass).getThis(location);
 	}
 }
 
