@@ -33,6 +33,23 @@ Identifiable getIdentifiableError(T...)(T ts, Location location, string msg) {
 	return Identifiable(getError(ts, location, msg).symbol);
 }
 
+auto isError(Identifiable i) {
+	return i.apply!((identified) {
+		alias T = typeof(identified);
+		static if (is(T : Symbol)) {
+			return typeid(identified) is typeid(ErrorSymbol);
+		} else static if (is(T : Expression)) {
+			return typeid(identified) is typeid(ErrorExpression);
+		} else static if (is(T : Type)) {
+			return identified.kind == TypeKind.Error;
+		} else {
+			import std.format;
+			static assert(0,
+			              format!"Invalid identifiable type %s !"(T.stringof));
+		}
+	})();
+}
+
 /**
  * General entry point to resolve identifiers.
  *
@@ -411,21 +428,6 @@ private:
 	}
 }
 
-public auto isError(Identifiable i) {
-	return i.apply!((identified) {
-		alias T = typeof(identified);
-		static if (is(T : Symbol)) {
-			return typeid(identified) is typeid(ErrorSymbol);
-		} else static if (is(T : Expression)) {
-			return typeid(identified) is typeid(ErrorExpression);
-		} else static if (is(T : Type)) {
-			return identified.kind == TypeKind.Error;
-		} else {
-			static assert(0, "Dafuq ?");
-		}
-	})();
-}
-
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
@@ -579,16 +581,18 @@ struct IdentifierPostProcessor(bool asAlias) {
 			return Identifiable(s);
 		}
 
-		auto dthis = getThis(location);
+		auto baseThisExpr = acquireThis();
 
 		Expression[] exprs;
 		foreach (sym; s.set) {
 			auto f = cast(Function) sym;
 			assert(f, "Only function are implemented.");
 
-			import d.semantic.expression;
-			auto e = ExpressionVisitor(pass.pass).getFrom(location, dthis, f);
-			if (auto ee = cast(ErrorExpression) e) {
+			// Make sure we process all overloads on the same base.
+			setThis(baseThisExpr);
+
+			auto e = buildFunExpression(f);
+			if (typeid(e) is typeid(ErrorExpression)) {
 				continue;
 			}
 
@@ -837,6 +841,8 @@ struct ExpressionDotIdentifierResolver {
 			auto results = AliasThisResolver!identifiableHandler(pass.pass)
 				.resolve(e, a).map!((c) {
 					// Make sure we process all alias this on the same base.
+					// FIXME: We probably want to handle this
+					//        via acquireThis/setThis.
 					auto oldThisExpr = thisExpr;
 					scope(exit) thisExpr = oldThisExpr;
 
@@ -919,8 +925,8 @@ struct ExpressionDotIdentifierResolver {
 				return null;
 			}
 
-			import d.semantic.expression;
-			auto dg = ExpressionVisitor(pass.pass).getFrom(location, e, f);
+			setThis(e);
+			auto dg = buildFunExpression(location, f);
 			if (typeid(dg) is typeid(ErrorExpression)) {
 				return null;
 			}
@@ -944,7 +950,7 @@ struct ExpressionDotIdentifierResolver {
 			}
 		} else if (auto f = cast(Function) a) {
 			auto ufcs = tryUFCS(f);
-			if (ufcs) {
+			if (ufcs !is null) {
 				return ufcs;
 			}
 		}
