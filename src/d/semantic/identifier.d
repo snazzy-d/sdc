@@ -29,6 +29,10 @@ auto apply(alias handler)(Identifiable i) {
 	}
 }
 
+Identifiable getIdentifiableError(T...)(T ts, Location location, string msg) {
+	return Identifiable(getError(ts, location, msg).symbol);
+}
+
 /**
  * General entry point to resolve identifiers.
  *
@@ -313,17 +317,15 @@ private:
 				return Identifiable(ti);
 			} else {
 				import std.format;
-				return Identifiable(
-					getError(identified, iloc,
-					         format!"Unexpected %s."(typeid(identified))).symbol
-				);
+				return getIdentifiableError(
+					identified, iloc,
+					format!"Unexpected %s."(typeid(identified)));
 			}
 		})();
 	}
 
 	Identifiable resolveBracket(I)(Location location, Identifier base,
 	                               I index) {
-		// XXX: dafuq alias this :/
 		return
 			pass.build(base).apply!(b => resolveBracket(location, b, index))();
 	}
@@ -334,7 +336,6 @@ private:
 		auto oldThisExpr = acquireThis();
 		scope(exit) setThis(oldThisExpr);
 
-		// XXX: dafuq alias this :/
 		return
 			pass.build(index).apply!(i => resolveBracket(location, base, i))();
 	}
@@ -366,26 +367,26 @@ private:
 	Identifiable resolveBracket(Location location, Expression base,
 	                            Type index) {
 		import std.format;
-		return Identifiable(getError(
+		return getIdentifiableError(
 			base,
 			index,
 			location,
 			format!"Cannot index expression %s using type %s."(
 				base.toString(context), index.toString(context)),
-		).symbol);
+		);
 	}
 
 	Identifiable resolveBracket(S1, S2)(Location location, S1 base, S2 index)
 			if ((is(S1 : Symbol) || is(S2 : Symbol))
 				    && !(is(S1 : Identifier) || is(S2 : Identifier))) {
 		import std.format;
-		return Identifiable(getError(
+		return getIdentifiableError(
 			base,
 			index,
 			location,
 			format!"%s[%s] is not valid."(base.toString(context),
 			                              index.toString(context)),
-		).symbol);
+		);
 	}
 }
 
@@ -526,10 +527,8 @@ struct IdentifierPostProcessor(bool asAlias) {
 
 		switch (exprs.length) {
 			case 0:
-				return Identifiable(
-					new CompileError(location,
-					                 "No valid candidate in overload set.")
-						.symbol);
+				return getIdentifiableError(
+					location, "No valid candidate in overload set.");
 
 			case 1:
 				return Identifiable(exprs[0]);
@@ -665,10 +664,8 @@ struct SymbolDotIdentifierResolver {
 		}
 
 		import std.format;
-		return Identifiable(new CompileError(
-			location,
-			format!"Cannot resolve %s."(name.toString(context))
-		).symbol);
+		return getIdentifiableError(
+			location, format!"Cannot resolve %s."(name.toString(context)));
 	}
 
 	Identifiable visit(TemplateInstance ti) {
@@ -684,10 +681,8 @@ struct SymbolDotIdentifierResolver {
 		}
 
 		import std.format;
-		return Identifiable(new CompileError(
-			location,
-			format!"Cannot resolve %s."(name.toString(context))
-		).symbol);
+		return getIdentifiableError(
+			location, format!"Cannot resolve %s."(name.toString(context)));
 	}
 
 	Identifiable visit(SymbolAlias s) {
@@ -874,7 +869,7 @@ struct ExpressionDotIdentifierResolver {
 		if (auto os = cast(OverloadSet) a) {
 			auto ufcs = findUFCS(os.set);
 			if (ufcs.length > 0) {
-				assert(ufcs.length == 1, "ambiguous ufcs");
+				assert(ufcs.length == 1, "Ambiguous UFCS!");
 				return ufcs[0];
 			}
 		} else if (auto f = cast(Function) a) {
@@ -928,12 +923,12 @@ struct TypeDotIdentifierResolver {
 		}
 
 		import std.format;
-		return Identifiable(getError(
+		return getIdentifiableError(
 			t,
 			location,
 			format!"%s can't be resolved in type %s."(name.toString(context),
-			                                          t.toString(context))
-		).symbol);
+			                                          t.toString(context)),
+		);
 	}
 
 	Identifiable visit(Type t) {
@@ -1085,9 +1080,8 @@ struct TypeDotIdentifierResolver {
 	}
 
 	Identifiable visit(Pattern p) {
-		return Identifiable(
-			new CompileError(location, "Cannot resolve identifier on pattern.")
-				.symbol);
+		return getIdentifiableError(location,
+		                            "Cannot resolve identifier on pattern.");
 	}
 
 	Identifiable visit(CompileError e) {
