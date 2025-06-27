@@ -31,43 +31,43 @@ private:
 	T value;
 
 public:
-	T load(MemoryOrder order = MemoryOrder.SeqCst) shared {
+	T load()(MemoryOrder order = MemoryOrder.SeqCst) shared {
 		return value;
 	}
 
-	void store(T value, MemoryOrder order = MemoryOrder.SeqCst) shared {
+	void store()(T value, MemoryOrder order = MemoryOrder.SeqCst) shared {
 		this.value = value;
 	}
 
-	T fetchAdd(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
+	T fetchAdd()(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
 		return ifetchAdd(&value, n);
 	}
 
-	T fetchSub(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
+	T fetchSub()(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
 		return ifetchSub(&value, n);
 	}
 
-	T fetchAnd(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
+	T fetchAnd()(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
 		return ifetchAnd(&value, n);
 	}
 
-	T fetchOr(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
+	T fetchOr()(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
 		return ifetchOr(&value, n);
 	}
 
-	T fetchXor(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
+	T fetchXor()(T n, MemoryOrder order = MemoryOrder.SeqCst) shared {
 		return ifetchXor(&value, n);
 	}
 
-	bool cas(ref T expected, T desired,
-	         MemoryOrder order = MemoryOrder.SeqCst) shared {
+	bool cas()(ref T expected, T desired,
+	           MemoryOrder order = MemoryOrder.SeqCst) shared {
 		auto cr = icas(&value, expected, desired);
 		expected = cr.value;
 		return cr.success;
 	}
 
-	bool casWeak(ref T expected, T desired,
-	             MemoryOrder order = MemoryOrder.SeqCst) shared {
+	bool casWeak()(ref T expected, T desired,
+	               MemoryOrder order = MemoryOrder.SeqCst) shared {
 		auto cr = icasWeak(&value, expected, desired);
 		expected = cr.value;
 		return cr.success;

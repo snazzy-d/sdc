@@ -1,7 +1,5 @@
 module d.sync.mutex;
 
-import d.sync.waiter;
-
 import sdc.intrinsics;
 
 import core.stdc.sched;
@@ -16,7 +14,7 @@ private:
 	enum size_t ThreadDataMask = ~(LockBit | QueueLockBit);
 
 public:
-	void lock() shared {
+	void lock()() shared {
 		// No operation done after the lock is taken can be reordered before.
 		size_t expected = 0;
 		if (likely(word.casWeak(expected, LockBit, MemoryOrder.Acquire))) {
@@ -48,7 +46,7 @@ public:
 		return (word.load() & LockBit) != 0;
 	}
 
-	void unlock() shared {
+	void unlock()() shared {
 		// No operation done before the lock is freed can be reordered after.
 		size_t expected = LockBit;
 		if (likely(word.casWeak(expected, 0, MemoryOrder.Release))) {
@@ -58,7 +56,7 @@ public:
 		unlockSlowUnfair();
 	}
 
-	void unlockFairly() shared {
+	void unlockFairly()() shared {
 		// No operation done before the lock is freed can be reordered after.
 		size_t expected = LockBit;
 		if (likely(word.casWeak(expected, 0, MemoryOrder.Release))) {
@@ -68,7 +66,7 @@ public:
 		unlockSlowFair();
 	}
 
-	bool waitFor(bool delegate() condition) shared {
+	bool waitFor()(bool delegate() condition) shared {
 		assert((&this).isHeld(), "Mutex not held!");
 
 		while (true) {
@@ -91,7 +89,7 @@ public:
 	 *      lost forever.
 	 *      This method is almost certainly not what you want to use.
 	 */
-	void __clear() shared {
+	void __clear()() shared {
 		word.store(0);
 	}
 
@@ -117,6 +115,7 @@ private:
 		ThreadData* next;
 		ThreadData* skip;
 
+		import d.sync.waiter;
 		shared Waiter waiter;
 
 		bool isEquivalentTo(const WaitParams* other) const {
