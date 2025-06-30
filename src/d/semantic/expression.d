@@ -280,7 +280,9 @@ private:
 				);
 
 				auto concat = pass.object.getArrayConcat();
-				return callTemplate(location, concat, [lhs, rhs]);
+				auto args = [lhs, rhs];
+				auto callee = handleIFTI(location, concat, args);
+				return callCallable(location, callee, args);
 
 			case AddAssign, SubAssign:
 			case MulAssign, PowAssign:
@@ -624,10 +626,6 @@ public:
 					if (auto s = cast(OverloadSet) identified) {
 						return callOverloadSet(c.location, s, args);
 					}
-
-					if (auto t = cast(Template) identified) {
-						return callTemplate(c.location, t, args);
-					}
 				}
 
 				static if (is(T : Type)) {
@@ -645,16 +643,10 @@ public:
 			}
 		}
 
-		import d.ast.identifier, d.semantic.identifier;
-		if (auto tidi = cast(TemplateInstantiation) c.callee) {
-			// XXX: For some reason this need to be passed a lambda.
-			return IdentifierResolver(pass).build(tidi, args)
-			                               .apply!(i => postProcess(i))();
-		}
-
 		// XXX: For some reason this need to be passed a lambda.
-		return IdentifierResolver(pass).build(c.callee)
-		                               .apply!((i => postProcess(i)))();
+		import d.semantic.identifier;
+		return IdentifierResolver(pass).buildCall(c.location, c.callee, args)
+		                               .apply!(i => postProcess(i))();
 	}
 
 	Expression visit(TypeCallExpression e) {
@@ -777,12 +769,6 @@ public:
 					format!"%s isn't callable."(t.name.toString(pass.context)));
 			}
 		})();
-	}
-
-	private
-	auto callTemplate(Location location, Template t, Expression[] args) {
-		auto callee = handleIFTI(location, t, args);
-		return callCallable(location, callee, args);
 	}
 
 	private Expression callOverloadSet(Location location, OverloadSet s,

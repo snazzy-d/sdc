@@ -21,7 +21,7 @@ struct Array(T, uint N) {
 struct S(uint N) {
 	uint data = N;
 
-	auto getN() {
+	auto getN()() {
 		return data;
 	}
 
@@ -47,7 +47,7 @@ unittest patterns {
 	assert(s.sum!12(k) == 19);
 
 	Array!(uint, 7) a;
-	s.set!uint(a, 3, 42);
+	s.set(a, 3, 42);
 	assert(a.elements[3] == 42);
-	assert(s.get!uint(a, 3) == 42);
+	assert(s.get(a, 3) == 42);
 }

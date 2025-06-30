@@ -98,17 +98,27 @@ public:
 		return postProcess(location, ii);
 	}
 
-	Identifiable build(TemplateInstantiation i, Expression[] args = []) {
-		auto ti = IdentifierVisitor(&this).resolve(i, args);
-		return postProcess(i.location, ti);
+	Identifiable buildCall(Location location, Identifier i, Expression[] args) {
+		Identifiable ii;
+		if (auto ti = cast(TemplateInstantiation) i) {
+			ii = IdentifierVisitor(&this).resolve(ti, args);
+		} else {
+			ii = IdentifierVisitor(&this).visit(i);
+		}
+
+		return prepareCall(location, ii, args);
+	}
+
+	Identifiable finalize(I)(Location location, I i) {
+		return AliasPostProcessor(&this, location).visit(i);
 	}
 
 	Identifiable postProcess(I)(Location location, I i) {
 		return SymbolPostProcessor(&this, location).visit(i);
 	}
 
-	Identifiable finalize(I)(Location location, I i) {
-		return AliasPostProcessor(&this, location).visit(i);
+	Identifiable prepareCall(I)(Location location, I i, Expression[] args) {
+		return CallPostProcessor(&this, location, args).visit(i);
 	}
 
 	Identifiable resolve(Identifier i) {
@@ -117,8 +127,8 @@ public:
 
 	Identifiable resolveIn(I)(Location location, I i, Name name)
 			if (isIdentifiable!I) {
-		return finalize(location,
-		                IdentifierVisitor(&this).resolveIn(location, i, name));
+		auto id = IdentifierVisitor(&this).resolveIn(location, i, name);
+		return finalize(location, id);
 	}
 
 	Expression getThis(Location location) {
@@ -208,7 +218,7 @@ public:
 	}
 
 	Identifiable visit(TemplateInstantiation i) {
-		return resolve(i);
+		return resolve(i, []);
 	}
 
 	Identifiable visit(DotIdentifier i) {
@@ -307,7 +317,7 @@ private:
 		}
 	}
 
-	Identifiable resolve(TemplateInstantiation i, Expression[] fargs = [])
+	Identifiable resolve(TemplateInstantiation i, Expression[] fargs)
 			// We don't want to resolve arguments with the same context we have here.
 			in(acquireThis() is null) {
 		alias astapply = d.ast.identifier.apply;
@@ -434,10 +444,12 @@ alias Interface = d.ir.symbol.Interface;
 enum PostProcessKind {
 	Alias,
 	Symbol,
+	Call,
 }
 
 alias AliasPostProcessor = IdentifierPostProcessor!(PostProcessKind.Alias);
 alias SymbolPostProcessor = IdentifierPostProcessor!(PostProcessKind.Symbol);
+alias CallPostProcessor = IdentifierPostProcessor!(PostProcessKind.Call);
 
 struct IdentifierPostProcessor(PostProcessKind K) {
 	IdentifierPass pass;
@@ -446,10 +458,21 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 	Location location;
 
 	enum IsAlias = K == PostProcessKind.Alias;
+	enum IsCall = K == PostProcessKind.Call;
 
-	this(IdentifierPass pass, Location location) {
-		this.pass = pass;
-		this.location = location;
+	static if (IsCall) {
+		Expression[] args;
+
+		this(IdentifierPass pass, Location location, Expression[] args) {
+			this.pass = pass;
+			this.location = location;
+			this.args = args;
+		}
+	} else {
+		this(IdentifierPass pass, Location location) {
+			this.pass = pass;
+			this.location = location;
+		}
 	}
 
 	Identifiable visit(Identifiable i) {
@@ -663,6 +686,15 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 	}
 
 	Identifiable visit(Template t) {
+		static if (IsCall) {
+			// If we are calling a template, do IFTI.
+			import d.semantic.dtemplate;
+			auto ti =
+				TemplateInstancier(pass.pass, location, [], args).visit(t);
+			auto ii = IdentifierVisitor(pass).resolveIn(location, ti, t.name);
+			return visit(ii);
+		}
+
 		return Identifiable(t);
 	}
 
