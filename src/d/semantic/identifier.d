@@ -431,14 +431,21 @@ private:
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
-alias SymbolPostProcessor = IdentifierPostProcessor!false;
-alias AliasPostProcessor = IdentifierPostProcessor!true;
+enum PostProcessKind {
+	Alias,
+	Symbol,
+}
 
-struct IdentifierPostProcessor(bool asAlias) {
+alias AliasPostProcessor = IdentifierPostProcessor!(PostProcessKind.Alias);
+alias SymbolPostProcessor = IdentifierPostProcessor!(PostProcessKind.Symbol);
+
+struct IdentifierPostProcessor(PostProcessKind K) {
 	IdentifierPass pass;
 	alias pass this;
 
 	Location location;
+
+	enum IsAlias = K == PostProcessKind.Alias;
 
 	this(IdentifierPass pass, Location location) {
 		this.pass = pass;
@@ -466,7 +473,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 	}
 
 	Identifiable visit(Variable v) {
-		if (asAlias && !thisExpr) {
+		if (IsAlias && !thisExpr) {
 			return Identifiable(v);
 		}
 
@@ -475,7 +482,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 	}
 
 	Identifiable visit(GlobalVariable g) {
-		if (asAlias && !thisExpr) {
+		if (IsAlias && !thisExpr) {
 			return Identifiable(g);
 		}
 
@@ -484,7 +491,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 	}
 
 	Identifiable visit(ManifestConstant m) {
-		if (asAlias && !thisExpr) {
+		if (IsAlias && !thisExpr) {
 			return Identifiable(m);
 		}
 
@@ -557,7 +564,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 
 	Identifiable buildFun(Function f) {
 		scheduler.require(f, Step.Signed);
-		if (asAlias && !hasThis(f)) {
+		if (IsAlias && !hasThis(f)) {
 			return Identifiable(f);
 		}
 
@@ -613,7 +620,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 	}
 
 	Identifiable visit(ValueAlias a) {
-		if (asAlias && !thisExpr) {
+		if (IsAlias && !thisExpr) {
 			return Identifiable(a);
 		}
 
@@ -627,11 +634,7 @@ struct IdentifierPostProcessor(bool asAlias) {
 	}
 
 	private auto getSymbolType(S)(S s) {
-		static if (asAlias) {
-			return Identifiable(s);
-		} else {
-			return Identifiable(Type.get(s));
-		}
+		return IsAlias ? Identifiable(s) : Identifiable(Type.get(s));
 	}
 
 	Identifiable visit(TypeAlias a) {
@@ -664,14 +667,16 @@ struct IdentifierPostProcessor(bool asAlias) {
 	}
 
 	Identifiable visit(TemplateInstance ti) {
-		static if (!asAlias) {
-			scheduler.require(ti, Step.Populated);
+		if (IsAlias) {
+			return Identifiable(ti);
+		}
 
-			// Try the eponymous trick.
-			Template t = ti.getTemplate();
-			if (auto s = ti.resolve(location, t.name)) {
-				return visit(s);
-			}
+		scheduler.require(ti, Step.Populated);
+
+		// Try the eponymous trick.
+		Template t = ti.getTemplate();
+		if (auto s = ti.resolve(location, t.name)) {
+			return visit(s);
 		}
 
 		return Identifiable(ti);
