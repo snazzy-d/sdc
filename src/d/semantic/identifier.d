@@ -98,8 +98,8 @@ public:
 		return postProcess(location, ii);
 	}
 
-	Identifiable build(TemplateInstantiation i, Expression[] fargs = []) {
-		auto ti = IdentifierVisitor(&this).resolve(i, fargs);
+	Identifiable build(TemplateInstantiation i, Expression[] args = []) {
+		auto ti = IdentifierVisitor(&this).resolve(i, args);
 		return postProcess(i.location, ti);
 	}
 
@@ -314,7 +314,7 @@ private:
 
 		import d.ast.type : AstType;
 		import std.algorithm, std.array;
-		auto args = i.arguments.map!(a => astapply!((a) {
+		auto targs = i.arguments.map!(a => astapply!((a) {
 			alias T = typeof(a);
 			static if (is(T : Identifier)) {
 				assert(pass.acquireThis() is null);
@@ -346,11 +346,11 @@ private:
 				// XXX: Arguably, we'd like the TemplateInstancier to figure out
 				// if this is a pattern instead of using this hack.
 				if (inPattern) {
-					return Identifiable(Pattern(identified, args).getType());
+					return Identifiable(Pattern(identified, targs).getType());
 				}
 
 				import d.semantic.dtemplate;
-				auto ti = TemplateInstancier(pass.pass, iloc, args, fargs)
+				auto ti = TemplateInstancier(pass.pass, iloc, targs, fargs)
 					.visit(identified);
 				return Identifiable(ti);
 			} else {

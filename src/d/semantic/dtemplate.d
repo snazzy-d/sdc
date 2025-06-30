@@ -17,15 +17,15 @@ private:
 	alias pass this;
 
 	Location location;
-	TemplateArgument[] args;
+	TemplateArgument[] targs;
 	Expression[] fargs;
 
 public:
-	this(SemanticPass pass, Location location, TemplateArgument[] args,
+	this(SemanticPass pass, Location location, TemplateArgument[] targs,
 	     Expression[] fargs = []) {
 		this.pass = pass;
 		this.location = location;
-		this.args = args;
+		this.targs = targs;
 		this.fargs = fargs;
 	}
 
@@ -70,10 +70,10 @@ public:
 	}
 
 private:
-	bool matchArguments(Template t, TemplateArgument[] args, Expression[] fargs,
-	                    TemplateArgument[] matchedArgs) in {
+	bool matchArguments(Template t, TemplateArgument[] targs,
+	                    Expression[] fargs, TemplateArgument[] matchedArgs) in {
 		assert(t.step == Step.Processed);
-		assert(t.parameters.length >= args.length);
+		assert(t.parameters.length >= targs.length);
 		assert(matchedArgs.length == t.parameters.length);
 	} do {
 		if (t.parameters.length == 0) {
@@ -82,7 +82,7 @@ private:
 		}
 
 		uint i = 0;
-		foreach (a; args) {
+		foreach (a; targs) {
 			if (!ArgumentMatcher(pass, matchedArgs, a)
 				    .visit(t.parameters[i++])) {
 				return false;
@@ -185,7 +185,7 @@ private:
 		TemplateArgument[] matchedArgs;
 		matchedArgs.length = t.parameters.length;
 
-		if (matchArguments(t, args, fargs, matchedArgs)) {
+		if (matchArguments(t, targs, fargs, matchedArgs)) {
 			return instanciateFromResolvedArgs(t, matchedArgs);
 		}
 
@@ -198,7 +198,7 @@ private:
 		auto cds = s.set.filter!((s) {
 			if (auto t = cast(Template) s) {
 				pass.scheduler.require(t);
-				return t.parameters.length >= args.length;
+				return t.parameters.length >= targs.length;
 			}
 
 			assert(0, "This isn't a template.");
@@ -215,7 +215,7 @@ private:
 
 			TemplateArgument[] cdArgs;
 			cdArgs.length = t.parameters.length;
-			if (!matchArguments(t, args, fargs, cdArgs)) {
+			if (!matchArguments(t, targs, fargs, cdArgs)) {
 				continue CandidateLoop;
 			}
 
