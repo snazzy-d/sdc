@@ -761,11 +761,7 @@ public:
 	private
 	Expression handleIFTI(Location location, Template t, Expression[] args) {
 		import d.semantic.dtemplate;
-		TemplateArgument[] targs;
-		targs.length = t.parameters.length;
-
 		auto i = TemplateInstancier(pass, location, [], args).visit(t);
-		scheduler.require(i);
 
 		import d.semantic.identifier;
 		return IdentifierResolver(
