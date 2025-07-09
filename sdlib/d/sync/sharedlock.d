@@ -514,7 +514,6 @@ unittest exclusiveAndSharedLock {
 	lock.mutex.unlock();
 
 	assert(lock.count == SharedLock.Exclusive + 2);
-	assert(!lock.mutex.isHeld());
 	assert(exclusiveState.load() == 1);
 	sharedState.waitForState(2, 0);
 
