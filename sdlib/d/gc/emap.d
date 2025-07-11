@@ -270,7 +270,7 @@ unittest ExtentMap {
 
 		// Check before and after.
 		assert(pds[0].extent !is e);
-		assert(pds[npages].extent !is e);
+		assert(pds[npages - 1].extent !is e);
 
 		// Check the extent itself is mapped.
 		auto pd = PageDescriptor(e, e.extentClass);
