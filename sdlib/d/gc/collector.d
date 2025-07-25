@@ -147,7 +147,7 @@ private:
 	/**
 	 * Track the targets to meet before collecting.
 	 */
-	ulong lastTargetAdjustement;
+	ulong lastTargetAdjustment;
 
 	size_t nextTarget = DefaultHeapSize;
 
@@ -191,7 +191,7 @@ private:
 		auto interval =
 			max(lastCollectionStop - lastCollectionStart, 100 * Millisecond);
 
-		while (now - lastTargetAdjustement >= interval) {
+		while (now - lastTargetAdjustment >= interval) {
 			auto delta = nextTarget - lastHeapSize;
 			delta -= delta >> lgTargetDecay;
 			delta += lastHeapSize >> (lgTargetDecay + lgMinOverhead);
@@ -199,12 +199,13 @@ private:
 			auto newTarget = lastHeapSize + delta;
 			if (newTarget == nextTarget) {
 				// Limit reached.
+				lastTargetAdjustment = now;
 				break;
 			}
 
 			nextTarget = newTarget;
 
-			lastTargetAdjustement += interval;
+			lastTargetAdjustment += interval;
 		}
 
 		auto currentHeapSize = Arena.computeUsedPageCount();
@@ -247,7 +248,7 @@ private:
 		target = max(target, tbaseline);
 		target = min(target, tpeak);
 
-		lastTargetAdjustement = lastCollectionStop;
+		lastTargetAdjustment = lastCollectionStop;
 		nextTarget = max(target, minHeapSize);
 	}
 }
