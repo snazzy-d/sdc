@@ -376,7 +376,7 @@ struct DebugInfoScopeGen {
 			dalign,
 			0, // ulong OffsetInBits
 			LLVMDIFlags.Zero,
-			null, // LLVMMetadataRef DerivedFrom
+			base, // LLVMMetadataRef DerivedFrom
 			elements.ptr,
 			cast(uint) elements.length,
 			base, // LLVMMetadataRef VTableHolder
