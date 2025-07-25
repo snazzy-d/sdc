@@ -389,6 +389,23 @@ struct DebugInfoScopeGen {
 		LLVMMetadataReplaceAllUsesWith(tmp, ret);
 		return ret;
 	}
+
+	/**
+	 * FIXME: Various placeholder for symbols that are not implemented.
+	 */
+	LLVMMetadataRef visit(Template t) {
+		// FIXME: Generate debug infos for the template.
+		//        At the moment, ldc doesn't generate anything,
+		//        so it is fine not to.
+		return visit(t.getParentScope());
+	}
+
+	LLVMMetadataRef visit(TemplateInstance i) {
+		// FIXME: Generate debug infos for the template instance.
+		//        At the moment, ldc doesn't generate anything,
+		//        so it is fine not to.
+		return visit(i.getParentScope());
+	}
 }
 
 struct DebugInfoTypeGen {
