@@ -195,7 +195,14 @@ private:
 			auto delta = nextTarget - lastHeapSize;
 			delta -= delta >> lgTargetDecay;
 			delta += lastHeapSize >> (lgTargetDecay + lgMinOverhead);
-			nextTarget = lastHeapSize + delta;
+
+			auto newTarget = lastHeapSize + delta;
+			if (newTarget == nextTarget) {
+				// Limit reached.
+				break;
+			}
+
+			nextTarget = newTarget;
 
 			lastTargetAdjustement += interval;
 		}
