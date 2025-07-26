@@ -20,7 +20,15 @@ struct ExpressionGen {
 		this.pass = pass;
 	}
 
+	this(LocalPass pass, LLVMMetadataRef diScope) {
+		this.pass = pass;
+		this.diScope = diScope;
+	}
+
 	LLVMValueRef visit(Expression e) {
+		auto oldLoc = enterLocation(e.location);
+		scope(exit) exitLocation(oldLoc);
+
 		return this.dispatch!(function LLVMValueRef(Expression e) {
 			import source.exception, std.format;
 			throw new CompileException(
@@ -800,35 +808,7 @@ struct ExpressionGen {
 		}
 
 		auto type = typeGen.getFunctionType(cType);
-		auto call = buildCall(callee, type, args);
-
-		/**
-		 * Generate debug information if need be.
-		 * 
-		 * FIXME: At this stage we only try to generate debug information
-		 *        to describe functions. However, that means we also need
-		 *        to generate location for calls, so that inlining can be
-		 *        done while preserving debug metadata.
-		 *        Ultimately, we want to generate debug information for
-		 *        all generated instructions.
-		 */
-		auto insertBB = LLVMGetInsertBlock(builder);
-		auto fun = LLVMGetBasicBlockParent(insertBB);
-
-		import llvm.c.debugInfo;
-		auto di = LLVMGetSubprogram(fun);
-		if (di !is null) {
-			auto floc = c.location.getFullLocation(context);
-			auto line = floc.getStartLineNumber();
-			auto column = floc.getStartColumn();
-
-			auto loc = LLVMDIBuilderCreateDebugLocation(
-				llvmCtx, line, column, di, null /* LLVMMetadataRef InlinedAt */
-			);
-			LLVMInstructionSetDebugLoc(call, loc);
-		}
-
-		return call;
+		return buildCall(callee, type, args);
 	}
 
 	LLVMValueRef visit(CallExpression c) {
@@ -884,6 +864,9 @@ struct AddressOfGen {
 
 	LLVMValueRef visit(Expression e)
 			in(e.isLvalue, "You can only compute addresses of lvalues.") {
+		auto oldLoc = enterLocation(e.location);
+		scope(exit) exitLocation(oldLoc);
+
 		return this.dispatch(e);
 	}
 

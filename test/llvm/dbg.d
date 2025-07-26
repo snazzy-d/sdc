@@ -31,8 +31,17 @@ struct S {
 uint foo(S s, A a, B b) {
 	return s.foo() + a.foo() + b.foo();
 	// CHECK: _D3dbg3fooFMS3dbg1SC3dbg1AC3dbg1BZk({{.*}} !dbg [[FOO:![a-z0-9\.]+]] {
-	// CHECK: tail call i32 {{%[a-z0-9\.]+}}(ptr nonnull %arg.a), !dbg [[DEBUGLOC0:![a-z0-9\.]+]]
-	// CHECK: tail call i32 {{%[a-z0-9\.]+}}(ptr nonnull %arg.b), !dbg [[DEBUGLOC1:![a-z0-9\.]+]]
+	// CHECK: [[A_VTBL:%[a-z0-9\.]+]] = load ptr, ptr %arg.a, align 8, !dbg [[FOO_LOC0:![a-z0-9\.]+]]
+	// CHECK: [[A_FOO_VPTR:%[a-z0-9\.]+]] = getelementptr inbounds nuw i8, ptr [[A_VTBL]], i64 24, !dbg [[FOO_LOC0]]
+	// CHECK: [[A_FOO_PTR:%[a-z0-9\.]+]] = load ptr, ptr [[A_FOO_VPTR]], align 8, !dbg [[FOO_LOC0]]
+	// CHECK: [[A_FOO_RESULT:%[a-z0-9\.]+]] = tail call i32 [[A_FOO_PTR]](ptr nonnull %arg.a), !dbg [[FOO_LOC0]]
+	// CHECK: [[SUM0:%[a-z0-9\.]+]] = add i32 [[A_FOO_RESULT]], 2, !dbg [[FOO_LOC1:![a-z0-9\.]+]]
+	// CHECK: [[B_VTBL:%[a-z0-9\.]+]] = load ptr, ptr %arg.b, align 8, !dbg [[FOO_LOC2:![a-z0-9\.]+]]
+	// CHECK: [[B_FOO_VPTR:%[a-z0-9\.]+]] = getelementptr inbounds nuw i8, ptr [[B_VTBL]], i64 24, !dbg [[FOO_LOC2]]
+	// CHECK: [[B_FOO_PTR:%[a-z0-9\.]+]] = load ptr, ptr [[B_FOO_VPTR]], align 8, !dbg [[FOO_LOC2]]
+	// CHECK: [[B_FOO_RESULT:%[a-z0-9\.]+]] = tail call i32 [[B_FOO_PTR]](ptr nonnull %arg.b), !dbg [[FOO_LOC2]]
+	// CHECK: [[SUM1:%[a-z0-9\.]+]] = add i32 [[SUM0]], [[B_FOO_RESULT]], !dbg [[FOO_LOC1]]
+	// CHECK: ret i32 [[SUM1]]
 }
 
 // CHECK: !llvm.dbg.cu = !{[[CU:![a-z0-9\.]+]]}
@@ -86,5 +95,6 @@ uint foo(S s, A a, B b) {
 // CHECK-DAG: [[FOO_TYPE:![a-z0-9\.]+]] = !DISubroutineType(types: [[FOO_TYPE_ELEMENTS]])
 // CHECK-DAG: [[FOO]] = distinct !DISubprogram(name: "foo", linkageName: "_D3dbg3fooFMS3dbg1SC3dbg1AC3dbg1BZk", scope: [[MODULE]], file: [[FILE]], line: 31, type: [[FOO_TYPE]], spFlags: DISPFlagDefinition, unit: [[CU]])
 
-// CHECK-DAG: [[DEBUGLOC0]] = !DILocation(line: 32, column: 18, scope: [[FOO]])
-// CHECK-DAG: [[DEBUGLOC1]] = !DILocation(line: 32, column: 28, scope: [[FOO]])
+// CHECK-DAG: [[FOO_LOC0]] = !DILocation(line: 32, column: 18, scope: [[FOO]])
+// CHECK-DAG: [[FOO_LOC1]] = !DILocation(line: 32, column: 8, scope: [[FOO]])
+// CHECK-DAG: [[FOO_LOC2]] = !DILocation(line: 32, column: 28, scope: [[FOO]])

@@ -6,6 +6,8 @@ import d.ir.dscope;
 import d.ir.symbol;
 import d.ir.type;
 
+import source.location;
+
 import llvm.c.core;
 
 // Conflict with Interface in object.di
@@ -29,6 +31,7 @@ struct LocalGen {
 	alias pass this;
 
 	LLVMBuilderRef builder;
+	LLVMMetadataRef diScope;
 
 	LLVMValueRef ctxPtr;
 	Closure[] contexts;
@@ -38,8 +41,10 @@ struct LocalGen {
 	LLVMValueRef lpContext;
 	LLVMBasicBlockRef lpBB;
 
-	this(GlobalPass pass, Closure[] contexts = []) {
+	this(GlobalPass pass, LLVMMetadataRef diScope = null,
+	     Closure[] contexts = []) {
 		this.pass = pass;
+		this.diScope = diScope;
 		this.contexts = contexts;
 
 		// Make sure locals are initialized.
@@ -192,7 +197,7 @@ struct LocalGen {
 
 		// Generate body.
 		auto contexts = f.hasContext ? this.contexts : [];
-		LocalGen(pass, contexts).genBody(f, fun);
+		LocalGen(pass, di, contexts).genBody(f, fun);
 
 		return true;
 	}
@@ -490,5 +495,33 @@ struct LocalGen {
 		}
 
 		return pass.define(a);
+	}
+
+	/**
+	 * Debug helpers.
+	 */
+	auto enterLocation(Location location) {
+		if (diScope is null) {
+			return null;
+		}
+
+		auto oldLoc = LLVMGetCurrentDebugLocation2(builder);
+		auto floc = location.getFullLocation(context);
+		auto line = floc.getStartLineNumber();
+		auto column = floc.getStartColumn();
+
+		import llvm.c.debugInfo;
+		auto loc = LLVMDIBuilderCreateDebugLocation(
+			llvmCtx, line, column, diScope, null /* LLVMMetadataRef InlinedAt */
+		);
+		LLVMSetCurrentDebugLocation2(builder, loc);
+
+		return oldLoc;
+	}
+
+	void exitLocation(LLVMMetadataRef oldLoc) {
+		if (diScope !is null) {
+			LLVMSetCurrentDebugLocation2(builder, oldLoc);
+		}
 	}
 }
