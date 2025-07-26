@@ -308,7 +308,7 @@ struct StatementGen {
 			return basicBlocks[i];
 		}
 
-		// Make sure we have the landign pad ready.
+		// Make sure we have the landing pad ready.
 		genLandingPad(b);
 
 		return basicBlocks[i] =

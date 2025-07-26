@@ -106,7 +106,7 @@ struct ExpressionGen {
 	}
 
 	private auto handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
-		// XXX: should be useless, but parameters's order of evaluation is bugguy.
+		// XXX: should be useless, but parameter's order of evaluation is buggy.
 		auto lhs = visit(e.lhs);
 		auto rhs = visit(e.rhs);
 
@@ -805,11 +805,11 @@ struct ExpressionGen {
 		/**
 		 * Generate debug information if need be.
 		 * 
-		 * FIXME: At this stage we lonly try to generate debug informations
+		 * FIXME: At this stage we only try to generate debug information
 		 *        to describe functions. However, that means we also need
 		 *        to generate location for calls, so that inlining can be
 		 *        done while preserving debug metadata.
-		 *        Ultimately, we want to generate debug informations for
+		 *        Ultimately, we want to generate debug information for
 		 *        all generated instructions.
 		 */
 		auto insertBB = LLVMGetInsertBlock(builder);
