@@ -34,6 +34,11 @@ public:
 		LLVMInitializeNativeTarget();
 		LLVMInitializeNativeAsmPrinter();
 
+		// Always use X86 intel syntax for now.
+		import llvm.c.support;
+		const char*[2] IntelSyntaxArgument = ["dummy", "-x86-asm-syntax=intel"];
+		LLVMParseCommandLineOptions(2, IntelSyntaxArgument.ptr, null);
+
 		version(linux) {
 			enum Reloc = LLVMRelocMode.PIC;
 		} else {
