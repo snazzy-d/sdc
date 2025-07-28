@@ -487,7 +487,6 @@ private:
 			return false;
 		}
 
-		auto ec = pd.extentClass;
 		return e.markDenseSlot(index);
 	}
 
