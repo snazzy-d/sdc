@@ -150,7 +150,7 @@ bool pages_dehugify(void* addr, size_t size) {
 private:
 
 enum PagesFDTag = -1;
-enum MMapFlags = Map.Private | Map.Anonymous;
+enum MMapFlags = Map.Private | Map.Anonymous | Map.NoReserve;
 
 void* os_pages_map(void* addr, size_t size, size_t alignment) {
 	assert(alignment >= PageSize && isPow2(alignment), "Invalid alignment!");
