@@ -28,6 +28,13 @@ struct S {
 	}
 }
 
+uint foo(S s, A a, B b) {
+	return s.foo() + a.foo() + b.foo();
+	// CHECK: _D3dbg3fooFMS3dbg1SC3dbg1AC3dbg1BZk({{.*}} !dbg [[FOO:![a-z0-9\.]+]] {
+	// CHECK: tail call i32 {{%[a-z0-9\.]+}}(ptr nonnull %arg.a), !dbg [[DEBUGLOC0:![a-z0-9\.]+]]
+	// CHECK: tail call i32 {{%[a-z0-9\.]+}}(ptr nonnull %arg.b), !dbg [[DEBUGLOC1:![a-z0-9\.]+]]
+}
+
 // CHECK: !llvm.dbg.cu = !{[[CU:![a-z0-9\.]+]]}
 
 // CHECK-DAG: [[VOID:![a-z0-9\.]+]] = !DIBasicType(name: "void")
@@ -58,11 +65,18 @@ struct S {
 // CHECK-DAG: [[B_REF:![a-z0-9\.]+]] = !DIDerivedType(tag: DW_TAG_reference_type, baseType: [[B]])
 // CHECK-DAG: [[B_FOO_TYPE_ELEMENTS:![a-z0-9\.]+]] = !{[[UINT]], [[B_REF]]}
 // CHECK-DAG: [[B_FOO_TYPE:![a-z0-9\.]+]] = !DISubroutineType(types: [[B_FOO_TYPE_ELEMENTS]])
-// CHECK-DAG: [[B_FOO:![a-z0-9\.]+]] = distinct !DISubprogram(name: "foo", linkageName: "_D3dbg1B3fooFC3dbg1BZk", scope: [[B]], file: [[FILE]], line: 18, type: [[B_FOO_TYPE]], spFlags: DISPFlagDefinition, unit: [[CU]])
+// CHECK-DAG: [[B_FOO]] = distinct !DISubprogram(name: "foo", linkageName: "_D3dbg1B3fooFC3dbg1BZk", scope: [[B]], file: [[FILE]], line: 18, type: [[B_FOO_TYPE]], spFlags: DISPFlagDefinition, unit: [[CU]])
 
 // CHECK-DAG: [[S_FIELDS:![a-z0-9\.]+]] = !{}
 // CHECK-DAG: [[S:![a-z0-9\.]+]] = !DICompositeType(tag: DW_TAG_structure_type, name: "S", scope: [[MODULE]], file: [[FILE]], line: 24, align: 8, elements: [[S_FIELDS]], identifier: "S3dbg1S")
 // CHECK-DAG: [[S_REF:![a-z0-9\.]+]] = !DIDerivedType(tag: DW_TAG_reference_type, baseType: [[S]])
 // CHECK-DAG: [[S_FOO_TYPE_ELEMENTS:![a-z0-9\.]+]] = !{[[UINT]], [[S_REF]]}
 // CHECK-DAG: [[S_FOO_TYPE:![a-z0-9\.]+]] = !DISubroutineType(types: [[S_FOO_TYPE_ELEMENTS]])
-// CHECK-DAG: [[S_FOO:![a-z0-9\.]+]] = distinct !DISubprogram(name: "foo", linkageName: "_D3dbg1S3fooFKS3dbg1SZk", scope: [[S]], file: [[FILE]], line: 25, type: !28, spFlags: DISPFlagDefinition, unit: [[CU]])
+// CHECK-DAG: [[S_FOO]] = distinct !DISubprogram(name: "foo", linkageName: "_D3dbg1S3fooFKS3dbg1SZk", scope: [[S]], file: [[FILE]], line: 25, type: [[S_FOO_TYPE]], spFlags: DISPFlagDefinition, unit: [[CU]])
+
+// CHECK-DAG: [[FOO_TYPE_ELEMENTS:![a-z0-9\.]+]] = !{[[UINT]], [[S]], [[A_REF]], [[B_REF]]}
+// CHECK-DAG: [[FOO_TYPE:![a-z0-9\.]+]] = !DISubroutineType(types: [[FOO_TYPE_ELEMENTS]])
+// CHECK-DAG: [[FOO]] = distinct !DISubprogram(name: "foo", linkageName: "_D3dbg3fooFMS3dbg1SC3dbg1AC3dbg1BZk", scope: [[MODULE]], file: [[FILE]], line: 31, type: [[FOO_TYPE]], spFlags: DISPFlagDefinition, unit: [[CU]])
+
+// CHECK-DAG: [[DEBUGLOC0]] = !DILocation(line: 32, column: 18, scope: [[FOO]])
+// CHECK-DAG: [[DEBUGLOC1]] = !DILocation(line: 32, column: 28, scope: [[FOO]])
