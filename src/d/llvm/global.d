@@ -68,7 +68,7 @@ public:
 		// Dump module content on failure (for debug purpose).
 		scope(failure) LLVMDumpModule(dmodule);
 
-		DebugInfoScopeGen(this).define(m);
+		DebugInfoScopeGen(&this).define(m);
 		foreach (s; m.members) {
 			define(s);
 		}

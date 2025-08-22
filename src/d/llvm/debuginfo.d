@@ -5,6 +5,7 @@ import d.ir.symbol;
 import d.ir.type;
 
 import d.llvm.codegen;
+import d.llvm.global;
 import d.llvm.type;
 
 import source.location;
@@ -99,8 +100,12 @@ struct DebugInfoData {
 }
 
 struct DebugInfoScopeGen {
-	CodeGen pass;
+	GlobalPass pass;
 	alias pass this;
+
+	this(GlobalPass pass) {
+		this.pass = pass;
+	}
 
 	@property
 	auto builder() {
@@ -244,7 +249,7 @@ struct DebugInfoScopeGen {
 		auto name = s.name.toString(context);
 		auto mangle = s.mangle.toString(context);
 
-		auto type = TypeGen(pass).visit(s);
+		auto type = typeGen.visit(s);
 		auto size = 8 * LLVMABISizeOfType(targetData, type);
 		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
 
@@ -314,7 +319,7 @@ struct DebugInfoScopeGen {
 		auto name = c.name.toString(context);
 		auto mangle = c.mangle.toString(context);
 
-		auto type = TypeGen(pass).getClassStructure(c);
+		auto type = typeGen.getClassStructure(c);
 		auto size = 8 * LLVMABISizeOfType(targetData, type);
 		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
 
@@ -390,6 +395,53 @@ struct DebugInfoScopeGen {
 		return ret;
 	}
 
+	LLVMMetadataRef visit(Enum e) {
+		if (auto ePtr = e in symbolScopes) {
+			return *ePtr;
+		}
+
+		// Generating the parent scope might trigger this class's generation.
+		auto parentScope = visit(e.getParentScope());
+		if (auto ePtr = e in symbolScopes) {
+			return *ePtr;
+		}
+
+		auto fl = getFileAndLine(e.location);
+		auto name = e.name.toString(context);
+		auto mangle = e.mangle.toString(context);
+
+		auto t = e.type.getCanonical();
+		auto type = typeGen.visit(t);
+		auto size = 8 * LLVMABISizeOfType(targetData, type);
+		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
+
+		LLVMMetadataRef[] entries;
+
+		if (t.kind == TypeKind.Builtin && t.builtin.canConvertToIntegral()) {
+			entries.length = e.entries.length;
+
+			foreach (i, ee; e.entries) {
+				auto ename = ee.name.toString(context);
+
+				import d.llvm.constant;
+				auto cst = ConstantGen(pass).visit(ee.value);
+
+				// FIXME: We generated that int to begin with, so we shouldn't
+				//        have to extract it in this way.
+				auto value = LLVMConstIntGetZExtValue(cst);
+
+				entries[i] = LLVMDIBuilderCreateEnumerator(
+					builder, ename.ptr, ename.length, value,
+					!t.builtin.isIntegral() || !t.builtin.isSigned());
+			}
+		}
+
+		auto base = DebugInfoTypeGen(pass).visit(e.type);
+		return LLVMDIBuilderCreateEnumerationType(
+			builder, parentScope, name.ptr, name.length, fl.file, fl.line, size,
+			dalign, entries.ptr, cast(uint) entries.length, base);
+	}
+
 	/**
 	 * FIXME: Various placeholder for symbols that are not implemented.
 	 */
@@ -409,10 +461,10 @@ struct DebugInfoScopeGen {
 }
 
 struct DebugInfoTypeGen {
-	private CodeGen pass;
+	private GlobalPass pass;
 	alias pass this;
 
-	this(CodeGen pass) {
+	this(GlobalPass pass) {
 		this.pass = pass;
 	}
 
@@ -507,8 +559,8 @@ struct DebugInfoTypeGen {
 		return getReference(s);
 	}
 
-	LLVMMetadataRef visit(Enum e) {
-		assert(0, "Enum type can't be generated.");
+	LLVMMetadataRef visit(Enum e) in(e.step >= Step.Signed) {
+		return DebugInfoScopeGen(pass).visit(e);
 	}
 
 	LLVMMetadataRef visit(TypeAlias a) {

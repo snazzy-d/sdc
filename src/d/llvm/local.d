@@ -185,7 +185,7 @@ struct LocalGen {
 
 		// Generate debug infos.
 		import d.llvm.debuginfo;
-		auto di = DebugInfoScopeGen(pass.pass).define(f);
+		auto di = DebugInfoScopeGen(pass).define(f);
 
 		import llvm.c.debugInfo;
 		LLVMSetSubprogram(fun, di);
