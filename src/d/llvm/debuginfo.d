@@ -254,23 +254,7 @@ struct DebugInfoScopeGen {
 		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
 
 		// Make sure we have a temporary composite to refer to in case we need it.
-		enum DW_TAG_structure_type = 0x0013;
-		auto tmp = symbolScopes[s] =
-			LLVMDIBuilderCreateReplaceableCompositeType(
-				builder,
-				DW_TAG_structure_type,
-				name.ptr,
-				name.length,
-				parentScope,
-				fl.file,
-				fl.line,
-				0, // uint RuntimeLang
-				size,
-				dalign,
-				LLVMDIFlags.Zero,
-				mangle.ptr,
-				mangle.length,
-			);
+		auto tmp = symbolScopes[s] = LLVMTemporaryMDNode(llvmCtx, null, 0);
 
 		LLVMMetadataRef[] elements;
 		elements.length = s.fields.length;
@@ -324,23 +308,7 @@ struct DebugInfoScopeGen {
 		auto dalign = 8 * LLVMABIAlignmentOfType(targetData, type);
 
 		// Make sure we have a temporary composite to refer to in case we need it.
-		enum DW_TAG_class_type = 0x0002;
-		auto tmp = symbolScopes[c] =
-			LLVMDIBuilderCreateReplaceableCompositeType(
-				builder,
-				DW_TAG_class_type,
-				name.ptr,
-				name.length,
-				parentScope,
-				fl.file,
-				fl.line,
-				0, // uint RuntimeLang
-				size,
-				dalign,
-				LLVMDIFlags.Zero,
-				mangle.ptr,
-				mangle.length,
-			);
+		auto tmp = symbolScopes[c] = LLVMTemporaryMDNode(llvmCtx, null, 0);
 
 		auto baseFieldCount = c.base.fields.length;
 		auto base = visit(c.base);
