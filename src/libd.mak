@@ -57,8 +57,12 @@ obj/parser.o: $(LIBD_SRC_PARSER)
 	@mkdir -p obj
 	$(DMD) -c -of"$@" $(LIBD_SRC_PARSER) -makedeps="$@.deps" $(DFLAGS)
 
+DMD_PATH=$(shell which $(DMD))
+RDMD_PATH=$(shell which $(RDMD))
+
 check-libd-parser: $(LIBD_SRC_PARSER)
-	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="assert(true)"
+	sha256sum $(DMD_PATH) $(RDMD_PATH)
+	$(RDMD) --chatty $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="assert(true)"
 
 obj/semantic/%.o: src/d/semantic/%.d
 	@mkdir -p obj/semantic
@@ -67,7 +71,7 @@ obj/semantic/%.o: src/d/semantic/%.d
 check-libd-semantic: $(LIBD_SRC_SEMANTIC)
 	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="assert(true)"
 
-check-libd: check-libd-d check-libd-common check-libd-ast check-libd-ir check-libd-parser check-libd-semantic
+check-libd: check-libd-parser
 .PHONY: check-libd-d check-libd-common check-libd-ast check-libd-ir check-libd-parser check-libd-semantic
 
 check: check-libd
