@@ -507,7 +507,7 @@ struct LocalGen {
 
 		auto oldLoc = LLVMGetCurrentDebugLocation2(builder);
 		auto floc = location.getFullLocation(context);
-		auto line = floc.getStartLineNumber();
+		auto line = floc.getStartLineNumber() + 1;
 		auto column = floc.getStartColumn();
 
 		import llvm.c.debugInfo;

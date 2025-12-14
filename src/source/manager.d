@@ -35,8 +35,17 @@ public:
 	}
 
 	FullPosition getWithOffset(uint offset) {
-		auto p = sourceManager.getBase(this).getFullPosition(context)
-		                      .getWithOffset(offset);
+		auto p = sourceManager.getBase(this).getWithOffset(offset)
+		                      .getFullPosition(context);
+
+		assert(p.getSource() == this, "Position overflow!");
+		return p;
+	}
+
+	FullPosition getLineOffset(uint line) {
+		auto e = &sourceManager.getSourceEntry(this);
+		auto p = e.base.getWithOffset(e.getLineOffset(line))
+		          .getFullPosition(context);
 
 		assert(p.getSource() == this, "Position overflow!");
 		return p;
@@ -120,13 +129,6 @@ public:
 
 	FileID getFileID(Position p) out(result; p.isMixin() == result.isMixin()) {
 		return p.isFile() ? files.getFileID(p) : mixins.getFileID(p);
-	}
-
-	Position getStartOfLine(Position p) {
-		auto e = &getSourceEntry(p);
-		auto b = e.base;
-		auto o = Location(b, p).length;
-		return b.getWithOffset(e.getLineOffset(o));
 	}
 
 	uint getLineNumber(Position p) {
@@ -375,11 +377,11 @@ private:
 			lastLineLookup = lookup!(l => l, 15)(lines, index, lastLineLookup);
 		}
 
-		return lastLineLookup + 1;
+		return lastLineLookup;
 	}
 
-	uint getLineOffset(uint index) out(result; result <= index) {
-		return lines[getLineNumber(index) - 1];
+	uint getLineOffset(uint line) in(line <= lines.length) {
+		return (line == lines.length) ? cast(uint) content.length : lines[line];
 	}
 
 	bool isIndexInLine(uint index, uint line) {

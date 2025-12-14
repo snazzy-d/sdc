@@ -13,77 +13,107 @@ void outputCaretDiagnostics(FullLocation location, string fixHint) {
 	auto source = location.getSource();
 	auto content = source.getContent();
 
-	auto offset = location.getStartOffset();
-	if (offset >= content.length) {
-		offset = cast(uint) content.length - 1;
+	auto first = location.getStartOffset();
+	if (first >= content.length) {
+		/**
+		 * This typically happens when the input ends unexpectedly.
+		 * In this situation, we want to display the last line of the input
+		 * and put the carret at the end of that line.
+		 */
+		first = cast(uint) content.length - 1;
 	}
 
-	auto indexPosition = source.getWithOffset(offset);
-	uint start = indexPosition.getStartOfLine().getSourceOffset();
+	auto startp = source.getWithOffset(first);
+	auto nline = startp.getLineNumber();
+	uint current = source.getLineOffset(nline).getSourceOffset();
 
-	uint end = location.getStopOffset();
-
-	// This is unexpected end of input.
-	if (end > content.length) {
-		end = cast(uint) content.length;
-	}
-
-	// Trim end of line if apropriate.
-	while (end > start) {
-		end--;
-
-		auto c = content[end];
-		if (c != '\r' && c != '\n') {
-			end++;
-			break;
-		}
-	}
-
-	// Extend the range up to the end of the line.
-	while (end < content.length) {
-		auto c = content[end];
-		if (c == '\r' || c == '\n') {
-			break;
-		}
-
-		end++;
-	}
-
-	auto line = content[start .. end];
-
-	uint index = offset - start;
-	uint length = location.length;
-
-	// Multi line location.
-	if (index < line.length && index + length > line.length) {
-		length = cast(uint) line.length - index;
-	}
-
-	char[] underline;
-	underline.length = index + length;
-	foreach (i; 0 .. index) {
-		underline[i] = (line[i] == '\t') ? '\t' : ' ';
-	}
-
-	underline[index] = '^';
-	foreach (i; index + 1 .. index + length) {
-		underline[i] = '~';
-	}
-
-	assert(index == indexPosition.getColumn());
+	uint column = first - current;
+	assert(column == startp.getColumn());
 
 	stderr.write(location.isMixin() ? "mixin" : source.getFileName().toString(),
-	             ":", indexPosition.getLineNumber(), ":", index, ":");
+	             ":", nline + 1, ":", column, ":");
 
 	stderr.writeColouredText(ConsoleColour.Red, " error: ");
 	stderr.writeColouredText(ConsoleColour.White, fixHint, "\n");
 
-	stderr.writeln(line);
-	stderr.writeColouredText(ConsoleColour.Green, underline, "\n");
+	uint last = location.getStopOffset();
+	if (last > content.length) {
+		/**
+		 * FIXME: I'm pretty sure we should consider this happening a bug.
+		 *        As far as I'm aware, the only case it is happening is when
+		 *        we generate an End token in the lexer, and we could make
+		 *        it zero length and avoid this special case.
+		 */
+		last = cast(uint) content.length;
+	}
+
+	while (current < last) {
+		uint next = source.getLineOffset(++nline).getSourceOffset();
+		scope(success) current = next;
+
+		// Trim end of line if apropriate.
+		uint end = backTrackLineBreak(content, next);
+		auto line = content[current .. end];
+
+		auto c = current < first ? first - current : 0;
+		auto length = end > last ? last - current : line.length;
+
+		char[] underline;
+		underline.length = length;
+
+		foreach (i; 0 .. c) {
+			underline[i] = (line[i] == '\t') ? '\t' : ' ';
+		}
+
+		auto printCarret = current <= first;
+		if (printCarret) {
+			underline[c] = '^';
+		}
+
+		foreach (i; c + printCarret .. length) {
+			underline[i] = '~';
+		}
+
+		stderr.writeln(line);
+		stderr.writeColouredText(ConsoleColour.Green, underline, "\n");
+	}
 
 	if (location.isMixin()) {
 		outputCaretDiagnostics(source.getImportLocation(), "mixed in at");
 	}
+}
+
+template LineBreaksOfLength(uint N) {
+	import source.lexwhitespace;
+	import std.array, std.algorithm;
+	enum LineBreaksOfLength = LineBreaks.filter!(op => op.length == N).array();
+}
+
+uint backTrackLineBreak(string content, uint index)
+		in(index <= content.length && content.length < uint.max) {
+	if (index >= 2) {
+		auto b = content[index - 1];
+		auto a = content[index - 2];
+
+		static foreach (op; LineBreaksOfLength!2) {
+			if (a == op[0] && b == op[1]) {
+				return index - 2;
+			}
+		}
+	}
+
+	if (index >= 1) {
+		auto c = content[index - 1];
+
+		static foreach (op; LineBreaksOfLength!1) {
+			if (c == op[0]) {
+				return index - 1;
+			}
+		}
+	}
+
+	// No match.
+	return index;
 }
 
 /**

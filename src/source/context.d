@@ -55,6 +55,6 @@ unittest {
 	                  .getFullPosition(context);
 	assert(pos.getSource().getContent() == "content");
 	assert(pos.getSource().getFileName().toString() == "file.txt");
-	assert(pos.getLineNumber() == 1);
+	assert(pos.getLineNumber() == 0);
 	assert(pos.getColumn() == 0);
 }

@@ -130,7 +130,7 @@ struct DebugInfoScopeGen {
 	auto getFileAndLine(Location location) {
 		auto floc = location.getFullLocation(context);
 		auto file = debugInfoData.getFile(floc.getSource());
-		auto line = floc.getStartLineNumber();
+		auto line = floc.getStartLineNumber() + 1;
 
 		return FileLine(file, line);
 	}

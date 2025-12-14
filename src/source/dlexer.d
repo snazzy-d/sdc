@@ -628,7 +628,8 @@ struct DLexer {
 				);
 
 			case __Line__:
-				line = t.location.getFullLocation(context).getStartLineNumber();
+				auto floc = t.location.getFullLocation(context);
+				line = floc.getStartLineNumber() + 1;
 				break;
 
 			case End:

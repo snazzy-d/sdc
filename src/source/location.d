@@ -260,16 +260,13 @@ public:
 		return sourceManager.getFileID(this).getSource(context);
 	}
 
-	auto getStartOfLine() {
-		return sourceManager.getStartOfLine(this).getFullPosition(context);
-	}
-
 	uint getLineNumber() {
 		return sourceManager.getLineNumber(this);
 	}
 
 	uint getColumn() {
-		return Location(getStartOfLine(), this).length;
+		auto line = getSource().getLineOffset(getLineNumber());
+		return Location(line, this).length;
 	}
 
 	uint getSourceOffset() {
