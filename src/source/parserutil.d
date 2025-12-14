@@ -17,16 +17,15 @@ auto unexpectedTokenError(Lexer)(ref Lexer lexer, string expected) {
 
 	import std.format;
 	string error;
-	switch (token.type) {
-		case Lexer.TokenType.Invalid:
+	switch (token.type) with (Lexer.TokenType) {
+		case Invalid:
 			error = token.error.toString(lexer.context);
 			break;
 
-		case Lexer.TokenType.End:
-			auto found = token.location.isMixin()
-				? "the end of the input"
-				: "the end of the file";
-			error = format!"expected %s, not %s."(expected, found);
+		case End:
+			error = token.location.isMixin()
+				? format!"expected %s, not the end of the input."(expected)
+				: format!"expected %s, not the end of the file."(expected);
 			break;
 
 		default:
@@ -68,11 +67,11 @@ template MatchingDelimiter(alias openTokenType) {
 	} else static if (openTokenType == TokenType.Less) {
 		alias MatchingDelimiter = TokenType.Greater;
 	} else {
-		import std.conv;
+		import std.format;
 		static assert(
 			0,
-			to!string(openTokenType)
-				~ " isn't a token that goes by pair. Use (, {, [, <"
+			format!"%s isn't a token that goes by pair. Use '(', '{', '[', '<'."(
+				openTokenType),
 		);
 	}
 }
@@ -103,7 +102,7 @@ void popMatchingDelimiter(alias openTokenType, Lexer)(ref Lexer lexer) {
 			case Lexer.TokenType.End:
 				import source.exception;
 				throw new CompileException(startLocation,
-				                           "Matching delimiter not found");
+				                           "Matching delimiter not found.");
 
 			default:
 				break;
@@ -137,7 +136,7 @@ unittest {
 		} catch (IncompleteInputException e) {
 			assert(
 				e.msg == expectedMsg,
-				format!"Error message mismatch: expected `%s`, got `%s`"(
+				format!"Error message mismatch: expected `%s`, got `%s`."(
 					expectedMsg, e.msg)
 			);
 			return;
