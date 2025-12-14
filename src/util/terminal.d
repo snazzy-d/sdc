@@ -18,31 +18,10 @@ void outputCaretDiagnostics(FullLocation location, string fixHint) {
 		offset = cast(uint) content.length - 1;
 	}
 
-	// This is unexpected end of input.
-	uint start = offset;
-	if (start >= content.length) {
-		start = cast(uint) content.length - 1;
-	}
+	auto indexPosition = source.getWithOffset(offset);
+	uint start = indexPosition.getStartOfLine().getSourceOffset();
 
-	// Find first non white char.
-	import std.ascii;
-	while (start > 0 && isWhite(content[start])) {
-		start--;
-	}
-
-	// XXX: We could probably use infos from source manager here.
-	while (start > 0) {
-		start--;
-
-		auto c = content[start];
-		if (c == '\r' || c == '\n') {
-			start++;
-			break;
-		}
-	}
-
-	uint length = location.length;
-	uint end = offset + length;
+	uint end = location.getStopOffset();
 
 	// This is unexpected end of input.
 	if (end > content.length) {
@@ -71,7 +50,9 @@ void outputCaretDiagnostics(FullLocation location, string fixHint) {
 	}
 
 	auto line = content[start .. end];
+
 	uint index = offset - start;
+	uint length = location.length;
 
 	// Multi line location.
 	if (index < line.length && index + length > line.length) {
@@ -89,7 +70,6 @@ void outputCaretDiagnostics(FullLocation location, string fixHint) {
 		underline[i] = '~';
 	}
 
-	auto indexPosition = source.getBase().getWithOffset(offset);
 	assert(index == indexPosition.getColumn());
 
 	stderr.write(location.isMixin() ? "mixin" : source.getFileName().toString(),

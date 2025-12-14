@@ -30,11 +30,16 @@ public:
 	}
 
 	string getSlice(Location loc) {
-		return getContent()[getOffset(loc.start) .. getOffset(loc.stop)];
+		auto i = getOffset(loc.start);
+		return getContent()[i .. i + loc.length];
 	}
 
-	FullPosition getBase() {
-		return sourceManager.getBase(this).getFullPosition(context);
+	FullPosition getWithOffset(uint offset) {
+		auto p = sourceManager.getBase(this).getFullPosition(context)
+		                      .getWithOffset(offset);
+
+		assert(p.getSource() == this, "Position overflow!");
+		return p;
 	}
 
 	FullName getFileName() {
@@ -52,7 +57,7 @@ public:
 package:
 	uint getOffset(Position p)
 			in(p.getFullPosition(context).getSource() == this) {
-		return p.offset - sourceManager.getOffset(this);
+		return Location(sourceManager.getBase(this), p).length;
 	}
 }
 
@@ -117,15 +122,17 @@ public:
 		return p.isFile() ? files.getFileID(p) : mixins.getFileID(p);
 	}
 
-	uint getLineNumber(Position p) {
+	Position getStartOfLine(Position p) {
 		auto e = &getSourceEntry(p);
-		return e.getLineNumber(p.offset - e.base.offset);
+		auto b = e.base;
+		auto o = Location(b, p).length;
+		return b.getWithOffset(e.getLineOffset(o));
 	}
 
-	uint getColumn(Position p) {
+	uint getLineNumber(Position p) {
 		auto e = &getSourceEntry(p);
-		auto o = p.offset - e.base.offset;
-		return o - e.getLineOffset(o);
+		auto o = Location(e.base, p).length;
+		return e.getLineNumber(o);
 	}
 
 	void registerLineDirective(Position p, Name filename, uint line) {
@@ -152,10 +159,6 @@ private:
 
 	Position getBase(FileID f) {
 		return getSourceEntry(f).base;
-	}
-
-	uint getOffset(FileID f) {
-		return getBase(f).offset;
 	}
 
 	Name getFileName(FileID f) {

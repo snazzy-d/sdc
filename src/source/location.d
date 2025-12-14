@@ -32,7 +32,7 @@ public:
 
 	@property
 	uint length() const {
-		return stop.offset - start.offset;
+		return stop.raw - start.raw;
 	}
 
 	@property
@@ -46,6 +46,8 @@ public:
 	}
 
 	auto spanTo(Location end) in {
+		assert(isMixin() == end.isMixin());
+
 		import std.format;
 		assert(stop.offset <= end.stop.offset,
 		       format!"%s > %s"(stop.offset, end.stop.offset));
@@ -54,6 +56,8 @@ public:
 	}
 
 	auto spanTo(Position end) const in {
+		assert(isMixin() == end.isMixin());
+
 		import std.format;
 		assert(stop.offset <= end.offset,
 		       format!"%s > %s"(stop.offset, end.offset));
@@ -115,6 +119,30 @@ public:
 	int opCmp(Position rhs) const {
 		return raw - rhs.raw;
 	}
+}
+
+unittest {
+	uint i = 0;
+	auto p = *cast(Position*) &i;
+	assert(p.isFile());
+	assert(!p.isMixin());
+	assert(p.offset == 0);
+
+	p = p.getWithOffset(12345);
+	assert(p.isFile());
+	assert(!p.isMixin());
+	assert(p.offset == 12345);
+
+	i = 1 << 31;
+	p = *cast(Position*) &i;
+	assert(!p.isFile());
+	assert(p.isMixin());
+	assert(p.offset == 0);
+
+	p = p.getWithOffset(12345);
+	assert(!p.isFile());
+	assert(p.isMixin());
+	assert(p.offset == 12345);
 }
 
 /**
@@ -188,6 +216,10 @@ public:
 	uint getStartOffset() {
 		return start.getSourceOffset();
 	}
+
+	uint getStopOffset() {
+		return getStartOffset() + length;
+	}
 }
 
 /**
@@ -216,7 +248,7 @@ public:
 	}
 
 	auto getWithOffset(uint offset)
-			out(result; result.isMixin() == isMixin(), "Position overflow") {
+			out(result; result.isMixin() == isMixin(), "Position overflow!") {
 		return position.getWithOffset(offset).getFullPosition(context);
 	}
 
@@ -228,12 +260,16 @@ public:
 		return sourceManager.getFileID(this).getSource(context);
 	}
 
+	auto getStartOfLine() {
+		return sourceManager.getStartOfLine(this).getFullPosition(context);
+	}
+
 	uint getLineNumber() {
 		return sourceManager.getLineNumber(this);
 	}
 
 	uint getColumn() {
-		return sourceManager.getColumn(this);
+		return Location(getStartOfLine(), this).length;
 	}
 
 	uint getSourceOffset() {
