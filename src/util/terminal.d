@@ -91,29 +91,43 @@ template LineBreaksOfLength(uint N) {
 
 uint backTrackLineBreak(string content, uint index)
 		in(index <= content.length && content.length < uint.max) {
-	if (index >= 2) {
-		auto b = content[index - 1];
-		auto a = content[index - 2];
-
-		static foreach (op; LineBreaksOfLength!2) {
-			if (a == op[0] && b == op[1]) {
-				return index - 2;
-			}
-		}
-	}
-
-	if (index >= 1) {
-		auto c = content[index - 1];
-
-		static foreach (op; LineBreaksOfLength!1) {
-			if (c == op[0]) {
-				return index - 1;
+	static foreach_reverse (N; 1 .. 4) {
+		if (index >= N) {
+			auto suffix = content[index - N .. index];
+			static foreach (op; LineBreaksOfLength!N) {
+				if (suffix == op) {
+					return index - N;
+				}
 			}
 		}
 	}
 
 	// No match.
 	return index;
+}
+
+unittest {
+	void check(string s) {
+		auto l = cast(uint) s.length;
+		assert(backTrackLineBreak(s, l) == l);
+
+		import source.lexwhitespace;
+		foreach (op; LineBreaks) {
+			auto c = s ~ op;
+			auto cl = cast(uint) c.length;
+
+			assert(backTrackLineBreak(c, cl) == l);
+			assert(backTrackLineBreak(c, cl - 1) == cl - 1 - (op == "\r\n"));
+
+			c ~= '0';
+			assert(backTrackLineBreak(c, cl) == l);
+			assert(backTrackLineBreak(c, cl + 1) == cl + 1);
+		}
+	}
+
+	check("");
+	check("0");
+	check("00");
 }
 
 /**
