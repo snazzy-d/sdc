@@ -7,8 +7,10 @@ import d.gc.spec;
 
 struct ConcurentQueue(T) {
 private:
-	// XXX: Not strictly necessary but this makes the math in there simpler.
-	static assert(T.sizeof == PointerSize, "Expected pointer sized elements!");
+	static assert(PointerSize <= T.sizeof && T.sizeof <= CacheLine);
+	static assert(isPow2(T.sizeof), "The size of T must be a power of 2!");
+
+	enum TInCacheLine = CacheLine / T.sizeof;
 
 	/**
 	 * In order to avoid false sharing, we make sure each of the control
@@ -62,7 +64,7 @@ public:
 		assert(isAligned(buffer.ptr, CacheLine),
 		       "The buffer must be cache line aligned.");
 		assert(isPow2(buffer.length), "The buffer size must be a power of 2!");
-		assert(buffer.length >= PointerInCacheLine,
+		assert(buffer.length >= TInCacheLine,
 		       "The buffer must be larger than a cache line!");
 
 		_buffer = buffer;
@@ -107,8 +109,7 @@ private:
 
 		while (true) {
 			// Make sure we touch at most 2 cache lines.
-			auto m =
-				2 * PointerInCacheLine - alignDownOffset(r, PointerInCacheLine);
+			auto m = 2 * TInCacheLine - alignDownOffset(r, TInCacheLine);
 			count = min(elements.length, m);
 
 			auto t = tail.load();
@@ -172,8 +173,7 @@ private:
 
 		while (true) {
 			// Make sure we touch at most 2 cache lines.
-			auto m =
-				2 * PointerInCacheLine - alignDownOffset(c, PointerInCacheLine);
+			auto m = 2 * TInCacheLine - alignDownOffset(c, TInCacheLine);
 			count = min(elements.length, m);
 
 			auto h = head.load();
