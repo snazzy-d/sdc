@@ -125,13 +125,13 @@ struct RuntimeGen {
 	}
 
 	auto genHalt(Location location, LLVMValueRef message) {
-		auto floc = location.getFullLocation(context);
-		auto line = floc.getStartLineNumber() + 1;
+		auto dloc = location.start.getFullPosition(context).getDebugLocation();
 
 		import d.llvm.constant;
 		auto str = ConstantGen(pass.pass)
-			.buildDString(floc.getSource().getFileName().toString());
-		LLVMValueRef[3] args = [message, str, LLVMConstInt(i32, line, false)];
+			.buildDString(dloc.filename.toString(context));
+		LLVMValueRef[3] args =
+			[message, str, LLVMConstInt(i32, dloc.line, false)];
 
 		return message
 			? ExpressionGen(pass).callGlobal(getAssertFailMsgFunction(), args)
@@ -153,13 +153,12 @@ struct RuntimeGen {
 	}
 
 	auto genArrayOutOfBounds(Location location) {
-		auto floc = location.getFullLocation(context);
-		auto line = floc.getStartLineNumber() + 1;
+		auto dloc = location.start.getFullPosition(context).getDebugLocation();
 
 		import d.llvm.constant;
 		auto str = ConstantGen(pass.pass)
-			.buildDString(floc.getSource().getFileName().toString());
-		LLVMValueRef[2] args = [str, LLVMConstInt(i32, line, false)];
+			.buildDString(dloc.filename.toString(context));
+		LLVMValueRef[2] args = [str, LLVMConstInt(i32, dloc.line, false)];
 
 		return
 			ExpressionGen(pass).callGlobal(getArrayOutOfBoundsFunction(), args);

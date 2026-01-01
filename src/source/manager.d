@@ -137,10 +137,34 @@ public:
 		return e.getLineNumber(o);
 	}
 
+	DebugLocation getDebugLocation(
+		Position p,
+		bool useLineDirective = EnableLineDirectiveByDefault
+	) {
+		// Find an actual file.
+		while (p.isMixin()) {
+			p = getImportLocation(getFileID(p)).start;
+		}
+
+		auto id = getFileID(p);
+		auto e = &getSourceEntry(id);
+		auto o = Location(e.base, p).length;
+
+		auto filename = e.filename;
+		auto line = e.getLineNumber(o);
+		auto column = o - e.getLineOffset(line);
+
+		if (useLineDirective && e.hasLineDirectives) {
+			assert(0, "Line directive not supported!");
+		}
+
+		return DebugLocation(filename, line + 1, column + 1);
+	}
+
 	void registerLineDirective(Position p, Name filename, uint line) {
 		auto id = getFileID(p);
 
-		getSourceEntry(id)._hasLineDirectives = true;
+		getSourceEntry(id).hasLineDirectives = true;
 		lineDirectives.update(
 			id,
 			() => LineDirectives(p, filename, line),
@@ -320,7 +344,7 @@ private:
 	import std.bitmanip;
 	mixin(bitfields!(
 		// sdfmt off
-		bool, "_hasLineDirectives", 1,
+		bool, "hasLineDirectives", 1,
 		ulong, "_pad", ulong.sizeof * 8 - 1,
 		// sdfmt on
 	));

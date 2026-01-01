@@ -2,6 +2,9 @@ module source.location;
 
 import source.context;
 
+// Line directives aren't fully implemented, so this is false by default.
+enum EnableLineDirectiveByDefault = false;
+
 /**
  * Struct representing a location in a source file.
  * Effectively a pair of Position within the source file.
@@ -154,16 +157,6 @@ private:
 	Context context;
 
 	@property
-	inout(FullPosition) start() inout {
-		return inout(FullPosition)(location.start, context);
-	}
-
-	@property
-	inout(FullPosition) stop() inout {
-		return inout(FullPosition)(location.stop, context);
-	}
-
-	@property
 	ref sourceManager() inout {
 		return context.sourceManager;
 	}
@@ -193,6 +186,16 @@ public:
 		return _location;
 	}
 
+	@property
+	inout(FullPosition) start() inout {
+		return inout(FullPosition)(location.start, context);
+	}
+
+	@property
+	inout(FullPosition) stop() inout {
+		return inout(FullPosition)(location.stop, context);
+	}
+
 	auto getSource() out(result; result.isMixin() == isMixin()) {
 		return start.getSource();
 	}
@@ -203,14 +206,6 @@ public:
 
 	string getSlice() {
 		return getSource().getSlice(this);
-	}
-
-	uint getStartLineNumber() {
-		return start.getLineNumber();
-	}
-
-	uint getStartColumn() {
-		return start.getColumn();
 	}
 
 	uint getStartOffset() {
@@ -256,6 +251,12 @@ public:
 		return position.getWithOffsets(start, stop).getFullLocation(context);
 	}
 
+	auto getDebugLocation(
+		bool useLineDirective = EnableLineDirectiveByDefault
+	) {
+		return sourceManager.getDebugLocation(this, useLineDirective);
+	}
+
 	auto getSource() out(result; result.isMixin() == isMixin()) {
 		return sourceManager.getFileID(this).getSource(context);
 	}
@@ -272,4 +273,12 @@ public:
 	uint getSourceOffset() {
 		return getSource().getOffset(this);
 	}
+}
+
+struct DebugLocation {
+	import source.name;
+	Name filename;
+
+	uint line;
+	uint column;
 }

@@ -506,13 +506,15 @@ struct LocalGen {
 		}
 
 		auto oldLoc = LLVMGetCurrentDebugLocation2(builder);
-		auto floc = location.getFullLocation(context);
-		auto line = floc.getStartLineNumber() + 1;
-		auto column = floc.getStartColumn();
+		auto dloc = location.start.getFullPosition(context).getDebugLocation();
 
 		import llvm.c.debugInfo;
 		auto loc = LLVMDIBuilderCreateDebugLocation(
-			llvmCtx, line, column, diScope, null /* LLVMMetadataRef InlinedAt */
+			llvmCtx,
+			dloc.line,
+			dloc.column,
+			diScope,
+			null /* LLVMMetadataRef InlinedAt */
 		);
 		LLVMSetCurrentDebugLocation2(builder, loc);
 

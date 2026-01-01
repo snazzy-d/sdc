@@ -75,6 +75,11 @@ struct DebugInfoData {
 		}
 	}
 
+	/**
+	 * FIXME: We need to generate files from DebugLocation instead of Source.
+	 *        This ensures that no in contract is required and ensure line
+	 *        directives works as expected.
+	 */
 	auto getFile(Source source) in(source.isFile()) {
 		if (files.length <= source) {
 			/**
@@ -130,7 +135,7 @@ struct DebugInfoScopeGen {
 	auto getFileAndLine(Location location) {
 		auto floc = location.getFullLocation(context);
 		auto file = debugInfoData.getFile(floc.getSource());
-		auto line = floc.getStartLineNumber() + 1;
+		auto line = floc.start.getDebugLocation().line;
 
 		return FileLine(file, line);
 	}

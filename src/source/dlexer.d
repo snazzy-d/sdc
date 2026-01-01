@@ -629,7 +629,7 @@ struct DLexer {
 
 			case __Line__:
 				auto floc = t.location.getFullLocation(context);
-				line = floc.getStartLineNumber() + 1;
+				line = floc.start.getDebugLocation().line;
 				break;
 
 			case End:
@@ -654,7 +654,8 @@ struct DLexer {
 				break;
 
 			case __File__:
-				file = t.location.getFullLocation(context).getFileName();
+				auto floc = t.location.getFullLocation(context);
+				file = floc.start.getDebugLocation().filename;
 				break;
 
 			case End:

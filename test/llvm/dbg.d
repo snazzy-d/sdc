@@ -95,6 +95,6 @@ uint foo(S s, A a, B b) {
 // CHECK-DAG: [[FOO_TYPE:![a-z0-9\.]+]] = !DISubroutineType(types: [[FOO_TYPE_ELEMENTS]])
 // CHECK-DAG: [[FOO]] = distinct !DISubprogram(name: "foo", linkageName: "_D3dbg3fooFMS3dbg1SC3dbg1AC3dbg1BZk", scope: [[MODULE]], file: [[FILE]], line: 31, type: [[FOO_TYPE]], spFlags: DISPFlagDefinition, unit: [[CU]])
 
-// CHECK-DAG: [[FOO_LOC0]] = !DILocation(line: 32, column: 18, scope: [[FOO]])
-// CHECK-DAG: [[FOO_LOC1]] = !DILocation(line: 32, column: 8, scope: [[FOO]])
-// CHECK-DAG: [[FOO_LOC2]] = !DILocation(line: 32, column: 28, scope: [[FOO]])
+// CHECK-DAG: [[FOO_LOC0]] = !DILocation(line: 32, column: 19, scope: [[FOO]])
+// CHECK-DAG: [[FOO_LOC1]] = !DILocation(line: 32, column: 9, scope: [[FOO]])
+// CHECK-DAG: [[FOO_LOC2]] = !DILocation(line: 32, column: 29, scope: [[FOO]])
