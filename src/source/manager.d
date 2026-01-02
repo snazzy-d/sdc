@@ -72,21 +72,60 @@ package:
 
 struct LineDirectives {
 	struct LineEntry {
-		Position position;
+		uint offset;
+		uint sline;
 		Name filename;
 		uint line;
 	}
 
-	LineEntry[] lineDirectives;
+	LineEntry[] lineEntries;
+	uint lastLineEntry;
 
-	this(Position p, Name filename, uint line) {
-		lineDirectives = [LineEntry(p, filename, line)];
+	this(Name filename) {
+		lineEntries = [LineEntry(0, 0, filename, 1)];
 	}
 
-	void registerLineDirective(Position p, Name filename, uint line) {
-		if (lineDirectives[$ - 1].position < p) {
-			lineDirectives ~= LineEntry(p, filename, line);
+	ref
+	LineDirectives registerLineDirective(uint offset, uint sline, Name filename,
+	                                     uint line) in(lineEntries.length > 0) {
+		auto previous = lineEntries[$ - 1];
+		assert(previous.offset < offset,
+		       "Line directives must be register in order!");
+
+		/**
+		 * FIXME: We need to diferentiate in between the case where no
+		 *        filename is supplied and the case where it is explicitely
+		 *        set as an empty string.
+		 */
+		if (filename == BuiltinName!"") {
+			filename = previous.filename;
 		}
+
+		lineEntries ~= LineEntry(offset, sline, filename, line);
+		return this;
+	}
+
+	auto findNearestLineEntry(uint offset) {
+		if (!isOffsetInEntry(offset, lastLineEntry)) {
+			import source.util.lookup;
+			lastLineEntry =
+				lookup!(e => e.offset, 8)(lineEntries, offset, lastLineEntry);
+		}
+
+		return lineEntries[lastLineEntry];
+	}
+
+	bool isOffsetInEntry(uint offset, uint entry) {
+		auto entryOffset = lineEntries[entry].offset;
+		if (offset < entryOffset) {
+			return false;
+		}
+
+		if (offset == entryOffset || entry + 1 == lineEntries.length) {
+			return true;
+		}
+
+		return offset < lineEntries[entry + 1].offset;
 	}
 }
 
@@ -106,7 +145,7 @@ public:
 		Location location,
 		Name filename,
 		Name directory,
-		string content
+		string content,
 	) out(result; result.isFile()) {
 		return files
 			.registerFileZeroTerminated(location, filename, directory, content);
@@ -137,10 +176,7 @@ public:
 		return e.getLineNumber(o);
 	}
 
-	DebugLocation getDebugLocation(
-		Position p,
-		bool useLineDirective = EnableLineDirectiveByDefault
-	) {
+	DebugLocation getDebugLocation(Position p, bool useLineDirective = true) {
 		// Find an actual file.
 		while (p.isMixin()) {
 			p = getImportLocation(getFileID(p)).start;
@@ -150,26 +186,35 @@ public:
 		auto e = &getSourceEntry(id);
 		auto o = Location(e.base, p).length;
 
-		auto filename = e.filename;
 		auto line = e.getLineNumber(o);
-		auto column = o - e.getLineOffset(line);
+		auto column = o - e.getLineOffset(line) + 1;
 
-		if (useLineDirective && e.hasLineDirectives) {
-			assert(0, "Line directive not supported!");
+		if (!useLineDirective || !e.hasLineDirectives) {
+			return DebugLocation(e.filename, line + 1, column);
 		}
 
-		return DebugLocation(filename, line + 1, column + 1);
+		auto lds = lineDirectives[id];
+		auto lde = lds.findNearestLineEntry(o);
+
+		line += lde.line;
+		line -= lde.sline;
+
+		return DebugLocation(lde.filename, line, column);
 	}
 
 	void registerLineDirective(Position p, Name filename, uint line) {
 		auto id = getFileID(p);
+		auto e = &getSourceEntry(id);
+		auto o = Location(e.base, p).length;
+		auto sline = e.getLineNumber(o);
 
-		getSourceEntry(id).hasLineDirectives = true;
+		e.hasLineDirectives = true;
 		lineDirectives.update(
 			id,
-			() => LineDirectives(p, filename, line),
+			() => LineDirectives(e.filename)
+				.registerLineDirective(o, sline, filename, line),
 			(ref LineDirectives ds) =>
-				ds.registerLineDirective(p, filename, line)
+				ds.registerLineDirective(o, sline, filename, line)
 		);
 	}
 
@@ -364,12 +409,12 @@ public:
 	}
 
 	@property
-	auto filename() const in(base.isFile()) {
+	Name filename() const in(base.isFile()) {
 		return _filename;
 	}
 
 	@property
-	auto directory() const in(base.isFile()) {
+	Name directory() const in(base.isFile()) {
 		return _directory;
 	}
 

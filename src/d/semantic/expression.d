@@ -63,6 +63,22 @@ struct ExpressionVisitor {
 		return new ConstantExpression(e.location, new StringConstant(e.value));
 	}
 
+	Expression visit(__File__Literal e) {
+		auto location = e.location;
+		auto dloc = location.start.getFullPosition(context).getDebugLocation();
+
+		return new ConstantExpression(
+			location, new StringConstant(dloc.filename.toString(context)));
+	}
+
+	Expression visit(__Line__Literal e) {
+		auto location = e.location;
+		auto dloc = location.start.getFullPosition(context).getDebugLocation();
+
+		return new ConstantExpression(
+			location, new IntegerConstant(dloc.line, BuiltinType.Int));
+	}
+
 private:
 	ErrorExpression getError(T...)(T ts, Location location, string msg) {
 		return .getError(ts, location, msg).expression;

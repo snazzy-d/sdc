@@ -2,9 +2,6 @@ module source.location;
 
 import source.context;
 
-// Line directives aren't fully implemented, so this is false by default.
-enum EnableLineDirectiveByDefault = false;
-
 /**
  * Struct representing a location in a source file.
  * Effectively a pair of Position within the source file.
@@ -251,9 +248,7 @@ public:
 		return position.getWithOffsets(start, stop).getFullLocation(context);
 	}
 
-	auto getDebugLocation(
-		bool useLineDirective = EnableLineDirectiveByDefault
-	) {
+	auto getDebugLocation(bool useLineDirective = true) {
 		return sourceManager.getDebugLocation(this, useLineDirective);
 	}
 
