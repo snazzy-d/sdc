@@ -9,7 +9,7 @@ module source.util.lookup;
 uint lookup(alias f, uint N, T)(T[] items, uint needle, uint pivot)
 		in(items.length > 0, "items must not be empty")
 		in(pivot < items.length) {
-	return (needle > f(items[pivot]))
+	return (needle >= f(items[pivot]))
 		? forwardLinearLookup!(f, N, binaryLookup)(items, needle, pivot)
 		: backwardLinearLookup!(f, N, binaryLookup)(items, needle, pivot);
 }
@@ -17,19 +17,19 @@ uint lookup(alias f, uint N, T)(T[] items, uint needle, uint pivot)
 unittest {
 	alias bl5 = lookup!(i => i, 5, uint);
 
-	uint[] items = [1, 3, 5, 7, 11, 13, 17, 23];
+	uint[16] entries =
+		[1, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53];
 
-	assert(bl5(items, 5, 6) == 2);
-	assert(bl5(items, 16, 6) == 5);
-	assert(bl5(items, 4, 3) == 1);
-	assert(bl5(items, 2, 3) == 0);
-	assert(bl5(items, 1, 6) == 0);
-	assert(bl5(items, 1, 1) == 0);
-	assert(bl5(items, 5, 7) == 2);
-	assert(bl5(items, 3, 7) == 1);
-	assert(bl5(items, 22, 4) == 6);
-	assert(bl5(items, 23, 6) == 7);
-	assert(bl5(items, 42, 0) == 7);
+	foreach (uint i, e; entries) {
+		foreach (uint p; 0 .. entries.length) {
+			if (i > 0) {
+				assert(bl5(entries, e - 1, p) == i - 1);
+			}
+
+			assert(bl5(entries, e, p) == i);
+			assert(bl5(entries, e + 1, p) == i);
+		}
+	}
 }
 
 private:
@@ -37,25 +37,29 @@ private:
 uint forwardLinearLookup(alias f, uint N, alias fallback,
                          T)(T[] items, uint needle, uint first)
 		in(items.length > 0, "items must not be empty")
-		in(first < items.length - 1, "first is out of bound")
-		in(needle >= f(items[first + 1]), "needle is before first") {
+		in(first < items.length, "first is out of bound")
+		in(needle >= f(items[first]), "needle is before first") {
 	auto l = cast(uint) items.length;
 
-	uint stop = first + N + 2;
-	if (stop > l) {
-		stop = l;
+	auto last = first + N;
+	auto truncate = last >= l;
+	if (truncate) {
+		last = l - 1;
 	}
 
-	auto i = first + 2;
-	if (i < l) {
-		do {
-			if (f(items[i]) > needle) {
-				return i - 1;
-			}
-		} while (++i != stop);
+	foreach (i; first .. last) {
+		auto e = f(items[i + 1]);
+		if (e >= needle) {
+			return i + (e == needle);
+		}
 	}
 
-	return fallback!f(items, needle, stop - 1, l);
+	// We are past the end, so we know the last item is a match.
+	if (truncate) {
+		return last;
+	}
+
+	return fallback!f(items, needle, last, l);
 }
 
 unittest {
@@ -66,16 +70,36 @@ unittest {
 	alias fll5 = forwardLinearLookup!(i => i, 5, testFallback, uint);
 	alias fll8 = forwardLinearLookup!(i => i, 8, testFallback, uint);
 
-	uint[] items = [1, 3, 5, 7, 11, 13, 17, 23];
+	uint[16] entries =
+		[1, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53];
 
-	assert(fll5(items, 5, 0) == 2);
-	assert(fll5(items, 16, 0) == 5);
-	assert(fll5(items, 17, 0) == -1);
-	assert(fll5(items, 17, 1) == 6);
-	assert(fll8(items, 17, 0) == 6);
-	assert(fll8(items, 22, 0) == 6);
-	assert(fll5(items, 6, 1) == 2);
-	assert(fll5(items, 5, 1) == 2);
+	foreach (uint i, e; entries) {
+		foreach (uint p; 0 .. i) {
+			auto delta = i - p;
+
+			if (i > 0) {
+				auto e5 = delta <= 5 ? i : 0;
+				assert(fll5(entries, e - 1, p) == e5 - 1);
+			}
+
+			auto e5 = delta <= 5 ? i : -1;
+			assert(fll5(entries, e, p) == e5);
+
+			auto e5n = delta < 5 ? i : -1;
+			assert(fll5(entries, e + 1, p) == e5n);
+
+			if (i > 0) {
+				auto e8 = delta <= 8 ? i : 0;
+				assert(fll8(entries, e - 1, p) == e8 - 1);
+			}
+
+			auto e8 = delta <= 8 ? i : -1;
+			assert(fll8(entries, e, p) == e8);
+
+			auto e8n = delta < 8 ? i : -1;
+			assert(fll8(entries, e + 1, p) == e8n);
+		}
+	}
 }
 
 uint backwardLinearLookup(alias f, uint N, alias fallback,
@@ -84,16 +108,15 @@ uint backwardLinearLookup(alias f, uint N, alias fallback,
 		in(last > 0 && last < items.length, "last is out of bound")
 		in(needle >= f(items[0]), "needle is before first")
 		in(needle < f(items[last]), "needle is past last") {
-	auto stop = (last < N) ? 0 : last - N;
+	auto first = (last < N) ? 0 : last - N;
 
-	auto i = last - 1;
-	do {
+	foreach_reverse (i; first .. last) {
 		if (f(items[i]) <= needle) {
 			return i;
 		}
-	} while (i-- != stop);
+	}
 
-	return fallback!f(items, needle, 0, stop);
+	return fallback!f(items, needle, 0, first);
 }
 
 unittest {
@@ -104,17 +127,32 @@ unittest {
 	alias bll5 = backwardLinearLookup!(i => i, 5, testFallback, uint);
 	alias bll8 = backwardLinearLookup!(i => i, 8, testFallback, uint);
 
-	uint[] items = [1, 3, 5, 7, 11, 13, 17, 23];
+	uint[16] entries =
+		[1, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53];
 
-	assert(bll5(items, 5, 6) == 2);
-	assert(bll5(items, 16, 6) == 5);
-	assert(bll5(items, 4, 3) == 1);
-	assert(bll5(items, 2, 3) == 0);
-	assert(bll5(items, 1, 5) == 0);
-	assert(bll5(items, 2, 6) == -1);
-	assert(bll5(items, 5, 7) == 2);
-	assert(bll5(items, 4, 7) == -1);
-	assert(bll8(items, 3, 7) == 1);
+	foreach (uint i, e; entries) {
+		foreach (uint p; i + 1 .. entries.length) {
+			auto delta = p - i;
+
+			if (i > 0) {
+				auto e5 = delta < 5 ? i : 0;
+				assert(bll5(entries, e - 1, p) == e5 - 1);
+			}
+
+			auto e5 = delta <= 5 ? i : -1;
+			assert(bll5(entries, e, p) == e5);
+			assert(bll5(entries, e + 1, p) == e5);
+
+			if (i > 0) {
+				auto e8 = delta < 8 ? i : 0;
+				assert(bll8(entries, e - 1, p) == e8 - 1);
+			}
+
+			auto e8 = delta <= 8 ? i : -1;
+			assert(bll8(entries, e, p) == e8);
+			assert(bll8(entries, e + 1, p) == e8);
+		}
+	}
 }
 
 uint binaryLookup(alias f, T)(T[] items, uint needle, uint min, uint max)
