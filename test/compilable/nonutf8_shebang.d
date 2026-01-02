@@ -1,5 +1,4 @@
 #!/opt/dmd/пробы/rdmd
-
 import core.stdc.stdio;
 
 void main() {

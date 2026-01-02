@@ -372,16 +372,11 @@ struct DLexer {
 
 	import source.name;
 	Name popSheBang() {
-		auto c = frontChar;
-		if (c != '#') {
+		if (frontChar != '#' || nextChar != '!') {
 			return BuiltinName!"";
 		}
 
-		while (c != '\n') {
-			popChar();
-			c = frontChar;
-		}
-
+		popLine();
 		return context.getName(content[0 .. index]);
 	}
 
