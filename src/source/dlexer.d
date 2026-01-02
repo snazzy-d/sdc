@@ -678,7 +678,7 @@ struct DLexer {
 		import std.format;
 		return getError(
 			t.location,
-			format!"`%s` is not a valis line directive suffix."(
+			format!"`%s` is not a valid line directive suffix."(
 				t.toString(context))
 		);
 
