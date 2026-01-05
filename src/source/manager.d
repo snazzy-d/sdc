@@ -2,6 +2,7 @@ module source.manager;
 
 import source.context;
 import source.location;
+import source.debugloc;
 import source.name;
 
 struct Source {
@@ -190,7 +191,7 @@ public:
 		auto column = o - e.getLineOffset(line) + 1;
 
 		if (!useLineDirective || !e.hasLineDirectives) {
-			return DebugLocation(e.filename, line + 1, column);
+			return DebugLocation(e.filename, id, line + 1, column);
 		}
 
 		auto lds = lineDirectives[id];
@@ -199,7 +200,7 @@ public:
 		line += lde.line;
 		line -= lde.sline;
 
-		return DebugLocation(lde.filename, line, column);
+		return DebugLocation(lde.filename, id, line, column);
 	}
 
 	void registerLineDirective(Position p, Name filename, uint line) {
@@ -289,9 +290,17 @@ public:
 }
 
 unittest {
-	uint i = 1;
+	uint i = 0;
 	auto f = *cast(FileID*) &i;
 
+	assert(f.isFile());
+	assert(!f.isMixin());
+	assert(f.id == 0);
+
+	i = 1;
+	f = *cast(FileID*) &i;
+
+	assert(!f.isFile());
 	assert(f.isMixin());
 	assert(f.id == 0);
 }

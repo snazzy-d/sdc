@@ -269,11 +269,3 @@ public:
 		return getSource().getOffset(this);
 	}
 }
-
-struct DebugLocation {
-	import source.name;
-	Name filename;
-
-	uint line;
-	uint column;
-}

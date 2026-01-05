@@ -8,6 +8,8 @@ import d.llvm.codegen;
 import d.llvm.global;
 import d.llvm.type;
 
+import source.context;
+import source.debugloc;
 import source.location;
 import source.manager;
 
@@ -21,18 +23,19 @@ import llvm.c.target;
 alias Interface = d.ir.symbol.Interface;
 
 struct DebugInfoData {
+private:
 	LLVMDIBuilderRef builder;
 	LLVMMetadataRef compileUnit;
 
 	LLVMMetadataRef[Symbol] symbolScopes;
 
-	LLVMMetadataRef[] files;
-	LLVMMetadataRef[] mixins;
+	LLVMMetadataRef[ulong] files;
 
-	void create(LLVMModuleRef dmodule, Source main) {
+public:
+	void create(LLVMModuleRef dmodule, Context context, DebugLocation main) {
 		builder = LLVMCreateDIBuilderDisallowUnresolved(dmodule);
 
-		auto file = getFile(main);
+		auto file = getFile(context, main);
 
 		enum Producer = "The Snazzy D compiler.";
 		enum Flags = "";
@@ -75,32 +78,19 @@ struct DebugInfoData {
 		}
 	}
 
-	/**
-	 * FIXME: We need to generate files from DebugLocation instead of Source.
-	 *        This ensures that no in contract is required and ensure line
-	 *        directives works as expected.
-	 */
-	auto getFile(Source source) in(source.isFile()) {
-		if (files.length <= source) {
-			/**
-			 * We might waste a few entries for things such as config file
-			 * parsed during startup, but the direct lookup we get out of it
-			 * is very much worth it.
-			 */
-			files.length = source + 1;
+	auto getFile(Context context, DebugLocation dloc) {
+		auto key = dloc.getKey();
+		if (auto fPtr = key in files) {
+			return *fPtr;
 		}
 
-		if (files[source] !is null) {
-			return files[source];
-		}
-
-		auto filename = source.getFileName().toString();
+		auto source = dloc.fid.getSource(context);
+		auto filename = dloc.filename.toString(context);
 		auto directory = source.getDirectory().toString();
-		auto file =
+
+		return files[key] =
 			LLVMDIBuilderCreateFile(builder, filename.ptr, filename.length,
 			                        directory.ptr, directory.length);
-
-		return files[source] = file;
 	}
 }
 
@@ -128,16 +118,14 @@ struct DebugInfoScopeGen {
 	}
 
 	auto getFile(Location location) {
-		auto source = location.getFullLocation(context).getSource();
-		return debugInfoData.getFile(source);
+		return getFileAndLine(location).file;
 	}
 
 	auto getFileAndLine(Location location) {
-		auto floc = location.getFullLocation(context);
-		auto file = debugInfoData.getFile(floc.getSource());
-		auto line = floc.start.getDebugLocation().line;
+		auto dloc = location.start.getFullPosition(context).getDebugLocation();
+		auto file = debugInfoData.getFile(context, dloc);
 
-		return FileLine(file, line);
+		return FileLine(file, dloc.line);
 	}
 
 	LLVMMetadataRef define(S)(S s) if (is(S : Scope) && is(S : Symbol)) {

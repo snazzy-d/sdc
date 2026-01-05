@@ -108,8 +108,9 @@ final class CodeGen {
 		llvmSlice = LLVMStructTypeInContext(llvmCtx, sliceElements.ptr,
 		                                    sliceElements.length, false);
 
-		auto source = main.location.getFullLocation(context).getSource();
-		auto name = source.getFileName().toStringz();
+		auto floc = main.location.getFullLocation(context);
+		auto dloc = floc.start.getDebugLocation();
+		auto name = dloc.filename.toStringz(context);
 		dmodule = LLVMModuleCreateWithNameInContext(name, llvmCtx);
 		LLVMSetIsNewDbgInfoFormat(dmodule, true);
 
@@ -134,7 +135,7 @@ final class CodeGen {
 		framePointer = getAttribute("frame-pointer", "non-leaf");
 
 		if (debugBuild) {
-			debugInfoData.create(dmodule, source);
+			debugInfoData.create(dmodule, context, dloc);
 		}
 	}
 
