@@ -126,7 +126,8 @@ private:
 	Mutex mutex;
 
 	// This makes for a 32MB default target.
-	enum DefaultHeapSize = 32 * 1024 * 1024 / PageSize;
+	enum DefaultMinHeapSize = 32 * 1024 * 1024 / PageSize;
+	enum DefaultMaxHeapSize = AddressSpace / PageSize;
 
 	/**
 	 * Data about the last collection cycle.
@@ -141,21 +142,22 @@ private:
 	 */
 	ulong amortizedDuration;
 
-	size_t amortizedHeapSize = DefaultHeapSize;
-	size_t peakHeapSize = DefaultHeapSize;
+	size_t amortizedHeapSize = DefaultMinHeapSize;
+	size_t peakHeapSize = DefaultMinHeapSize;
 
 	/**
 	 * Track the targets to meet before collecting.
 	 */
 	ulong lastTargetAdjustment;
 
-	size_t nextTarget = DefaultHeapSize;
+	size_t nextTarget = DefaultMinHeapSize;
 
 	/**
 	 * Configuration.
 	 */
 	// Do not try to collect bellow this heap size.
-	size_t minHeapSize = DefaultHeapSize;
+	size_t minHeapSize = DefaultMinHeapSize;
+	size_t maxHeapSize = DefaultMaxHeapSize;
 
 	// Decay by 12.5% per time interval.
 	ubyte lgTargetDecay = 3;
@@ -188,8 +190,7 @@ private:
 
 	bool needCollection() {
 		auto now = getMonotonicTime();
-		auto interval =
-			max(lastCollectionStop - lastCollectionStart, 100 * Millisecond);
+		auto interval = max(amortizedDuration, 100 * Millisecond);
 
 		while (now - lastTargetAdjustment >= interval) {
 			auto delta = nextTarget - lastHeapSize;
@@ -203,9 +204,8 @@ private:
 				break;
 			}
 
-			nextTarget = newTarget;
-
 			lastTargetAdjustment += interval;
+			nextTarget = newTarget;
 		}
 
 		auto currentHeapSize = Arena.computeUsedPageCount();
@@ -248,8 +248,13 @@ private:
 		target = max(target, tbaseline);
 		target = min(target, tpeak);
 
+		// Clamp the target based on configuration.
+		target = max(target, minHeapSize);
+		target = min(target, maxHeapSize);
+
+		// Update target.
 		lastTargetAdjustment = lastCollectionStop;
-		nextTarget = max(target, minHeapSize);
+		nextTarget = target;
 	}
 }
 
