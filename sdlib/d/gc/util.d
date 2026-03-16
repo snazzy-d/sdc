@@ -92,6 +92,7 @@ unittest modUp {
 	assert(modUp(1, 1) == 1);
 	assert(modUp(42, 64) == 42);
 	assert(modUp(127, 64) == 63);
+	assert(modUp(128, 64) == 64);
 
 	foreach (x; 2 .. 256) {
 		assert(modUp(0, x) == x);
