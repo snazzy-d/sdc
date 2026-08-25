@@ -2,7 +2,7 @@ name: Run all tests [Ubuntu]
 on: [push, pull_request]
 
 env:
-    LLVM_CONFIG: llvm-config-20
+    LLVM_CONFIG: llvm-config-22
 
 jobs:
     test:
@@ -26,7 +26,7 @@ jobs:
             - name: Install LLVM
               uses: ZhongRuoyu/setup-llvm@v0
               with:
-                  llvm-version: 20
+                  llvm-version: 22
             - name: Print LLVM version
               run: ${{ env.LLVM_CONFIG }} --version
             - name: Checkout SDC

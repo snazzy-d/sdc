@@ -10,6 +10,9 @@ LDFLAGS_LLVM = $(shell $(LLVM_CONFIG) --ldflags) $(shell $(LLVM_CONFIG) --libs) 
 LLVM_INCLUDE_DIR = $(shell $(LLVM_CONFIG) --includedir)
 DFLAGS += -J$(LLVM_INCLUDE_DIR)
 
+LLVM_BIN_DIR = $(shell $(LLVM_CONFIG) --bindir)
+LLVM_LIT ?= "$(LLVM_BIN_DIR)/lit"
+
 obj/libd-llvm.o: $(LIBD_LLVM_SRC)
 	@mkdir -p lib obj
 	$(DMD) -c -of"$@" $(LIBD_LLVM_SRC) -makedeps="$@.deps" $(DFLAGS) $(LIBD_LLVM_IMPORTS)
@@ -18,7 +21,7 @@ $(LIBD_LLVM): obj/libd-llvm.o
 	ar rcs "$@" $^
 
 check-llvm: $(SDC) $(LIBSDRT) $(PHOBOS)
-	cd test/llvm; ./runlit.py . -v
+	cd test/llvm; $(LLVM_LIT) . -v
 
 check: check-llvm
 .PHONY: check-llvm
