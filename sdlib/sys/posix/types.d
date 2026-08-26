@@ -95,3 +95,13 @@ alias sig_atomic_t = int;
    narrow only for consistency with the old way of widening too-narrow
    types.  User code should never use time64_t.  */
 alias time64_t = long;
+
+// Linux header style types.
+alias __s8 = byte;
+alias __u8 = ubyte;
+alias __s16 = short;
+alias __u16 = ushort;
+alias __s32 = int;
+alias __u32 = uint;
+alias __s64 = long;
+alias __u64 = ulong;
