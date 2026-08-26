@@ -211,7 +211,13 @@ enum FutexOpCmp {
    if (oldval CMP CMPARG)
      wake UADDR2;  */
 
-extern(D) auto FUTEX_OP(FutexOp op, uint oparg, FutexOpCmp cmp, uint cmparg) {
-	return (((op & 0xf) << 28) | ((cmp & 0xf) << 24) | ((oparg & 0xfff) << 12)
-		| (cmparg & 0xfff));
+/**
+ * linux/futex.h contains various macros. D does not have macros,
+ * so we use several parameterless templates instead.
+ */
+extern(D):
+
+auto FUTEX_OP()(FutexOp op, uint oparg, FutexOpCmp cmp, uint cmparg) {
+	return ((op & 0xf) << 28) | ((cmp & 0xf) << 24) | ((oparg & 0xfff) << 12)
+		| (cmparg & 0xfff);
 }
