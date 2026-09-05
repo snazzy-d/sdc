@@ -29,11 +29,11 @@ obj/driver/%.o: src/driver/%.d
 	@mkdir -p obj/driver
 	$(DMD) -c -of"$@" "$<" -makedeps="$@.deps" $(DFLAGS) $(LIBD_LLVM_IMPORTS)
 
-$(SDC): obj/driver/sdc.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL)| bin/sdconfig
+$(SDC): obj/driver/sdc.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL)
 	@mkdir -p bin
 	$(DMD) -of"$@" $+ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS)) $(addprefix -Xcc=,$(LDFLAGS_LLVM))
 
-$(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL) | bin/sdconfig
+$(SDUNIT): obj/driver/sdunit.o $(LIBSDC) $(LIBD) $(LIBD_LLVM) $(LIBSDMD) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL)
 	@mkdir -p bin
 	$(DMD) -of"$@" $+ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS)) $(addprefix -Xcc=,$(LDFLAGS_LLVM))
 
@@ -45,10 +45,13 @@ bin/sdconfig:
 	@mkdir -p bin
 	printf "{\n\t\"includePaths\": %s,\n\t\"libPaths\": [\"%s/lib\"],\n}\n" $(SDCONFIG_IMPORTS_JSON) $(PWD) > $@
 
+sdc: $(SDC) bin/sdconfig
+sdunit: $(SDUNIT) bin/sdconfig
+
 include sdlib/sdrt.mak
 
-check-sdc: $(SDC) bin/sdconfig $(LIBSDRT) $(PHOBOS)
+check-sdc: sdc $(LIBSDRT) $(PHOBOS)
 	test/runner/runner.d
 
 check: check-sdc
-.PHONY: check-sdc
+.PHONY: sdc sdunit check-sdc

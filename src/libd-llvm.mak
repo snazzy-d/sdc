@@ -20,7 +20,7 @@ obj/libd-llvm.o: $(LIBD_LLVM_SRC)
 $(LIBD_LLVM): obj/libd-llvm.o
 	ar rcs "$@" $^
 
-check-llvm: $(SDC) bin/sdconfig $(LIBSDRT) $(PHOBOS)
+check-llvm: sdc $(LIBSDRT) $(PHOBOS)
 	cd test/llvm; $(LLVM_LIT) . -v
 
 check: check-llvm

@@ -15,11 +15,13 @@ $(SDFMT): obj/driver/sdfmt.o $(LIBSDFMT) $(LIBCONFIG) $(LIBSOURCE) $(LIBUTIL)
 	@mkdir -p bin
 	$(DMD) -of"$@" $+ $(DFLAGS) $(addprefix -Xcc=,$(LDFLAGS))
 
+sdfmt: $(SDFMT)
+
 check-libfmt: $(LIBSDFMT_SRC)
 	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="assert(true)"
 
-check-sdfmt: $(SDFMT)
+check-sdfmt: sdfmt
 	test/runner/checkformat.d
 
 check: check-libfmt check-sdfmt
-.PHONY: check-libfmt check-sdfmt
+.PHONY: sdfmt check-libfmt check-sdfmt

@@ -16,39 +16,39 @@ LIBDMDALLOC = lib/libdmdalloc.a
 
 SDFLAGS ?=
 
-obj/object.o: sdlib/object.d $(SDC)
+obj/object.o: sdlib/object.d sdc
 	@mkdir -p obj
 	$(SDC) -c -o $@ $< $(SDFLAGS)
 
-obj/sdlib/d.o: $(SDC) $(LIBSDRT_D_SRC)
+obj/sdlib/d.o: sdc $(LIBSDRT_D_SRC)
 	@mkdir -p obj/sdlib
 	$(SDC) -c -o $@ $(LIBSDRT_D_SRC) $(SDFLAGS)
 
-obj/sdlib/gc.o: $(SDC) $(LIBSDRT_GC_SRC)
+obj/sdlib/gc.o: sdc $(LIBSDRT_GC_SRC)
 	@mkdir -p obj/sdlib
 	$(SDC) -c -o $@ $(LIBSDRT_GC_SRC) $(SDFLAGS)
 
-obj/sdlib/rt.o: $(SDC) $(LIBSDRT_RT_SRC)
+obj/sdlib/rt.o: sdc $(LIBSDRT_RT_SRC)
 	@mkdir -p obj/sdlib
 	$(SDC) -c -o $@ $(LIBSDRT_RT_SRC) $(SDFLAGS)
 
-obj/sdlib/sdc.o: $(SDC) $(LIBSDRT_SDC_SRC)
+obj/sdlib/sdc.o: sdc $(LIBSDRT_SDC_SRC)
 	@mkdir -p obj/sdlib
 	$(SDC) -c -o $@ $(LIBSDRT_SDC_SRC) $(SDFLAGS)
 
-obj/sdlib/stdc.o: $(SDC) $(LIBSDRT_STDC_SRC)
+obj/sdlib/stdc.o: sdc $(LIBSDRT_STDC_SRC)
 	@mkdir -p obj/sdlib
 	$(SDC) -c -o $@ $(LIBSDRT_STDC_SRC) $(SDFLAGS)
 
-obj/sdlib/sync.o: $(SDC) $(LIBSDRT_SYNC_SRC)
+obj/sdlib/sync.o: sdc $(LIBSDRT_SYNC_SRC)
 	@mkdir -p obj/sdlib
 	$(SDC) -c -o $@ $(LIBSDRT_SYNC_SRC) $(SDFLAGS)
 
-obj/sdlib/dmd.o: $(SDC) $(LIBSDRT_DMD_SRC)
+obj/sdlib/dmd.o: sdc $(LIBSDRT_DMD_SRC)
 	@mkdir -p obj/sdlib
 	$(SDC) -c -o $@ $(LIBSDRT_DMD_SRC) $(SDFLAGS)
 
-obj/sdlib/platform.o: $(SDC) $(LIBSDRT_PLATFORM_SRC)
+obj/sdlib/platform.o: sdc $(LIBSDRT_PLATFORM_SRC)
 	@mkdir -p obj/sdlib
 	$(SDC) -c -o $@ $(LIBSDRT_PLATFORM_SRC) $(SDFLAGS)
 
@@ -66,7 +66,7 @@ PHOBOS_OBJ = $(PHOBOS_SRC:sdlib/std/%.d=obj/phobos/%.o)
 
 PHOBOS = lib/libphobos.a
 
-obj/phobos/%.o: sdlib/std/%.d $(SDC) $(PHOBOS_SRC)
+obj/phobos/%.o: sdlib/std/%.d sdc $(PHOBOS_SRC)
 	@mkdir -p obj/phobos
 	$(SDC) -c -o $@ $< $(SDFLAGS)
 
@@ -78,7 +78,7 @@ $(PHOBOS): $(PHOBOS_OBJ)
 TOOLS_SRC = $(wildcard sdlib/tools/*.d)
 ALL_TOOLS = $(TOOLS_SRC:sdlib/tools/%.d=bin/tools/%)
 
-bin/tools/%: sdlib/tools/%.d $(SDC) $(LIBSDRT) $(PHOBOS)
+bin/tools/%: sdlib/tools/%.d sdc $(LIBSDRT) $(PHOBOS)
 	@mkdir -p bin/tools
 	$(SDC) -o "$@" $< $(SDFLAGS)
 
@@ -89,19 +89,19 @@ CHECK_LIBSDRT_STDC = $(LIBSDRT_STDC_SRC:sdlib/core/stdc/%.d=check-sdlib-stdc-%)
 CHECK_LIBSDRT_SYNC = $(LIBSDRT_SYNC_SRC:sdlib/d/sync/%.d=check-sdlib-sync-%)
 CHECK_LIBSDRT_PLATFORM = $(LIBSDRT_PLATFORM_SRC:platform/%.d=check-sdlib-platform/%)
 
-check-sdlib-gc-%: sdlib/d/gc/%.d $(SDUNIT)
+check-sdlib-gc-%: sdlib/d/gc/%.d sdunit
 	$(SDUNIT) $< $(SDFLAGS)
 
-check-sdlib-rt-%: sdlib/d/rt/%.d $(SDUNIT)
+check-sdlib-rt-%: sdlib/d/rt/%.d sdunit
 	$(SDUNIT) $< $(SDFLAGS)
 
-check-sdlib-stdc-%: sdlib/core/stdc/%.d $(SDUNIT)
+check-sdlib-stdc-%: sdlib/core/stdc/%.d sdunit
 	$(SDUNIT) $< $(SDFLAGS)
 
-check-sdlib-sync-%: sdlib/d/sync/%.d $(SDUNIT)
+check-sdlib-sync-%: sdlib/d/sync/%.d sdunit
 	$(SDUNIT) $< $(SDFLAGS)
 
-check-sdlib-platform/%: platform/%.d $(SDUNIT)
+check-sdlib-platform/%: platform/%.d sdunit
 	$(SDUNIT) $< $(SDFLAGS)
 
 check-sdlib-gc: $(CHECK_LIBSDRT_GC)
