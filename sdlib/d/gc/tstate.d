@@ -80,8 +80,6 @@ public:
 		auto s = state.load();
 
 		while (true) {
-			assert(status(s) == SuspendState.Signaled);
-
 			// If the thread isn't busy, we can suspend
 			// from the signal handler.
 			if (s == SignaledState) {
@@ -89,6 +87,11 @@ public:
 				suspendThreadFromSignal(&this);
 
 				return true;
+			}
+
+			if (status(s) != SuspendState.Signaled) {
+				// This signal is spurious or no longer useful.
+				return false;
 			}
 
 			// The thread is busy, delay suspension.
@@ -116,8 +119,17 @@ public:
 	}
 
 	void onResumeSignal() {
-		assert(state.load() == ResumedState);
-		state.store(RunningState);
+		size_t s = ResumedState;
+		while (true) {
+			if (state.casWeak(s, RunningState)) {
+				break;
+			}
+
+			if (s != ResumedState) {
+				// This signal is spurious or no longer useful.
+				return;
+			}
+		}
 	}
 
 	void enterBusyState() {
@@ -312,13 +324,26 @@ unittest suspend {
 	// Check init state.
 	check(SuspendState.None, false, 0);
 
+	// Check that spurious signals are ignored.
+	assert(!s.onSuspendSignal());
+	check(SuspendState.None, false, 0);
+
 	// Simple signal.
 	s.sendSuspendSignal();
 	check(SuspendState.Signaled, false, 0);
 
 	assert(s.onSuspendSignal());
 	check(SuspendState.None, false, 1);
+
+	// Check repeated signals are ignored.
+	assert(!s.onSuspendSignal());
+	check(SuspendState.None, false, 1);
+
 	moveToNextStep();
+
+	// Check that spurious signals are ignored.
+	assert(!s.onSuspendSignal());
+	check(SuspendState.None, false, 1);
 
 	// Signal while busy.
 	s.sendSuspendSignal();
@@ -328,6 +353,10 @@ unittest suspend {
 	s.enterBusyState();
 	check(SuspendState.Signaled, true, 1);
 
+	assert(!s.onSuspendSignal());
+	check(SuspendState.Delayed, true, 1);
+
+	// Check repeated signals are ignored.
 	assert(!s.onSuspendSignal());
 	check(SuspendState.Delayed, true, 1);
 

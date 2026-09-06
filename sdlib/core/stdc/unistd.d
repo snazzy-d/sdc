@@ -283,7 +283,10 @@ int setgid(gid_t __gid);
 
 // TODO: setregid, setegid
 // TODO: getresuid, getresgid, setresuid, setresgid
-// TODO: fork, vfork
+
+pid_t fork();
+pid_t vfork();
+
 // TODO: ttyname, isatty, ttyslot
 // TODO: link, linkat, symlink, readlink, symlinkat, readlinkat, unlinkat
 // TODO: rmdir

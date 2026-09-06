@@ -12,6 +12,11 @@ void setupSignals() {
 	sigaction_t action;
 	initSuspendSigSet(&action.sa_mask);
 
+	/**
+	 * Because we might pause the thread in the signal handler,
+	 * we must use SA_SIGINFO here. This does ensures that the
+	 * CPU state is pushed onto the stack, so it can be scanned.
+	 */
 	action.sa_flags = SA_RESTART | SA_SIGINFO;
 	action.sa_sigaction = __sd_gc_signal_suspend;
 
@@ -148,6 +153,12 @@ extern(C) void __sd_gc_signal_suspend(int sig, siginfo_t* info, void* context) {
 	import core.stdc.errno_;
 	auto oldErrno = errno;
 	scope(exit) errno = oldErrno;
+
+	// Filter out signal sent by means others than pthread_kill/tgkill
+	// as this is what the GC uses.
+	if (info is null || info.si_code != SI_TKILL) {
+		return;
+	}
 
 	import d.gc.tcache;
 	threadCache.state.onSuspendSignal();
