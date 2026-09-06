@@ -378,3 +378,235 @@ struct siginfo_t {
 
 	_sifields_t _sifields;
 }
+
+/*
+ * How these fields are to be accessed.
+ */
+/+
+#define si_pid          _sifields._kill._pid
+#define si_uid          _sifields._kill._uid
+#define si_tid          _sifields._timer._tid
+#define si_overrun      _sifields._timer._overrun
+#define si_sys_private  _sifields._timer._sys_private
+#define si_status       _sifields._sigchld._status
+#define si_utime        _sifields._sigchld._utime
+#define si_stime        _sifields._sigchld._stime
+#define si_value        _sifields._rt._sigval
+#define si_int          _sifields._rt._sigval.sival_int
+#define si_ptr          _sifields._rt._sigval.sival_ptr
+#define si_addr         _sifields._sigfault._addr
+#define si_trapno       _sifields._sigfault._trapno
+#define si_addr_lsb     _sifields._sigfault._addr_lsb
+#define si_lower        _sifields._sigfault._addr_bnd._lower
+#define si_upper        _sifields._sigfault._addr_bnd._upper
+#define si_pkey         _sifields._sigfault._addr_pkey._pkey
+#define si_perf_data    _sifields._sigfault._perf._data
+#define si_perf_type    _sifields._sigfault._perf._type
+#define si_perf_flags   _sifields._sigfault._perf._flags
+#define si_band         _sifields._sigpoll._band
+#define si_fd           _sifields._sigpoll._fd
+#define si_call_addr    _sifields._sigsys._call_addr
+#define si_syscall      _sifields._sigsys._syscall
+#define si_arch         _sifields._sigsys._arch
+// +/
+
+/*
+ * si_code values
+ * Digital reserves positive values for kernel-generated signals.
+ */
+enum SI_USER = 0; /* sent by kill, sigsend, raise */
+enum SI_KERNEL = 0x80; /* sent by the kernel from somewhere */
+enum SI_QUEUE = -1; /* sent by sigqueue */
+enum SI_TIMER = -2; /* sent by timer expiration */
+enum SI_MESGQ = -3; /* sent by real time mesq state change */
+enum SI_ASYNCIO = -4; /* sent by AIO completion */
+enum SI_SIGIO = -5; /* sent by queued SIGIO */
+enum SI_TKILL = -6; /* sent by tkill system call */
+enum SI_DETHREAD = -7; /* sent by execve() killing subsidiary threads */
+enum SI_ASYNCNL = -60; /* sent by glibc async name lookup completion */
+
+bool SI_FROMUSER()(siginfo_t* siptr) {
+	return siptr.si_code <= 0;
+}
+
+bool SI_FROMKERNEL()(siginfo_t* siptr) {
+	return siptr.si_code > 0;
+}
+
+/*
+ * SIGILL si_codes
+ */
+enum ILL_ILLOPC = 1; /* illegal opcode */
+enum ILL_ILLOPN = 2; /* illegal operand */
+enum ILL_ILLADR = 3; /* illegal addressing mode */
+enum ILL_ILLTRP = 4; /* illegal trap */
+enum ILL_PRVOPC = 5; /* privileged opcode */
+enum ILL_PRVREG = 6; /* privileged register */
+enum ILL_COPROC = 7; /* coprocessor error */
+enum ILL_BADSTK = 8;/* internal stack error */
+enum ILL_BADIADDR = 9; /* unimplemented instruction address */
+enum __ILL_BREAK = 10; /* illegal break */
+enum __ILL_BNDMOD = 11; /* bundle-update (modification) in progress */
+enum NSIGILL = 11;
+
+/*
+ * SIGFPE si_codes
+ */
+enum FPE_INTDIV = 1; /* integer divide by zero */
+enum FPE_INTOVF = 2; /* integer overflow */
+enum FPE_FLTDIV = 3; /* floating point divide by zero */
+enum FPE_FLTOVF = 4; /* floating point overflow */
+enum FPE_FLTUND = 5; /* floating point underflow */
+enum FPE_FLTRES = 6; /* floating point inexact result */
+enum FPE_FLTINV = 7; /* floating point invalid operation */
+enum FPE_FLTSUB = 8;/* subscript out of range */
+enum __FPE_DECOVF = 9; /* decimal overflow */
+enum __FPE_DECDIV = 10; /* decimal division by zero */
+enum __FPE_DECERR = 11; /* packed decimal error */
+enum __FPE_INVASC = 12; /* invalid ASCII digit */
+enum __FPE_INVDEC = 13; /* invalid decimal digit */
+enum FPE_FLTUNK = 14; /* undiagnosed floating-point exception */
+enum FPE_CONDTRAP = 15; /* trap on condition */
+enum NSIGFPE = 15;
+
+/*
+ * SIGSEGV si_codes
+ */
+enum SEGV_MAPERR = 1; /* address not mapped to object */
+enum SEGV_ACCERR = 2; /* invalid permissions for mapped object */
+enum SEGV_BNDERR = 3; /* failed address bound checks */
+/+
+#ifdef __ia64__
+enum __SEGV_PSTKOVF = 4; /* paragraph stack overflow */
+#else
+enum SEGV_PKUERR = 4; /* failed protection key checks */
+#endif
+// +/
+enum SEGV_ACCADI = 5; /* ADI not enabled for mapped object */
+enum SEGV_ADIDERR = 6; /* Disrupting MCD error */
+enum SEGV_ADIPERR = 7; /* Precise MCD exception */
+enum SEGV_MTEAERR = 8;/* Asynchronous ARM MTE error */
+enum SEGV_MTESERR = 9; /* Synchronous ARM MTE exception */
+enum SEGV_CPERR = 10;/* Control protection fault */
+enum NSIGSEGV = 10;
+
+/*
+ * SIGBUS si_codes
+ */
+enum BUS_ADRALN = 1; /* invalid address alignment */
+enum BUS_ADRERR = 2; /* non-existent physical address */
+enum BUS_OBJERR = 3; /* object specific hardware error */
+/* hardware memory error consumed on a machine check: action required */
+enum BUS_MCEERR_AR = 4;
+/* hardware memory error detected in process but not consumed: action optional*/
+enum BUS_MCEERR_AO = 5;
+enum NSIGBUS = 5;
+
+/*
+ * SIGTRAP si_codes
+ */
+enum TRAP_BRKPT = 1; /* process breakpoint */
+enum TRAP_TRACE = 2; /* process trace trap */
+enum TRAP_BRANCH = 3; /* process taken branch trap */
+enum TRAP_HWBKPT = 4; /* hardware breakpoint/watchpoint */
+enum TRAP_UNK = 5; /* undiagnosed trap */
+enum TRAP_PERF = 6; /* perf event with sigtrap=1 */
+enum NSIGTRAP = 6;
+
+/*
+ * There is an additional set of SIGTRAP si_codes used by ptrace
+ * that are of the form: ((PTRACE_EVENT_XXX << 8) | SIGTRAP)
+ */
+
+/*
+ * Flags for si_perf_flags if SIGTRAP si_code is TRAP_PERF.
+ */
+enum TRAP_PERF_FLAG_ASYNC = 1u << 0;
+
+/*
+ * SIGCHLD si_codes
+ */
+enum CLD_EXITED = 1; /* child has exited */
+enum CLD_KILLED = 2; /* child was killed */
+enum CLD_DUMPED = 3; /* child terminated abnormally */
+enum CLD_TRAPPED = 4; /* traced child has trapped */
+enum CLD_STOPPED = 5; /* child has stopped */
+enum CLD_CONTINUED = 6; /* stopped child has continued */
+enum NSIGCHLD = 6;
+
+/*
+ * SIGPOLL (or any other signal without signal specific si_codes) si_codes
+ */
+enum POLL_IN = 1; /* data input available */
+enum POLL_OUT = 2; /* output buffers available */
+enum POLL_MSG = 3; /* input message available */
+enum POLL_ERR = 4; /* i/o error */
+enum POLL_PRI = 5; /* high priority input available */
+enum POLL_HUP = 6; /* device disconnected */
+enum NSIGPOLL = 6;
+
+/*
+ * SIGSYS si_codes
+ */
+enum SYS_SECCOMP = 1; /* seccomp triggered */
+enum SYS_USER_DISPATCH = 2; /* syscall user dispatch triggered */
+enum NSIGSYS = 2;
+
+/*
+ * SIGEMT si_codes
+ */
+enum EMT_TAGOVF = 1; /* tag overflow */
+enum NSIGEMT = 1;
+
+/*
+ * sigevent definitions
+ *
+ * It seems likely that SIGEV_THREAD will have to be handled from
+ * userspace, libpthread transmuting it to SIGEV_SIGNAL, which the
+ * thread manager then catches and does the appropriate nonsense.
+ * However, everything is written out here so as to not get lost.
+ */
+enum SIGEV_SIGNAL = 0; /* notify via signal */
+enum SIGEV_NONE = 1; /* other notification: meaningless */
+enum SIGEV_THREAD = 2; /* deliver via thread creation */
+enum SIGEV_THREAD_ID = 4; /* deliver to thread */
+
+/*
+ * This works because the alignment is ok on all current architectures
+ * but we leave open this being overridden in the future
+ */
+enum __ARCH_SIGEV_PREAMBLE_SIZE = 2 * int.sizeof + sigval_t.sizeof;
+
+enum SIGEV_MAX_SIZE = 64;
+enum SIGEV_PAD_SIZE =
+	(SIGEV_MAX_SIZE - __ARCH_SIGEV_PREAMBLE_SIZE) / int.sizeof;
+
+struct sigevent_t {
+	sigval_t sigev_value;
+	int sigev_signo;
+	int sigev_notify;
+
+	union _sigev_un_t {
+		// This differs from the C declaration,
+		// but is required for alignement purposes.
+		ulong[SIGEV_PAD_SIZE / 2] _ulong_pad;
+
+		int[SIGEV_PAD_SIZE] _pad;
+		int _tid;
+
+		struct _sigev_thread_t {
+			void function(sigval_t) _function;
+			void* _attribute; /* really pthread_attr_t */
+		}
+
+		_sigev_thread_t _sigev_thread;
+	}
+
+	_sigev_un_t _sigev_un;
+}
+
+/+
+#define sigev_notify_function   _sigev_un._sigev_thread._function
+#define sigev_notify_attributes _sigev_un._sigev_thread._attribute
+#define sigev_notify_thread_id   _sigev_un._tid
+// +/
