@@ -54,4 +54,4 @@ check-sdc: sdc $(LIBSDRT) $(PHOBOS)
 	test/runner/runner.d
 
 check: check-sdc
-.PHONY: sdc sdunit check-sdc
+.PHONY: check-sdc

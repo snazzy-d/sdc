@@ -24,4 +24,4 @@ check-sdfmt: sdfmt
 	test/runner/checkformat.d
 
 check: check-libfmt check-sdfmt
-.PHONY: sdfmt check-libfmt check-sdfmt
+.PHONY: check-libfmt check-sdfmt
