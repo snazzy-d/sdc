@@ -36,16 +36,12 @@ void setupSignals() {
 	}
 }
 
-auto signalThreadSuspend(ThreadCache* tc) {
-	tc.state.sendSuspendSignal();
-
+auto suspendThread(ThreadCache* tc) {
 	// TODO: Retry on EAGAIN and handle signal loss.
 	return pthread_kill(tc.self, SIGSUSPEND);
 }
 
-auto signalThreadResume(ThreadCache* tc) {
-	tc.state.sendResumeSignal();
-
+auto resumeThread(ThreadCache* tc) {
 	// TODO: Retry on EAGAIN and handle signal loss.
 	return pthread_kill(tc.self, SIGRESUME);
 }

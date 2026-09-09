@@ -265,31 +265,50 @@ private:
 				continue;
 			}
 
-			// If the thread isn't already stopped, we'll need to retry.
 			auto ss = tc.state.suspendState;
-			if (ss == SuspendState.Detached) {
-				continue;
-			}
-
-			// If a thread is detached, stop trying.
-			if (count > 32 && ss == SuspendState.Signaled) {
-				import d.gc.proc;
-				if (isDetached(tc.tid)) {
-					tc.state.detach();
+			switch (ss) {
+				case SuspendState.Detached:
+					// We do not try to suspend detached threads.
 					continue;
-				}
+
+				case SuspendState.Delayed:
+					// The thread will suspend by itself but hasn't yet.
+					retry = true;
+					continue;
+
+				case SuspendState.Suspended:
+					// The thread is already suspended.
+					suspended++;
+					continue;
+
+				case SuspendState.None:
+					// Notify the thread that it needs to be suspended.
+					tc.state.notify();
+					break;
+
+				case SuspendState.Notified:
+					// If after several attempts, the thread still hasn't suspended,
+					// we check whether it should be detached.
+					if (count <= 32) {
+						break;
+					}
+
+					import d.gc.proc;
+					if (isDetached(tc.tid)) {
+						tc.state.detach();
+						continue;
+					}
+
+					break;
+
+				default:
+					assert(0, "Invalid thread state!");
 			}
 
-			suspended += ss == SuspendState.Suspended;
-			retry |= ss != SuspendState.Suspended;
-
-			// If the thread has already been signaled.
-			if (ss != SuspendState.None) {
-				continue;
-			}
+			retry = true;
 
 			import d.gc.signal;
-			signalThreadSuspend(tc);
+			suspendThread(tc);
 		}
 
 		mStats.lock();
@@ -317,22 +336,34 @@ private:
 			auto tc = r.front;
 			scope(success) r.popFront();
 
-			// If the thread isn't already resumed, we'll need to retry.
 			auto ss = tc.state.suspendState;
-			if (ss == SuspendState.Detached) {
-				continue;
+			switch (ss) {
+				case SuspendState.Detached:
+					// We do not try to resume detached threads.
+					continue;
+
+				case SuspendState.None:
+					// The thread has resumed.
+					continue;
+
+				case SuspendState.Suspended:
+					// The thread is suspended, we need to resume it.
+					suspended++;
+					tc.state.resume();
+					break;
+
+				case SuspendState.Resumed:
+					// The thread was told to resume, but hasn't yet.
+					break;
+
+				default:
+					assert(0, "Invalid thread state!");
 			}
 
-			suspended += ss == SuspendState.Suspended;
-			retry |= ss != SuspendState.None;
-
-			// If the thread isn't suspended or detached, move on.
-			if (ss != SuspendState.Suspended) {
-				continue;
-			}
+			retry = true;
 
 			import d.gc.signal;
-			signalThreadResume(tc);
+			resumeThread(tc);
 		}
 
 		mStats.lock();

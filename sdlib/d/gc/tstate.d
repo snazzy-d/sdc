@@ -5,8 +5,8 @@ import sdc.intrinsics;
 enum SuspendState {
 	// The thread is running as usual.
 	None,
-	// A signal has been sent to the thread that it'll need to suspend.
-	Signaled,
+	// The thread has been notified that it'll need to suspend.
+	Notified,
 	// The suspend was delayed, because the thread was busy.
 	Delayed,
 	// The thread is suspended.
@@ -30,7 +30,7 @@ private:
 	enum BusyIncrement = 0x08;
 
 	enum RunningState = SuspendState.None;
-	enum SignaledState = SuspendState.Signaled;
+	enum NotifiedState = SuspendState.Notified;
 	enum SuspendedState = SuspendState.Suspended;
 	enum DelayedState = SuspendState.Delayed;
 	enum ResumedState = SuspendState.Resumed;
@@ -48,13 +48,13 @@ public:
 		return state.load() >= BusyIncrement;
 	}
 
-	void sendSuspendSignal() {
+	void notify() {
 		auto s = state.load();
 		while (true) {
-			auto n = s + SuspendState.Signaled;
+			auto n = s + SuspendState.Notified;
 
 			assert(status(s) == SuspendState.None);
-			assert(status(n) == SuspendState.Signaled);
+			assert(status(n) == SuspendState.Notified);
 
 			if (state.casWeak(s, n)) {
 				break;
@@ -65,9 +65,9 @@ public:
 	void detach() {
 		auto s = state.load();
 		while (true) {
-			auto n = s - SuspendState.Signaled + SuspendState.Detached;
+			auto n = s - SuspendState.Notified + SuspendState.Detached;
 
-			assert(status(s) == SuspendState.Signaled);
+			assert(status(s) == SuspendState.Notified);
 			assert(status(n) == SuspendState.Detached);
 
 			if (state.casWeak(s, n)) {
@@ -80,22 +80,21 @@ public:
 		auto s = state.load();
 
 		while (true) {
-			// If the thread isn't busy, we can suspend
-			// from the signal handler.
-			if (s == SignaledState) {
+			// If the thread isn't busy, we can suspend right away.
+			if (s == NotifiedState) {
 				import d.gc.signal;
 				suspendThreadFromSignal(&this);
 
 				return true;
 			}
 
-			if (status(s) != SuspendState.Signaled) {
+			if (status(s) != SuspendState.Notified) {
 				// This signal is spurious or no longer useful.
 				return false;
 			}
 
 			// The thread is busy, delay suspension.
-			auto n = s + SuspendState.Signaled;
+			auto n = s + SuspendState.Notified;
 			assert(status(n) == SuspendState.Delayed);
 
 			if (state.casWeak(s, n)) {
@@ -104,10 +103,10 @@ public:
 		}
 	}
 
-	void sendResumeSignal() {
+	void resume() {
 		auto s = state.load();
 		while (true) {
-			auto n = s + SuspendState.Signaled;
+			auto n = s + SuspendState.Notified;
 
 			assert(status(s) == SuspendState.Suspended);
 			assert(status(n) == SuspendState.Resumed);
@@ -150,7 +149,7 @@ package:
 	void markSuspended() {
 		// The status to delayed because of the fetchAdd in onSuspendSignal.
 		auto s = state.load();
-		assert(s == SignaledState || s == MustSuspendState);
+		assert(s == NotifiedState || s == MustSuspendState);
 
 		state.store(SuspendedState);
 	}
@@ -210,7 +209,7 @@ unittest busy {
 	}
 
 	checkForState(SuspendState.None);
-	checkForState(SuspendState.Signaled);
+	checkForState(SuspendState.Notified);
 }
 
 unittest suspend {
@@ -238,7 +237,7 @@ unittest suspend {
 	import d.gc.tcache;
 	ThreadCache* tc = &threadCache;
 
-	// Depending on the environement the thread runs in,
+	// Depending on the environment the thread runs in,
 	// this may not have been initialized.
 	import core.stdc.pthread;
 	tc.self = pthread_self();
@@ -292,8 +291,10 @@ unittest suspend {
 			// It is suspend, resume it.
 			resumeCount.fetchAdd(1);
 
+			tc.state.resume();
+
 			import d.gc.signal;
-			signalThreadResume(tc);
+			resumeThread(tc);
 
 			// Wait for the next test.
 			bool hasReachedNextStep() {
@@ -329,8 +330,8 @@ unittest suspend {
 	check(SuspendState.None, false, 0);
 
 	// Simple signal.
-	s.sendSuspendSignal();
-	check(SuspendState.Signaled, false, 0);
+	s.notify();
+	check(SuspendState.Notified, false, 0);
 
 	assert(s.onSuspendSignal());
 	check(SuspendState.None, false, 1);
@@ -346,12 +347,12 @@ unittest suspend {
 	check(SuspendState.None, false, 1);
 
 	// Signal while busy.
-	s.sendSuspendSignal();
-	check(SuspendState.Signaled, false, 1);
+	s.notify();
+	check(SuspendState.Notified, false, 1);
 
 	s.enterBusyState();
 	s.enterBusyState();
-	check(SuspendState.Signaled, true, 1);
+	check(SuspendState.Notified, true, 1);
 
 	assert(!s.onSuspendSignal());
 	check(SuspendState.Delayed, true, 1);
