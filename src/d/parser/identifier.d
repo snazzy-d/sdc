@@ -8,7 +8,7 @@ import d.parser.base;
 import d.parser.dtemplate;
 
 /**
- * Parse Identifier
+ * Parse Identifier.
  */
 Identifier parseIdentifier(ref TokenRange trange) {
 	auto location = trange.front.location;
@@ -20,7 +20,7 @@ Identifier parseIdentifier(ref TokenRange trange) {
 }
 
 /**
- * Parse dotted identifier (.identifier)
+ * Parse dotted identifier (.identifier).
  */
 Identifier parseDotIdentifier(ref TokenRange trange) {
 	auto location = trange.front.location;
@@ -34,7 +34,7 @@ Identifier parseDotIdentifier(ref TokenRange trange) {
 }
 
 /**
- * Parse any qualifier identifier (qualifier.identifier)
+ * Parse any qualifier identifier (qualifier.identifier).
  */
 auto parseQualifiedIdentifier(Namespace)(ref TokenRange trange,
                                          Location location, Namespace ns) {
@@ -52,7 +52,7 @@ auto parseQualifiedIdentifier(Namespace)(ref TokenRange trange,
 		static assert(
 			0,
 			format!"Namespace can only be an Identifier, a AstType or an Expression. Not a %s."(
-				Namespace.stringof)
+				Namespace.stringof),
 		);
 	}
 
@@ -61,7 +61,7 @@ auto parseQualifiedIdentifier(Namespace)(ref TokenRange trange,
 }
 
 /**
- * Parse built identifier
+ * Parse built identifier.
  */
 private
 Identifier parseBuiltIdentifier(ref TokenRange trange, Identifier identifier) {

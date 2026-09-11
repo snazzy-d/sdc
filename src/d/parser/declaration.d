@@ -38,7 +38,7 @@ auto parseAggregate(bool globBraces = true)(ref TokenRange trange) {
 }
 
 /**
- * Parse a declaration
+ * Parse a declaration.
  */
 Declaration parseDeclaration(ref TokenRange trange) {
 	auto location = trange.front.location;
@@ -204,10 +204,11 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				} else if (linkageName == BuiltinName!"Java") {
 					stc.linkage = Linkage.Java;
 				} else {
+					import std.format;
 					assert(
 						0,
-						"Linkage not supported : "
-							~ linkageName.toString(trange.context),
+						format!"Linkage not supported : %s."(
+							linkageName.toString(trange.context)),
 					);
 				}
 
@@ -231,7 +232,7 @@ Declaration parseDeclaration(ref TokenRange trange) {
 						lookahead.popFront();
 						auto nextType = lookahead.front.type;
 						if (nextType == Colon || nextType == OpenBrace) {
-							// Named verion of the above.
+							// Named version of the above.
 							return trange.parseEnum(stc);
 						}
 
@@ -253,10 +254,11 @@ Declaration parseDeclaration(ref TokenRange trange) {
 				} else if (attr == BuiltinName!"nogc") {
 					stc.isNoGC = true;
 				} else {
+					import std.format;
 					assert(
 						0,
-						"@" ~ attr.toString(trange.context)
-							~ " is not supported.",
+						format!"@%s is not supported."(
+							attr.toString(trange.context)),
 					);
 				}
 
@@ -373,8 +375,11 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
 
 		if (name.isReserved) {
 			import source.exception;
+			import std.format;
 			throw new CompileException(
-				idLoc, name.toString(trange.context) ~ " is a reserved name");
+				idLoc,
+				format!"%s is a reserved name."(name.toString(trange.context)),
+			);
 		}
 
 		// TODO: implement ref return.
@@ -388,7 +393,7 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
 
 	Declaration[] variables;
 
-	while (true) {
+	do {
 		auto vloc = trange.front.location;
 		auto name = trange.match(TokenType.Identifier).name;
 
@@ -400,11 +405,7 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
 
 		variables ~= new VariableDeclaration(vloc.spanTo(trange.previous), stc,
 		                                     type, name, value);
-
-		if (!trange.popOnMatch(TokenType.Comma)) {
-			break;
-		}
-	}
+	} while (trange.popOnMatch(TokenType.Comma));
 
 	trange.match(TokenType.Semicolon);
 	return
@@ -435,7 +436,7 @@ private Declaration parseDestructor(ref TokenRange trange, StorageClass stc) {
 /**
  * Parse function declaration, starting with parameters.
  * This allow to parse function as well as constructor or any special function.
- * Additionnal parameters are used to construct the function.
+ * Additional parameters are used to construct the function.
  */
 private Declaration parseFunction(
 	ref TokenRange trange,
@@ -491,12 +492,11 @@ private Declaration parseFunction(
 				qualifier = TypeQualifier.Shared;
 				goto HandleTypeQualifier;
 
-				HandleTypeQualifier: {
-					// We have a qualifier(type) name type of declaration.
-					stc.hasQualifier = true;
-					stc.qualifier = stc.qualifier.add(qualifier);
-					goto HandleStorageClass;
-				}
+			HandleTypeQualifier:
+				// We have a qualifier(type) name type of declaration.
+				stc.hasQualifier = true;
+				stc.qualifier = stc.qualifier.add(qualifier);
+				goto HandleStorageClass;
 
 			HandleStorageClass:
 				trange.popFront();
@@ -512,10 +512,11 @@ private Declaration parseFunction(
 				} else if (attr == BuiltinName!"nogc") {
 					stc.isNoGC = true;
 				} else {
+					import std.format;
 					assert(
 						0,
-						"@" ~ attr.toString(trange.context)
-							~ " is not supported.",
+						format!"@%s is not supported."(
+							attr.toString(trange.context)),
 					);
 				}
 
@@ -545,7 +546,7 @@ private Declaration parseFunction(
 					break;
 			}
 
-			// Body is deprecated in dmd, we don't accept it
+			// Body is deprecated in dmd, we don't accept it.
 			trange.match(Do);
 			break;
 
@@ -612,7 +613,7 @@ auto parseParameters(bool matchOpenParen = true)(ref TokenRange trange,
 }
 
 /**
- * Parse Initializer
+ * Parse Initializer.
  */
 auto parseInitializer(ref TokenRange trange) {
 	if (trange.front.type != TokenType.Void) {
@@ -667,7 +668,7 @@ auto parseParameter(ref TokenRange lexer) {
 			case In, Out, Lazy:
 				assert(
 					0,
-					"storageclasses: in, out and lazy  are not yet implemented",
+					"storageclasses: in, out and lazy  are not yet implemented!",
 				);
 
 			case Ref:
@@ -701,7 +702,7 @@ auto parseParameter(ref TokenRange lexer) {
 }
 
 /**
- * Parse alias declaration
+ * Parse alias declaration.
  */
 Declaration parseAlias(ref TokenRange trange, StorageClass stc) {
 	auto location = trange.front.location;
@@ -740,7 +741,7 @@ Declaration parseAlias(ref TokenRange trange, StorageClass stc) {
 }
 
 /**
- * Parse import declaration
+ * Parse import declaration.
  */
 auto parseImport(ref TokenRange trange) {
 	auto location = trange.front.location;
