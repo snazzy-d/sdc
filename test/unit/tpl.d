@@ -51,3 +51,15 @@ unittest patterns {
 	assert(a.elements[3] == 42);
 	assert(s.get(a, 3) == 42);
 }
+
+unittest variables {
+	uint SizeOf(T) = T.sizeof;
+	assert(SizeOf!uint == 4);
+	assert(SizeOf!ulong == 8);
+
+	SizeOf!uint = 42;
+	assert(SizeOf!uint == 42);
+
+	SizeOf!ulong = 69;
+	assert(SizeOf!ulong == 69);
+}

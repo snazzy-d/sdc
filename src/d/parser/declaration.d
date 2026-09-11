@@ -369,7 +369,13 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
                                   StorageClass stc, AstType type) {
 	auto lookahead = trange.getLookahead();
 	lookahead.popFront();
-	if (lookahead.front.type == TokenType.OpenParen) {
+
+	if (lookahead.front.type != TokenType.OpenParen) {
+		goto VariableDecl;
+	}
+
+	lookahead.popMatchingDelimiter!(TokenType.OpenParen)();
+	if (lookahead.front.type != TokenType.Equal) {
 		auto idLoc = trange.front.location;
 		auto name = trange.match(TokenType.Identifier).name;
 
@@ -391,11 +397,18 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
 		);
 	}
 
+VariableDecl:
 	Declaration[] variables;
-
 	do {
 		auto vloc = trange.front.location;
 		auto name = trange.match(TokenType.Identifier).name;
+
+		AstTemplateParameter[] tplParameters;
+
+		bool isTemplate = trange.front.type == TokenType.OpenParen;
+		if (isTemplate) {
+			tplParameters = trange.parseTemplateParameters();
+		}
 
 		AstExpression value;
 		if (trange.front.type == TokenType.Equal) {
@@ -403,8 +416,14 @@ Declaration parseTypedDeclaration(ref TokenRange trange, Location location,
 			value = trange.parseInitializer();
 		}
 
-		variables ~= new VariableDeclaration(vloc.spanTo(trange.previous), stc,
-		                                     type, name, value);
+		Declaration var = new VariableDeclaration(vloc.spanTo(trange.previous),
+		                                          stc, type, name, value);
+		if (isTemplate) {
+			var =
+				new TemplateDeclaration(vloc, stc, name, tplParameters, [var]);
+		}
+
+		variables ~= var;
 	} while (trange.popOnMatch(TokenType.Comma));
 
 	trange.match(TokenType.Semicolon);
@@ -462,7 +481,7 @@ private Declaration parseFunction(
 	auto parameters = trange.parseParameters(isVariadic);
 
 	// If it is a template, it can have a constraint.
-	if (tplParameters.ptr) {
+	if (isTemplate) {
 		if (trange.front.type == TokenType.If) {
 			trange.parseConstraint();
 		}
