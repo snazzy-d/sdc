@@ -2,7 +2,6 @@ module core.stdc.linux.futex;
 
 import sys.posix.types;
 
-version(linux):
 extern(C):
 
 enum Futex {
