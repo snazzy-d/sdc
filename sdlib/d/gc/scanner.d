@@ -146,6 +146,12 @@ private:
 			}
 
 			bool hasWork() {
+				// waitFor may evaluate this on the unlocking thread
+				// and already have filled `count`. Do not pop again.
+				if (count > 0) {
+					return true;
+				}
+
 				// There is no more work to be done.
 				if (worker.scanner.activeThreads.load() == 0) {
 					return true;
@@ -156,16 +162,6 @@ private:
 			}
 		}
 
-		/**
-		 * The fact all the waiters use a different delegate
-		 * as condition (because the waiter itself is different)
-		 * will cause a loop where they wake up each others as they
-		 * fail their condition.
-		 * 
-		 * This is somewhat wasteful, but will do for now.
-		 * FIXME: Actually put multiple thread to sleep if
-		 *        multiple threads are starved.
-		 */
 		auto waiter = Waiter(&worker, items);
 		mutex.waitFor(waiter.hasWork);
 

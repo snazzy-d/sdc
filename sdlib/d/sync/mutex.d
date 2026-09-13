@@ -350,10 +350,8 @@ private:
 		assert(word.load() & QueueLockBit, "Queue lock not acquired!");
 
 		/**
-		 * FIXME: We might end up running through the same conditions
-		 *        again and again with that strategy. A better approach
-		 *        would be to make sure we dequeue at least one non condition
-		 *        thread if there is one, maybe?
+		 * Wake one waiter that can run. If every condition is false and
+		 * nobody is waiting for the lock itself, wake nobody.
 		 */
 		ThreadData* wakeList;
 		current = dequeue(current, wakeList, wp);
@@ -507,7 +505,8 @@ private:
 		while (true) {
 			auto c = p.next;
 
-			if (c.isLock() || wp is null || !c.isEquivalentTo(wp)) {
+			if (c.isLock() || ((wp is null || !c.isEquivalentTo(wp))
+				    && c.waitParams.condition())) {
 				tail = dequeueAfter(tail, p);
 				c.next = null;
 				wakeList = c;
@@ -707,6 +706,10 @@ unittest condition {
 	shared Mutex mutex;
 	uint next = -1;
 
+	import d.sync.atomic;
+	shared Atomic!uint count;
+	bool latch = false;
+
 	auto run(uint i) {
 		void* fun() {
 			bool check0() {
@@ -718,6 +721,7 @@ unittest condition {
 			}
 
 			mutex.lock();
+			scope(exit) mutex.unlock();
 
 			mutex.waitFor(check0);
 			next++;
@@ -725,7 +729,12 @@ unittest condition {
 			mutex.waitFor(check1);
 			next--;
 
-			mutex.unlock();
+			bool latchReleased() {
+				count.fetchAdd(1);
+				return latch;
+			}
+
+			mutex.waitFor(latchReleased);
 
 			return null;
 		}
@@ -757,6 +766,19 @@ unittest condition {
 	next--;
 	mutex.waitFor(reachedStartPoint);
 
+	mutex.unlock();
+
+	// Handshake done, lock held, every worker is in waitFor(parked)
+	// with a false, non-equivalent predicate. Drop the lock: the old
+	// wake-next policy rotates; evaluating predicates leaves count still.
+	auto snapshot = count.load();
+	foreach (_; 0 .. 8) {
+		sched_yield();
+		assert(count.load() == snapshot, "waitFor bucket brigade");
+	}
+
+	mutex.lock();
+	latch = true;
 	mutex.unlock();
 
 	// Now join them all and check next.
