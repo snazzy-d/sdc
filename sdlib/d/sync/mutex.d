@@ -85,7 +85,7 @@ public:
 	/**
 	 * /!\: This will reset the state of the mutex.
 	 *      If it was locked, it is now unlocked.
-	 *      If there were thread witing for it, they are probably
+	 *      If there were thread waiting for it, they are probably
 	 *      lost forever.
 	 *      This method is almost certainly not what you want to use.
 	 */
@@ -105,7 +105,7 @@ private:
 	 * representing the threads waiting on the lock.
 	 *
 	 * The linked list loops around (the tail points to the head)
-	 * and the mutex itself points ot the tail, such as
+	 * and the mutex itself points to the tail, such as
 	 * tail.next == head.
 	 */
 	struct ThreadData {
@@ -147,8 +147,8 @@ private:
 				current = s;
 				s = s.skip;
 
-				// We update the skip list as we travel it so we can recompute
-				// it faster once we pop td.
+				// We update the skip list as we travel it so we can
+				// recompute it faster next time.
 				last.skip = s;
 			}
 
@@ -352,7 +352,7 @@ private:
 		/**
 		 * FIXME: We might end up running through the same conditions
 		 *        again and again with that strategy. A better approach
-		 *        would be to make sure we dequeu at least one non condition
+		 *        would be to make sure we dequeue at least one non condition
 		 *        thread if there is one, maybe?
 		 */
 		ThreadData* wakeList;
@@ -401,14 +401,6 @@ private:
 		me.skip = null;
 
 		return cast(size_t) me;
-	}
-
-	static size_t enqueueLock(size_t current, WaitParams* wp) {
-		assert(current & LockBit, "Lock not held!");
-		assert(wp.isLock(), "Expected a lock!");
-
-		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		return cast(size_t) enqueueLock(tail, wp);
 	}
 
 	static ThreadData* prepend(ThreadData* tail, WaitParams* wp) {
@@ -472,11 +464,12 @@ private:
 		return enqueueAfter(tail, head.skipForward(), wp);
 	}
 
-	static size_t dequeueLock(size_t current, ref ThreadData* wakeList) {
+	static size_t enqueueLock(size_t current, WaitParams* wp) {
 		assert(current & LockBit, "Lock not held!");
+		assert(wp.isLock(), "Expected a lock!");
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		return cast(size_t) dequeueLock(tail, wakeList);
+		return cast(size_t) enqueueLock(tail, wp);
 	}
 
 	static ThreadData* dequeueAfter(bool AcceptTail = true)(ThreadData* tail,
@@ -519,12 +512,11 @@ private:
 		return tail;
 	}
 
-	static size_t dequeueCondition(size_t current, WaitParams* wp,
-	                               ref ThreadData* wakeList) {
+	static size_t dequeueLock(size_t current, ref ThreadData* wakeList) {
 		assert(current & LockBit, "Lock not held!");
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		return cast(size_t) dequeueCondition(tail, wp, wakeList);
+		return cast(size_t) dequeueLock(tail, wakeList);
 	}
 
 	static ThreadData* dequeueCondition(ThreadData* tail, WaitParams* wp,
@@ -553,6 +545,14 @@ private:
 		c.next = null;
 		wakeList = c;
 		return tail;
+	}
+
+	static size_t dequeueCondition(size_t current, WaitParams* wp,
+	                               ref ThreadData* wakeList) {
+		assert(current & LockBit, "Lock not held!");
+
+		auto tail = cast(ThreadData*) (current & ThreadDataMask);
+		return cast(size_t) dequeueCondition(tail, wp, wakeList);
 	}
 }
 
