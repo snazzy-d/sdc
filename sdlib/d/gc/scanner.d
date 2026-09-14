@@ -115,11 +115,7 @@ public:
 		// If some threads are starved, notify them.
 		// This inherently race-y, but it always eventually
 		// picks up starved threads, so this is good enough.
-		if (activeThreads.load() < totalThreads.load()) {
-			// FIXME: Add a notify feature to the mutex.
-			mutex.lock();
-			mutex.unlock();
-		}
+		mutex.notify();
 	}
 
 	size_t popFromWorkQueue(WorkItem[] items,

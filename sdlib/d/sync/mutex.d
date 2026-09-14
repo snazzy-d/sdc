@@ -82,6 +82,51 @@ public:
 		}
 	}
 
+	bool notify()() shared {
+		auto current = word.load(MemoryOrder.Relaxed);
+
+		while (true) {
+			// If we do not have a waiter, we are done.
+			if (!(current & ThreadDataMask)) {
+				return false;
+			}
+
+			/**
+			 * FIXME: notify() is allowed to return while LockBit is set
+			 *        without leaving a note for the holder. That loses
+			 *        wakeups in two cases:
+			 *
+			 * 1. The holder already walked the queue, found nobody runnable,
+			 *    and is about to drop the lock. We made a waiter runnable
+			 *    and called notify(); the walk will not run again.
+			 *
+			 * 2. A waitFor() thread sampled its condition as false and is
+			 *    parking. We made that condition true and called notify();
+			 *    the thread still parks.
+			 *
+			 * Fix: when notify() sees LockBit, set a notified flag in
+			 * the word. Unlock / park must observe that flag after
+			 * the walk (or after the condition sample) and either rescan
+			 * or re-evaluate before blocking.
+			 *
+			 * That makes both notify and unlock heavier. A designated-waker
+			 * bit pays for it: the thread we just woke is marked in the word
+			 * and in its WaitParams. Later notify() can return as that thread
+			 * will walk. A barging unlock can skip dequeue for the same reason.
+			 */
+			if (current & LockBit) {
+				return false;
+			}
+
+			assert(!(current & QueueLockBit),
+			       "Queue lock held while unlocked!");
+			if (word.casWeak(current, current | LockBit, MemoryOrder.Acquire)) {
+				unlockSlowUnfair(current | LockBit);
+				return true;
+			}
+		}
+	}
+
 	/**
 	 * /!\: This will reset the state of the mutex.
 	 *      If it was locked, it is now unlocked.
@@ -793,4 +838,88 @@ unittest condition {
 	mutex.lock();
 	assert(next == -1);
 	mutex.unlock();
+}
+
+unittest notify {
+	static runThread(void* delegate() dg) {
+		static struct Delegate {
+			void* ctx;
+			void* function(void*) fun;
+		}
+
+		auto x = *(cast(Delegate*) &dg);
+
+		import core.stdc.pthread;
+		pthread_t tid;
+		auto r = pthread_create(&tid, null, x.fun, x.ctx);
+		assert(r == 0, "Failed to create thread!");
+
+		return tid;
+	}
+
+	enum uint ThreadCount = 8;
+
+	shared Mutex mutex;
+
+	// Notify while locked is a noop.
+	mutex.lock();
+	assert(!mutex.notify());
+
+	// Notify with no waiters is also a noop.
+	mutex.unlock();
+	assert(!mutex.notify());
+
+	import d.sync.atomic;
+	shared Atomic!uint entered;
+	shared Atomic!uint passed;
+	shared Atomic!uint[ThreadCount] ready;
+
+	auto run(uint i) {
+		void* fun() {
+			bool canProceed() {
+				return ready[i].load() != 0;
+			}
+
+			mutex.lock();
+			entered.fetchAdd(1);
+			mutex.waitFor(canProceed);
+			passed.fetchAdd(1);
+			mutex.unlock();
+			return null;
+		}
+
+		return runThread(fun);
+	}
+
+	import core.stdc.pthread;
+	pthread_t[ThreadCount] ts;
+	foreach (i; 0 .. ThreadCount) {
+		ts[i] = run(i);
+	}
+
+	bool allEntered() {
+		return entered.load() == ThreadCount;
+	}
+
+	mutex.lock();
+	mutex.waitFor(allEntered);
+	mutex.unlock();
+
+	// Notify while threads are waiting returns true,
+	// even in the case none are woken up.
+	assert(passed.load() == 0);
+	assert(mutex.notify());
+	assert(passed.load() == 0);
+
+	void* ret;
+	foreach (i; 0 .. ThreadCount) {
+		ready[i].store(1);
+		assert(mutex.notify());
+
+		pthread_join(ts[i], &ret);
+		assert(passed.load() == i + 1);
+	}
+
+	// Nobody's waiting anymore, notify is a noop again.
+	assert(!mutex.notify());
 }
