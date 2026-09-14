@@ -356,34 +356,31 @@ private:
 		 *        thread if there is one, maybe?
 		 */
 		ThreadData* wakeList;
-		if (wp is null) {
-			current = dequeueLock(current, wakeList);
-		} else {
-			current = dequeueCondition(current, wp, wakeList);
-		}
+		current = dequeue(current, wakeList, wp);
 
 		/**
 		 * As we update the tail, we also release the queue lock.
-		 * The lock itself is kept is the fair case, or unlocked if
-		 * fairness is not a concern.
+		 * Fair handoff keeps LockBit only when there is a winner.
 		 */
-		word.store(current | Fair, MemoryOrder.Release);
-		assert(!Fair || wakeList !is null, "Expected at least one dequeue!");
+		auto keepLock = Fair && wakeList !is null;
+		word.store(current | keepLock, MemoryOrder.Release);
 
-		// Make sure our bit trickery remains valid.
-		static assert((Handoff.Barging + true) == Handoff.Direct);
+		// First, do a fair ownership transfer if one is warranted.
+		if (keepLock) {
+			auto c = wakeList;
+			wakeList = c.next;
 
-		// Wake up the blocked threads.
-		auto fair = Fair;
+			c.waitParams.handoff.store(Handoff.Direct, MemoryOrder.Release);
+			c.waiter.wakeup();
+		}
+
+		// Wake up the remaining threads.
 		while (wakeList !is null) {
 			auto c = wakeList;
 			wakeList = c.next;
 
-			c.waitParams.handoff
-			 .store(Handoff.Barging + fair, MemoryOrder.Release);
+			c.waitParams.handoff.store(Handoff.Barging, MemoryOrder.Release);
 			c.waiter.wakeup();
-
-			fair = false;
 		}
 	}
 
@@ -472,8 +469,7 @@ private:
 		return cast(size_t) enqueueLock(tail, wp);
 	}
 
-	static ThreadData* dequeueAfter(bool AcceptTail = true)(ThreadData* tail,
-	                                                        ThreadData* prev) {
+	static ThreadData* dequeueAfter(ThreadData* tail, ThreadData* prev) {
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 		assert(tail.skip is null, "Tail cannot have a skip!");
 
@@ -483,12 +479,10 @@ private:
 		auto n = prev.next;
 		prev.next = n.next;
 
-		if (AcceptTail && n is tail) {
+		if (n is tail) {
 			// We either have an empty list or removed the tail.
 			return prev is n ? null : prev;
 		}
-
-		assert(n !is tail, "Cannot dequeue tail!");
 
 		// The list is not empty.
 		if (prev !is tail) {
@@ -498,61 +492,41 @@ private:
 		return tail;
 	}
 
-	static ThreadData* dequeueLock(ThreadData* tail, ref ThreadData* wakeList) {
+	static ThreadData* dequeue(ThreadData* tail, ref ThreadData* wakeList,
+	                           WaitParams* wp) {
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 		assert(tail.skip is null, "Tail cannot have a skip!");
+		assert(wakeList is null, "wakeList wasn't empty!!");
+
+		if (wp !is null) {
+			tail = enqueueAfter(tail, tail, wp);
+		}
 
 		auto p = tail;
-		auto c = tail.next;
 
-		tail = dequeueAfter(tail, p);
+		while (true) {
+			auto c = p.next;
 
-		c.next = null;
-		wakeList = c;
-		return tail;
-	}
-
-	static size_t dequeueLock(size_t current, ref ThreadData* wakeList) {
-		assert(current & LockBit, "Lock not held!");
-
-		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		return cast(size_t) dequeueLock(tail, wakeList);
-	}
-
-	static ThreadData* dequeueCondition(ThreadData* tail, WaitParams* wp,
-	                                    ref ThreadData* wakeList) {
-		assert(tail !is null, "Failed to short circuit on empty queue!");
-		assert(tail.skip is null, "Tail cannot have a skip!");
-
-		tail = enqueueAfter(tail, tail, wp);
-
-		auto p = tail;
-		auto c = tail.next;
-
-		if (c.isEquivalentTo(wp)) {
-			p = c.skipForward();
-			if (p is tail) {
-				wakeList = null;
+			if (c.isLock() || wp is null || !c.isEquivalentTo(wp)) {
+				tail = dequeueAfter(tail, p);
+				c.next = null;
+				wakeList = c;
 				return tail;
 			}
 
-			c = p.next;
+			p = c.skipForward();
+			if (p is tail) {
+				return tail;
+			}
 		}
-
-		assert(!c.isEquivalentTo(wp), "Invalid list!");
-		tail = dequeueAfter!false(tail, p);
-
-		c.next = null;
-		wakeList = c;
-		return tail;
 	}
 
-	static size_t dequeueCondition(size_t current, WaitParams* wp,
-	                               ref ThreadData* wakeList) {
+	static size_t dequeue(size_t current, ref ThreadData* wakeList,
+	                      WaitParams* wp = null) {
 		assert(current & LockBit, "Lock not held!");
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		return cast(size_t) dequeueCondition(tail, wp, wakeList);
+		return cast(size_t) dequeue(tail, wakeList, wp);
 	}
 }
 
