@@ -16,12 +16,12 @@ private:
 public:
 	void lock()() shared {
 		// No operation done after the lock is taken can be reordered before.
-		size_t expected = 0;
-		if (likely(word.casWeak(expected, LockBit, MemoryOrder.Acquire))) {
+		size_t current = 0;
+		if (likely(word.casWeak(current, LockBit, MemoryOrder.Acquire))) {
 			return;
 		}
 
-		lockSlow();
+		lockSlow(current);
 	}
 
 	bool tryLock() shared {
@@ -48,22 +48,22 @@ public:
 
 	void unlock()() shared {
 		// No operation done before the lock is freed can be reordered after.
-		size_t expected = LockBit;
-		if (likely(word.casWeak(expected, 0, MemoryOrder.Release))) {
+		size_t current = LockBit;
+		if (likely(word.casWeak(current, 0, MemoryOrder.Release))) {
 			return;
 		}
 
-		unlockSlowUnfair();
+		unlockSlowUnfair(current);
 	}
 
 	void unlockFairly()() shared {
 		// No operation done before the lock is freed can be reordered after.
-		size_t expected = LockBit;
-		if (likely(word.casWeak(expected, 0, MemoryOrder.Release))) {
+		size_t current = LockBit;
+		if (likely(word.casWeak(current, 0, MemoryOrder.Release))) {
 			return;
 		}
 
-		unlockSlowFair();
+		unlockSlowFair(current);
 	}
 
 	bool waitFor()(bool delegate() condition) shared {
@@ -204,14 +204,12 @@ private:
 		}
 	}
 
-	void lockSlow() shared {
+	void lockSlow(size_t current) shared {
 		// Trusting WTF::WordLock on that one...
 		enum SpinLimit = 40;
 		uint spinCount = 0;
 
 		while (true) {
-			auto current = word.load(MemoryOrder.Relaxed);
-
 			// If the lock if free, we try to barge in.
 			if (!(current & LockBit)) {
 				assert(!(current & QueueLockBit),
@@ -228,14 +226,14 @@ private:
 
 			assert(current & LockBit, "Lock not held!");
 
+			WaitParams wp;
+
 			// If nobody's parked...
 			if (!(current & ThreadDataMask) && spinCount < SpinLimit) {
 				spinCount++;
 				sched_yield();
-				continue;
+				goto Reload;
 			}
-
-			WaitParams wp;
 
 			// If we can, try try to register atomically.
 			if (current == LockBit) {
@@ -252,7 +250,7 @@ private:
 				    .casWeak(current, current | QueueLockBit,
 				             MemoryOrder.Acquire)) {
 				sched_yield();
-				continue;
+				goto Reload;
 			}
 
 			// Make sure we do have the queue lock.
@@ -268,6 +266,9 @@ private:
 				assert((&this).isHeld(), "Lock not held!");
 				return;
 			}
+
+		Reload:
+			current = word.load(MemoryOrder.Relaxed);
 		}
 	}
 
@@ -290,7 +291,10 @@ private:
 	}
 
 	void unlockAndWait(WaitParams* wp) shared {
-		unlockSlowUnfair(wp);
+		auto current = word.load(MemoryOrder.Relaxed);
+		assert(current & LockBit, "Lock not held!");
+
+		unlockSlowUnfair(current, wp);
 
 		if (waitForHandoff() == Handoff.Barging) {
 			lock();
@@ -299,15 +303,15 @@ private:
 		assert((&this).isHeld(), "Lock not held!");
 	}
 
-	void unlockSlowUnfair(WaitParams* wp = null) shared {
-		unlockSlowImpl!false(wp);
+	void unlockSlowUnfair(size_t current, WaitParams* wp = null) shared {
+		unlockSlowImpl!false(current, wp);
 	}
 
-	void unlockSlowFair() shared {
-		unlockSlowImpl!true(null);
+	void unlockSlowFair(size_t current) shared {
+		unlockSlowImpl!true(current, null);
 	}
 
-	void unlockSlowImpl(bool Fair)(WaitParams* wp) shared {
+	void unlockSlowImpl(bool Fair)(size_t current, WaitParams* wp) shared {
 		if (Fair) {
 			assert(wp is null, "Cannot unlock condition fairly!");
 
@@ -318,7 +322,6 @@ private:
 
 		auto fastUnlock = wp is null ? 0 : selfEnqueue(wp);
 
-		auto current = word.load(MemoryOrder.Relaxed);
 		while (true) {
 			assert(current & LockBit, "Lock not held!");
 
