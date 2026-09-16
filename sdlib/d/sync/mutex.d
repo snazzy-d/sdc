@@ -69,6 +69,9 @@ public:
 	bool waitFor()(bool delegate() condition) shared {
 		assert((&this).isHeld(), "Mutex not held!");
 
+		WaitParams wp;
+		wp.condition = condition;
+
 		while (true) {
 			if (condition()) {
 				return true;
@@ -76,8 +79,6 @@ public:
 
 			// FIXME: In case of timeout, we want to return false.
 			//        At the moment, timeouts are not supported.
-			WaitParams wp;
-			wp.condition = condition;
 			unlockAndWait(&wp);
 		}
 	}
@@ -254,6 +255,8 @@ private:
 		enum SpinLimit = 40;
 		uint spinCount = 0;
 
+		WaitParams wp;
+
 		while (true) {
 			// If the lock if free, we try to barge in.
 			if (!(current & LockBit)) {
@@ -270,8 +273,6 @@ private:
 			}
 
 			assert(current & LockBit, "Lock not held!");
-
-			WaitParams wp;
 
 			// If nobody's parked...
 			if (!(current & ThreadDataMask) && spinCount < SpinLimit) {
