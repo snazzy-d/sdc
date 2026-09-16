@@ -1,6 +1,7 @@
 //T compiles:yes
 //T has-passed:yes
 //T retval:0
+// Test for rebustness in the face of unreliable signals.
 
 import d.gc.signal;
 import d.gc.thread;
