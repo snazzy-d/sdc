@@ -11,7 +11,9 @@ private:
 
 	enum size_t LockBit = 0x01;
 	enum size_t QueueLockBit = 0x02;
-	enum size_t ThreadDataMask = ~(LockBit | QueueLockBit);
+	enum size_t HasWakerBit = 0x04;
+	enum size_t AllFlags = LockBit | QueueLockBit | HasWakerBit;
+	enum size_t ThreadDataMask = ~AllFlags;
 
 public:
 	void lock()() shared {
@@ -87,8 +89,13 @@ public:
 		auto current = word.load(MemoryOrder.Relaxed);
 
 		while (true) {
-			// If we do not have a waiter, we are done.
-			if (!(current & ThreadDataMask)) {
+			// The thread is not contended, we are done.
+			if (current == 0) {
+				return false;
+			}
+
+			// We have a designated waker, let it do the work.
+			if (current & HasWakerBit) {
 				return false;
 			}
 
@@ -119,6 +126,11 @@ public:
 				return false;
 			}
 
+			// If we do not have a waiter, we are done.
+			if (!(current & ThreadDataMask)) {
+				return false;
+			}
+
 			assert(!(current & QueueLockBit),
 			       "Queue lock held while unlocked!");
 			if (word.casWeak(current, current | LockBit, MemoryOrder.Acquire)) {
@@ -142,8 +154,9 @@ public:
 private:
 	enum Handoff {
 		None,
-		Barging,
 		Direct,
+		Barging,
+		Waker,
 	}
 
 	/**
@@ -252,21 +265,30 @@ private:
 
 	void lockSlow(size_t current) shared {
 		WaitParams wp;
-		lockSlow(current, &wp);
+		lockSlow(current, &wp, false);
 	}
 
-	void lockSlow(size_t current, WaitParams* wp) shared {
+	void lockSlow(size_t current, WaitParams* wp, bool waker) shared {
 		// Trusting WTF::WordLock on that one...
 		enum SpinLimit = 40;
 		uint spinCount = 0;
 
+		// A waker must clear the waker bit, but other thread must preserve it.
+		enum size_t BargingMask = HasWakerBit;
+		enum size_t WakerMask = 0;
+
+		auto mask = waker ? WakerMask : BargingMask;
+
 		while (true) {
+			auto flags = (current & mask) | LockBit;
+
 			// If the lock if free, we try to barge in.
 			if (!(current & LockBit)) {
 				assert(!(current & QueueLockBit),
 				       "Queue lock held while unlocked!");
 
-				if (word.casWeak(current, current | LockBit,
+				auto desired = current & ThreadDataMask;
+				if (word.casWeak(current, desired | flags,
 				                 MemoryOrder.Acquire)) {
 					// We got the lock, VICTORY !
 					return;
@@ -278,15 +300,17 @@ private:
 			assert(current & LockBit, "Lock not held!");
 
 			// If nobody's parked...
-			if (!(current & ThreadDataMask) && spinCount < SpinLimit) {
-				spinCount++;
-				sched_yield();
-				goto Reload;
-			}
+			if (!(current & ThreadDataMask)) {
+				// First, we spin.
+				if (spinCount < SpinLimit) {
+					spinCount++;
+					sched_yield();
+					current = word.load(MemoryOrder.Relaxed);
+					continue;
+				}
 
-			// If we can, try try to register atomically.
-			if (current == LockBit) {
-				if (word.casWeak(current, selfEnqueue(wp) | LockBit,
+				// Then we try to park oursleves atomically.
+				if (word.casWeak(current, selfEnqueue(wp) | flags,
 				                 MemoryOrder.Release)) {
 					goto Handoff;
 				}
@@ -299,7 +323,8 @@ private:
 				    .casWeak(current, current | QueueLockBit,
 				             MemoryOrder.Acquire)) {
 				sched_yield();
-				goto Reload;
+				current = word.load(MemoryOrder.Relaxed);
+				continue;
 			}
 
 			// Make sure we do have the queue lock.
@@ -307,15 +332,16 @@ private:
 
 			// Now we store the updated head. Note that this will release the
 			// queue lock too, but it's okay, by now we are in the queue.
-			word.store(enqueue(current, wp) | LockBit, MemoryOrder.Release);
+			word.store(enqueue(current, wp) | flags, MemoryOrder.Release);
 
 		Handoff:
-			if (waitForHandoff() == Handoff.Direct) {
+			auto handoff = waitForHandoff();
+			if (handoff == Handoff.Direct) {
 				assert((&this).isHeld(), "Lock not held!");
 				return;
 			}
 
-		Reload:
+			mask = (handoff == Handoff.Waker) ? WakerMask : BargingMask;
 			current = word.load(MemoryOrder.Relaxed);
 		}
 	}
@@ -333,8 +359,12 @@ private:
 			// FIXME: Dequeue ourselves in case of timeout.
 		}
 
-		assert(handoff == Handoff.Direct || handoff == Handoff.Barging,
-		       "Invalid handoff value!");
+		// FIXME: out contract.
+		assert(
+			handoff == Handoff.Direct || handoff == Handoff.Barging
+				|| handoff == Handoff.Waker,
+			"Invalid handoff state!"
+		);
 		return handoff;
 	}
 
@@ -342,40 +372,56 @@ private:
 		auto current = word.load(MemoryOrder.Relaxed);
 		assert(current & LockBit, "Lock not held!");
 
-		unlockSlowUnfair(current, wp);
+		unlockSlowCondition(current, wp);
 
-		if (waitForHandoff() == Handoff.Barging) {
-			lockSlow(0, wp);
+		auto handoff = waitForHandoff();
+		if (handoff != Handoff.Direct) {
+			// We assume that either we are the waker, or someone else is.
+			lockSlow(HasWakerBit, wp, handoff == Handoff.Waker);
 		}
 
 		assert((&this).isHeld(), "Lock not held!");
 	}
 
-	void unlockSlowUnfair(size_t current, WaitParams* wp = null) shared {
-		unlockSlowImpl!false(current, wp);
+	enum UnlockKind {
+		Fair,
+		Unfair,
+		Condition,
 	}
 
 	void unlockSlowFair(size_t current) shared {
-		unlockSlowImpl!true(current, null);
+		unlockSlowImpl!(UnlockKind.Fair)(current, null);
 	}
 
-	void unlockSlowImpl(bool Fair)(size_t current, WaitParams* wp) shared {
-		if (Fair) {
+	void unlockSlowUnfair(size_t current) shared {
+		unlockSlowImpl!(UnlockKind.Unfair)(current, null);
+	}
+
+	void unlockSlowCondition(size_t current, WaitParams* wp) shared {
+		unlockSlowImpl!(UnlockKind.Condition)(current, wp);
+	}
+
+	void unlockSlowImpl(/* UnlockKind */ int Kind)(size_t current,
+	                                               WaitParams* wp) shared {
+		enum Fair = Kind == UnlockKind.Fair;
+		enum Condition = Kind == UnlockKind.Condition;
+		if (Condition) {
+			assert(wp !is null && wp.isCondition(), "Expected a condition!");
+		} else {
 			assert(wp is null, "Cannot unlock condition fairly!");
-
-			// Make sure that the optimizer knows that wp is null
-			// when asserts are disabled.
-			wp = null;
 		}
-
-		auto fastUnlock = wp is null ? 0 : selfEnqueue(wp);
 
 		while (true) {
 			assert(current & LockBit, "Lock not held!");
 
+			enum FastUnlockMask = ThreadDataMask | QueueLockBit;
+
 			// If nobody is parked, just unlock.
-			if (current == LockBit) {
-				if (word.casWeak(current, fastUnlock, MemoryOrder.Release)) {
+			if (!(current & FastUnlockMask)) {
+				auto desired = Condition ? selfEnqueue(wp) : 0;
+				desired |= current & HasWakerBit;
+
+				if (word.casWeak(current, desired, MemoryOrder.Release)) {
 					return;
 				}
 
@@ -386,6 +432,17 @@ private:
 			if (current & QueueLockBit) {
 				sched_yield();
 				current = word.load(MemoryOrder.Relaxed);
+				continue;
+			}
+
+			// We already have a designated waker, just unlock.
+			// Conditions still need to add themselves to the list.
+			if (!Condition && (current & HasWakerBit)) {
+				if (word.casWeak(current, current & ~LockBit,
+				                 MemoryOrder.Release)) {
+					return;
+				}
+
 				continue;
 			}
 
@@ -400,10 +457,25 @@ private:
 		// Make sure we do have the queue lock.
 		assert(word.load() & QueueLockBit, "Queue lock not acquired!");
 
+		auto flags = current & HasWakerBit;
+
 		// If we have a condition, add it to the list.
-		if (wp !is null) {
+		if (Condition) {
 			current = enqueue(current, wp);
+
+			// We we have a waker, exit ASAP.
+			if (flags & HasWakerBit) {
+				word.store(current | flags, MemoryOrder.Release);
+				return;
+			}
 		}
+
+		/**
+		 *  The only way we could get the queue lock when there is a
+		 * designated waker is to enqueue ourselves, which is done by now.
+		 */
+		assert(!(flags & HasWakerBit),
+		       "Reached dequeing code while not the designated waker!");
 
 		/**
 		 * Wake one waiter that can run. If every condition is false and
@@ -412,23 +484,28 @@ private:
 		ThreadData* wakeList;
 		current = dequeue(current, wakeList, wp);
 
+		// We we don't have anyone to wake, then we are done.
+		if (wakeList is null) {
+			word.store(current, MemoryOrder.Release);
+			return;
+		}
+
 		/**
 		 * As we update the tail, we also release the queue lock.
 		 * Fair handoff keeps LockBit only when there is a winner.
 		 */
-		auto keepLock = Fair && wakeList !is null;
-		word.store(current | keepLock, MemoryOrder.Release);
+		current |= Fair ? LockBit : HasWakerBit;
+		word.store(current, MemoryOrder.Release);
 
-		// First, do a fair ownership transfer if one is warranted.
-		if (keepLock) {
-			auto c = wakeList;
-			wakeList = c.next;
+		// First, do an ownership transfer if one is warranted.
+		auto c = wakeList;
+		wakeList = c.next;
 
-			c.waitParams.handoff.store(Handoff.Direct, MemoryOrder.Release);
-			c.waiter.wakeup();
-		}
+		auto handoff = Fair ? Handoff.Direct : Handoff.Waker;
+		c.waitParams.handoff.store(handoff, MemoryOrder.Release);
+		c.waiter.wakeup();
 
-		// Wake up the remaining threads.
+		// If there are more threads to wake up, do so.
 		while (wakeList !is null) {
 			auto c = wakeList;
 			wakeList = c.next;
@@ -552,7 +629,9 @@ private:
 	                           WaitParams* wp) {
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 		assert(tail.skip is null, "Tail cannot have a skip!");
-		assert(wakeList is null, "wakeList wasn't empty!!");
+		assert(wakeList is null, "wakeList wasn't empty!");
+		assert(wp is null || wp.isCondition(),
+		       "wp must be null or a condition!");
 
 		auto p = tail;
 
@@ -576,6 +655,9 @@ private:
 
 	static size_t dequeue(size_t current, ref ThreadData* wakeList,
 	                      WaitParams* wp = null) {
+		assert(wp is null || wp.isCondition(),
+		       "wp must be null or a condition!");
+
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
 		return cast(size_t) dequeue(tail, wakeList, wp);
 	}
