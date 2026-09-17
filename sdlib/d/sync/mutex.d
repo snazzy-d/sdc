@@ -251,11 +251,14 @@ private:
 	}
 
 	void lockSlow(size_t current) shared {
+		WaitParams wp;
+		lockSlow(current, &wp);
+	}
+
+	void lockSlow(size_t current, WaitParams* wp) shared {
 		// Trusting WTF::WordLock on that one...
 		enum SpinLimit = 40;
 		uint spinCount = 0;
-
-		WaitParams wp;
 
 		while (true) {
 			// If the lock if free, we try to barge in.
@@ -283,7 +286,7 @@ private:
 
 			// If we can, try try to register atomically.
 			if (current == LockBit) {
-				if (word.casWeak(current, selfEnqueue(&wp) | LockBit,
+				if (word.casWeak(current, selfEnqueue(wp) | LockBit,
 				                 MemoryOrder.Release)) {
 					goto Handoff;
 				}
@@ -304,7 +307,7 @@ private:
 
 			// Now we store the updated head. Note that this will release the
 			// queue lock too, but it's okay, by now we are in the queue.
-			word.store(enqueue(current, &wp) | LockBit, MemoryOrder.Release);
+			word.store(enqueue(current, wp) | LockBit, MemoryOrder.Release);
 
 		Handoff:
 			if (waitForHandoff() == Handoff.Direct) {
@@ -342,7 +345,7 @@ private:
 		unlockSlowUnfair(current, wp);
 
 		if (waitForHandoff() == Handoff.Barging) {
-			lock();
+			lockSlow(0, wp);
 		}
 
 		assert((&this).isHeld(), "Lock not held!");
