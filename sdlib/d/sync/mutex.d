@@ -304,8 +304,7 @@ private:
 
 			// Now we store the updated head. Note that this will release the
 			// queue lock too, but it's okay, by now we are in the queue.
-			word.store(enqueueLock(current, &wp) | LockBit,
-			           MemoryOrder.Release);
+			word.store(enqueue(current, &wp) | LockBit, MemoryOrder.Release);
 
 		Handoff:
 			if (waitForHandoff() == Handoff.Direct) {
@@ -397,6 +396,11 @@ private:
 
 		// Make sure we do have the queue lock.
 		assert(word.load() & QueueLockBit, "Queue lock not acquired!");
+
+		// If we have a condition, add it to the list.
+		if (wp !is null) {
+			current = enqueue(current, wp);
+		}
 
 		/**
 		 * Wake one waiter that can run. If every condition is false and
@@ -493,11 +497,14 @@ private:
 		return prev is tail ? me : tail;
 	}
 
-	static ThreadData* enqueueLock(ThreadData* tail, WaitParams* wp) {
+	static ThreadData* enqueue(ThreadData* tail, WaitParams* wp) {
 		assert(tail !is null, "Failed to short circuit on empty queue!");
 		assert(tail.skip is null, "Tail cannot have a skip!");
 
-		assert(wp.isLock(), "Expected a lock!");
+		// We just enqueue condition at the end of the queue.
+		if (wp.isCondition()) {
+			return enqueueAfter(tail, tail, wp);
+		}
 
 		// If this is the highest priority item, prepend.
 		auto head = tail.next;
@@ -508,12 +515,11 @@ private:
 		return enqueueAfter(tail, head.skipForward(), wp);
 	}
 
-	static size_t enqueueLock(size_t current, WaitParams* wp) {
+	static size_t enqueue(size_t current, WaitParams* wp) {
 		assert(current & LockBit, "Lock not held!");
-		assert(wp.isLock(), "Expected a lock!");
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
-		return cast(size_t) enqueueLock(tail, wp);
+		return cast(size_t) enqueue(tail, wp);
 	}
 
 	static ThreadData* dequeueAfter(ThreadData* tail, ThreadData* prev) {
@@ -545,10 +551,6 @@ private:
 		assert(tail.skip is null, "Tail cannot have a skip!");
 		assert(wakeList is null, "wakeList wasn't empty!!");
 
-		if (wp !is null) {
-			tail = enqueueAfter(tail, tail, wp);
-		}
-
 		auto p = tail;
 
 		while (true) {
@@ -571,8 +573,6 @@ private:
 
 	static size_t dequeue(size_t current, ref ThreadData* wakeList,
 	                      WaitParams* wp = null) {
-		assert(current & LockBit, "Lock not held!");
-
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
 		return cast(size_t) dequeue(tail, wakeList, wp);
 	}
