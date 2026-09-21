@@ -45,7 +45,7 @@ public:
 	}
 
 	bool isHeld() shared {
-		return (word.load() & LockBit) != 0;
+		return (word.load(MemoryOrder.Relaxed) & LockBit) != 0;
 	}
 
 	void unlock()() shared {
@@ -309,7 +309,7 @@ private:
 					continue;
 				}
 
-				// Then we try to park oursleves atomically.
+				// Then we try to park ourselves atomically.
 				if (word.casWeak(current, selfEnqueue(wp) | flags,
 				                 MemoryOrder.Release)) {
 					goto Handoff;
@@ -412,14 +412,16 @@ private:
 		while (true) {
 			assert(current & LockBit, "Lock not held!");
 
+			// We want to preserve certain flags when unlocking.
+			auto flags = current & HasWakerBit;
+
 			enum FastUnlockMask = ThreadDataMask | QueueLockBit;
 
 			// If nobody is parked, just unlock.
 			if (!(current & FastUnlockMask)) {
 				auto desired = Condition ? selfEnqueue(wp) : 0;
-				desired |= current & HasWakerBit;
-
-				if (word.casWeak(current, desired, MemoryOrder.Release)) {
+				if (word.casWeak(current, desired | flags,
+				                 MemoryOrder.Release)) {
 					return;
 				}
 
@@ -434,66 +436,91 @@ private:
 			}
 
 			// We already have a designated waker, just unlock.
-			// Conditions still need to add themselves to the list.
-			if (!Condition && (current & HasWakerBit)) {
-				if (word.casWeak(current, current & ~LockBit,
-				                 MemoryOrder.Release)) {
+			if (flags & HasWakerBit) {
+				// If there is no condition, just release the lock.
+				if (!Condition && word.casWeak(current, current & ~LockBit,
+				                               MemoryOrder.Release)) {
 					return;
 				}
 
+				// Acquire the queue lock to add the condition.
+				if (Condition && word.casWeak(current, current | QueueLockBit,
+				                              MemoryOrder.Acquire)) {
+					current = enqueue(current, wp);
+					word.store(current | flags, MemoryOrder.Release);
+					return;
+				}
+
+				// We failed to unlock, try again.
 				continue;
 			}
 
-			// We must have another thread waiting. Lock the queue
-			// and release the next thread in line.
-			if (word.casWeak(current, current | QueueLockBit,
-			                 MemoryOrder.Acquire)) {
+			// In order to avoid taking the queue lock when walking the queue,
+			// we simply steal the whole queue and merge back later if necessary.
+			if (word.casWeak(current, LockBit | flags, MemoryOrder.Acquire)) {
 				break;
 			}
 		}
 
-		// Make sure we do have the queue lock.
-		assert(word.load() & QueueLockBit, "Queue lock not acquired!");
-
-		auto flags = current & HasWakerBit;
+		// We stole the queue from the mutex and will walk it to find waiters
+		// to unlocks. This is only done when we are the designated waker.
+		assert(!(current & HasWakerBit),
+		       "Reached dequeuing code while not the designated waker!");
 
 		// If we have a condition, add it to the list.
 		if (Condition) {
 			current = enqueue(current, wp);
-
-			// We we have a waker, exit ASAP.
-			if (flags & HasWakerBit) {
-				word.store(current | flags, MemoryOrder.Release);
-				return;
-			}
 		}
-
-		/**
-		 *  The only way we could get the queue lock when there is a
-		 * designated waker is to enqueue ourselves, which is done by now.
-		 */
-		assert(!(flags & HasWakerBit),
-		       "Reached dequeing code while not the designated waker!");
 
 		/**
 		 * Wake one waiter that can run. If every condition is false and
 		 * nobody is waiting for the lock itself, wake nobody.
 		 */
 		ThreadData* wakeList;
-		current = dequeue(current, wakeList, wp);
+		auto desired = dequeue(current, wakeList, wp);
 
-		// We we don't have anyone to wake, then we are done.
-		if (wakeList is null) {
-			word.store(current, MemoryOrder.Release);
-			return;
+		while (true) {
+			if (wakeList !is null) {
+				desired |= Fair ? LockBit : HasWakerBit;
+			}
+
+			// If nobody queued in the meantime, we can fast release.
+			current = LockBit;
+			if (word.casWeak(current, desired, MemoryOrder.Release)) {
+				break;
+			}
+
+			// Someone queued in the meantime, we need to merge.
+			assert(current & LockBit, "Lock not held!");
+			if (current & QueueLockBit) {
+				sched_yield();
+				current = word.load(MemoryOrder.Relaxed);
+				continue;
+			}
+
+			// If nobody is waiting, then this is a spurious failure.
+			// Try again.
+			if (!(current & ThreadDataMask)) {
+				continue;
+			}
+
+			// Try to steal this new unit of work too.
+			if (!word.casWeak(current, LockBit, MemoryOrder.Acquire)) {
+				continue;
+			}
+
+			// Make sure we also process these items.
+			if (wakeList is null) {
+				current = dequeue(current, wakeList, wp);
+			}
+
+			desired = merge(desired, current);
 		}
 
-		/**
-		 * As we update the tail, we also release the queue lock.
-		 * Fair handoff keeps LockBit only when there is a winner.
-		 */
-		current |= Fair ? LockBit : HasWakerBit;
-		word.store(current, MemoryOrder.Release);
+		// We don't have anybody to wake up, bail.
+		if (wakeList is null) {
+			return;
+		}
 
 		// First, do an ownership transfer if one is warranted.
 		auto c = wakeList;
@@ -518,7 +545,7 @@ private:
 	 */
 	static size_t selfEnqueue(WaitParams* wp) {
 		// Make sure we are setup for handoff.
-		wp.handoff.store(Handoff.None, MemoryOrder.Release);
+		wp.handoff.store(Handoff.None, MemoryOrder.Relaxed);
 
 		auto me = &threadData;
 		me.waitParams = wp;
@@ -534,7 +561,7 @@ private:
 		assert(tail.skip is null, "Tail cannot have a skip!");
 
 		// Make sure we are setup for handoff.
-		wp.handoff.store(Handoff.None, MemoryOrder.Release);
+		wp.handoff.store(Handoff.None, MemoryOrder.Relaxed);
 
 		auto me = &threadData;
 		me.waitParams = wp;
@@ -559,7 +586,7 @@ private:
 		assert(prev.skip is null, "Prev cannot have a skip!");
 
 		// Make sure we are setup for handoff.
-		wp.handoff.store(Handoff.None, MemoryOrder.Release);
+		wp.handoff.store(Handoff.None, MemoryOrder.Relaxed);
 
 		auto me = &threadData;
 		me.waitParams = wp;
@@ -658,6 +685,32 @@ private:
 
 		auto tail = cast(ThreadData*) (current & ThreadDataMask);
 		return cast(size_t) dequeue(tail, wakeList, wp);
+	}
+
+	static ThreadData* merge(ThreadData* first, ThreadData* second) {
+		if (first is null) {
+			return second;
+		}
+
+		if (second is null) {
+			return first;
+		}
+
+		assert(second !is null, "Failed to short circuit on empty queue!");
+		assert(second.skip is null, "Tail cannot have a skip!");
+
+		auto fHead = first.next;
+		auto sHead = second.next;
+		first.next = sHead;
+		second.next = fHead;
+		first.updateSkip();
+		return second;
+	}
+
+	static size_t merge(size_t first, size_t second) {
+		auto fTail = cast(ThreadData*) (first & ThreadDataMask);
+		auto sTail = cast(ThreadData*) (second & ThreadDataMask);
+		return cast(size_t) merge(fTail, sTail);
 	}
 }
 
