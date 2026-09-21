@@ -69,12 +69,11 @@ public:
 	}
 
 	bool waitFor()(bool delegate() condition) shared {
-		assert((&this).isHeld(), "Mutex not held!");
-
 		WaitParams wp;
 		wp.condition = condition;
 
 		while (true) {
+			assert((&this).isHeld(), "Mutex not held!");
 			if (condition()) {
 				return true;
 			}
@@ -370,15 +369,16 @@ private:
 		auto current = word.load(MemoryOrder.Relaxed);
 		assert(current & LockBit, "Lock not held!");
 
-		unlockSlowCondition(current, wp);
+		if (unlockSlowCondition(current, wp)) {
+			// We got notified, check the condition again.
+			return;
+		}
 
 		auto handoff = waitForHandoff(wp);
 		if (handoff != Handoff.Direct) {
 			// We assume that either we are the waker, or someone else is.
 			lockSlow(HasWakerBit, wp, handoff == Handoff.Waker);
 		}
-
-		assert((&this).isHeld(), "Lock not held!");
 	}
 
 	enum UnlockKind {
@@ -395,11 +395,11 @@ private:
 		unlockSlowImpl!(UnlockKind.Unfair)(current, null);
 	}
 
-	void unlockSlowCondition(size_t current, WaitParams* wp) shared {
-		unlockSlowImpl!(UnlockKind.Condition)(current, wp);
+	bool unlockSlowCondition(size_t current, WaitParams* wp) shared {
+		return unlockSlowImpl!(UnlockKind.Condition)(current, wp);
 	}
 
-	void unlockSlowImpl(/* UnlockKind */ int Kind)(size_t current,
+	bool unlockSlowImpl(/* UnlockKind */ int Kind)(size_t current,
 	                                               WaitParams* wp) shared {
 		enum Fair = Kind == UnlockKind.Fair;
 		enum Condition = Kind == UnlockKind.Condition;
@@ -422,7 +422,7 @@ private:
 				auto desired = Condition ? selfEnqueue(wp) : 0;
 				if (word.casWeak(current, desired | flags,
 				                 MemoryOrder.Release)) {
-					return;
+					return false;
 				}
 
 				continue;
@@ -440,7 +440,7 @@ private:
 				// If there is no condition, just release the lock.
 				if (!Condition && word.casWeak(current, current & ~LockBit,
 				                               MemoryOrder.Release)) {
-					return;
+					return false;
 				}
 
 				// Acquire the queue lock to add the condition.
@@ -448,7 +448,7 @@ private:
 				                              MemoryOrder.Acquire)) {
 					current = enqueue(current, wp);
 					word.store(current | flags, MemoryOrder.Release);
-					return;
+					return false;
 				}
 
 				// We failed to unlock, try again.
@@ -519,7 +519,7 @@ private:
 
 		// We don't have anybody to wake up, bail.
 		if (wakeList is null) {
-			return;
+			return false;
 		}
 
 		// First, do an ownership transfer if one is warranted.
@@ -538,6 +538,8 @@ private:
 			c.waitParams.handoff.store(Handoff.Barging, MemoryOrder.Release);
 			c.waiter.wakeup();
 		}
+
+		return false;
 	}
 
 	/**
