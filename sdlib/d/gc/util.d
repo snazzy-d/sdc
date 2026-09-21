@@ -211,7 +211,7 @@ unittest alignDown {
 size_t alignUp(size_t size, size_t alignment) {
 	// FIXME: in contract.
 	assert(isPow2(alignment));
-	auto ret = (size + alignment - 1) & (~alignment + 1);
+	auto ret = (size + alignment - 1) & -alignment;
 
 	// FIXME: out contract.
 	assert(ret >= size);
