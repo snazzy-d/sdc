@@ -335,7 +335,7 @@ private:
 			word.store(enqueue(current, wp) | flags, MemoryOrder.Release);
 
 		Handoff:
-			auto handoff = waitForHandoff();
+			auto handoff = waitForHandoff(wp);
 			if (handoff == Handoff.Direct) {
 				assert((&this).isHeld(), "Lock not held!");
 				return;
@@ -346,15 +346,13 @@ private:
 		}
 	}
 
-	static uint waitForHandoff() {
-		auto me = &threadData;
-		auto wp = &me.waitParams;
-
+	static uint waitForHandoff(WaitParams* wp) {
 		// Wait for the control to be handed back to us.
 		uint handoff;
 		while ((handoff = wp.handoff.load(MemoryOrder.Acquire))
 			       == Handoff.None) {
-			me.waiter.block();
+			assert(threadData.waitParams is wp, "Invalid wp!");
+			threadData.waiter.block();
 
 			// FIXME: Dequeue ourselves in case of timeout.
 		}
@@ -374,7 +372,7 @@ private:
 
 		unlockSlowCondition(current, wp);
 
-		auto handoff = waitForHandoff();
+		auto handoff = waitForHandoff(wp);
 		if (handoff != Handoff.Direct) {
 			// We assume that either we are the waker, or someone else is.
 			lockSlow(HasWakerBit, wp, handoff == Handoff.Waker);
