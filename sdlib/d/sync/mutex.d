@@ -12,7 +12,8 @@ private:
 	enum size_t LockBit = 0x01;
 	enum size_t QueueLockBit = 0x02;
 	enum size_t HasWakerBit = 0x04;
-	enum size_t AllFlags = LockBit | QueueLockBit | HasWakerBit;
+	enum size_t NotifyBit = 0x08;
+	enum size_t AllFlags = LockBit | QueueLockBit | HasWakerBit | NotifyBit;
 	enum size_t ThreadDataMask = ~AllFlags;
 
 public:
@@ -94,35 +95,37 @@ public:
 			}
 
 			// We have a designated waker, let it do the work.
-			if (current & HasWakerBit) {
+			// If we already notified, no need to do it again.
+			if (current & (HasWakerBit | NotifyBit)) {
 				return false;
 			}
 
 			/**
-			 * FIXME: notify() is allowed to return while LockBit is set
-			 *        without leaving a note for the holder. That loses
-			 *        wakeups in two cases:
-			 *
-			 * 1. The holder already walked the queue, found nobody runnable,
-			 *    and is about to drop the lock. We made a waiter runnable
-			 *    and called notify(); the walk will not run again.
-			 *
-			 * 2. A waitFor() thread sampled its condition as false and is
-			 *    parking. We made that condition true and called notify();
-			 *    the thread still parks.
-			 *
-			 * Fix: when notify() sees LockBit, set a notified flag in
-			 * the word. Unlock / park must observe that flag after
-			 * the walk (or after the condition sample) and either rescan
-			 * or re-evaluate before blocking.
-			 *
-			 * That makes both notify and unlock heavier. A designated-waker
-			 * bit pays for it: the thread we just woke is marked in the word
-			 * and in its WaitParams. Later notify() can return as that thread
-			 * will walk. A barging unlock can skip dequeue for the same reason.
+			 * Threads take the queue lock when they are done and updating
+			 * the waiter queue. Setting the notify bit concurrently leads to
+			 * race condition galore.
+			 */
+			if (current & QueueLockBit) {
+				sched_yield();
+				current = word.load(MemoryOrder.Relaxed);
+				continue;
+			}
+
+			/**
+			 * The lock holder might be in the process of unlocking,
+			 * or might be a condition that just determined it was false.
+			 * If that is the case, then we must signal to this unlocking
+			 * thread that it must reevaluate the conditions waiting on
+			 * the lock as one of them might have turned true.
 			 */
 			if (current & LockBit) {
-				return false;
+				assert(!(current & NotifyBit), "Unexpected notify bit!");
+				if (word.casWeak(current, current | NotifyBit,
+				                 MemoryOrder.Release)) {
+					return false;
+				}
+
+				continue;
 			}
 
 			// If we do not have a waiter, we are done.
@@ -227,7 +230,19 @@ private:
 		}
 	}
 
-	static ThreadData threadData;
+	@property
+	static ThreadData* threadData() {
+		import d.gc.util;
+		static assert(isPow2(AllFlags + 1), "Expected contiguous flags!");
+		// FIXME: alignof not supported.
+		// static assert(ThreadData.alignof <= size_t.alignof,
+		//               "Unexpected ThreadData alignement!");
+		enum Pad = alignDown(AllFlags, size_t.sizeof);
+		enum BufferSize = alignUp(ThreadData.sizeof + Pad, size_t.sizeof);
+
+		static size_t[BufferSize / size_t.sizeof] buffer;
+		return cast(ThreadData*) alignUp(buffer.ptr, AllFlags + 1);
+	}
 
 	struct WaitParams {
 		shared Atomic!uint handoff;
@@ -273,8 +288,9 @@ private:
 		uint spinCount = 0;
 
 		// A waker must clear the waker bit, but other thread must preserve it.
-		enum size_t BargingMask = HasWakerBit;
-		enum size_t WakerMask = 0;
+		// Either way, we preserve the notify bit.
+		enum size_t BargingMask = NotifyBit | HasWakerBit;
+		enum size_t WakerMask = NotifyBit;
 
 		auto mask = waker ? WakerMask : BargingMask;
 
@@ -412,6 +428,16 @@ private:
 		while (true) {
 			assert(current & LockBit, "Lock not held!");
 
+			// If we have been notified, do not unlock and check it again.
+			if (Condition && (current & NotifyBit)) {
+				auto desired = current & ~NotifyBit;
+				if (word.casWeak(current, desired, MemoryOrder.Acquire)) {
+					return true;
+				}
+
+				continue;
+			}
+
 			// We want to preserve certain flags when unlocking.
 			auto flags = current & HasWakerBit;
 
@@ -438,8 +464,9 @@ private:
 			// We already have a designated waker, just unlock.
 			if (flags & HasWakerBit) {
 				// If there is no condition, just release the lock.
-				if (!Condition && word.casWeak(current, current & ~LockBit,
-				                               MemoryOrder.Release)) {
+				auto desired = current & ~(LockBit | NotifyBit);
+				if (!Condition && word
+					    .casWeak(current, desired, MemoryOrder.Release)) {
 					return false;
 				}
 
@@ -490,16 +517,35 @@ private:
 				break;
 			}
 
+			// We got notified and have no thread to wake,
+			// do another round on the queue.
+			if (wakeList is null && (current & NotifyBit)) {
+				// First, clear the bit just in case.
+				if (word.casWeak(current, current & ~NotifyBit,
+				                 MemoryOrder.Acquire)) {
+					// We pass null for wp so we can dequeue ourselves
+					// if we are a condition.
+					desired = dequeue(desired, wakeList, null);
+				}
+
+				continue;
+			}
+
 			// Someone queued in the meantime, we need to merge.
 			assert(current & LockBit, "Lock not held!");
 			if (current & QueueLockBit) {
 				sched_yield();
-				current = word.load(MemoryOrder.Relaxed);
 				continue;
 			}
 
-			// If nobody is waiting, then this is a spurious failure.
-			// Try again.
+			// We have a thread to wake and no queue to merge, we are done.
+			if (wakeList !is null && current == (NotifyBit | LockBit)) {
+				if (word.casWeak(current, desired, MemoryOrder.Release)) {
+					break;
+				}
+			}
+
+			// Spurious failure, try again.
 			if (!(current & ThreadDataMask)) {
 				continue;
 			}
@@ -549,7 +595,7 @@ private:
 		// Make sure we are setup for handoff.
 		wp.handoff.store(Handoff.None, MemoryOrder.Relaxed);
 
-		auto me = &threadData;
+		auto me = threadData;
 		me.waitParams = wp;
 
 		me.next = me;
@@ -565,7 +611,7 @@ private:
 		// Make sure we are setup for handoff.
 		wp.handoff.store(Handoff.None, MemoryOrder.Relaxed);
 
-		auto me = &threadData;
+		auto me = threadData;
 		me.waitParams = wp;
 
 		assert(me !is tail, "Invalid insert!");
@@ -590,7 +636,7 @@ private:
 		// Make sure we are setup for handoff.
 		wp.handoff.store(Handoff.None, MemoryOrder.Relaxed);
 
-		auto me = &threadData;
+		auto me = threadData;
 		me.waitParams = wp;
 
 		assert(me !is tail && me !is prev, "Invalid insert!");
