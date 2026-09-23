@@ -1170,13 +1170,7 @@ public:
 			return getClassInfo(location, t.dclass);
 		}
 
-		// FIXME: Have some kind of builder for constant, and make
-		//        ErrorExpression a Constant.
-		if (auto e = errorize(t)) {
-			return e.expression;
-		}
-
-		return new ConstantExpression(
+		return build!ConstantExpression(
 			location,
 			new TypeidConstant(Type.get(pass.object.getTypeInfo()), t)
 		);

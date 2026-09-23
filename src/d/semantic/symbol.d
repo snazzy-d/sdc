@@ -444,6 +444,16 @@ struct SymbolAnalyzer {
 		return buildImplicitCast(pass, d.location, type, value);
 	}
 
+	private auto checkError(T)(T t) {
+		import d.ir.error;
+		if (auto err = errorize(t)) {
+			import source.exception;
+			throw new CompileException(err.location, err.message);
+		}
+
+		return t;
+	}
+
 	void analyze(VariableDeclaration d, Variable v) {
 		auto value = getValue(d);
 		assert(value);
@@ -488,7 +498,7 @@ struct SymbolAnalyzer {
 		mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
 		g.mangle = context.getName(mangle);
 
-		g.value = evaluate(value);
+		g.value = checkError(evaluate(value));
 		g.step = Step.Processed;
 	}
 
@@ -501,7 +511,7 @@ struct SymbolAnalyzer {
 		m.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
 		m.mangle = m.name;
-		m.value = evaluate(value);
+		m.value = checkError(evaluate(value));
 
 		m.step = Step.Processed;
 	}
@@ -515,7 +525,7 @@ struct SymbolAnalyzer {
 		f.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
 		f.mangle = f.name;
-		f.value = evaluate(value);
+		f.value = checkError(evaluate(value));
 
 		// XXX: Make sure type is at least signed.
 		import d.semantic.sizeof;
@@ -585,7 +595,8 @@ struct SymbolAnalyzer {
 	void analyze(ValueAliasDeclaration d, ValueAlias a) {
 		// XXX: remove selective import when dmd is sane.
 		import d.semantic.expression : ExpressionVisitor;
-		a.value = evaluate(ExpressionVisitor(pass).visit(d.value));
+		auto value = ExpressionVisitor(pass).visit(d.value);
+		a.value = checkError(evaluate(value));
 
 		import d.semantic.mangler;
 		auto typeMangle = TypeMangler(pass).visit(a.value.type);
@@ -1079,7 +1090,7 @@ struct SymbolAnalyzer {
 
 		import d.semantic.expression;
 		auto value = ExpressionVisitor(pass).visit(e);
-		m.value = evaluate(value);
+		m.value = checkError(evaluate(value));
 		m.step = Step.Processed;
 	}
 
