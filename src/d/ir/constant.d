@@ -65,9 +65,14 @@ class IntegerConstant : Constant {
 		this.value = value;
 	}
 
+	@property
+	BuiltinType builtin() const {
+		return type.getCanonicalAndPeelEnum().builtin;
+	}
+
 	override string toString(const Context) const {
 		import std.conv;
-		return isSigned(type.builtin)
+		return isSigned(builtin)
 			? to!string(cast(long) value)
 			: to!string(value);
 	}

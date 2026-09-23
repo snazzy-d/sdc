@@ -215,7 +215,7 @@ struct ConstantMangler {
 	}
 
 	string visit(IntegerConstant i) {
-		if (!isSigned(i.type.builtin)) {
+		if (!isSigned(i.builtin)) {
 			import std.conv;
 			return to!string(i.value);
 		}

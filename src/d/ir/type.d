@@ -210,8 +210,8 @@ public:
 		return payload.dalias;
 	}
 
-	auto getCanonical() {
-		auto t = this;
+	auto getCanonical() inout {
+		Type t = cast() this;
 		auto q = qualifier;
 		while (t.kind == TypeKind.Alias) {
 			// FIXME: Make sure alias is signed.
@@ -219,11 +219,11 @@ public:
 			q = q.add(t.qualifier);
 		}
 
-		return t.qualify(q);
+		return cast(inout) t.qualify(q);
 	}
 
-	auto getCanonicalAndPeelEnum() {
-		auto t = this.getCanonical();
+	auto getCanonicalAndPeelEnum() inout {
+		auto t = cast() this.getCanonical();
 		auto q = qualifier;
 		while (t.kind == TypeKind.Enum) {
 			// FIXME: Make sure enum is signed.
@@ -231,7 +231,7 @@ public:
 			q = q.add(t.qualifier);
 		}
 
-		return t.qualify(q);
+		return cast(inout) t.qualify(q);
 	}
 
 	@property

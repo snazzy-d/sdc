@@ -48,8 +48,8 @@ struct ConstantGen {
 
 	LLVMValueRef visit(IntegerConstant i) {
 		import d.ir.type;
-		return LLVMConstInt(typeGen.visit(i.type), i.value,
-		                    i.type.builtin.isSigned());
+		return
+			LLVMConstInt(typeGen.visit(i.type), i.value, i.builtin.isSigned());
 	}
 
 	LLVMValueRef visit(FloatConstant f) {
