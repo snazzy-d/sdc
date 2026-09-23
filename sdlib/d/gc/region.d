@@ -50,7 +50,7 @@ enum MinimumBlockCollectThreshold = 8;
 
 struct RegionAllocator {
 private:
-	shared(Base)* base;
+	shared(Base)* base = &gBase;
 
 	import d.sync.mutex;
 	Mutex mutex;
