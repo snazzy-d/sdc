@@ -156,6 +156,10 @@ struct ConstantGen {
 		return declare(f.fun);
 	}
 
+	LLVMValueRef visit(GlobalConstant c) {
+		return declare(c.symbol);
+	}
+
 	LLVMValueRef visit(TypeidConstant tc) {
 		auto t = tc.argument.getCanonical();
 

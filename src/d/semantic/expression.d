@@ -397,8 +397,19 @@ public:
 			return pe;
 		}
 
-		return build!UnaryExpression(expr.location, expr.type.getPointer(),
-		                             UnaryOp.AddressOf, expr);
+		auto ptrType = expr.type.getPointer();
+
+		// Fold `&global` into a relocatable constant when the
+		// object has a link-time address. This is what lets
+		// `shared(Base)* p = &gBase;` be a linker initializer
+		// instead of a JIT-time host pointer.
+		import d.semantic.constantfold;
+		if (auto c = foldAddressOf(expr, ptrType)) {
+			return new ConstantExpression(expr.location, ptrType, c);
+		}
+
+		return build!UnaryExpression(expr.location, ptrType, UnaryOp.AddressOf,
+		                             expr);
 	}
 
 	Expression visit(AstUnaryExpression e) {

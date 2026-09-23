@@ -226,6 +226,37 @@ class FunctionConstant : Constant {
 }
 
 /**
+ * Link-time address of a global variable.
+ *
+ * This is relocatable: the linker fills in the real address.
+ * Used for `&g` in constant contexts (enum, field defaults,
+ * global initializers).
+ *
+ * Only valid for globals that have a unique process-wide address
+ * (shared / const shared / immutable). Thread-local globals do
+ * not have a link-time address.
+ */
+class GlobalConstant : Constant {
+	import d.ir.symbol;
+	GlobalVariable symbol;
+
+	this(Type type, GlobalVariable symbol) {
+		super(type);
+
+		this.symbol = symbol;
+	}
+
+	this(GlobalVariable symbol) {
+		this(symbol.type.getPointer(), symbol);
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"&%s"(symbol.name.toString(c));
+	}
+}
+
+/**
  * typeid(type) expression.
  * 
  * TODO: Consider hanlding this as a regular symbol instead of

@@ -97,6 +97,19 @@ public:
 			return ee.error.constant;
 		}
 
+		// Fold relocatable constants (symbol addresses, aggregates
+		// that contain them, ...) without JIT. JITing `&g` would
+		// capture the host address of the JIT copy of `g`, which
+		// is meaningless in the compiled program.
+		import d.semantic.constantfold;
+		if (auto folded = fold(e)) {
+			return folded;
+		}
+
+		if (auto err = rejectNonRelocatableAddress(e)) {
+			return err;
+		}
+
 		static Constant repack(CodeGen pass, Expression e, void[] buffer) {
 			scope(failure) {
 				import std.stdio;
@@ -109,6 +122,34 @@ public:
 
 		// We agressively JIT all CTFE.
 		return jit!repack(e);
+	}
+
+	/**
+	 * `&thread_local` is not a link-time constant. If someone wrote
+	 * it in a context that demands a Constant (enum / global / field
+	 * init), fail instead of JITing a host TLS address.
+	 */
+	private Constant rejectNonRelocatableAddress(Expression e) {
+		auto u = cast(UnaryExpression) e;
+		if (u is null || u.op != UnaryOp.AddressOf) {
+			return null;
+		}
+
+		auto g = cast(GlobalVariableExpression) u.expr;
+		if (g is null) {
+			return null;
+		}
+
+		import d.semantic.constantfold;
+		if (hasLinkTimeAddress(g.var)) {
+			return null;
+		}
+
+		import d.ir.error;
+		return new CompileError(
+			e.location,
+			"Cannot use the address of a thread-local as a constant."
+		).constant;
 	}
 
 	ulong evalIntegral(Expression e) in {
