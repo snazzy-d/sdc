@@ -519,7 +519,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		}
 
 		scheduler.require(m);
-		return visit(new ConstantExpression(location, m.type, m.value));
+		return visit(new ConstantExpression(location, m.value));
 	}
 
 	Identifiable visit(Field f) {

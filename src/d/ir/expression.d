@@ -43,14 +43,10 @@ final:
 class ConstantExpression : Expression {
 	Constant value;
 
-	this(Location location, Type type, Constant value) {
-		super(location, type);
+	this(Location location, Constant value) {
+		super(location, value.type);
 
 		this.value = value;
-	}
-
-	this(Location location, Constant value) {
-		this(location, value.type, value);
 	}
 
 	override string toString(const Context c) const {
