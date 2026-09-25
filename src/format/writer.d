@@ -268,10 +268,10 @@ struct LineWriter {
 			}
 
 			// We pop from the queue *AFTER* checking for termination condition
-			// so that we do nto lose that state for the next iterration.
+			// so that we do not lose that state for the next iteration.
 			queue.removeFront();
 
-			// We reach a dead subtree, there is no point erxploring further.
+			// We reach a dead subtree, there is no point exploring further.
 			if (next.isDeadSubTree(best)) {
 				break;
 			}
@@ -779,7 +779,7 @@ struct SolveState {
 		}
 
 		if (r == 0 || r == i) {
-			// We don't need to do any alignement magic.
+			// We don't need to do any alignment magic.
 			const indent = c.indentation + c.span.getIndent(this, i);
 			return LinePrefix(prefix.indent + indent, prefix.offset + offset);
 		}
@@ -804,16 +804,16 @@ struct SolveState {
 	// Return if this solve state must be chosen over rhs as a solution.
 	bool isDeadSubTree(const ref SolveState best) const {
 		if (sunk > best.overflow) {
-			// We already have comitted to an overflow greater than the best.
+			// We already have committed to an overflow greater than the best.
 			return true;
 		}
 
 		if (sunk < best.overflow) {
-			// We have not commited to as much overflow, there is hope!
+			// We have not committed to as much overflow, there is hope!
 			return false;
 		}
 
-		// We already comitted to a cost greater or equal to the best.
+		// We already committed to a cost greater or equal to the best.
 		return compareCost(best) >= 0;
 	}
 

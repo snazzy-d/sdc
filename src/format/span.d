@@ -133,7 +133,7 @@ uint getExtraIndent(const Span span, const Span base, const ref SolveState s,
 	/**
 	 * We have some extra indentation. We want to count only
 	 * the indentation that has not already been accounted for
-	 * in base. Doign so require to find the common ancestor
+	 * in base. Doing so require to find the common ancestor
 	 * between span and base.
 	 */
 
@@ -420,7 +420,7 @@ final class ListSpan : Span {
 		}
 
 		// For length 1 and 2, we won't trip the explode state earlier,
-		// so we push the trigger now if apropriate.
+		// so we push the trigger now if appropriate.
 		auto splitCount = headSplit + count;
 		if (!compact && elements.length <= splitCount) {
 			return -1;
@@ -430,7 +430,7 @@ final class ListSpan : Span {
 	}
 
 	override uint getCost(const ref SolveState s) const {
-		// If there is just one element, make it slitghtly more exepensive to split.
+		// If there is just one element, make it slightly more expensive to split.
 		if (elements.length <= 1) {
 			return 15;
 		}

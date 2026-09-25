@@ -4,7 +4,7 @@ module format.parser;
  * While we already have a parser in libd, we cannot use it here.
  * This is because libd's parser is meant to validate that the source
  * is well a formed D program. However, we want to be able to format
- * even incomplete programs as part of the developper's process.
+ * even incomplete programs as part of the developer's process.
  *
  * This parser, on the other hand, is meant to recognize common patterns
  * in the language, without ensuring that they are indeed correct.
@@ -61,12 +61,12 @@ private:
 	Location[] nextComments;
 
 	/**
-	 * Passthrough for portion of code not to be formatted.
+	 * Pass-through for portion of code not to be formatted.
 	 *
 	 * When formatting is disabled, we keep parsing anyways. This ensures
-	 * the state of affairs, such as identation levels, are kept track off.
-	 * However, nothign is sent to the builder as parsing progresses, and
-	 * everything is sent as one signle chunk at the end of it.
+	 * the state of affairs, such as indentation levels, are kept track off.
+	 * However, nothing is sent to the builder as parsing progresses, and
+	 * everything is sent as one single chunk at the end of it.
 	 */
 	Position sdfmtOffStart;
 
@@ -369,7 +369,7 @@ private:
 	}
 
 	/**
-	 * Unformated code management.
+	 * Unformatted code management.
 	 */
 	void emitRawContent() {
 		auto upTo = inFlightComments.length > 0
@@ -462,7 +462,7 @@ private:
 		emitSkippedTokens();
 
 		/**
-		 * We distrube comments in 3 groups:
+		 * We distribute comments in 3 categories:
 		 *   1 - The comments attached to the previous structural element.
 		 *   2 - The comments in flight between two structural elements.
 		 *   3 - The comments attached to the next structural element.
@@ -938,7 +938,7 @@ private:
 				parseExpression();
 				return IdentifierKind.Expression;
 
-			// Litterals
+			// Literals
 			case This:
 			case Super:
 			case True:
@@ -1218,7 +1218,7 @@ private:
 					IdentifierStarLookahead: while (true) {
 						switch (lookahead.front.type) {
 							case Identifier:
-								// Lean toward Indentifier* Identifier being a delcaration.
+								// Lean toward Identifier* Identifier being a declaration.
 								if (tryDeclaration
 									    || kind == IdentifierKind.Type) {
 									goto IdentifierStarType;
@@ -2693,7 +2693,7 @@ private:
 					break;
 
 				case At:
-					// FIXME: A declarator is not apropriate here.
+					// FIXME: A declarator is not appropriate here.
 					popDeclarator(lookahead);
 					break;
 
@@ -2759,7 +2759,7 @@ private:
 		bool foundStorageClass = false;
 		while (true) {
 			scope(success) {
-				// This will be true after the first loop iterration.
+				// This will be true after the first loop iteration.
 				foundStorageClass = true;
 			}
 
@@ -2776,7 +2776,7 @@ private:
 					break;
 
 				case In, Out:
-					// Make sure we deambiguate with contracts.
+					// Make sure we disambiguate with contracts.
 					if (isPostfix) {
 						goto default;
 					}
@@ -3119,7 +3119,7 @@ private:
 	void parseList(alias fun)(
 		TokenType closingTokenType,
 		bool addNewLines = false,
-		bool addNaturalbreak = true
+		bool addNaturalbreak = true,
 	) {
 		if (match(closingTokenType)) {
 			auto guard = builder.virtualSpan();

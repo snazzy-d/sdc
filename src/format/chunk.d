@@ -27,11 +27,11 @@ private:
 		// New lines won't be considered as split.
 		bool, "_continuation", 1,
 		// Consider this chunk a natural break.
-		// No penality is imposed when the line started here
+		// No penalty is imposed when the line started here
 		// starts past the previous line.
 		bool, "_naturalBreak", 1,
 		// What is the base indentation level for this chunk.
-		// This becomes irrelevent when the chunk is glued.
+		// This becomes irrelevant when the chunk is glued.
 		uint, "_indentation", 10,
 		// This marks the boundary between unwrapped lines.
 		// Each unwrapped line can be formatted completely
