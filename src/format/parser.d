@@ -61,6 +61,12 @@ private:
 	Location[] nextComments;
 
 	/**
+	 * The position of the last token before the comments stashed
+	 * to be emitted in inFlightComments and nextComments.
+	 */
+	Position beforeComment;
+
+	/**
 	 * Pass-through for portion of code not to be formatted.
 	 *
 	 * When formatting is disabled, we keep parsing anyways. This ensures
@@ -273,15 +279,19 @@ private:
 		return whiteSpaceLength(trange.previous, token.location.start);
 	}
 
-	void emitSourceBasedWhiteSpace(Position previous, Location current) {
-		if (auto nl = newLineCount(previous, current.start)) {
+	void emitSourceBasedWhiteSpace(Position previous, Position current) {
+		if (auto nl = newLineCount(previous, current)) {
 			newline(nl);
 			return;
 		}
 
-		if (whiteSpaceLength(previous, current.start) > 0) {
+		if (whiteSpaceLength(previous, current) > 0) {
 			space();
 		}
+	}
+
+	void emitSourceBasedWhiteSpace(Position previous, Location current) {
+		emitSourceBasedWhiteSpace(previous, current.start);
 	}
 
 	void emitSourceBasedWhiteSpace() {
@@ -398,16 +408,31 @@ private:
 		import std.string;
 		auto comment = loc.getFullLocation(context).getSlice().strip();
 		if (skipFormatting() && comment == "// sdfmt on") {
-			emitRawContent(loc.start);
+			emitRawContent(loc.stop);
 			sdfmtOffStart = Position();
+			split();
+			return;
+		}
+
+		if (comment == "// sdfmt off") {
+			// Glue so list/expression splits inside the disabled
+			// region do not hang-align raw source.
+			split(true);
+			sdfmtOffStart = loc.start;
+
+			// When sdfmt off is on its own line, keep the original indent,
+			// including whatever whitespace the lexer already recognized.
+			if (newLineCount(previous, loc.start) > 0) {
+				auto fp = loc.start.getFullPosition(context);
+				sdfmtOffStart =
+					fp.getSource().getLineOffset(fp.getLineNumber()).position;
+			}
+
+			assert(skipFormatting(), "We should start skipping.");
+			return;
 		}
 
 		write(loc, comment);
-
-		if (comment == "// sdfmt off") {
-			sdfmtOffStart = loc.stop;
-			assert(skipFormatting(), "We should start skipping.");
-		}
 
 		// Make sure we have a line split after // style comments.
 		if (!skipFormatting() && comment.startsWith("//")) {
@@ -416,38 +441,33 @@ private:
 		}
 	}
 
-	void emitComments(ref Location[] commentBlock, Location nextTokenLoc) {
+	auto emitComments(ref Location[] commentBlock, Position previous,
+	                  Position after) {
 		if (commentBlock.length == 0) {
-			return;
+			return previous;
 		}
-
-		scope(success) {
-			commentBlock = [];
-		}
-
-		Position previous = commentBlock[0].start;
 
 		foreach (loc; commentBlock) {
-			scope(success) {
-				previous = loc.stop;
-			}
-
 			emitComment(loc, previous);
+			previous = loc.stop;
 		}
 
-		emitSourceBasedWhiteSpace(previous, nextTokenLoc);
+		emitSourceBasedWhiteSpace(previous, after);
+
+		commentBlock = [];
+		return previous;
 	}
 
-	void emitInFlightComments() {
-		auto nextTokenLoc =
-			nextComments.length > 0 ? nextComments[0] : token.location;
+	auto emitInFlightComments() {
+		auto afterComment =
+			(nextComments.length > 0 ? nextComments[0] : token.location).start;
 
-		emitComments(inFlightComments, nextTokenLoc);
+		return emitComments(inFlightComments, beforeComment, afterComment);
 	}
 
 	void flushComments() {
-		emitInFlightComments();
-		emitComments(nextComments, token.location);
+		auto previous = emitInFlightComments();
+		emitComments(nextComments, previous, token.location.start);
 	}
 
 	bool hasComments() {
@@ -475,6 +495,8 @@ private:
 		}
 
 		emitSourceBasedWhiteSpace();
+
+		beforeComment = trange.previous;
 
 		Location[] commentBlock = [];
 		while (match(TokenType.Comment)) {
