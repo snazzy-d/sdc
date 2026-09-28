@@ -1,4 +1,5 @@
 LIBSDC_SRC = $(wildcard src/sdc/*.d)
+LIBSDC_UNIT = $(filter-out src/sdc/sdc.d,$(LIBSDC_SRC))
 
 DRIVER_SRC = $(wildcard src/driver/*.d)
 DRIVER_OBJ = $(DRIVER_SRC:src/driver/%.d=obj/driver/%.o)
@@ -24,6 +25,9 @@ obj/sdc.o: $(LIBSDC_SRC)
 
 $(LIBSDC): obj/sdc.o
 	ar rcs "$@" $^
+
+check-libsdc: $(LIBSDC_UNIT)
+	$(RDMD) $(DFLAGS) -unittest -i $(addprefix --extra-file=, $^) --eval="assert(true)"
 
 obj/driver/%.o: src/driver/%.d
 	@mkdir -p obj/driver
@@ -53,5 +57,5 @@ include sdlib/sdrt.mak
 check-sdc: sdc $(LIBSDRT) $(PHOBOS)
 	test/runner/runner.d
 
-check: check-sdc
-.PHONY: check-sdc
+check: check-libsdc check-sdc
+.PHONY: check-libsdc check-sdc

@@ -219,6 +219,10 @@ public:
 		);
 	}
 
+	auto getAllRegisteredFiles(Context context) {
+		return FileRange(context, cast(uint) files.sourceEntries.length);
+	}
+
 package:
 	static get() {
 		return SourceManager();
@@ -303,6 +307,37 @@ unittest {
 	assert(!f.isFile());
 	assert(f.isMixin());
 	assert(f.id == 0);
+}
+
+/**
+ * Input range over on-disk files registered with a SourceManager.
+ * Mixins are not included.
+ */
+struct FileRange {
+private:
+	Context context;
+	uint index;
+	uint length;
+
+	this(Context context, uint length) {
+		this.context = context;
+		this.length = length;
+	}
+
+public:
+	@property
+	bool empty() const {
+		return index >= length;
+	}
+
+	@property
+	Source front() in(!empty) {
+		return FileID(index, false).getSource(context);
+	}
+
+	void popFront() in(!empty) {
+		index++;
+	}
 }
 
 private:

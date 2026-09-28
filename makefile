@@ -51,4 +51,4 @@ print-%: ; @echo $*=$($*)
 # Secondary without dependency make all temporaries secondary.
 .SECONDARY:
 
-include $(shell test -d obj && find obj/ -type f -name '*.deps')
+include $(shell test -d obj && find bin/ obj/ -type f -name '*.deps')

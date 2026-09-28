@@ -91,4 +91,22 @@ final class SDC {
 		semantic.terminate();
 		return backend.runUnittests(modules);
 	}
+
+	void emitDepfile(string depfile, string target, bool phony = false) {
+		import std.algorithm, std.array;
+		auto deps = context.getAllRegisteredFiles().map!((dep) {
+			auto directory = dep.getDirectory().toString();
+			auto filename = dep.getFileName().toString();
+
+			import std.path;
+			return directory.length ? buildPath(directory, filename) : filename;
+		}).array();
+
+		import sdc.depfile;
+		if (depfile.length == 0) {
+			depfile = defaultMakeDepsFile(target);
+		}
+
+		writeMakeDeps(depfile, target, deps, phony);
+	}
 }

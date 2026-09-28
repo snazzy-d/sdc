@@ -46,6 +46,10 @@ public:
 	void registerLineDirective(Position p, Name filename, uint line) {
 		return sourceManager.registerLineDirective(p, filename, line);
 	}
+
+	auto getAllRegisteredFiles() {
+		return sourceManager.getAllRegisteredFiles(this);
+	}
 }
 
 unittest {

@@ -18,39 +18,39 @@ SDFLAGS ?=
 
 obj/object.o: sdlib/object.d sdc
 	@mkdir -p obj
-	$(SDC) -c -o $@ $< $(SDFLAGS)
+	$(SDC) -c -o $@ $< --makedeps="$@.deps" $(SDFLAGS)
 
 obj/sdlib/d.o: sdc $(LIBSDRT_D_SRC)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_D_SRC) $(SDFLAGS)
+	$(SDC) -c -o $@ $(LIBSDRT_D_SRC) --makedeps="$@.deps" $(SDFLAGS)
 
 obj/sdlib/gc.o: sdc $(LIBSDRT_GC_SRC)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_GC_SRC) $(SDFLAGS)
+	$(SDC) -c -o $@ $(LIBSDRT_GC_SRC) --makedeps="$@.deps" $(SDFLAGS)
 
 obj/sdlib/rt.o: sdc $(LIBSDRT_RT_SRC)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_RT_SRC) $(SDFLAGS)
+	$(SDC) -c -o $@ $(LIBSDRT_RT_SRC) --makedeps="$@.deps" $(SDFLAGS)
 
 obj/sdlib/sdc.o: sdc $(LIBSDRT_SDC_SRC)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_SDC_SRC) $(SDFLAGS)
+	$(SDC) -c -o $@ $(LIBSDRT_SDC_SRC) --makedeps="$@.deps" $(SDFLAGS)
 
 obj/sdlib/stdc.o: sdc $(LIBSDRT_STDC_SRC)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_STDC_SRC) $(SDFLAGS)
+	$(SDC) -c -o $@ $(LIBSDRT_STDC_SRC) --makedeps="$@.deps" $(SDFLAGS)
 
 obj/sdlib/sync.o: sdc $(LIBSDRT_SYNC_SRC)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_SYNC_SRC) $(SDFLAGS)
+	$(SDC) -c -o $@ $(LIBSDRT_SYNC_SRC) --makedeps="$@.deps" $(SDFLAGS)
 
 obj/sdlib/dmd.o: sdc $(LIBSDRT_DMD_SRC)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_DMD_SRC) $(SDFLAGS)
+	$(SDC) -c -o $@ $(LIBSDRT_DMD_SRC) --makedeps="$@.deps" $(SDFLAGS)
 
 obj/sdlib/platform.o: sdc $(LIBSDRT_PLATFORM_SRC)
 	@mkdir -p obj/sdlib
-	$(SDC) -c -o $@ $(LIBSDRT_PLATFORM_SRC) $(SDFLAGS)
+	$(SDC) -c -o $@ $(LIBSDRT_PLATFORM_SRC) --makedeps="$@.deps" $(SDFLAGS)
 
 $(LIBSDRT): $(LIBSDRT_DEPS)
 	@mkdir -p lib
@@ -66,9 +66,9 @@ PHOBOS_OBJ = $(PHOBOS_SRC:sdlib/std/%.d=obj/phobos/%.o)
 
 PHOBOS = lib/libphobos.a
 
-obj/phobos/%.o: sdlib/std/%.d sdc $(PHOBOS_SRC)
+obj/phobos/%.o: sdlib/std/%.d sdc
 	@mkdir -p obj/phobos
-	$(SDC) -c -o $@ $< $(SDFLAGS)
+	$(SDC) -c -o $@ $< --makedeps="$@.deps" $(SDFLAGS)
 
 $(PHOBOS): $(PHOBOS_OBJ)
 	@mkdir -p lib obj/phobos
@@ -80,7 +80,7 @@ ALL_TOOLS = $(TOOLS_SRC:sdlib/tools/%.d=bin/tools/%)
 
 bin/tools/%: sdlib/tools/%.d sdc $(LIBSDRT) $(PHOBOS)
 	@mkdir -p bin/tools
-	$(SDC) -o "$@" $< $(SDFLAGS)
+	$(SDC) -o "$@" $< --makedeps="$@.deps" $(SDFLAGS)
 
 # Tests
 CHECK_LIBSDRT_GC = $(LIBSDRT_GC_SRC:sdlib/d/gc/%.d=check-sdlib-gc-%)

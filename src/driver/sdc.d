@@ -16,7 +16,7 @@ int run(Context context, string[] args) {
 
 	string[] includePaths, linkerPaths;
 	bool dontLink, debugBuild, generateMain;
-	string outputFile;
+	string outputFile, deps, makedeps;
 	bool outputLLVM, outputAsm;
 
 	import std.getopt;
@@ -31,6 +31,8 @@ int run(Context context, string[] args) {
 		"g",         "Generate source-level debug information", &debugBuild,
 		"S",         "Stop before assembling and output assembly file", &outputAsm,
 		"emit-llvm", "Output LLVM bitcode (-c) or LLVM assembly (-S)",  &outputLLVM,
+		"deps",      "Write a dependency file to FILE", &deps,
+		"makedeps",  "Write a makefile dependency file to FILE, with phony targets", &makedeps,
 		"main",      "Generate the main function", &generateMain,
 		// sdfmt on
 	);
@@ -78,7 +80,8 @@ int run(Context context, string[] args) {
 		defaultExtension = outputLLVM ? ".bc" : ".o";
 	}
 
-	auto objFile = files[0][0 .. $ - 2] ~ defaultExtension;
+	import std.path;
+	auto objFile = files[0].setExtension(defaultExtension);
 	if (outputFile.length) {
 		if (dontLink || outputAsm) {
 			objFile = outputFile;
@@ -89,6 +92,9 @@ int run(Context context, string[] args) {
 
 	// If we are generating an executable, we want a main function.
 	generateMain = generateMain || !dontLink;
+
+	// The target to use for build systems.
+	auto target = (dontLink || outputAsm) ? objFile : executable;
 
 	// Cannot call the variable "sdc" or DMD complains about name clash
 	// with the sdc package from the import.
@@ -114,6 +120,14 @@ int run(Context context, string[] args) {
 	} else {
 		c.outputObj(objFile);
 		c.linkExecutable(objFile, executable);
+	}
+
+	if (deps.length > 0) {
+		c.emitDepfile(deps, target, false);
+	}
+
+	if (makedeps.length > 0) {
+		c.emitDepfile(makedeps, target, true);
 	}
 
 	return 0;
