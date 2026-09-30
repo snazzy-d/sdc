@@ -412,11 +412,9 @@ public:
 				return handleAddressOf(expr);
 
 			case Dereference:
-				op = UnaryOp.Dereference;
 				auto c = expr.type.getCanonical();
 				if (c.kind == TypeKind.Pointer) {
-					type = c.element;
-					break;
+					return build!LoadExpression(e.location, c.element, expr);
 				}
 
 				return getError(expr, e.location,

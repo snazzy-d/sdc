@@ -82,6 +82,11 @@ struct ExpressionGen {
 		return buildLoad(addressOf(e), typeGen.visit(t), t.qualifier);
 	}
 
+	LLVMValueRef visit(LoadExpression e) {
+		auto t = e.type.getCanonical();
+		return buildLoad(visit(e.address), typeGen.visit(t), t.qualifier);
+	}
+
 	private LLVMValueRef buildStore(LLVMValueRef ptr, LLVMValueRef val,
 	                                TypeQualifier q) {
 		auto s = LLVMBuildStore(builder, val, ptr);
@@ -311,11 +316,6 @@ struct ExpressionGen {
 		final switch (e.op) with (UnaryOp) {
 			case AddressOf:
 				return addressOf(e.expr);
-
-			case Dereference:
-				auto t = e.type.getCanonical();
-				auto type = typeGen.visit(t);
-				return buildLoad(visit(e.expr), type, t.qualifier);
 
 			case PreInc:
 				return buildUnary!(1, false)(e.expr);
@@ -874,6 +874,10 @@ struct AddressOfGen {
 		return ExpressionGen(pass).visit(e);
 	}
 
+	LLVMValueRef visit(LoadExpression e) {
+		return valueOf(e.address);
+	}
+
 	LLVMValueRef visit(VariableExpression e) in {
 		assert(e.var.storage != Storage.Enum, "enum have no address.");
 		assert(!e.var.isFinal, "finals have no address.");
@@ -929,12 +933,6 @@ struct AddressOfGen {
 			in(e.type.kind == TypeKind.Context,
 			   "ContextExpression must be of ContextType!") {
 		return pass.getContext(e.type.context);
-	}
-
-	LLVMValueRef visit(
-		UnaryExpression e
-	) in(e.op == UnaryOp.Dereference, "Only dereferences op are lvalues!") {
-		return valueOf(e.expr);
 	}
 
 	LLVMValueRef visit(CastExpression e) {

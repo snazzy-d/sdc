@@ -934,10 +934,7 @@ struct ExpressionDotIdentifierResolver {
 		}
 
 		// Try to autodereference pointers.
-		return visit(
-			new UnaryExpression(e.location, t.element, UnaryOp.Dereference, e),
-			base
-		);
+		return visit(build!LoadExpression(e.location, t.element, e), base);
 	}
 
 	Symbol lookupInBase(Class c) {

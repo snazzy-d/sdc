@@ -59,6 +59,32 @@ class ConstantExpression : Expression {
 }
 
 /**
+ * Load from an address: *address.
+ *
+ * Kept as its own node so the address stays first-class. Taking the
+ * address of a load is the address expression itself; do not lower
+ * dereference through a unary op and then try to recover a constant.
+ */
+class LoadExpression : Expression {
+	Expression address;
+
+	this(Location location, Type type, Expression address) {
+		super(location, type);
+
+		this.address = address;
+	}
+
+	@property
+	override bool isLvalue() const {
+		return true;
+	}
+
+	override string toString(const Context c) const {
+		return "*" ~ address.toString(c);
+	}
+}
+
+/**
  * Conditional expression of type ?:
  */
 class TernaryExpression : Expression {
@@ -87,7 +113,6 @@ class TernaryExpression : Expression {
  */
 enum UnaryOp {
 	AddressOf,
-	Dereference,
 	PreInc,
 	PreDec,
 	PostInc,
@@ -102,9 +127,6 @@ string unarizeString(string s, UnaryOp op) {
 	final switch (op) with (UnaryOp) {
 		case AddressOf:
 			return "&" ~ s;
-
-		case Dereference:
-			return "*" ~ s;
 
 		case PreInc:
 			return "++" ~ s;
@@ -141,11 +163,6 @@ class UnaryExpression : Expression {
 
 		this.expr = expr;
 		this.op = op;
-	}
-
-	@property
-	override bool isLvalue() const {
-		return op == UnaryOp.Dereference;
 	}
 
 	override string toString(const Context c) const {
