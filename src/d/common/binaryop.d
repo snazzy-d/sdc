@@ -6,7 +6,7 @@ import d.ir.expression;
 auto getTransparentBinaryOp(AstBinaryOp op) in(
 	op == AstBinaryOp.Add || op == AstBinaryOp.Sub || op == AstBinaryOp.Mul
 		|| op == AstBinaryOp.Pow) {
-	return cast(BinaryOp) op;
+	return cast(BinaryOp) (op - AstBinaryOp.Add + BinaryOp.Add);
 }
 
 unittest {

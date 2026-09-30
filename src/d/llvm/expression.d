@@ -118,6 +118,13 @@ struct ExpressionGen {
 		return s;
 	}
 
+	LLVMValueRef visit(StoreExpression e) {
+		auto ptr = visit(e.address);
+		auto value = visit(e.value);
+		buildStore(ptr, value, e.type.qualifier);
+		return value;
+	}
+
 	private auto handleBinaryOp(alias LLVMBuildOp)(BinaryExpression e) {
 		// XXX: should be useless, but parameter's order of evaluation is buggy.
 		auto lhs = visit(e.lhs);
@@ -175,13 +182,6 @@ struct ExpressionGen {
 			case Comma:
 				visit(e.lhs);
 				return visit(e.rhs);
-
-			case Assign:
-				auto lhs = addressOf(e.lhs);
-				auto rhs = visit(e.rhs);
-
-				buildStore(lhs, rhs, e.lhs.type.qualifier);
-				return rhs;
 
 			case Add:
 				return handleBinaryOp!LLVMBuildAdd(e);

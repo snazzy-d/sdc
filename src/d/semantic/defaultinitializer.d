@@ -255,13 +255,14 @@ struct DefaultInitializerVisitor(bool isNew) {
 		auto ctxType = ctxField.type;
 		assert(ctxType.kind == TypeKind.Pointer);
 
+		// FIXME: It's be good to have a builder for this.
 		auto ctx = new ContextExpression(location, ctxType.element.context);
-		auto assign = new BinaryExpression(
+		auto field = new FieldExpression(location, v, ctxField);
+		auto assign = new StoreExpression(
 			location,
-			ctxType,
-			BinaryOp.Assign,
-			new FieldExpression(location, v, ctxField),
-			new UnaryExpression(location, ctxType, UnaryOp.AddressOf, ctx)
+			new UnaryExpression(location, ctxType, UnaryOp.AddressOf, ctx),
+			new UnaryExpression(location, field.type.getPointer(),
+			                    UnaryOp.AddressOf, field)
 		);
 
 		return new BinaryExpression(location, Type.get(s), BinaryOp.Comma,

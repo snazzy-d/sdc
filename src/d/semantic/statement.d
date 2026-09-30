@@ -681,8 +681,12 @@ public:
 
 			currentBlock.eval(
 				location,
-				check(build!BinaryExpression(location, retval.type,
-				                             BinaryOp.Assign, retval, value))
+				check(build!StoreExpression(
+					location,
+					value,
+					build!UnaryExpression(location, retval.type.getPointer(),
+					                      UnaryOp.AddressOf, retval)
+				))
 			);
 
 			value = retval;

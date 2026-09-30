@@ -127,6 +127,10 @@ public:
 		return this.dispatch!(c => getRange(c.type))(c);
 	}
 
+	VR visit(StoreExpression e) {
+		return visit(e.value);
+	}
+
 	VR visit(BooleanConstant c) {
 		return VR(c.value);
 	}
@@ -145,7 +149,7 @@ public:
 
 	VR visit(BinaryExpression e) {
 		switch (e.op) with (BinaryOp) {
-			case Comma, Assign:
+			case Comma:
 				return visit(e.rhs);
 
 			case Add:
@@ -386,15 +390,18 @@ unittest {
 		assert(v == VR(2));
 
 		/**
+		 * Store.
+		 */
+		// Technically, this is illegal, but it is out of scope of VRP
+		// to check for this, so will do.
+		v = vrp.visit(new StoreExpression(Location.init, i2, i1));
+		assert(v == VR(42));
+
+		/**
 		 * Binary ops
 		 */
 		v = vrp.visit(
 			new BinaryExpression(Location.init, tint, BinaryOp.Comma, i1, i2));
-		assert(v == VR(42));
-
-		// Technically, this is illegal, but it is out of scope of VRP to detect this, so will do.
-		v = vrp.visit(
-			new BinaryExpression(Location.init, tint, BinaryOp.Assign, i1, i2));
 		assert(v == VR(42));
 
 		v = vrp.visit(

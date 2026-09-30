@@ -123,8 +123,7 @@ private:
 
 		auto type = lhs.type;
 		rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-		return
-			build!BinaryExpression(location, type, BinaryOp.Assign, lhs, rhs);
+		return build!StoreExpression(location, rhs, handleAddressOf(lhs));
 	}
 
 	Expression buildBinary(Location location, AstBinaryOp op, Expression lhs,
@@ -617,8 +616,7 @@ public:
 		final switch (thisKind) with (ParamKind) {
 			case Regular:
 				// Value type, by value.
-				return build!BinaryExpression(c.location, thisExpr.type,
-				                              BinaryOp.Assign, thisExpr, call);
+				return buildAssign(c.location, thisExpr, call);
 
 			case Final:
 				// Classes.

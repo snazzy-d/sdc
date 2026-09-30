@@ -85,6 +85,26 @@ class LoadExpression : Expression {
 }
 
 /**
+ * Store through an address: *address = value.
+ */
+class StoreExpression : Expression {
+	Expression value;
+	Expression address;
+
+	this(Location location, Expression value, Expression address) {
+		super(location, value.type);
+
+		this.address = address;
+		this.value = value;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"*%s = %s"(address.toString(c), value.toString(c));
+	}
+}
+
+/**
  * Conditional expression of type ?:
  */
 class TernaryExpression : Expression {
@@ -172,7 +192,6 @@ class UnaryExpression : Expression {
 
 enum BinaryOp {
 	Comma,
-	Assign,
 	Add,
 	Sub,
 	Mul,
