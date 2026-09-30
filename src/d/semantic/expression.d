@@ -385,6 +385,11 @@ public:
 	}
 
 	private Expression handleAddressOf(Expression expr) {
+		// &*expr is expr.
+		if (auto l = cast(LoadExpression) expr) {
+			return l.address;
+		}
+
 		// For fucked up reasons, &funcname is a special case.
 		if (matchFunction(expr)) {
 			return expr;
