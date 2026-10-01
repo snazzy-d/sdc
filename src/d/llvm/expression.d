@@ -399,9 +399,8 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(VariableExpression e) {
-		return (e.var.storage == Storage.Enum || e.var.isFinal)
-			? declare(e.var)
-			: loadAddressOf(e);
+		assert(e.var.storage != Storage.Enum);
+		return e.var.isFinal ? declare(e.var) : loadAddressOf(e);
 	}
 
 	LLVMValueRef visit(GlobalVariableExpression e) {

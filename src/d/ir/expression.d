@@ -620,7 +620,7 @@ class NewExpression : Expression {
 class VariableExpression : Expression {
 	Variable var;
 
-	this(Location location, Variable var) {
+	this(Location location, Variable var) in(var.storage != Storage.Enum) {
 		super(location, var.type);
 
 		this.var = var;

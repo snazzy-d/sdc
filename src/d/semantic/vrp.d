@@ -216,8 +216,8 @@ public:
 	}
 
 	VR visit(Variable v) in(v.step >= Step.Processed) {
-		return (v.storage == Storage.Enum
-				|| v.type.getCanonical().qualifier == TypeQualifier.Immutable)
+		assert(v.storage != Storage.Enum);
+		return v.type.getCanonical().qualifier == TypeQualifier.Immutable
 			? visit(v.value)
 			: getRange(v.type);
 	}
@@ -487,10 +487,6 @@ unittest {
 		var.type = Type.get(BuiltinType.Short);
 		v = vrp.visit(var);
 		assert(v == VR(short.min, short.max));
-
-		var.storage = Storage.Enum;
-		v = vrp.visit(var);
-		assert(v == VR(-7));
 
 		var.storage = Storage.Static;
 		v = vrp.visit(var);
