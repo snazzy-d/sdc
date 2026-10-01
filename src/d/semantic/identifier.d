@@ -525,8 +525,18 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 
 	Identifiable visit(Field f) {
 		scheduler.require(f, Step.Signed);
-		return
-			Identifiable(build!FieldExpression(location, getThis(location), f));
+		auto base = getThis(location);
+		auto t = base.type.getCanonical();
+
+		// Rvalue aggregates have no address. Extract the field.
+		if (t.kind != TypeKind.Class && t.kind != TypeKind.Pointer
+			    && !base.isLvalue) {
+			return
+				Identifiable(build!ExtractFieldExpression(location, base, f));
+		}
+
+		auto addr = build!FieldExpression(location, base, f);
+		return visit(build!LoadExpression(location, addr.type.element, addr));
 	}
 
 	private Expression getContext(Function f) in(f.step >= Step.Signed) {

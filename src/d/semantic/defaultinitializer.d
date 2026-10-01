@@ -261,8 +261,7 @@ struct DefaultInitializerVisitor(bool isNew) {
 		auto assign = new StoreExpression(
 			location,
 			new UnaryExpression(location, ctxType, UnaryOp.AddressOf, ctx),
-			new UnaryExpression(location, field.type.getPointer(),
-			                    UnaryOp.AddressOf, field)
+			field,
 		);
 
 		return new BinaryExpression(location, Type.get(s), BinaryOp.Comma,

@@ -651,9 +651,30 @@ class GlobalVariableExpression : Expression {
 }
 
 /**
- * Field access.
+ * Address of a field: &expr.field. Uses wrap this in LoadExpression.
+ * The base is addressable (class, pointer, or lvalue aggregate).
  */
 class FieldExpression : Expression {
+	Expression expr;
+	Field field;
+
+	this(Location location, Expression expr, Field field) {
+		super(location, field.type.getPointer(expr.type.qualifier));
+
+		this.expr = expr;
+		this.field = field;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"&%s.%s"(expr.toString(c), field.name.toString(c));
+	}
+}
+
+/**
+ * Field extracted from an rvalue aggregate. Not an address, not an lvalue.
+ */
+class ExtractFieldExpression : Expression {
 	Expression expr;
 	Field field;
 
@@ -662,17 +683,6 @@ class FieldExpression : Expression {
 
 		this.expr = expr;
 		this.field = field;
-	}
-
-	@property
-	override bool isLvalue() const {
-		// FIXME: make this const compliant
-		auto t = (cast() expr.type).getCanonical();
-		if (t.kind == TypeKind.Class || t.kind == TypeKind.Pointer) {
-			return true;
-		}
-
-		return expr.isLvalue;
 	}
 
 	override string toString(const Context c) const {

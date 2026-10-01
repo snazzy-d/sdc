@@ -409,11 +409,11 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(FieldExpression e) {
-		if (e.isLvalue) {
-			return loadAddressOf(e);
-		}
+		return AddressOfGen(pass).computeFieldPtr(e.expr, e.field);
+	}
 
-		assert(e.expr.type.kind != TypeKind.Union,
+	LLVMValueRef visit(ExtractFieldExpression e) {
+		assert(e.expr.type.getCanonical().kind != TypeKind.Union,
 		       "rvalue unions not implemented.");
 		return LLVMBuildExtractValue(builder, visit(e.expr), e.field.index, "");
 	}
@@ -895,8 +895,7 @@ struct AddressOfGen {
 		return declare(e.var);
 	}
 
-	LLVMValueRef visit(FieldExpression e) {
-		auto base = e.expr;
+	auto computeFieldPtr(Expression base, Field field) {
 		auto t = base.type.getCanonical();
 
 		LLVMValueRef ptr;
@@ -932,7 +931,7 @@ struct AddressOfGen {
 			return ptr;
 		}
 
-		return LLVMBuildStructGEP2(builder, type, ptr, e.field.index, "");
+		return LLVMBuildStructGEP2(builder, type, ptr, field.index, "");
 	}
 
 	LLVMValueRef visit(ContextExpression e)
