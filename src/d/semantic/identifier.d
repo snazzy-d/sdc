@@ -510,7 +510,8 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		}
 
 		scheduler.require(g, Step.Signed);
-		return visit(new GlobalVariableExpression(location, g));
+		auto addr = build!GlobalVariableExpression(location, g);
+		return visit(build!LoadExpression(location, g.type, addr));
 	}
 
 	Identifiable visit(ManifestConstant m) {
