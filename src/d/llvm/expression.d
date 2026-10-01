@@ -507,9 +507,19 @@ struct ExpressionGen {
 		return ptr;
 	}
 
-	LLVMValueRef visit(IndexExpression e)
-			in(e.isLvalue, "e must be an lvalue") {
-		return loadAddressOf(e);
+	LLVMValueRef visit(IndexExpression e) {
+		return
+			AddressOfGen(pass).computeIndexPtr(e.location, e.indexed, e.index);
+	}
+
+	LLVMValueRef visit(ExtractIndexExpression e) {
+		auto slot = createAlloca(typeGen.visit(e.indexed.type), "array.tmp");
+		LLVMBuildStore(builder, visit(e.indexed), slot);
+
+		auto ptr = AddressOfGen(pass)
+			.computeIndexPtr(e.location, e.indexed, e.index, slot);
+		auto elem = typeGen.getElementType(e.indexed.type.getCanonical());
+		return LLVMBuildLoad2(builder, elem, ptr, "");
 	}
 
 	auto genBoundCheck(Location location, LLVMValueRef condition) {
@@ -953,12 +963,8 @@ struct AddressOfGen {
 		return ExpressionGen(pass).buildCall(c);
 	}
 
-	LLVMValueRef visit(IndexExpression e) {
-		return computeIndexPtr(e.location, e.indexed, e.index);
-	}
-
 	auto computeIndexPtr(Location location, Expression indexed,
-	                     Expression index) {
+	                     Expression index, LLVMValueRef arrayPtr = null) {
 		auto t = indexed.type.getCanonical();
 		auto eType = typeGen.getElementType(t);
 
@@ -976,7 +982,7 @@ struct AddressOfGen {
 				break;
 
 			case Array:
-				ptr = visit(indexed);
+				ptr = arrayPtr ? arrayPtr : visit(indexed);
 				length = LLVMConstInt(i64, t.size, false);
 				break;
 

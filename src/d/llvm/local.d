@@ -456,7 +456,7 @@ struct LocalGen {
 		return locals[v] = addr;
 	}
 
-	LLVMValueRef createCaptureStorage(Variable v, const char* name)
+	private LLVMValueRef createCaptureStorage(Variable v, const char* name)
 			in(v.storage == Storage.Capture, "Expected captured") {
 		auto closure = &contexts[$ - 1];
 
@@ -467,6 +467,16 @@ struct LocalGen {
 
 		return LLVMBuildStructGEP2(builder, closure.type, ctxPtr,
 		                           closure.indices[v], name);
+	}
+
+	LLVMValueRef createAlloca(LLVMTypeRef t, const(char)* name = "") {
+		auto current = LLVMGetInsertBlock(builder);
+		auto first = LLVMGetFirstBasicBlock(LLVMGetBasicBlockParent(current));
+
+		LLVMPositionBuilderAtEnd(builder, first);
+		scope(exit) LLVMPositionBuilderAtEnd(builder, current);
+
+		return LLVMBuildAlloca(builder, t, name);
 	}
 
 	LLVMValueRef getContext(Function f) {

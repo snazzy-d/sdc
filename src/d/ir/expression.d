@@ -398,7 +398,9 @@ class IntrinsicExpression : Expression {
 }
 
 /**
- * Index expression : indexed[index]
+ * Index expression : &indexed[index]
+ *
+ * The indexed expression is addressable (pointer, slice, or lvalue array).
  */
 class IndexExpression : Expression {
 	Expression indexed;
@@ -411,15 +413,26 @@ class IndexExpression : Expression {
 		this.index = index;
 	}
 
-	@property
-	override bool isLvalue() const {
-		// FIXME: make this const compliant
-		auto t = (cast() indexed.type).getCanonical();
-		if (t.kind == TypeKind.Slice || t.kind == TypeKind.Pointer) {
-			return true;
-		}
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"&%s[%s]"(indexed.toString(c), index.toString(c));
+	}
+}
 
-		return indexed.isLvalue;
+/**
+ * Extract Index expression : indexed[index]
+ *
+ * Contrary to IndexExpression, this accepts non addressables.
+ */
+class ExtractIndexExpression : Expression {
+	Expression indexed;
+	Expression index;
+
+	this(Location location, Type type, Expression indexed, Expression index) {
+		super(location, type);
+
+		this.indexed = indexed;
+		this.index = index;
 	}
 
 	override string toString(const Context c) const {

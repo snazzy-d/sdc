@@ -160,11 +160,7 @@ struct StatementGen {
 				// Create an alloca for the landing pad results.
 				auto lpType = getLpType();
 				if (!lpContext) {
-					auto currentBB = LLVMGetInsertBlock(builder);
-					LLVMPositionBuilderAtEnd(builder,
-					                         LLVMGetFirstBasicBlock(fun));
-					lpContext = LLVMBuildAlloca(builder, lpType, "lpContext");
-					LLVMPositionBuilderAtEnd(builder, currentBB);
+					lpContext = createAlloca(lpType, "lpContext");
 					LLVMSetPersonalityFn(fun,
 					                     declare(pass.object.getPersonality()));
 				}

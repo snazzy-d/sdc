@@ -911,17 +911,17 @@ struct ExpressionDotIdentifierResolver {
 
 		// array.ptr is a special case.
 		if (et.kind == TypeKind.Array && name == BuiltinName!"ptr") {
-			return Identifiable(new UnaryExpression(
+			if (!e.isLvalue) {
+				return
+					getIdentifiableError(e, e.location, "Expected an lvalue.");
+			}
+
+			return Identifiable(build!IndexExpression(
 				location,
 				t.element.getPointer(),
-				UnaryOp.AddressOf,
-				new IndexExpression(
-					location,
-					t.element,
-					e,
-					new ConstantExpression(
-						location, new IntegerConstant(0, BuiltinType.Uint))
-				)
+				e,
+				new ConstantExpression(location,
+				                       new IntegerConstant(0, BuiltinType.Uint))
 			));
 		}
 

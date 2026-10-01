@@ -188,10 +188,8 @@ private:
 						                              UnaryOp.Minus, index);
 					}
 
-					auto i = build!IndexExpression(location, lct.element, lhs,
-					                               index);
-					return build!UnaryExpression(location, lhs.type,
-					                             UnaryOp.AddressOf, i);
+					return
+						build!IndexExpression(location, lhs.type, lhs, index);
 				}
 
 				// Pointer difference.
@@ -1115,13 +1113,15 @@ public:
 		index = buildImplicitCast(pass, location, pass.object.getSizeT().type,
 		                          index);
 
-		// Make sure we create a temporary for rvalue indices.
-		// XXX: Should this be done in the backend ?
+		// Rvalue arrays have no address. Extract the element.
 		if (t.kind == TypeKind.Array && !indexed.isLvalue) {
-			indexed = getTemporary(indexed);
+			return build!ExtractIndexExpression(location, t.element, indexed,
+			                                    index);
 		}
 
-		return build!IndexExpression(location, t.element, indexed, index);
+		auto addr = build!IndexExpression(location, t.element.getPointer(),
+		                                  indexed, index);
+		return build!LoadExpression(location, t.element, addr);
 	}
 
 	Expression visit(AstIndexExpression e) {
