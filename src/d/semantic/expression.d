@@ -1029,8 +1029,21 @@ public:
 			}
 		}
 
-		return
-			build!CallExpression(location, returnType.getType(), callee, args);
+		return buildCall(location, callee, args);
+	}
+
+	public Expression buildCall(Location location, Expression callee,
+	                            Expression[] args) {
+		if (cast(ErrorExpression) callee) {
+			return callee;
+		}
+
+		auto call = new CallExpression(location, callee, args);
+		if (!call.refReturn) {
+			return call;
+		}
+
+		return build!LoadExpression(location, call.type.element, call);
 	}
 
 	// XXX: factorize with findCtor

@@ -334,17 +334,19 @@ class CallExpression : Expression {
 	Expression callee;
 	Expression[] arguments;
 
-	this(Location location, Type type, Expression callee,
-	     Expression[] arguments) {
-		super(location, type);
+	this(Location location, Expression callee, Expression[] arguments) {
+		auto returnType =
+			callee.type.getCanonical().asFunctionType().returnType;
+		auto type = returnType.getType();
+		super(location, returnType.isRef ? type.getPointer() : type);
 
 		this.callee = callee;
 		this.arguments = arguments;
 	}
 
 	@property
-	override bool isLvalue() const {
-		return callee.type.asFunctionType().returnType.isRef;
+	bool refReturn() {
+		return callee.type.getCanonical().asFunctionType().returnType.isRef;
 	}
 
 	override string toString(const Context c) const {

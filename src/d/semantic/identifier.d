@@ -584,8 +584,8 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 
 		if (f.params.length == ctxs.length - f.hasContext) {
 			Expression[] args;
-			return build!CallExpression(location, f.type.returnType.getType(),
-			                            e, args);
+			import d.semantic.expression;
+			return ExpressionVisitor(pass.pass).buildCall(location, e, args);
 		}
 
 		import std.format;

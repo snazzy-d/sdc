@@ -21,8 +21,6 @@ import source.name;
 alias AstModule = d.ast.declaration.Module;
 alias Module = d.ir.symbol.Module;
 
-alias CallExpression = d.ir.expression.CallExpression;
-
 final class SemanticPass {
 	import source.context;
 	Context context;
@@ -141,11 +139,10 @@ final class SemanticPass {
 		auto main = candidates[0];
 		auto location = main.location;
 
-		auto type = main.type;
-		auto returnType = type.returnType.getType();
-		auto call = new CallExpression(
-			location, returnType,
-			new ConstantExpression(location, new FunctionConstant(main)), []);
+		auto returnType = main.type.returnType.getType();
+		auto callee =
+			new ConstantExpression(location, new FunctionConstant(main));
+		auto call = new CallExpression(location, callee, []);
 
 		import d.ir.instruction;
 		Body fbody;

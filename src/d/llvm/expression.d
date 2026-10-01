@@ -826,14 +826,7 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(CallExpression c) {
-		auto r = buildCall(c);
-		auto isRef = getFunctionType(c.callee.type).returnType.isRef;
-		if (!isRef) {
-			return r;
-		}
-
-		auto returnType = typeGen.visit(c.type);
-		return LLVMBuildLoad2(builder, returnType, r, "");
+		return buildCall(c);
 	}
 
 	LLVMValueRef visit(IntrinsicExpression e) {
@@ -954,10 +947,6 @@ struct AddressOfGen {
 			case FloatExtend, FloatTrunc:
 				assert(0, "Not an lvalue");
 		}
-	}
-
-	LLVMValueRef visit(CallExpression c) {
-		return ExpressionGen(pass).buildCall(c);
 	}
 
 	auto computeIndexPtr(Location location, Expression indexed,
