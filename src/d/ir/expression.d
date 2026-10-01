@@ -485,16 +485,17 @@ class PolysemousExpression : Expression {
 }
 
 /**
- * Context
+ * Address of the closure context: __ctx.
+ * Value uses wrap this in LoadExpression.
  */
 class ContextExpression : Expression {
 	this(Location location, Function f) {
-		super(location, Type.getContextType(f));
+		super(location, Type.getContextType(f).getPointer());
 	}
 
 	@property
-	override bool isLvalue() const {
-		return true;
+	Function context() {
+		return type.element.context;
 	}
 
 	override string toString(const Context) const {

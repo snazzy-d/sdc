@@ -258,11 +258,7 @@ struct DefaultInitializerVisitor(bool isNew) {
 		// FIXME: It's be good to have a builder for this.
 		auto ctx = new ContextExpression(location, ctxType.element.context);
 		auto field = new FieldExpression(location, v, ctxField);
-		auto assign = new StoreExpression(
-			location,
-			new UnaryExpression(location, ctxType, UnaryOp.AddressOf, ctx),
-			field,
-		);
+		auto assign = new StoreExpression(location, ctx, field);
 
 		return new BinaryExpression(location, Type.get(s), BinaryOp.Comma,
 		                            assign, v);
@@ -300,9 +296,8 @@ struct DefaultInitializerVisitor(bool isNew) {
 				auto ft = f.type;
 				assert(ft.kind == TypeKind.Pointer);
 
-				fields[f.index] = new UnaryExpression(
-					location, ft, UnaryOp.AddressOf,
-					new ContextExpression(location, ft.element.context));
+				fields[f.index] =
+					new ContextExpression(location, ft.element.context);
 			}
 		}
 

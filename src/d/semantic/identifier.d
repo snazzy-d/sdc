@@ -544,7 +544,8 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		auto ctx = ContextFinder(pass.pass).visit(f);
 
 		import d.ir.expression : build;
-		return build!ContextExpression(location, ctx);
+		auto addr = build!ContextExpression(location, ctx);
+		return build!LoadExpression(location, Type.getContextType(ctx), addr);
 	}
 
 	private bool hasThis(Function f) {

@@ -410,7 +410,6 @@ public:
 		Type type;
 		final switch (e.op) with (AstUnaryOp) {
 			case AddressOf:
-				op = UnaryOp.AddressOf;
 				return handleAddressOf(expr);
 
 			case Dereference:

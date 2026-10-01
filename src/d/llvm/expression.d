@@ -720,6 +720,10 @@ struct ExpressionGen {
 		}
 	}
 
+	LLVMValueRef visit(ContextExpression e) {
+		return pass.getContext(e.context);
+	}
+
 	LLVMValueRef visit(ArrayLiteral e) {
 		auto t = e.type;
 		auto count = cast(uint) e.values.length;
@@ -932,12 +936,6 @@ struct AddressOfGen {
 		}
 
 		return LLVMBuildStructGEP2(builder, type, ptr, field.index, "");
-	}
-
-	LLVMValueRef visit(ContextExpression e)
-			in(e.type.kind == TypeKind.Context,
-			   "ContextExpression must be of ContextType!") {
-		return pass.getContext(e.type.context);
 	}
 
 	LLVMValueRef visit(CastExpression e) {
