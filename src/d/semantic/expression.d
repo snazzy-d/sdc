@@ -121,13 +121,13 @@ private:
 	}
 
 	auto buildAssign(Location location, Expression lhs, Expression rhs) {
-		if (!lhs.isLvalue) {
+		auto addr = buildAddressOf(lhs);
+		if (addr is null) {
 			return getError(lhs, "Expected an lvalue.");
 		}
 
-		auto type = lhs.type;
-		rhs = buildImplicitCast(pass, rhs.location, type, rhs);
-		return build!StoreExpression(location, rhs, handleAddressOf(lhs));
+		rhs = buildImplicitCast(pass, rhs.location, lhs.type, rhs);
+		return build!StoreExpression(location, rhs, addr);
 	}
 
 	Expression buildBinary(Location location, AstBinaryOp op, Expression lhs,
@@ -385,26 +385,62 @@ public:
 			build!TernaryExpression(e.location, t, condition, ifTrue, ifFalse);
 	}
 
-	private Expression handleAddressOf(Expression expr) {
-		// &*expr is expr.
+	/**
+	 * Returns the address of expr if it is an lvalue or null.
+	 */
+	Expression buildAddressOf(Expression expr) {
 		if (auto l = cast(LoadExpression) expr) {
 			return l.address;
 		}
 
-		// For fucked up reasons, &funcname is a special case.
-		if (matchFunction(expr)) {
-			return expr;
+		if (auto ce = cast(ConstantExpression) expr) {
+			if (cast(FunctionConstant) ce.value) {
+				return expr;
+			}
 		}
 
 		if (auto pe = cast(PolysemousExpression) expr) {
-			import std.algorithm, std.array;
-			pe.expressions =
-				pe.expressions.map!(e => handleAddressOf(e)).array();
+			Expression[] addrs;
+			foreach (e; pe.expressions) {
+				auto addr = buildAddressOf(e);
+				if (addr is null) {
+					continue;
+				}
+
+				addrs ~= addr;
+			}
+
+			if (addrs.length == 0) {
+				return null;
+			}
+
+			if (addrs.length == 1) {
+				return addrs[0];
+			}
+
+			pe.expressions = addrs;
 			return pe;
 		}
 
-		return build!UnaryExpression(expr.location, expr.type.getPointer(),
-		                             UnaryOp.AddressOf, expr);
+		if (auto c = cast(CastExpression) expr) {
+			switch (c.kind) with (CastKind) {
+				case Bit, Qual, Exact:
+					auto addr = buildAddressOf(c.expr);
+					if (addr is null) {
+						return null;
+					}
+
+					auto ptr = c.type.getPointer();
+					return addr.type == ptr
+						? addr
+						: new CastExpression(c.location, c.kind, ptr, addr);
+
+				default:
+					return null;
+			}
+		}
+
+		return null;
 	}
 
 	Expression visit(AstUnaryExpression e) {
@@ -414,7 +450,12 @@ public:
 		Type type;
 		final switch (e.op) with (AstUnaryOp) {
 			case AddressOf:
-				return handleAddressOf(expr);
+				auto addr = buildAddressOf(expr);
+				if (addr is null) {
+					return getError(expr, "Expected an lvalue.");
+				}
+
+				return addr;
 
 			case Dereference:
 				auto c = expr.type.getCanonical();

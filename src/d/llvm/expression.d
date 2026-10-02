@@ -314,9 +314,6 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(UnaryExpression e) {
 		final switch (e.op) with (UnaryOp) {
-			case AddressOf:
-				return addressOf(e.expr);
-
 			case PreInc:
 				return buildUnary!(1, false)(e.expr);
 

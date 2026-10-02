@@ -655,15 +655,13 @@ public:
 			value = buildImplicitCast(pass, s.location, returnType.getType(),
 			                          value);
 			if (returnType.isRef) {
-				if (!value.isLvalue) {
+				import d.semantic.expression;
+				value = ExpressionVisitor(pass).buildAddressOf(value);
+				if (value is null) {
 					import source.exception;
 					throw new CompileException(s.location,
 					                           "Cannot ref return lvalues");
 				}
-
-				value =
-					build!UnaryExpression(s.location, value.type.getPointer(),
-					                      UnaryOp.AddressOf, value);
 			}
 		}
 

@@ -132,7 +132,6 @@ class TernaryExpression : Expression {
  * Unary Expression types.
  */
 enum UnaryOp {
-	AddressOf,
 	PreInc,
 	PreDec,
 	PostInc,
@@ -145,9 +144,6 @@ enum UnaryOp {
 
 string unarizeString(string s, UnaryOp op) {
 	final switch (op) with (UnaryOp) {
-		case AddressOf:
-			return "&" ~ s;
-
 		case PreInc:
 			return "++" ~ s;
 
@@ -556,31 +552,6 @@ class CastExpression : Expression {
 
 		this.kind = kind;
 		this.expr = expr;
-	}
-
-	@property
-	override bool isLvalue() const {
-		final switch (kind) with (CastKind) {
-			case Invalid:
-			case UnsignedToPointer:
-			case SignedToPointer:
-			case PointerToInt:
-			case Down:
-			case IntToBool:
-			case PointerToBool:
-			case Trunc:
-			case UPad:
-			case SPad:
-			case FloatTrunc, FloatExtend:
-			case FloatToSigned, FloatToUnsigned:
-			case SignedToFloat, UnsignedToFloat:
-				return false;
-
-			case Bit:
-			case Qual:
-			case Exact:
-				return expr.isLvalue;
-		}
 	}
 
 	override string toString(const Context c) const {
