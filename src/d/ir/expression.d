@@ -624,19 +624,19 @@ class GlobalVariableExpression : Expression {
  * The base is addressable (class, pointer, or lvalue aggregate).
  */
 class FieldExpression : Expression {
-	Expression expr;
+	Expression base;
 	Field field;
 
-	this(Location location, Expression expr, Field field) {
-		super(location, field.type.getPointer(expr.type.qualifier));
+	this(Location location, Expression base, Field field) {
+		super(location, field.type.getPointer(base.type.qualifier));
 
-		this.expr = expr;
+		this.base = base;
 		this.field = field;
 	}
 
 	override string toString(const Context c) const {
 		import std.format;
-		return format!"&%s.%s"(expr.toString(c), field.name.toString(c));
+		return format!"&%s.%s"(base.toString(c), field.name.toString(c));
 	}
 }
 

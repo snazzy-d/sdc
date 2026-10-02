@@ -405,7 +405,37 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(FieldExpression e) {
-		return AddressOfGen(pass).computeFieldPtr(e.expr, e.field);
+		auto base = e.base;
+		auto t = base.type.getCanonical();
+
+		LLVMValueRef ptr;
+		LLVMTypeRef type;
+
+		switch (t.kind) with (TypeKind) {
+			case Slice, Struct, Union:
+				ptr = addressOf(base);
+				type = typeGen.visit(t);
+				break;
+
+			case Class:
+				ptr = visit(base);
+				type = typeGen.getClassStructure(t.dclass);
+				break;
+
+			default:
+				import std.format;
+				assert(
+					0,
+					format!"Address of field only work on aggregate types, not %s."(
+						t.toString(context))
+				);
+		}
+
+		if (t.kind == TypeKind.Union) {
+			return ptr;
+		}
+
+		return LLVMBuildStructGEP2(builder, type, ptr, e.field.index, "");
 	}
 
 	LLVMValueRef visit(ExtractFieldExpression e) {
@@ -879,45 +909,6 @@ struct AddressOfGen {
 
 	LLVMValueRef visit(LoadExpression e) {
 		return valueOf(e.address);
-	}
-
-	auto computeFieldPtr(Expression base, Field field) {
-		auto t = base.type.getCanonical();
-
-		LLVMValueRef ptr;
-		LLVMTypeRef type;
-
-		switch (t.kind) with (TypeKind) {
-			case Slice, Struct, Union:
-				ptr = visit(base);
-				type = typeGen.visit(t);
-				break;
-
-			// XXX: Remove pointer. libd do not dererefence as expected.
-			case Pointer:
-				ptr = valueOf(base);
-				type = typeGen.getElementType(t);
-				break;
-
-			case Class:
-				ptr = valueOf(base);
-				type = typeGen.getClassStructure(t.dclass);
-				break;
-
-			default:
-				import std.format;
-				assert(
-					0,
-					format!"Address of field only work on aggregate types, not %s."(
-						t.toString(context))
-				);
-		}
-
-		if (t.kind == TypeKind.Union) {
-			return ptr;
-		}
-
-		return LLVMBuildStructGEP2(builder, type, ptr, field.index, "");
 	}
 
 	LLVMValueRef visit(CastExpression e) {
