@@ -12,10 +12,4 @@ unittest address_of_cast {
 		auto p = &cast(const(int)) x;
 		assert(*p == 2);
 	}
-
-	{
-		// Bit cast.
-		auto p = &cast(uint) x;
-		assert(*p == 2);
-	}
 }

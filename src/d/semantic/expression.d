@@ -424,7 +424,7 @@ public:
 
 		if (auto c = cast(CastExpression) expr) {
 			switch (c.kind) with (CastKind) {
-				case Bit, Qual, Exact:
+				case Qual, Exact:
 					auto addr = buildAddressOf(c.expr);
 					if (addr is null) {
 						return null;
@@ -549,7 +549,7 @@ public:
 
 		arg = buildImplicitCast(pass, arg.location, pt.getType(), arg);
 
-		// Test if we can pass by ref.
+		// Test whether we can pass by ref.
 		if (pt.isRef && !arg.isLvalue) {
 			return getError(arg, "Argument isn't a lvalue.");
 		}
@@ -572,8 +572,8 @@ public:
 
 		auto flavor = implicitCastFrom(pass, arg.type, param.getType());
 
-		// test if we can pass by ref.
-		if (param.isRef && !(flavor >= CastKind.Bit && arg.isLvalue)) {
+		// Test whether we can pass by ref.
+		if (param.isRef && !(flavor >= CastKind.Qual && arg.isLvalue)) {
 			return MatchLevel.Not;
 		}
 
@@ -588,8 +588,8 @@ public:
 
 		auto flavor = implicitCastFrom(pass, type.getType(), param.getType());
 
-		// test if we can pass by ref.
-		if (param.isRef && !(flavor >= CastKind.Bit && type.isRef)) {
+		// Test whether we can pass by ref.
+		if (param.isRef && !(flavor >= CastKind.Qual && type.isRef)) {
 			return MatchLevel.Not;
 		}
 
@@ -1079,12 +1079,13 @@ public:
 
 	public Expression buildCall(Location location, Expression callee,
 	                            Expression[] args) {
-		if (cast(ErrorExpression) callee) {
-			return callee;
+		bool refReturn = false;
+		auto call = build!CallExpression(location, callee, args);
+		if (auto c = cast(CallExpression) call) {
+			refReturn = c.refReturn;
 		}
 
-		auto call = new CallExpression(location, callee, args);
-		if (!call.refReturn) {
+		if (!refReturn) {
 			return call;
 		}
 
