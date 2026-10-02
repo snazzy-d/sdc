@@ -533,22 +533,7 @@ struct ExpressionGen {
 		return ptr;
 	}
 
-	LLVMValueRef visit(IndexExpression e) {
-		return
-			AddressOfGen(pass).computeIndexPtr(e.location, e.indexed, e.index);
-	}
-
-	LLVMValueRef visit(ExtractIndexExpression e) {
-		auto slot = createAlloca(typeGen.visit(e.indexed.type), "array.tmp");
-		LLVMBuildStore(builder, visit(e.indexed), slot);
-
-		auto ptr = AddressOfGen(pass)
-			.computeIndexPtr(e.location, e.indexed, e.index, slot);
-		auto elem = typeGen.getElementType(e.indexed.type.getCanonical());
-		return LLVMBuildLoad2(builder, elem, ptr, "");
-	}
-
-	auto genBoundCheck(Location location, LLVMValueRef condition) {
+	private auto genBoundCheck(Location location, LLVMValueRef condition) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
 		auto failBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "bound_fail");
@@ -568,6 +553,75 @@ struct ExpressionGen {
 
 		// And continue regular program flow.
 		LLVMPositionBuilderAtEnd(builder, okBB);
+	}
+
+	private auto computeBoundCheckedPtr(
+		Location location,
+		LLVMTypeRef type,
+		LLVMValueRef ptr,
+		LLVMValueRef length,
+		LLVMValueRef index,
+	) {
+		if (length) {
+			auto zi = LLVMBuildZExt(builder, index, i64, "");
+			auto condition =
+				LLVMBuildICmp(builder, LLVMIntPredicate.ULT, zi, length, "");
+			genBoundCheck(location, condition);
+		}
+
+		return LLVMBuildInBoundsGEP2(builder, type, ptr, &index, 1, "");
+	}
+
+	LLVMValueRef visit(IndexExpression e) {
+		auto indexed = e.indexed;
+		auto type = indexed.type.getCanonical();
+		auto eType = typeGen.getElementType(type);
+
+		LLVMValueRef ptr, length;
+
+		switch (type.kind) with (TypeKind) {
+			case Slice:
+				auto slice = visit(indexed);
+				ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
+				length = LLVMBuildExtractValue(builder, slice, 0, ".length");
+				break;
+
+			case Pointer:
+				ptr = visit(indexed);
+				break;
+
+			case Array:
+				ptr = addressOf(indexed);
+				length = LLVMConstInt(i64, type.size, false);
+				break;
+
+			default:
+				import std.format;
+				assert(
+					0,
+					format!"%s is not an indexable type!"(
+						indexed.type.toString(context))
+				);
+		}
+
+		return computeBoundCheckedPtr(e.location, eType, ptr, length,
+		                              visit(e.index));
+	}
+
+	LLVMValueRef visit(ExtractIndexExpression e) {
+		auto indexed = e.indexed;
+		auto type = indexed.type.getCanonical();
+		auto aType = typeGen.visit(type);
+		auto eType = typeGen.getElementType(type);
+
+		auto slot = createAlloca(aType, "array.tmp");
+		LLVMBuildStore(builder, visit(indexed), slot);
+
+		auto length = LLVMConstInt(i64, type.size, false);
+		auto ptr = computeBoundCheckedPtr(e.location, eType, slot, length,
+		                                  visit(e.index));
+
+		return LLVMBuildLoad2(builder, eType, ptr, "");
 	}
 
 	LLVMValueRef visit(SliceExpression e) {
@@ -927,52 +981,5 @@ struct AddressOfGen {
 			case FloatExtend, FloatTrunc:
 				assert(0, "Not an lvalue");
 		}
-	}
-
-	auto computeIndexPtr(Location location, Expression indexed,
-	                     Expression index, LLVMValueRef arrayPtr = null) {
-		auto t = indexed.type.getCanonical();
-		auto eType = typeGen.getElementType(t);
-
-		LLVMValueRef ptr, length;
-
-		switch (t.kind) with (TypeKind) {
-			case Slice:
-				auto slice = valueOf(indexed);
-				ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
-				length = LLVMBuildExtractValue(builder, slice, 0, ".length");
-				break;
-
-			case Pointer:
-				ptr = valueOf(indexed);
-				break;
-
-			case Array:
-				ptr = arrayPtr ? arrayPtr : visit(indexed);
-				length = LLVMConstInt(i64, t.size, false);
-				break;
-
-			default:
-				import std.format;
-				assert(
-					0,
-					format!"%s is not an indexable type!"(
-						indexed.type.toString(context))
-				);
-		}
-
-		auto i = valueOf(index);
-		if (length) {
-			auto zi = LLVMBuildZExt(builder, i, i64, "");
-			auto condition =
-				LLVMBuildICmp(builder, LLVMIntPredicate.ULT, zi, length, "");
-			genBoundCheck(location, condition);
-		}
-
-		return LLVMBuildInBoundsGEP2(builder, eType, ptr, &i, 1, "");
-	}
-
-	auto genBoundCheck(Location location, LLVMValueRef condition) {
-		return ExpressionGen(pass).genBoundCheck(location, condition);
 	}
 }
