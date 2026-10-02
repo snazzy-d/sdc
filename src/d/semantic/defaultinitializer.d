@@ -235,7 +235,8 @@ struct DefaultInitializerVisitor(bool isNew) {
 		auto v = new Variable(loc, value.type, BuiltinName!"", value);
 		v.step = Step.Processed;
 
-		return new VariableExpression(loc, v);
+		auto addr = new VariableExpression(loc, v);
+		return new LoadExpression(loc, v.type, addr);
 	}
 
 	Expression visit(Struct s) {

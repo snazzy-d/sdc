@@ -460,7 +460,9 @@ public:
 		assert(idx);
 		currentBlock.alloca(idx.location, idx);
 
-		auto idxExpr = new VariableExpression(idx.location, idx);
+		auto idxExpr =
+			build!LoadExpression(idx.location, idx.type,
+			                     new VariableExpression(idx.location, idx));
 		auto increment =
 			build!UnaryExpression(loc, idx.type, UnaryOp.PreInc, idxExpr);
 
@@ -533,7 +535,9 @@ public:
 		currentScope.addSymbol(idx);
 		currentBlock.alloca(idx.location, idx);
 
-		Expression idxExpr = new VariableExpression(idx.location, idx);
+		auto idxExpr =
+			build!LoadExpression(idx.location, idx.type,
+			                     new VariableExpression(idx.location, idx));
 		Expression increment, condition;
 
 		if (f.reverse) {
@@ -679,17 +683,11 @@ public:
 				retval = new VariableExpression(location, v);
 			}
 
-			currentBlock.eval(
-				location,
-				check(build!StoreExpression(
-					location,
-					value,
-					build!UnaryExpression(location, retval.type.getPointer(),
-					                      UnaryOp.AddressOf, retval)
-				))
-			);
+			currentBlock
+				.eval(location,
+				      check(build!StoreExpression(location, value, retval)));
 
-			value = retval;
+			value = build!LoadExpression(location, retval.type.element, retval);
 		}
 
 		closeBlockTo(0);

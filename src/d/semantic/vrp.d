@@ -127,10 +127,6 @@ public:
 		return this.dispatch!(c => getRange(c.type))(c);
 	}
 
-	VR visit(StoreExpression e) {
-		return visit(e.value);
-	}
-
 	VR visit(BooleanConstant c) {
 		return VR(c.value);
 	}
@@ -144,6 +140,34 @@ public:
 	}
 
 	VR visit(ConstantExpression e) {
+		return visit(e.value);
+	}
+
+	private
+	VR knownRange(V)(V v) if (is(V : Variable) || is(V : GlobalVariable)) {
+		scheduler.require(v, Step.Processed);
+		auto type = v.type;
+		if (type.getCanonical().qualifier != TypeQualifier.Immutable) {
+			return getRange(type);
+		}
+
+		assert(v.value !is null, "immutable symbol has no value.");
+		return visit(v.value);
+	}
+
+	VR visit(LoadExpression e) {
+		if (auto ve = cast(VariableExpression) e.address) {
+			return knownRange(ve.var);
+		}
+
+		if (auto ge = cast(GlobalVariableExpression) e.address) {
+			return knownRange(ge.var);
+		}
+
+		return getRange(e.type);
+	}
+
+	VR visit(StoreExpression e) {
 		return visit(e.value);
 	}
 
@@ -207,19 +231,6 @@ public:
 			default:
 				assert(0, "Not implemented.");
 		}
-	}
-
-	VR visit(VariableExpression e) {
-		auto v = e.var;
-		scheduler.require(v, Step.Processed);
-		return visit(v);
-	}
-
-	VR visit(Variable v) in(v.step >= Step.Processed) {
-		assert(v.storage != Storage.Enum);
-		return v.type.getCanonical().qualifier == TypeQualifier.Immutable
-			? visit(v.value)
-			: getRange(v.type);
 	}
 
 	VR visit(CastExpression e) {
@@ -298,9 +309,11 @@ public:
 }
 
 unittest {
+	auto pass = SemanticPass.getTestSemanticPass();
+
 	import std.meta;
 	foreach (T; AliasSeq!(uint, ulong)) {
-		auto vrp = ValueRangePropagator!T();
+		auto vrp = ValueRangePropagator!T(pass);
 
 		alias VR = ValueRange!T;
 		VR v;
@@ -469,7 +482,7 @@ unittest {
 		assert(v == VR(7));
 
 		/**
-		 * Variables
+		 * Variables.
 		 */
 		import source.name;
 		auto var =
@@ -477,24 +490,74 @@ unittest {
 			             BuiltinName!"", i1);
 		var.step = Step.Processed;
 
-		v = vrp.visit(var);
+		auto load =
+			new LoadExpression(Location.init, var.type,
+			                   new VariableExpression(Location.init, var));
+
+		v = vrp.visit(load);
 		assert(v == VR(uint.min, uint.max));
 
 		var.type = tbool;
-		v = vrp.visit(var);
+		load = new LoadExpression(Location.init, var.type,
+		                          new VariableExpression(Location.init, var));
+		v = vrp.visit(load);
 		assert(v == VR(0, 1));
 
 		var.type = Type.get(BuiltinType.Short);
-		v = vrp.visit(var);
+		load = new LoadExpression(Location.init, var.type,
+		                          new VariableExpression(Location.init, var));
+		v = vrp.visit(load);
 		assert(v == VR(short.min, short.max));
 
 		var.storage = Storage.Static;
-		v = vrp.visit(var);
+		load = new LoadExpression(Location.init, var.type,
+		                          new VariableExpression(Location.init, var));
+		v = vrp.visit(load);
 		assert(v == VR(short.min, short.max));
 
 		var.type = var.type.qualify(TypeQualifier.Immutable);
-		v = vrp.visit(var);
+		load = new LoadExpression(Location.init, var.type,
+		                          new VariableExpression(Location.init, var));
+		v = vrp.visit(load);
 		assert(v == VR(-7));
+
+		/**
+		 * Globals use the same rule: immutable is the initializer, anything
+		 * else is the type range.
+		 */
+		auto global = new GlobalVariable(
+			Location.init, Type.get(BuiltinType.Int), BuiltinName!"",
+			new IntegerConstant(-7, BuiltinType.Int));
+		global.step = Step.Processed;
+		auto globalLoad = new LoadExpression(
+			Location.init, global.type,
+			new GlobalVariableExpression(Location.init, global));
+		v = vrp.visit(globalLoad);
+		assert(v == VR(int.min, int.max));
+		assert(!vrp.canFit(globalLoad, BuiltinType.Ubyte));
+
+		global.type = global.type.qualify(TypeQualifier.Immutable);
+		globalLoad = new LoadExpression(
+			Location.init, Type.get(BuiltinType.Int),
+			new GlobalVariableExpression(Location.init, global));
+		v = vrp.visit(globalLoad);
+		assert(v == VR(-7));
+		assert(!vrp.canFit(globalLoad, BuiltinType.Ubyte));
+
+		global.value = new IntegerConstant(256, BuiltinType.Int);
+		v = vrp.visit(globalLoad);
+		assert(v == VR(256));
+		assert(!vrp.canFit(globalLoad, BuiltinType.Ubyte));
+		assert(vrp.canFit(globalLoad, BuiltinType.Ushort));
+
+		/**
+		 * Other loads just match the type.
+		 */
+		auto other =
+			new LoadExpression(Location.init, Type.get(BuiltinType.Int), i1);
+		v = vrp.visit(other);
+		assert(v == VR(int.min, int.max));
+		assert(!vrp.canFit(other, BuiltinType.Ubyte));
 
 		/**
 		 * Casts

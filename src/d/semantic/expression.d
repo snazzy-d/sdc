@@ -99,7 +99,8 @@ private:
 		auto v = new Variable(loc, value.type, BuiltinName!"", value);
 		v.step = Step.Processed;
 
-		return new VariableExpression(loc, v);
+		auto addr = new VariableExpression(loc, v);
+		return new LoadExpression(loc, v.type, addr);
 	}
 
 	Expression getLvalue(Expression value) {
@@ -107,13 +108,16 @@ private:
 			return e;
 		}
 
-		import source.name;
-		auto v =
-			new Variable(value.location, value.type.getParamType(ParamKind.Ref),
-			             BuiltinName!"", value);
+		auto loc = value.location;
+		auto type = value.type;
 
+		import source.name;
+		auto v = new Variable(loc, type.getParamType(ParamKind.Ref),
+		                      BuiltinName!"", value);
 		v.step = Step.Processed;
-		return new VariableExpression(value.location, v);
+
+		auto addr = new VariableExpression(loc, v);
+		return new LoadExpression(loc, type, addr);
 	}
 
 	auto buildAssign(Location location, Expression lhs, Expression rhs) {

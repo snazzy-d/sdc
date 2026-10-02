@@ -488,7 +488,6 @@ class PolysemousExpression : Expression {
 
 /**
  * Address of the closure context: __ctx.
- * Value uses wrap this in LoadExpression.
  */
 class ContextExpression : Expression {
 	this(Location location, Function f) {
@@ -615,29 +614,25 @@ class NewExpression : Expression {
 }
 
 /**
- * IdentifierExpression that as been resolved as a Variable.
+ * A local. An addressable local is the address. A final is the value.
  */
 class VariableExpression : Expression {
 	Variable var;
 
 	this(Location location, Variable var) in(var.storage != Storage.Enum) {
-		super(location, var.type);
+		super(location, var.isFinal ? var.type : var.type.getPointer());
 
 		this.var = var;
 	}
 
-	@property
-	override bool isLvalue() const {
-		return true;
-	}
-
 	override string toString(const Context c) const {
-		return var.name.toString(c);
+		auto name = var.name.toString(c);
+		return var.isFinal ? name : "&" ~ name;
 	}
 }
 
 /**
- * Address of a global. Uses wrap this in LoadExpression.
+ * Address of a global.
  */
 class GlobalVariableExpression : Expression {
 	GlobalVariable var;
@@ -654,7 +649,7 @@ class GlobalVariableExpression : Expression {
 }
 
 /**
- * Address of a field: &expr.field. Uses wrap this in LoadExpression.
+ * Address of a field: &expr.field.
  * The base is addressable (class, pointer, or lvalue aggregate).
  */
 class FieldExpression : Expression {

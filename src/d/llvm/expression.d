@@ -400,7 +400,7 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(VariableExpression e) {
 		assert(e.var.storage != Storage.Enum);
-		return e.var.isFinal ? declare(e.var) : loadAddressOf(e);
+		return declare(e.var);
 	}
 
 	LLVMValueRef visit(GlobalVariableExpression e) {
@@ -882,13 +882,6 @@ struct AddressOfGen {
 
 	LLVMValueRef visit(LoadExpression e) {
 		return valueOf(e.address);
-	}
-
-	LLVMValueRef visit(VariableExpression e) in {
-		assert(e.var.storage != Storage.Enum, "enum have no address.");
-		assert(!e.var.isFinal, "finals have no address.");
-	} do {
-		return declare(e.var);
 	}
 
 	auto computeFieldPtr(Expression base, Field field) {

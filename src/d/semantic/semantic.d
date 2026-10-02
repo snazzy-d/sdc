@@ -68,6 +68,14 @@ final class SemanticPass {
 	alias EvaluatorBuilder = Evaluator delegate(SemanticPass);
 	alias DataLayoutBuilder = DataLayout delegate(SemanticPass);
 
+	private this(Context context, string[] includePaths, bool enableUnittest) {
+		this.context = context;
+		this.includePaths = includePaths;
+		this.enableUnittest = enableUnittest;
+
+		scheduler = new Scheduler(this);
+	}
+
 	this(
 		Context context,
 		string[] includePaths,
@@ -77,11 +85,7 @@ final class SemanticPass {
 		EvaluatorBuilder evBuilder,
 		DataLayoutBuilder dlBuilder,
 	) {
-		this.context = context;
-		this.includePaths = includePaths;
-		this.enableUnittest = enableUnittest;
-
-		scheduler = new Scheduler(this);
+		this(context, includePaths, enableUnittest);
 
 		foreach (filename; preload) {
 			preloadedModules ~= add(filename);
@@ -95,6 +99,14 @@ final class SemanticPass {
 		dataLayout = dlBuilder(this);
 
 		scheduler.require(obj, Step.Populated);
+	}
+
+	static getTestSemanticPass(Context context = null) {
+		if (context is null) {
+			context = new Context();
+		}
+
+		return new SemanticPass(context, [], false);
 	}
 
 	Module add(string filename) {
