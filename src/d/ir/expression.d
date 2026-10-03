@@ -396,16 +396,17 @@ class IntrinsicExpression : Expression {
 }
 
 /**
- * Index expression : &indexed[index]
+ * Pointer Index expression : &indexed[index]
  *
- * The indexed expression is addressable (pointer, slice, or lvalue array).
+ * The indexed expression is a pointer.
+ * The result is that pointer plus index. No bound check.
  */
-class IndexExpression : Expression {
+class PointerIndexExpression : Expression {
 	Expression indexed;
 	Expression index;
 
-	this(Location location, Type type, Expression indexed, Expression index) {
-		super(location, type);
+	this(Location location, Expression indexed, Expression index) {
+		super(location, indexed.type);
 
 		this.indexed = indexed;
 		this.index = index;
@@ -418,11 +419,58 @@ class IndexExpression : Expression {
 }
 
 /**
- * Extract Index expression : indexed[index]
+ * Slice Index expression : &indexed[index]
  *
- * Contrary to IndexExpression, this accepts non addressables.
+ * The indexed is the slice value.
+ * The result is the element pointer.
  */
-class ExtractIndexExpression : Expression {
+class SliceIndexExpression : Expression {
+	Expression indexed;
+	Expression index;
+
+	this(Location location, Expression indexed, Expression index) {
+		super(location, indexed.type.getCanonical().element.getPointer());
+
+		this.indexed = indexed;
+		this.index = index;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"&%s[%s]"(indexed.toString(c), index.toString(c));
+	}
+}
+
+/**
+ * Array Index expression : &indexed[index]
+ *
+ * The indexed is is a pointer to the array, not the array.
+ * The result is the element pointer.
+ */
+class ArrayIndexExpression : Expression {
+	Expression indexed;
+	Expression index;
+
+	this(Location location, Expression indexed, Expression index) {
+		auto arrayType = indexed.type.getCanonical().element;
+		super(location, arrayType.element.getPointer());
+
+		this.indexed = indexed;
+		this.index = index;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"&%s[%s]"(indexed.toString(c), index.toString(c));
+	}
+}
+
+/**
+ * Extract an element out of an array : indexed[index]
+ *
+ * Contrary to index expressions, this is non addressable.
+ */
+class ArrayExtractExpression : Expression {
 	Expression indexed;
 	Expression index;
 

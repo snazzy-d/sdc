@@ -927,18 +927,17 @@ struct ExpressionDotIdentifierResolver {
 
 		// array.ptr is a special case.
 		if (et.kind == TypeKind.Array && name == BuiltinName!"ptr") {
-			if (!e.isLvalue) {
+			import d.semantic.expression;
+			auto ptr = ExpressionVisitor(pass.pass).buildAddressOf(e);
+			if (ptr is null) {
 				return
 					getIdentifiableError(e, e.location, "Expected an lvalue.");
 			}
 
-			return Identifiable(build!IndexExpression(
-				location,
-				t.element.getPointer(),
-				e,
-				new ConstantExpression(location,
-				                       new IntegerConstant(0, BuiltinType.Uint))
-			));
+			import d.semantic.caster;
+			return Identifiable(
+				buildExplicitCast(pass.pass, location, et.element.getPointer(),
+				                  ptr));
 		}
 
 		// UFCS

@@ -533,6 +533,13 @@ struct ExpressionGen {
 		return ptr;
 	}
 
+	LLVMValueRef visit(PointerIndexExpression e) {
+		auto type = typeGen.getElementType(e.indexed.type);
+		auto ptr = visit(e.indexed);
+		auto index = visit(e.index);
+		return LLVMBuildInBoundsGEP2(builder, type, ptr, &index, 1, "");
+	}
+
 	private auto genBoundCheck(Location location, LLVMValueRef condition) {
 		auto fun = LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder));
 
@@ -562,53 +569,38 @@ struct ExpressionGen {
 		LLVMValueRef length,
 		LLVMValueRef index,
 	) {
-		if (length) {
-			auto zi = LLVMBuildZExt(builder, index, i64, "");
-			auto condition =
-				LLVMBuildICmp(builder, LLVMIntPredicate.ULT, zi, length, "");
-			genBoundCheck(location, condition);
-		}
+		auto zi = LLVMBuildZExt(builder, index, i64, "");
+		auto condition =
+			LLVMBuildICmp(builder, LLVMIntPredicate.ULT, zi, length, "");
+		genBoundCheck(location, condition);
 
 		return LLVMBuildInBoundsGEP2(builder, type, ptr, &index, 1, "");
 	}
 
-	LLVMValueRef visit(IndexExpression e) {
+	LLVMValueRef visit(SliceIndexExpression e) {
+		auto type = typeGen.getElementType(e.indexed.type);
+
+		auto slice = visit(e.indexed);
+		auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
+		auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
+
+		return computeBoundCheckedPtr(e.location, type, ptr, length,
+		                              visit(e.index));
+	}
+
+	LLVMValueRef visit(ArrayIndexExpression e) {
 		auto indexed = e.indexed;
-		auto type = indexed.type.getCanonical();
-		auto eType = typeGen.getElementType(type);
+		auto aType = indexed.type.getCanonical().element.getCanonical();
+		auto eType = typeGen.getElementType(aType);
 
-		LLVMValueRef ptr, length;
-
-		switch (type.kind) with (TypeKind) {
-			case Slice:
-				auto slice = visit(indexed);
-				ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
-				length = LLVMBuildExtractValue(builder, slice, 0, ".length");
-				break;
-
-			case Pointer:
-				ptr = visit(indexed);
-				break;
-
-			case Array:
-				ptr = addressOf(indexed);
-				length = LLVMConstInt(i64, type.size, false);
-				break;
-
-			default:
-				import std.format;
-				assert(
-					0,
-					format!"%s is not an indexable type!"(
-						indexed.type.toString(context))
-				);
-		}
+		auto ptr = visit(indexed);
+		auto length = LLVMConstInt(i64, aType.size, false);
 
 		return computeBoundCheckedPtr(e.location, eType, ptr, length,
 		                              visit(e.index));
 	}
 
-	LLVMValueRef visit(ExtractIndexExpression e) {
+	LLVMValueRef visit(ArrayExtractExpression e) {
 		auto indexed = e.indexed;
 		auto type = indexed.type.getCanonical();
 		auto aType = typeGen.visit(type);

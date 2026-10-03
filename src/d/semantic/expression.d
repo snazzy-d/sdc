@@ -192,8 +192,7 @@ private:
 						                              UnaryOp.Minus, index);
 					}
 
-					return
-						build!IndexExpression(location, lhs.type, lhs, index);
+					return build!PointerIndexExpression(location, lhs, index);
 				}
 
 				// Pointer difference.
@@ -1161,24 +1160,38 @@ public:
 	Expression getIndex(Location location, Expression indexed,
 	                    Expression index) {
 		auto t = indexed.type.getCanonical();
-		if (!t.hasElement) {
-			import std.format;
-			return getError(
-				indexed, location,
-				format!"Can't index %s."(indexed.type.toString(context)));
-		}
-
 		index = buildImplicitCast(pass, location, pass.object.getSizeT().type,
 		                          index);
 
-		// Rvalue arrays have no address. Extract the element.
-		if (t.kind == TypeKind.Array && !indexed.isLvalue) {
-			return build!ExtractIndexExpression(location, t.element, indexed,
-			                                    index);
+		Expression addr;
+		switch (t.kind) with (TypeKind) {
+			case Pointer:
+				addr = build!PointerIndexExpression(location, indexed, index);
+				break;
+
+			case Slice:
+				addr = build!SliceIndexExpression(location, indexed, index);
+				break;
+
+			case Array:
+				auto base = buildAddressOf(indexed);
+
+				// If the array is not addressable, extract thee element.
+				if (base is null) {
+					return build!ArrayExtractExpression(location, t.element,
+					                                    indexed, index);
+				}
+
+				addr = build!ArrayIndexExpression(location, base, index);
+				break;
+
+			default:
+				import std.format;
+				return getError(
+					indexed, location,
+					format!"Can't index %s."(indexed.type.toString(context)));
 		}
 
-		auto addr = build!IndexExpression(location, t.element.getPointer(),
-		                                  indexed, index);
 		return build!LoadExpression(location, t.element, addr);
 	}
 
