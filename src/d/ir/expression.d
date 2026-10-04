@@ -488,17 +488,67 @@ class ArrayExtractExpression : Expression {
 }
 
 /**
- * Slice expression : sliced[first .. second]
+ * Pointer slice: sliced[first .. second].
+ *
+ * sliced is the pointer. Both bounds are required. No length check.
  */
-class SliceExpression : Expression {
+class PointerSliceExpression : Expression {
 	Expression sliced;
-
 	Expression first;
 	Expression second;
 
-	this(Location location, Type type, Expression sliced, Expression first,
+	this(Location location, Expression sliced, Expression first,
 	     Expression second) {
-		super(location, type);
+		super(location, sliced.type.getCanonical().element.getSlice());
+
+		this.sliced = sliced;
+		this.first = first;
+		this.second = second;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"%s[%s .. %s]"(sliced.toString(c), first.toString(c),
+		                             second.toString(c));
+	}
+}
+
+/**
+ * Slice of a slice. sliced is the slice value.
+ */
+class SliceSliceExpression : Expression {
+	Expression sliced;
+	Expression first;
+	Expression second;
+
+	this(Location location, Expression sliced, Expression first,
+	     Expression second) {
+		super(location, sliced.type);
+
+		this.sliced = sliced;
+		this.first = first;
+		this.second = second;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"%s[%s .. %s]"(sliced.toString(c), first.toString(c),
+		                             second.toString(c));
+	}
+}
+
+/**
+ * Slice of an array. sliced is a pointer to the array, not the array.
+ */
+class ArraySliceExpression : Expression {
+	Expression sliced;
+	Expression first;
+	Expression second;
+
+	this(Location location, Expression sliced, Expression first,
+	     Expression second) {
+		auto arrayType = sliced.type.getCanonical().element;
+		super(location, arrayType.element.getSlice());
 
 		this.sliced = sliced;
 		this.first = first;

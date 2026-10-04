@@ -1207,23 +1207,43 @@ public:
 	}
 
 	Expression visit(AstSliceExpression e) {
-		// TODO: check if it is valid.
 		auto sliced = visit(e.sliced);
-
 		auto t = sliced.type.getCanonical();
-		if (!t.hasElement) {
-			import std.format;
+
+		if (e.first.length != 1 || e.second.length != 1) {
 			return getError(sliced, e.location,
-			                format!"Can't slice %s."(t.toString(context)));
+			                "Slice needs one lower and one upper bound.");
 		}
 
-		assert(e.first.length == 1 && e.second.length == 1);
+		auto sizeType = pass.object.getSizeT().type;
+		auto first =
+			buildImplicitCast(pass, e.location, sizeType, visit(e.first[0]));
+		auto second =
+			buildImplicitCast(pass, e.location, sizeType, visit(e.second[0]));
 
-		auto first = visit(e.first[0]);
-		auto second = visit(e.second[0]);
+		switch (t.kind) with (TypeKind) {
+			case Pointer:
+				return build!PointerSliceExpression(e.location, sliced, first,
+				                                    second);
 
-		return build!SliceExpression(e.location, t.element.getSlice(), sliced,
-		                             first, second);
+			case Slice:
+				return build!SliceSliceExpression(e.location, sliced, first,
+				                                  second);
+
+			case Array:
+				auto base = buildAddressOf(sliced);
+				if (base is null) {
+					return getError(sliced, "Expected an lvalue.");
+				}
+
+				return
+					build!ArraySliceExpression(e.location, base, first, second);
+
+			default:
+				import std.format;
+				return getError(sliced, e.location,
+				                format!"Can't slice %s."(t.toString(context)));
+		}
 	}
 
 	private Expression handleTypeid(Location location, Expression e) {

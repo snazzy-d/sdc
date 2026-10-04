@@ -76,12 +76,6 @@ struct ExpressionGen {
 		return l;
 	}
 
-	private LLVMValueRef loadAddressOf(E)(E e) if (is(E : Expression))
-			in(e.isLvalue, "e must be an lvalue") {
-		auto t = e.type.getCanonical();
-		return buildLoad(addressOf(e), typeGen.visit(t), t.qualifier);
-	}
-
 	LLVMValueRef visit(LoadExpression e) {
 		auto t = e.type.getCanonical();
 		return buildLoad(visit(e.address), typeGen.visit(t), t.qualifier);
@@ -616,59 +610,69 @@ struct ExpressionGen {
 		return LLVMBuildLoad2(builder, eType, ptr, "");
 	}
 
-	LLVMValueRef visit(SliceExpression e) {
-		auto t = e.sliced.type.getCanonical();
-		auto eType = typeGen.getElementType(t);
+	private LLVMValueRef buildSlice(LLVMValueRef ptr, LLVMTypeRef elem,
+	                                LLVMValueRef first, LLVMValueRef second) {
+		auto slice = LLVMGetUndef(llvmSlice);
+		auto sub = LLVMBuildSub(builder, second, first, "");
+		slice = LLVMBuildInsertValue(builder, slice, sub, 0, "");
+		ptr = LLVMBuildInBoundsGEP2(builder, elem, ptr, &first, 1, "");
+		return LLVMBuildInsertValue(builder, slice, ptr, 1, "");
+	}
 
-		LLVMValueRef length, ptr;
-		switch (t.kind) with (TypeKind) {
-			case Slice:
-				auto slice = visit(e.sliced);
-
-				length = LLVMBuildExtractValue(builder, slice, 0, ".length");
-				ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
-				break;
-
-			case Pointer:
-				ptr = visit(e.sliced);
-				break;
-
-			case Array:
-				length = LLVMConstInt(i64, t.size, false);
-				ptr = addressOf(e.sliced);
-				break;
-
-			default:
-				import std.format;
-				assert(
-					0,
-					format!"Don't know how to slice %s."(
-						e.type.toString(context))
-				);
-		}
-
+	LLVMValueRef visit(PointerSliceExpression e) {
+		auto sliced = visit(e.sliced);
 		auto first = LLVMBuildZExt(builder, visit(e.first), i64, "");
 		auto second = LLVMBuildZExt(builder, visit(e.second), i64, "");
 
 		auto condition =
 			LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
-		if (length) {
-			auto boundCheck = LLVMBuildICmp(builder, LLVMIntPredicate.ULE,
-			                                second, length, "");
-			condition = LLVMBuildAnd(builder, condition, boundCheck, "");
-		}
-
 		genBoundCheck(e.location, condition);
 
-		auto sliceType = typeGen.visit(e.type);
-		auto slice = LLVMGetUndef(sliceType);
+		auto elem = typeGen.getElementType(e.type);
+		return buildSlice(sliced, elem, first, second);
+	}
 
-		auto sub = LLVMBuildSub(builder, second, first, "");
-		slice = LLVMBuildInsertValue(builder, slice, sub, 0, "");
-		ptr = LLVMBuildInBoundsGEP2(builder, eType, ptr, &first, 1, "");
-		slice = LLVMBuildInsertValue(builder, slice, ptr, 1, "");
+	private LLVMValueRef buildBoundedSlice(
+		Location location,
+		LLVMValueRef ptr,
+		LLVMTypeRef elem,
+		LLVMValueRef length,
+		LLVMValueRef first,
+		LLVMValueRef second,
+	) {
+		first = LLVMBuildZExt(builder, first, i64, "");
+		second = LLVMBuildZExt(builder, second, i64, "");
+		auto ordered =
+			LLVMBuildICmp(builder, LLVMIntPredicate.ULE, first, second, "");
+		auto inBounds =
+			LLVMBuildICmp(builder, LLVMIntPredicate.ULE, second, length, "");
+		genBoundCheck(location, LLVMBuildAnd(builder, ordered, inBounds, ""));
+		return buildSlice(ptr, elem, first, second);
+	}
 
-		return slice;
+	LLVMValueRef visit(SliceSliceExpression e) {
+		auto slice = visit(e.sliced);
+		auto length = LLVMBuildExtractValue(builder, slice, 0, ".length");
+		auto ptr = LLVMBuildExtractValue(builder, slice, 1, ".ptr");
+
+		auto first = visit(e.first);
+		auto second = visit(e.second);
+
+		auto elem = typeGen.getElementType(e.type);
+		return buildBoundedSlice(e.location, ptr, elem, length, first, second);
+	}
+
+	LLVMValueRef visit(ArraySliceExpression e) {
+		auto ptr = visit(e.sliced);
+
+		auto arrayType = e.sliced.type.getCanonical().element.getCanonical();
+		auto length = LLVMConstInt(i64, arrayType.size, false);
+
+		auto first = visit(e.first);
+		auto second = visit(e.second);
+
+		auto elem = typeGen.getElementType(arrayType);
+		return buildBoundedSlice(e.location, ptr, elem, length, first, second);
 	}
 
 	// FIXME: This is public because of intrinsic codegen in LocalGen.
