@@ -70,7 +70,7 @@ private:
 		this(d, fastCast!(inout Payload)(e));
 	}
 
-	Type getConstructedType(this T)(TypeKind k, TypeQualifier q) {
+	T getConstructedType(this T)(TypeKind k, TypeQualifier q) {
 		return qualify(q).getConstructedMixin(k, q);
 	}
 
@@ -133,19 +133,19 @@ public:
 		return acceptImpl(t);
 	}
 
-	Type qualify(TypeQualifier q) {
+	auto qualify(TypeQualifier q) inout {
 		auto nq = q.add(qualifier);
 		if (nq == qualifier) {
-			return Type(desc, payload);
+			return this;
 		}
 
 		switch (kind) with (TypeKind) {
 			case Builtin, Struct, Class, Enum, Alias:
 			case Interface, Union, Context, Function:
 			case Error:
-				auto d = desc;
+				auto d = cast(Desc) desc;
 				d.qualifier = nq;
-				return Type(d, payload);
+				return inout(Type)(d, payload);
 
 			case Pointer:
 				return element.qualify(nq).getPointer(nq);
@@ -259,20 +259,21 @@ public:
 		return payload.error;
 	}
 
-	Type getPointer(TypeQualifier q = TypeQualifier.Mutable) {
+	inout(Type) getPointer(TypeQualifier q = TypeQualifier.Mutable) inout {
 		return getConstructedType(TypeKind.Pointer, q);
 	}
 
-	Type getSlice(TypeQualifier q = TypeQualifier.Mutable) {
+	inout(Type) getSlice(TypeQualifier q = TypeQualifier.Mutable) inout {
 		return getConstructedType(TypeKind.Slice, q);
 	}
 
-	Type getArray(uint size, TypeQualifier q = TypeQualifier.Mutable) {
+	inout(Type) getArray(uint size,
+	                     TypeQualifier q = TypeQualifier.Mutable) inout {
 		auto t = qualify(q);
 
 		// XXX: Consider caching in context.
-		auto n = new Type(t.desc, t.payload);
-		return Type(Desc(TypeKind.Array, q, size), n);
+		auto n = new inout(Type)(t.desc, t.payload);
+		return inout(Type)(Desc(TypeKind.Array, q, size), n);
 	}
 
 	bool hasElement() const {
@@ -784,9 +785,9 @@ public:
 		return payload.param;
 	}
 
-	Type getType(TypeQualifier q = TypeQualifier.Mutable) {
+	auto getType(TypeQualifier q = TypeQualifier.Mutable) inout {
 		ulong d = *cast(ulong*) &this;
-		return Type(Desc(TypeKind.Pattern, q, d), payload);
+		return inout(Type)(Desc(TypeKind.Pattern, q, d), payload);
 	}
 
 	auto accept(T)(ref T t) if (is(T == struct)) {
