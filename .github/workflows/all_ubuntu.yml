@@ -35,7 +35,7 @@ jobs:
             - name: Build
               run: make -j6
             - name: Test
-              run: make -j6 check
+              run: make check
 
     sdfmt:
         name: Build sdfmt via dub
