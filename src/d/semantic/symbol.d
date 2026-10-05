@@ -452,21 +452,26 @@ struct SymbolAnalyzer {
 		// very confusing results, like a template parameter.
 		v.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
-		value = v.value = v.storage.isGlobal
-			? new ConstantExpression(value.location, evaluate(value))
-			: value;
+		assert(v.storage != Storage.Static,
+		       "Static variables must be GlobalVariable.");
 
-		v.mangle = v.name;
-
-		assert(
-			v.storage != Storage.Static,
-			"Static variable are not supported anymore, use GlobalVariable."
-		);
+		if (v.storage.isGlobal) {
+			value = new ConstantExpression(value.location, evaluate(value));
+		}
 
 		// XXX: Make sure type is at least signed.
 		import d.semantic.sizeof;
 		SizeofVisitor(pass).visit(value.type);
 
+		if (v.isRef) {
+			// Ref variables store the address of their initializer.
+			import d.semantic.expression : ExpressionVisitor;
+			auto address = ExpressionVisitor(pass).buildAddressOf(v.value);
+			assert(address !is null, "Ref initializer isn't an lvalue.");
+		}
+
+		v.value = value;
+		v.mangle = v.name;
 		v.step = Step.Processed;
 	}
 

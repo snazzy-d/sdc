@@ -491,6 +491,13 @@ public:
 			eVal = buildImplicitCast(pass, eLoc, eType.getType(), eVal);
 		}
 
+		if (eDecl.type.paramKind == ParamKind.Ref) {
+			// Ref variables hold the address of the element.
+			import d.semantic.expression : ExpressionVisitor;
+			eVal = ExpressionVisitor(pass).buildAddressOf(eVal);
+			assert(eVal !is null, "Ref element isn't an lvalue.");
+		}
+
 		auto element = new Variable(eLoc, eType, eDecl.name, eVal);
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);

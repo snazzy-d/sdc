@@ -408,9 +408,7 @@ struct LocalGen {
 
 	LLVMValueRef define(Variable v) in(!v.isFinal && v.storage.isLocal) {
 		import d.llvm.expression;
-		auto value = v.isRef
-			? AddressOfGen(&this).visit(v.value)
-			: ExpressionGen(&this).visit(v.value);
+		auto value = ExpressionGen(&this).visit(v.value);
 
 		return createVariableStorage(v, value);
 	}

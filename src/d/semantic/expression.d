@@ -111,6 +111,10 @@ private:
 		auto loc = value.location;
 		auto type = value.type;
 
+		// Ref variables store the address; provide it directly.
+		value = buildAddressOf(value);
+		assert(value !is null, "getLvalue on non-lvalue.");
+
 		import source.name;
 		auto v = new Variable(loc, type.getParamType(ParamKind.Ref),
 		                      BuiltinName!"", value);
