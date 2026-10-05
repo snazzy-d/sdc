@@ -35,7 +35,7 @@ int postinc(ref int x) {
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[X]], align 4
-// CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], -1
+// CHECK-NEXT:    [[TMP2:%.*]] = sub i32 [[TMP1]], 1
 // CHECK-NEXT:    store i32 [[TMP2]], ptr [[X]], align 4
 // CHECK-NEXT:    ret i32 [[TMP2]]
 //
@@ -48,7 +48,7 @@ int predec(ref int x) {
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[X]], align 4
-// CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], -1
+// CHECK-NEXT:    [[TMP2:%.*]] = sub i32 [[TMP1]], 1
 // CHECK-NEXT:    store i32 [[TMP2]], ptr [[X]], align 4
 // CHECK-NEXT:    ret i32 [[TMP1]]
 //
@@ -62,7 +62,7 @@ int postdec(ref int x) {
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[P]], align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i32 1
+// CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 1
 // CHECK-NEXT:    store ptr [[TMP2]], ptr [[P]], align 8
 // CHECK-NEXT:    ret ptr [[TMP2]]
 //
@@ -75,7 +75,7 @@ int* preincptr(ref int* p) {
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[P]], align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i32 1
+// CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 1
 // CHECK-NEXT:    store ptr [[TMP2]], ptr [[P]], align 8
 // CHECK-NEXT:    ret ptr [[TMP1]]
 //
@@ -88,7 +88,7 @@ int* postincptr(ref int* p) {
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[P]], align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i32 -1
+// CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 -1
 // CHECK-NEXT:    store ptr [[TMP2]], ptr [[P]], align 8
 // CHECK-NEXT:    ret ptr [[TMP2]]
 //
@@ -101,7 +101,7 @@ int* predecptr(ref int* p) {
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    [[TMP1:%.*]] = load ptr, ptr [[P]], align 8
-// CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i32 -1
+// CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[TMP1]], i64 -1
 // CHECK-NEXT:    store ptr [[TMP2]], ptr [[P]], align 8
 // CHECK-NEXT:    ret ptr [[TMP1]]
 //

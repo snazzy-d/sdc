@@ -285,41 +285,8 @@ struct ExpressionGen {
 		}
 	}
 
-	private LLVMValueRef buildUnary(int Offset, bool IsPost)(Expression e) {
-		auto t = e.type.getCanonical();
-		auto type = typeGen.visit(t);
-
-		auto ptr = addressOf(e);
-		auto value = buildLoad(ptr, type, t.qualifier);
-		auto postRet = value;
-
-		if (t.kind == TypeKind.Pointer) {
-			auto o = LLVMConstInt(i32, Offset, true);
-			auto gepType = typeGen.getElementType(t);
-			value = LLVMBuildInBoundsGEP2(builder, gepType, value, &o, 1, "");
-		} else {
-			auto o = LLVMConstInt(type, Offset, true);
-			value = LLVMBuildAdd(builder, value, o, "");
-		}
-
-		LLVMBuildStore(builder, value, ptr);
-		return IsPost ? postRet : value;
-	}
-
 	LLVMValueRef visit(UnaryExpression e) {
 		final switch (e.op) with (UnaryOp) {
-			case PreInc:
-				return buildUnary!(1, false)(e.expr);
-
-			case PreDec:
-				return buildUnary!(-1, false)(e.expr);
-
-			case PostInc:
-				return buildUnary!(1, true)(e.expr);
-
-			case PostDec:
-				return buildUnary!(-1, true)(e.expr);
-
 			case Plus:
 				return visit(e.expr);
 

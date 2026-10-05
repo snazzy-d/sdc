@@ -132,10 +132,6 @@ class TernaryExpression : Expression {
  * Unary Expression types.
  */
 enum UnaryOp {
-	PreInc,
-	PreDec,
-	PostInc,
-	PostDec,
 	Plus,
 	Minus,
 	Complement,
@@ -144,18 +140,6 @@ enum UnaryOp {
 
 string unarizeString(string s, UnaryOp op) {
 	final switch (op) with (UnaryOp) {
-		case PreInc:
-			return "++" ~ s;
-
-		case PreDec:
-			return "--" ~ s;
-
-		case PostInc:
-			return s ~ "++";
-
-		case PostDec:
-			return s ~ "--";
-
 		case Plus:
 			return "+" ~ s;
 

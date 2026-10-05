@@ -157,7 +157,7 @@ int test_foreach_range() {
 // CHECK-NEXT:    br label %[[LOOP_CONTINUE:.*]]
 // CHECK:       [[LOOP_CONTINUE]]:
 // CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], -1
+// CHECK-NEXT:    [[TMP2:%.*]] = sub i32 [[TMP1]], 1
 // CHECK-NEXT:    store i32 [[TMP2]], ptr [[I]], align 4
 // CHECK-NEXT:    [[TMP3:%.*]] = icmp sgt i32 [[TMP1]], 0
 // CHECK-NEXT:    br i1 [[TMP3]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]

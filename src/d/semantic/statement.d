@@ -463,8 +463,9 @@ public:
 		auto idxExpr =
 			build!LoadExpression(idx.location, idx.type,
 			                     new VariableExpression(idx.location, idx));
-		auto increment =
-			build!UnaryExpression(loc, idx.type, UnaryOp.PreInc, idxExpr);
+
+		import d.semantic.expression;
+		auto increment = ExpressionVisitor(pass).buildPreInc(loc, idxExpr);
 
 		import d.semantic.caster;
 		length = buildImplicitCast(pass, idx.location, idx.type, length);
@@ -547,20 +548,17 @@ public:
 			                     new VariableExpression(idx.location, idx));
 		Expression increment, condition;
 
+		import d.semantic.expression;
 		if (f.reverse) {
 			// for(...; idx-- > stop; idx)
 			condition = build!ICmpExpression(
-				loc,
-				ICmpOp.GreaterThan,
-				build!UnaryExpression(loc, type, UnaryOp.PostDec, idxExpr),
-				stop
-			);
+				loc, ICmpOp.GreaterThan,
+				ExpressionVisitor(pass).buildPostDec(loc, idxExpr), stop);
 		} else {
 			// for(...; idx < stop; idx++)
 			condition =
 				build!ICmpExpression(loc, ICmpOp.SmallerThan, idxExpr, stop);
-			increment =
-				build!UnaryExpression(loc, type, UnaryOp.PreInc, idxExpr);
+			increment = ExpressionVisitor(pass).buildPreInc(loc, idxExpr);
 		}
 
 		lv.genLoop(loc, condition, f.statement, increment);

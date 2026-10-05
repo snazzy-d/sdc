@@ -461,6 +461,63 @@ public:
 		return null;
 	}
 
+	/**
+	 * Lower ++/-- to assignment:
+	 *  - ++e => e = e + 1,
+	 *  - e++ => (tmp = e, e = e + 1, tmp).
+	 * This avoids needing a dedicated IR node and backend support.
+	 */
+	private auto buildIncDecImpl(bool isPre, AstBinaryOp op)(Location loc,
+	                                                         Expression expr) {
+		// FIXME: check that type is integer or pointer.
+		auto type = expr.type;
+
+		// Bind the operand's address once, in a reference. The load
+		// and the store below both go through it, so the address is
+		// computed exactly once, however complex the operand is.
+		if (buildAddressOf(expr) is null) {
+			return getError(expr, "Expected an lvalue.");
+		}
+
+		auto operand = getReference(expr);
+		auto addr = buildAddressOf(operand);
+
+		import d.ir.constant;
+		auto one = new ConstantExpression(
+			loc, new IntegerConstant(1, Type.get(BuiltinType.Int).builtin));
+
+		// Post-inc/dec: snapshot the old value, then assign
+		// e = old +/- 1, returning the old value.
+		auto old = isPre ? operand : getFinal(operand);
+		auto add = buildBinary(loc, op, old, one);
+
+		import d.semantic.caster;
+		auto cadd = buildExplicitCast(pass, loc, type, add);
+		auto inc = build!StoreExpression(loc, cadd, addr);
+
+		if (isPre) {
+			return inc;
+		}
+
+		return build!BinaryExpression(loc, type, BinaryOp.Comma, inc, old);
+	}
+
+	Expression buildPreInc(Location loc, Expression expr) {
+		return buildIncDecImpl!(true, AstBinaryOp.Add)(loc, expr);
+	}
+
+	Expression buildPreDec(Location loc, Expression expr) {
+		return buildIncDecImpl!(true, AstBinaryOp.Sub)(loc, expr);
+	}
+
+	Expression buildPostInc(Location loc, Expression expr) {
+		return buildIncDecImpl!(false, AstBinaryOp.Add)(loc, expr);
+	}
+
+	Expression buildPostDec(Location loc, Expression expr) {
+		return buildIncDecImpl!(false, AstBinaryOp.Sub)(loc, expr);
+	}
+
 	Expression visit(AstUnaryExpression e) {
 		auto expr = visit(e.expr);
 
@@ -485,25 +542,16 @@ public:
 				                "Only pointers can be dereferenced.");
 
 			case PreInc:
-				op = UnaryOp.PreInc;
-				goto IncDecOp;
+				return buildPreInc(e.location, expr);
 
 			case PreDec:
-				op = UnaryOp.PreDec;
-				goto IncDecOp;
+				return buildPreDec(e.location, expr);
 
 			case PostInc:
-				op = UnaryOp.PostInc;
-				goto IncDecOp;
+				return buildPostInc(e.location, expr);
 
 			case PostDec:
-				op = UnaryOp.PostDec;
-				goto IncDecOp;
-
-			IncDecOp:
-				// FIXME: check that type is integer or pointer.
-				type = expr.type;
-				break;
+				return buildPostDec(e.location, expr);
 
 			case Plus:
 				op = UnaryOp.Plus;
