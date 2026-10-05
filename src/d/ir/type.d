@@ -210,28 +210,33 @@ public:
 		return payload.dalias;
 	}
 
-	auto getCanonical() {
-		auto t = this;
-		auto q = qualifier;
-		while (t.kind == TypeKind.Alias) {
-			// FIXME: Make sure alias is signed.
-			t = t.dalias.type;
-			q = q.add(t.qualifier);
+	private auto getCanonicalImpl(TypeQualifier q) inout {
+		if (kind != TypeKind.Alias) {
+			return this.qualify(q);
 		}
 
-		return t.qualify(q);
+		// FIXME: Make sure alias is signed.
+		auto t = dalias.type;
+		return t.getCanonicalImpl(q.add(t.qualifier));
 	}
 
-	auto getCanonicalAndPeelEnum() {
-		auto t = this.getCanonical();
-		auto q = qualifier;
-		while (t.kind == TypeKind.Enum) {
-			// FIXME: Make sure enum is signed.
-			t = t.denum.type.getCanonical();
-			q = q.add(t.qualifier);
+	auto getCanonical() inout {
+		return getCanonicalImpl(qualifier);
+	}
+
+	private auto getCanonicalAndPeelEnumImpl(TypeQualifier q) inout {
+		auto t = getCanonicalImpl(q);
+		if (t.kind != TypeKind.Enum) {
+			return t;
 		}
 
-		return t.qualify(q);
+		// FIXME: Make sure enum is signed.
+		auto u = t.denum.type;
+		return u.getCanonicalAndPeelEnumImpl(q.add(u.qualifier));
+	}
+
+	auto getCanonicalAndPeelEnum() inout {
+		return getCanonicalAndPeelEnumImpl(qualifier);
 	}
 
 	@property
@@ -317,7 +322,7 @@ public:
 		}
 	}
 
-	bool hasIndirection() {
+	bool hasIndirection() const {
 		auto t = getCanonicalAndPeelEnum();
 		final switch (t.kind) with (TypeKind) {
 			case Builtin:
@@ -590,6 +595,41 @@ unittest {
 	auto e3 = new Enum(Location.init, m, BuiltinName!"", e2t, []);
 	auto e3t = Type.get(e3, TypeQualifier.Const);
 	assert(e3t.getCanonicalAndPeelEnum() == f.qualify(TypeQualifier.Immutable));
+}
+
+unittest {
+	import source.location, source.name, d.ir.symbol;
+	auto i = Type.get(BuiltinType.Int);
+	auto a = new TypeAlias(Location.init, BuiltinName!"", i);
+	auto a1t = Type.get(a);
+
+	// getCanonical is inout: it works on const Type just like mutable.
+	const(Type) ca1t = a1t;
+	auto c = ca1t.getCanonical();
+	static assert(is(typeof(c) == const(Type)));
+	assert(c == i);
+
+	const(Type) ci = i;
+	assert(ci.getCanonical() == i);
+}
+
+unittest {
+	import source.location, source.name, d.ir.symbol;
+	auto f = Type.get(BuiltinType.Float, TypeQualifier.Const);
+	auto a = new TypeAlias(Location.init, BuiltinName!"", f);
+
+	auto m = new Module(Location.init, BuiltinName!"", null);
+	auto e1 = new Enum(Location.init, m, BuiltinName!"", Type.get(a), []);
+	auto e1t = Type.get(e1);
+
+	// getCanonicalAndPeelEnum is inout as well.
+	const(Type) ce1t = e1t;
+	auto c = ce1t.getCanonicalAndPeelEnum();
+	static assert(is(typeof(c) == const(Type)));
+	assert(c == f);
+
+	const(Type) cf = f;
+	assert(cf.getCanonicalAndPeelEnum() == f);
 }
 
 alias ParamType = Type.ParamType;

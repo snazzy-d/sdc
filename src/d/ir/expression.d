@@ -341,7 +341,7 @@ class CallExpression : Expression {
 	}
 
 	@property
-	bool refReturn() {
+	bool refReturn() const {
 		return callee.type.getCanonical().asFunctionType().returnType.isRef;
 	}
 
