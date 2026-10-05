@@ -104,13 +104,13 @@ enum AstBinaryOp {
 	UnorderedEqual,
 }
 
-bool isAssign(AstBinaryOp op) {
+bool isOpAssign(AstBinaryOp op) {
 	return op >= AstBinaryOp.AddAssign && op <= AstBinaryOp.ConcatAssign;
 }
 
 unittest {
 	enum Assign = "Assign";
-	bool isAssignStupid(AstBinaryOp op) {
+	bool isOpAssignStupid(AstBinaryOp op) {
 		import std.conv;
 		auto s = op.to!string();
 		if (s.length <= Assign.length) {
@@ -123,11 +123,11 @@ unittest {
 	import std.traits;
 	foreach (op; EnumMembers!AstBinaryOp) {
 		import std.conv;
-		assert(op.isAssign() == isAssignStupid(op), op.to!string());
+		assert(op.isOpAssign() == isOpAssignStupid(op), op.to!string());
 	}
 }
 
-AstBinaryOp getBaseOp(AstBinaryOp op) in(isAssign(op)) {
+AstBinaryOp getBaseOp(AstBinaryOp op) in(isOpAssign(op)) {
 	return op + AstBinaryOp.Add - AstBinaryOp.AddAssign;
 }
 
@@ -136,7 +136,7 @@ unittest {
 
 	import std.traits;
 	foreach (op; EnumMembers!AstBinaryOp) {
-		if (!op.isAssign()) {
+		if (!op.isOpAssign()) {
 			continue;
 		}
 

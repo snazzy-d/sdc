@@ -136,7 +136,7 @@ private:
 
 	Expression buildBinary(Location location, AstBinaryOp op, Expression lhs,
 	                       Expression rhs) {
-		if (op.isAssign()) {
+		if (op.isOpAssign()) {
 			lhs = getLvalue(lhs);
 			rhs = getTemporary(rhs);
 
