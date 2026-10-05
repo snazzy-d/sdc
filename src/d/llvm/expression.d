@@ -462,11 +462,10 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(DelegateExpression e) {
 		auto type = getFunctionType(e.type);
-		auto tCtxs = type.contexts;
 		auto eCtxs = e.contexts;
 
-		auto length = cast(uint) tCtxs.length;
-		assert(eCtxs.length == length);
+		auto length = cast(uint) eCtxs.length;
+		assert(length == type.contexts.length);
 
 		auto dg = LLVMGetUndef(typeGen.visit(type));
 
@@ -474,8 +473,7 @@ struct ExpressionGen {
 			auto i = cast(uint) idx;
 			assert(i == idx);
 
-			auto ctxValue = tCtxs[i].isRef ? addressOf(c) : visit(c);
-			dg = LLVMBuildInsertValue(builder, dg, ctxValue, i, "");
+			dg = LLVMBuildInsertValue(builder, dg, visit(c), i, "");
 		}
 
 		auto m = genMethod(dg, eCtxs, e.method);
@@ -873,9 +871,9 @@ struct ExpressionGen {
 		}
 
 		uint i = 0;
-		foreach (t; params) {
-			args[i + firstarg] =
-				t.isRef ? addressOf(c.arguments[i]) : visit(c.arguments[i]);
+		foreach (_; params) {
+			// Arguments for ref parameters are already addresses.
+			args[i + firstarg] = visit(c.arguments[i]);
 			i++;
 		}
 

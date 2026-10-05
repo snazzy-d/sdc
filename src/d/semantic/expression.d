@@ -548,12 +548,16 @@ public:
 
 		arg = buildImplicitCast(pass, arg.location, pt.getType(), arg);
 
-		// Test whether we can pass by ref.
-		if (pt.isRef && !arg.isLvalue) {
-			return getError(arg, "Argument isn't a lvalue.");
+		if (!pt.isRef) {
+			return arg;
 		}
 
-		return arg;
+		// Ref parameters take the address of the argument.
+		if (auto addr = buildAddressOf(arg)) {
+			return addr;
+		}
+
+		return getError(arg, "Argument isn't a lvalue.");
 	}
 
 	enum MatchLevel {
