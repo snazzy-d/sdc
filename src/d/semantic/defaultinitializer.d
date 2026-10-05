@@ -235,8 +235,7 @@ struct DefaultInitializerVisitor(bool isNew) {
 		auto v = new Variable(loc, value.type, BuiltinName!"", value);
 		v.step = Step.Processed;
 
-		auto addr = new VariableExpression(loc, v);
-		return new LoadExpression(loc, v.type, addr);
+		return new VariableExpression(loc, v);
 	}
 
 	Expression visit(Struct s) {
@@ -257,12 +256,13 @@ struct DefaultInitializerVisitor(bool isNew) {
 		assert(ctxType.kind == TypeKind.Pointer);
 
 		// FIXME: It's be good to have a builder for this.
-		auto ctx = new ContextExpression(location, ctxType.element.context);
-		auto field = new FieldExpression(location, v, ctxField);
-		auto assign = new StoreExpression(location, ctx, field);
+		auto ctx = build!ContextExpression(location, ctxType.element.context);
+		auto field = build!FieldExpression(location, v, ctxField);
+		auto assign = build!StoreExpression(location, ctx, field);
 
-		return new BinaryExpression(location, Type.get(s), BinaryOp.Comma,
-		                            assign, v);
+		auto t = Type.get(s);
+		return build!BinaryExpression(location, t, BinaryOp.Comma, assign,
+		                              build!LoadExpression(v.location, t, v));
 	}
 
 	Expression visit(Union u) {

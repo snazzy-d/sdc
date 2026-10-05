@@ -399,34 +399,22 @@ struct ExpressionGen {
 	}
 
 	LLVMValueRef visit(FieldExpression e) {
-		auto base = e.base;
-		auto t = base.type.getCanonical();
+		// The base is always a pointer (class references are pointers).
+		auto ptr = visit(e.base);
+		auto t = e.base.type.getCanonical();
 
-		LLVMValueRef ptr;
 		LLVMTypeRef type;
+		if (t.kind == TypeKind.Class) {
+			type = typeGen.getClassStructure(t.dclass);
+		} else {
+			// The IR node guarantees a pointer base here.
+			auto et = t.element.getCanonical();
+			if (et.kind == TypeKind.Union) {
+				// All the fields of a union are at offset 0.
+				return ptr;
+			}
 
-		switch (t.kind) with (TypeKind) {
-			case Slice, Struct, Union:
-				ptr = addressOf(base);
-				type = typeGen.visit(t);
-				break;
-
-			case Class:
-				ptr = visit(base);
-				type = typeGen.getClassStructure(t.dclass);
-				break;
-
-			default:
-				import std.format;
-				assert(
-					0,
-					format!"Address of field only work on aggregate types, not %s."(
-						t.toString(context))
-				);
-		}
-
-		if (t.kind == TypeKind.Union) {
-			return ptr;
+			type = typeGen.visit(et);
 		}
 
 		return LLVMBuildStructGEP2(builder, type, ptr, e.field.index, "");

@@ -719,14 +719,25 @@ class GlobalVariableExpression : Expression {
 
 /**
  * Address of a field: &expr.field.
- * The base is addressable (class, pointer, or lvalue aggregate).
+ *
+ * The base is a pointer to the aggregate. Class references are
+ * accepted as well: they are represented as pointers.
  */
 class FieldExpression : Expression {
 	Expression base;
 	Field field;
 
-	this(Location location, Expression base, Field field) {
-		super(location, field.type.getPointer(base.type.qualifier));
+	this(Location location, Expression base, Field field) in(
+		base.type.getCanonical().kind == TypeKind.Pointer
+			|| base.type.getCanonical().kind == TypeKind.Class,
+		"FieldExpression base must be a pointer or a class."
+	) {
+		auto bt = base.type.getCanonical();
+		auto aq = (bt.kind == TypeKind.Class)
+			? bt.qualifier
+			: bt.element.getCanonical().qualifier;
+
+		super(location, field.type.getPointer(aq));
 
 		this.base = base;
 		this.field = field;

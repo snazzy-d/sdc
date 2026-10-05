@@ -534,10 +534,15 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		auto t = base.type.getCanonical();
 
 		// Rvalue aggregates have no address. Extract the field.
-		if (t.kind != TypeKind.Class && t.kind != TypeKind.Pointer
-			    && !base.isLvalue) {
-			return
-				Identifiable(build!ExtractFieldExpression(location, base, f));
+		if (t.kind != TypeKind.Class && t.kind != TypeKind.Pointer) {
+			import d.semantic.expression;
+			auto ptr = ExpressionVisitor(pass.pass).buildAddressOf(base);
+			if (ptr is null) {
+				return Identifiable(
+					build!ExtractFieldExpression(location, base, f));
+			}
+
+			base = ptr;
 		}
 
 		auto addr = build!FieldExpression(location, base, f);
