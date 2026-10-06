@@ -1,5 +1,5 @@
 //T error: this_not_consumed_typepos.d:10:10:
-//T error: S() has not been consumed.
+//T error: Nested can't be resolved in type __none__.
 
 struct S {
 	struct Nested {

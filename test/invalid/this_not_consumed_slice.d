@@ -1,5 +1,5 @@
 //T error: this_not_consumed_slice.d:6:1:
-//T error: *&a has not been consumed.
+//T error: nope can't be resolved in type int[].
 
 void main() {
 	int[] a;

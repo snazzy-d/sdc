@@ -1,5 +1,5 @@
 //T error: this_not_consumed_typeparam.d:9:10:
-//T error: *&s has not been consumed.
+//T error: Cannot use an expression to access T.
 struct S {
 	struct T {}
 }

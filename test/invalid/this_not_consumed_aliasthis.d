@@ -1,5 +1,5 @@
 //T error: this_not_consumed_aliasthis.d:15:1:
-//T error: *&s has not been consumed.
+//T error: nope can't be resolved in type S.
 
 struct Inner {
 	int x;

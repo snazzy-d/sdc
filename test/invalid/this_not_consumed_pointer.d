@@ -1,5 +1,5 @@
 //T error: this_not_consumed_pointer.d:10:1:
-//T error: *&p has not been consumed.
+//T error: nope can't be resolved in type S*.
 
 struct S {
 	int x;

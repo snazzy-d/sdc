@@ -1,5 +1,5 @@
 //T error: this_not_consumed_field.d:10:1:
-//T error: *&&s.x has not been consumed.
+//T error: nope can't be resolved in type int.
 
 struct S {
 	int x;

@@ -1,5 +1,5 @@
 //T error: this_not_consumed_nested.d:12:1:
-//T error: *&s has not been consumed.
+//T error: Cannot use an expression to access Nested.
 
 struct S {
 	struct Nested {

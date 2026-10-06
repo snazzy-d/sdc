@@ -69,18 +69,9 @@ public:
 	}
 
 	~this() {
-		if (thisExpr is null) {
-			return;
-		}
-
-		// FIXME: This is an abominable error message and it needs to go!
-		import std.format;
-		auto e = getError(
-			thisExpr, thisExpr.location,
-			format!"%s has not been consumed."(thisExpr.toString(context)));
-
-		import source.exception;
-		throw new CompileException(e.location, e.message);
+		// finish() either binds the receiver or reports it. A leftover
+		// here means a path returned without going through finish().
+		assert(thisExpr is null, "thisExpr was not consumed.");
 	}
 
 	Identifiable build(Identifier i) {
@@ -110,15 +101,15 @@ public:
 	}
 
 	Identifiable finalize(I)(Location location, I i) {
-		return AliasPostProcessor(&this, location).visit(i);
+		return finish!(finalizeImpl!I)(location, i);
 	}
 
 	Identifiable postProcess(I)(Location location, I i) {
-		return SymbolPostProcessor(&this, location).visit(i);
+		return finish!(postProcessImpl!I)(location, i);
 	}
 
 	Identifiable prepareCall(I)(Location location, I i, Expression[] args) {
-		return CallPostProcessor(&this, location, args).visit(i);
+		return finish!(prepareCallImpl!I)(location, i, args);
 	}
 
 	Identifiable resolve(Identifier i) {
@@ -180,6 +171,43 @@ private:
 		// Make sure we don't consume this twice.
 		scope(exit) thisExpr = null;
 		return thisExpr;
+	}
+
+	Identifiable finalizeImpl(I)(Location location, I i) {
+		return AliasPostProcessor(&this, location).visit(i);
+	}
+
+	Identifiable postProcessImpl(I)(Location location, I i) {
+		return SymbolPostProcessor(&this, location).visit(i);
+	}
+
+	Identifiable prepareCallImpl(I)(Location location, I i, Expression[] args) {
+		return CallPostProcessor(&this, location, args).visit(i);
+	}
+
+	Identifiable finish(alias fun, A...)(A args) {
+		scope(failure) thisExpr = null;
+
+		auto result = fun(args);
+		auto receiver = acquireThis();
+
+		// The lookup already built the diagnostic. Do not replace it.
+		if (receiver is null || result.isError()) {
+			return result;
+		}
+
+		// wrap() / getThis() bind the receiver into an expression.
+		assert(!result.apply!(id => is(typeof(id) : Expression))(),
+		       "thisExpr was not consumed.");
+
+		// A type or symbol does not evaluate the receiver. Dropping it
+		// would discard an expression (s.T t;), so this is a user error.
+		import std.format;
+		return getIdentifiableError(
+			receiver,
+			receiver.location,
+			format!"Cannot use an expression to access %s."(
+				result.apply!(id => id.toString(context))()));
 	}
 }
 

@@ -1,5 +1,5 @@
 //T error: this_not_consumed_alias.d:10:1:
-//T error: *&s has not been consumed.
+//T error: Cannot use an expression to access T.
 
 struct S {
 	alias T = int;

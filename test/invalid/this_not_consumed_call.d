@@ -1,5 +1,5 @@
 //T error: this_not_consumed_call.d:9:1:
-//T error: foo() has not been consumed.
+//T error: nope can't be resolved in type int.
 
 int foo() {
 	return 1;
