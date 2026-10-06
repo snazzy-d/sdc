@@ -1,3 +1,4 @@
+// NOTE: Do not autogenerate
 // RUN: %sdc %s -S --emit-llvm -o - | FileCheck %s --check-prefix LLVM
 // RUN: %sdc %s -c --emit-llvm -o - | FileCheck %s --check-prefix BITCODE
 // RUN: %sdc %s -S             -o - | FileCheck %s --check-prefix ASM
