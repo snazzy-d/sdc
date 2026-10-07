@@ -133,7 +133,7 @@ public:
 
 	Expression getThis(Location location) {
 		if (thisExpr) {
-			return acquireThis();
+			return consumeThis();
 		}
 
 		return build(location, BuiltinName!"this").apply!((identified) {
@@ -176,7 +176,7 @@ private:
 		this.thisExpr = thisExpr;
 	}
 
-	Expression acquireThis() {
+	Expression consumeThis() {
 		// Make sure we don't consume this twice.
 		scope(exit) thisExpr = null;
 		return thisExpr;
@@ -319,7 +319,7 @@ private:
 
 	Identifiable resolve(TemplateInstantiation i, Expression[] fargs)
 			// We don't want to resolve arguments with the same context we have here.
-			in(acquireThis() is null) {
+			in(consumeThis() is null) {
 		alias astapply = d.ast.identifier.apply;
 
 		import d.ast.type : AstType;
@@ -327,7 +327,7 @@ private:
 		auto targs = i.arguments.map!(a => astapply!((a) {
 			alias T = typeof(a);
 			static if (is(T : Identifier)) {
-				assert(pass.acquireThis() is null);
+				assert(pass.consumeThis() is null);
 
 				return visit(a).apply!((val) {
 					static if (is(typeof(val) : Expression)) {
@@ -381,7 +381,7 @@ private:
 	Identifiable resolveBracket(B)(Location location, B base, Identifier index)
 			if (!is(B : Identifier)) {
 		// We don't want to use the same this for base and index.
-		auto oldThisExpr = acquireThis();
+		auto oldThisExpr = consumeThis();
 		scope(exit) setThis(oldThisExpr);
 
 		return
@@ -633,7 +633,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 			return Identifiable(s);
 		}
 
-		auto baseThisExpr = acquireThis();
+		auto baseThisExpr = consumeThis();
 
 		Expression[] exprs;
 		foreach (sym; s.set) {
@@ -901,7 +901,7 @@ struct ExpressionDotIdentifierResolver {
 				.resolve(e, a).map!((c) {
 					// Make sure we process all alias this on the same base.
 					// FIXME: We probably want to handle this
-					//        via acquireThis/setThis.
+					//        via consumeThis/setThis.
 					auto oldThisExpr = thisExpr;
 					scope(exit) thisExpr = oldThisExpr;
 
