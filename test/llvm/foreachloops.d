@@ -10,44 +10,40 @@
 // CHECK-NEXT:    [[SUM:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[TMP1:%.*]] = alloca i64, align 8
 // CHECK-NEXT:    [[X:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[TMP2:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    store i32 0, ptr [[SUM]], align 4
 // CHECK-NEXT:    store i64 0, ptr [[TMP1]], align 8
 // CHECK-NEXT:    br label %[[LOOP_TEST:.*]]
 // CHECK:       [[LOOP_CONTINUE:.*]]:
-// CHECK-NEXT:    [[TMP3:%.*]] = load i64, ptr [[TMP1]], align 8
-// CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[TMP3]], 1
-// CHECK-NEXT:    store i64 [[TMP4]], ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP3:%.*]] = add i64 [[TMP2]], 1
+// CHECK-NEXT:    store i64 [[TMP3]], ptr [[TMP1]], align 8
 // CHECK-NEXT:    br label %[[LOOP_TEST]]
 // CHECK:       [[LOOP_TEST]]:
-// CHECK-NEXT:    [[TMP5:%.*]] = load i64, ptr [[TMP1]], align 8
-// CHECK-NEXT:    [[TMP6:%.*]] = load [10 x i32], ptr [[ARR]], align 4
-// CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP5]], 10
-// CHECK-NEXT:    br i1 [[TMP7]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
+// CHECK-NEXT:    [[TMP4:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP5:%.*]] = load [10 x i32], ptr [[ARR]], align 4
+// CHECK-NEXT:    [[TMP6:%.*]] = icmp ult i64 [[TMP4]], 10
+// CHECK-NEXT:    br i1 [[TMP6]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
 // CHECK:       [[LOOP_BODY]]:
-// CHECK-NEXT:    [[TMP8:%.*]] = load i64, ptr [[TMP1]], align 8
-// CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i64 [[TMP8]], 10
-// CHECK-NEXT:    br i1 [[TMP9]], label %[[BOUND_OK:.*]], label %[[BOUND_FAIL:.*]], !prof [[PROF0:![0-9]+]]
+// CHECK-NEXT:    [[TMP7:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i64 [[TMP7]], 10
+// CHECK-NEXT:    br i1 [[TMP8]], label %[[BOUND_OK:.*]], label %[[BOUND_FAIL:.*]], !prof [[PROF0:![0-9]+]]
 // CHECK:       [[BOUND_FAIL]]:
-// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 54)
+// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 50)
 // CHECK-NEXT:    unreachable
 // CHECK:       [[BOUND_OK]]:
-// CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i32, ptr [[ARR]], i64 [[TMP8]]
-// CHECK-NEXT:    [[TMP11:%.*]] = load i32, ptr [[TMP10]], align 4
-// CHECK-NEXT:    store i32 [[TMP11]], ptr [[X]], align 4
-// CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[X]], align 4
-// CHECK-NEXT:    store i32 [[TMP12]], ptr [[TMP2]], align 4
-// CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[TMP2]], align 4
-// CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[SUM]], align 4
-// CHECK-NEXT:    [[TMP15:%.*]] = load i32, ptr [[TMP2]], align 4
-// CHECK-NEXT:    [[TMP16:%.*]] = add i32 [[TMP14]], [[TMP15]]
-// CHECK-NEXT:    store i32 [[TMP16]], ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i32, ptr [[ARR]], i64 [[TMP7]]
+// CHECK-NEXT:    [[TMP10:%.*]] = load i32, ptr [[TMP9]], align 4
+// CHECK-NEXT:    store i32 [[TMP10]], ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP11:%.*]] = load i32, ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP13:%.*]] = add i32 [[TMP12]], [[TMP11]]
+// CHECK-NEXT:    store i32 [[TMP13]], ptr [[SUM]], align 4
 // CHECK-NEXT:    br label %[[LOOP_CONTINUE]]
 // CHECK:       [[LOOP_EXIT]]:
-// CHECK-NEXT:    [[TMP17:%.*]] = load i32, ptr [[SUM]], align 4
-// CHECK-NEXT:    ret i32 [[TMP17]]
+// CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    ret i32 [[TMP14]]
 //
 int test_foreach_array(int[10] arr) {
 	int sum = 0;
@@ -65,48 +61,44 @@ int test_foreach_array(int[10] arr) {
 // CHECK-NEXT:    [[SUM:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[TMP1:%.*]] = alloca i64, align 8
 // CHECK-NEXT:    [[X:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[TMP2:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    store i32 0, ptr [[SUM]], align 4
 // CHECK-NEXT:    store i64 0, ptr [[TMP1]], align 8
 // CHECK-NEXT:    br label %[[LOOP_TEST:.*]]
 // CHECK:       [[LOOP_CONTINUE:.*]]:
-// CHECK-NEXT:    [[TMP3:%.*]] = load i64, ptr [[TMP1]], align 8
-// CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[TMP3]], 1
-// CHECK-NEXT:    store i64 [[TMP4]], ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP3:%.*]] = add i64 [[TMP2]], 1
+// CHECK-NEXT:    store i64 [[TMP3]], ptr [[TMP1]], align 8
 // CHECK-NEXT:    br label %[[LOOP_TEST]]
 // CHECK:       [[LOOP_TEST]]:
-// CHECK-NEXT:    [[TMP5:%.*]] = load i64, ptr [[TMP1]], align 8
-// CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds nuw { i64, ptr }, ptr [[SLICE]], i32 0, i32 0
-// CHECK-NEXT:    [[TMP7:%.*]] = load i64, ptr [[TMP6]], align 8
-// CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i64 [[TMP5]], [[TMP7]]
-// CHECK-NEXT:    br i1 [[TMP8]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
+// CHECK-NEXT:    [[TMP4:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds nuw { i64, ptr }, ptr [[SLICE]], i32 0, i32 0
+// CHECK-NEXT:    [[TMP6:%.*]] = load i64, ptr [[TMP5]], align 8
+// CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP4]], [[TMP6]]
+// CHECK-NEXT:    br i1 [[TMP7]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
 // CHECK:       [[LOOP_BODY]]:
-// CHECK-NEXT:    [[TMP9:%.*]] = load { i64, ptr }, ptr [[SLICE]], align 8
-// CHECK-NEXT:    [[DOTPTR:%.*]] = extractvalue { i64, ptr } [[TMP9]], 1
-// CHECK-NEXT:    [[DOTLENGTH:%.*]] = extractvalue { i64, ptr } [[TMP9]], 0
-// CHECK-NEXT:    [[TMP10:%.*]] = load i64, ptr [[TMP1]], align 8
-// CHECK-NEXT:    [[TMP11:%.*]] = icmp ult i64 [[TMP10]], [[DOTLENGTH]]
-// CHECK-NEXT:    br i1 [[TMP11]], label %[[BOUND_OK:.*]], label %[[BOUND_FAIL:.*]], !prof [[PROF0]]
+// CHECK-NEXT:    [[TMP8:%.*]] = load { i64, ptr }, ptr [[SLICE]], align 8
+// CHECK-NEXT:    [[DOTPTR:%.*]] = extractvalue { i64, ptr } [[TMP8]], 1
+// CHECK-NEXT:    [[DOTLENGTH:%.*]] = extractvalue { i64, ptr } [[TMP8]], 0
+// CHECK-NEXT:    [[TMP9:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP10:%.*]] = icmp ult i64 [[TMP9]], [[DOTLENGTH]]
+// CHECK-NEXT:    br i1 [[TMP10]], label %[[BOUND_OK:.*]], label %[[BOUND_FAIL:.*]], !prof [[PROF0]]
 // CHECK:       [[BOUND_FAIL]]:
-// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 113)
+// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 105)
 // CHECK-NEXT:    unreachable
 // CHECK:       [[BOUND_OK]]:
-// CHECK-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i32, ptr [[DOTPTR]], i64 [[TMP10]]
-// CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[TMP12]], align 4
-// CHECK-NEXT:    store i32 [[TMP13]], ptr [[X]], align 4
-// CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[X]], align 4
-// CHECK-NEXT:    store i32 [[TMP14]], ptr [[TMP2]], align 4
-// CHECK-NEXT:    [[TMP15:%.*]] = load i32, ptr [[TMP2]], align 4
-// CHECK-NEXT:    [[TMP16:%.*]] = load i32, ptr [[SUM]], align 4
-// CHECK-NEXT:    [[TMP17:%.*]] = load i32, ptr [[TMP2]], align 4
-// CHECK-NEXT:    [[TMP18:%.*]] = add i32 [[TMP16]], [[TMP17]]
-// CHECK-NEXT:    store i32 [[TMP18]], ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[DOTPTR]], i64 [[TMP9]]
+// CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[TMP11]], align 4
+// CHECK-NEXT:    store i32 [[TMP12]], ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP15:%.*]] = add i32 [[TMP14]], [[TMP13]]
+// CHECK-NEXT:    store i32 [[TMP15]], ptr [[SUM]], align 4
 // CHECK-NEXT:    br label %[[LOOP_CONTINUE]]
 // CHECK:       [[LOOP_EXIT]]:
-// CHECK-NEXT:    [[TMP19:%.*]] = load i32, ptr [[SUM]], align 4
-// CHECK-NEXT:    ret i32 [[TMP19]]
+// CHECK-NEXT:    [[TMP16:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    ret i32 [[TMP16]]
 //
 int test_foreach_slice(int[] slice) {
 	int sum = 0;
@@ -121,33 +113,29 @@ int test_foreach_slice(int[] slice) {
 // CHECK-SAME: ) #[[ATTR0]] {
 // CHECK-NEXT:    [[SUM:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[I:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[TMP1:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    store i32 0, ptr [[SUM]], align 4
 // CHECK-NEXT:    store i32 0, ptr [[I]], align 4
 // CHECK-NEXT:    br label %[[LOOP_TEST:.*]]
 // CHECK:       [[LOOP_CONTINUE:.*]]:
-// CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], 1
-// CHECK-NEXT:    store i32 [[TMP3]], ptr [[I]], align 4
+// CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], 1
+// CHECK-NEXT:    store i32 [[TMP2]], ptr [[I]], align 4
 // CHECK-NEXT:    br label %[[LOOP_TEST]]
 // CHECK:       [[LOOP_TEST]]:
-// CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    [[TMP5:%.*]] = icmp slt i32 [[TMP4]], 5
-// CHECK-NEXT:    br i1 [[TMP5]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
+// CHECK-NEXT:    [[TMP3:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-NEXT:    [[TMP4:%.*]] = icmp slt i32 [[TMP3]], 5
+// CHECK-NEXT:    br i1 [[TMP4]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
 // CHECK:       [[LOOP_BODY]]:
-// CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    store i32 [[TMP6]], ptr [[TMP1]], align 4
-// CHECK-NEXT:    [[TMP7:%.*]] = load i32, ptr [[TMP1]], align 4
-// CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[SUM]], align 4
-// CHECK-NEXT:    [[TMP9:%.*]] = load i32, ptr [[TMP1]], align 4
-// CHECK-NEXT:    [[TMP10:%.*]] = add i32 [[TMP8]], [[TMP9]]
-// CHECK-NEXT:    store i32 [[TMP10]], ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP7:%.*]] = add i32 [[TMP6]], [[TMP5]]
+// CHECK-NEXT:    store i32 [[TMP7]], ptr [[SUM]], align 4
 // CHECK-NEXT:    br label %[[LOOP_CONTINUE]]
 // CHECK:       [[LOOP_EXIT]]:
-// CHECK-NEXT:    [[TMP11:%.*]] = load i32, ptr [[SUM]], align 4
-// CHECK-NEXT:    ret i32 [[TMP11]]
+// CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    ret i32 [[TMP8]]
 //
 int test_foreach_range() {
 	int sum = 0;
@@ -162,30 +150,26 @@ int test_foreach_range() {
 // CHECK-SAME: ) #[[ATTR0]] {
 // CHECK-NEXT:    [[SUM:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    [[I:%.*]] = alloca i32, align 4
-// CHECK-NEXT:    [[TMP1:%.*]] = alloca i32, align 4
 // CHECK-NEXT:    br label %[[ENTRY:.*]]
 // CHECK:       [[ENTRY]]:
 // CHECK-NEXT:    store i32 0, ptr [[SUM]], align 4
 // CHECK-NEXT:    store i32 5, ptr [[I]], align 4
 // CHECK-NEXT:    br label %[[LOOP_CONTINUE:.*]]
 // CHECK:       [[LOOP_CONTINUE]]:
-// CHECK-NEXT:    [[TMP2:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    [[TMP3:%.*]] = add i32 [[TMP2]], -1
-// CHECK-NEXT:    store i32 [[TMP3]], ptr [[I]], align 4
-// CHECK-NEXT:    [[TMP4:%.*]] = icmp sgt i32 [[TMP2]], 0
-// CHECK-NEXT:    br i1 [[TMP4]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
+// CHECK-NEXT:    [[TMP1:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-NEXT:    [[TMP2:%.*]] = add i32 [[TMP1]], -1
+// CHECK-NEXT:    store i32 [[TMP2]], ptr [[I]], align 4
+// CHECK-NEXT:    [[TMP3:%.*]] = icmp sgt i32 [[TMP1]], 0
+// CHECK-NEXT:    br i1 [[TMP3]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
 // CHECK:       [[LOOP_BODY]]:
-// CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[I]], align 4
-// CHECK-NEXT:    store i32 [[TMP5]], ptr [[TMP1]], align 4
-// CHECK-NEXT:    [[TMP6:%.*]] = load i32, ptr [[TMP1]], align 4
-// CHECK-NEXT:    [[TMP7:%.*]] = load i32, ptr [[SUM]], align 4
-// CHECK-NEXT:    [[TMP8:%.*]] = load i32, ptr [[TMP1]], align 4
-// CHECK-NEXT:    [[TMP9:%.*]] = add i32 [[TMP7]], [[TMP8]]
-// CHECK-NEXT:    store i32 [[TMP9]], ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP4:%.*]] = load i32, ptr [[I]], align 4
+// CHECK-NEXT:    [[TMP5:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP6:%.*]] = add i32 [[TMP5]], [[TMP4]]
+// CHECK-NEXT:    store i32 [[TMP6]], ptr [[SUM]], align 4
 // CHECK-NEXT:    br label %[[LOOP_CONTINUE]]
 // CHECK:       [[LOOP_EXIT]]:
-// CHECK-NEXT:    [[TMP10:%.*]] = load i32, ptr [[SUM]], align 4
-// CHECK-NEXT:    ret i32 [[TMP10]]
+// CHECK-NEXT:    [[TMP7:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    ret i32 [[TMP7]]
 //
 int test_foreach_reverse_range() {
 	int sum = 0;

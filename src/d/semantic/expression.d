@@ -103,7 +103,22 @@ private:
 		return new LoadExpression(loc, v.type, addr);
 	}
 
-	Expression getLvalue(Expression value) {
+	Expression getFinal(Expression value) {
+		if (auto e = cast(ErrorExpression) value) {
+			return e;
+		}
+
+		auto loc = value.location;
+
+		import source.name;
+		auto v = new Variable(loc, value.type.getParamType(ParamKind.Final),
+		                      BuiltinName!"", value);
+		v.step = Step.Processed;
+
+		return new VariableExpression(loc, v);
+	}
+
+	Expression getReference(Expression value) {
 		if (auto e = cast(ErrorExpression) value) {
 			return e;
 		}
@@ -113,7 +128,7 @@ private:
 
 		// Ref variables store the address; provide it directly.
 		value = buildAddressOf(value);
-		assert(value !is null, "getLvalue on non-lvalue.");
+		assert(value !is null, "getReference on non-lvalue.");
 
 		import source.name;
 		auto v = new Variable(loc, type.getParamType(ParamKind.Ref),
@@ -137,8 +152,8 @@ private:
 	Expression buildBinary(Location location, AstBinaryOp op, Expression lhs,
 	                       Expression rhs) {
 		if (op.isOpAssign()) {
-			lhs = getLvalue(lhs);
-			rhs = getTemporary(rhs);
+			lhs = getReference(lhs);
+			rhs = getFinal(rhs);
 
 			auto type = lhs.type;
 			auto llhs = build!BinaryExpression(location, type, BinaryOp.Comma,
