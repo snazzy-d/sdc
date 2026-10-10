@@ -41,11 +41,6 @@ struct ExpressionGen {
 		return ConstantGen(pass.pass).visit(e.value);
 	}
 
-	private LLVMValueRef addressOf(E)(E e) if (is(E : Expression))
-			in(e.isLvalue, "e must be an lvalue") {
-		return AddressOfGen(pass).visit(e);
-	}
-
 	private LLVMValueRef buildLoad(LLVMValueRef ptr, LLVMTypeRef type,
 	                               TypeQualifier q) {
 		auto l = LLVMBuildLoad2(builder, type, ptr, "");
@@ -887,48 +882,5 @@ struct ExpressionGen {
 		auto arg = visit(e.argument);
 		auto c = e.argument.type.getCanonical().dclass;
 		return c.isFinal ? getClassInfo(c) : loadTypeid(arg);
-	}
-}
-
-struct AddressOfGen {
-	private LocalPass pass;
-	alias pass this;
-
-	this(LocalPass pass) {
-		this.pass = pass;
-	}
-
-	LLVMValueRef visit(Expression e)
-			in(e.isLvalue, "You can only compute addresses of lvalues.") {
-		auto oldLoc = enterLocation(e.location);
-		scope(exit) exitLocation(oldLoc);
-
-		return this.dispatch(e);
-	}
-
-	private LLVMValueRef valueOf(E)(E e) if (is(E : Expression)) {
-		return ExpressionGen(pass).visit(e);
-	}
-
-	LLVMValueRef visit(LoadExpression e) {
-		return valueOf(e.address);
-	}
-
-	LLVMValueRef visit(CastExpression e) {
-		auto type = typeGen.visit(e.type);
-		auto value = visit(e.expr);
-
-		final switch (e.kind) with (CastKind) {
-			case Exact, Qual, Bit:
-				return value;
-
-			case Invalid, Down:
-			case UnsignedToPointer, SignedToPointer, PointerToInt:
-			case IntToBool, PointerToBool, Trunc, SPad, UPad:
-			case FloatToSigned, FloatToUnsigned:
-			case UnsignedToFloat, SignedToFloat:
-			case FloatExtend, FloatTrunc:
-				assert(0, "Not an lvalue");
-		}
 	}
 }
