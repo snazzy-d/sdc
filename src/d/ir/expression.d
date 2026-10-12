@@ -3,7 +3,6 @@ module d.ir.expression;
 import d.ir.constant;
 import d.ir.symbol;
 import d.ir.type;
-import d.ir.value;
 
 import d.common.node;
 
@@ -11,13 +10,18 @@ import source.context;
 import source.location;
 import source.name;
 
-abstract class Expression : Value {
+abstract class Expression {
+	Type type;
 	Location location;
 
 	this(Location location, Type type) {
-		super(type);
-
 		this.location = location;
+		this.type = type;
+	}
+
+	string toString(const Context) const {
+		import std.format;
+		assert(0, format!"toString not implement for %s."(typeid(this)));
 	}
 }
 
