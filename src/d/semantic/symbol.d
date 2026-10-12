@@ -444,6 +444,22 @@ struct SymbolAnalyzer {
 		return buildImplicitCast(pass, d.location, type, value);
 	}
 
+	/**
+	 * evaluate() may return ErrorConstant so speculative compilation
+	 * can back out. A committed constant is not speculative.
+	 */
+	private auto requireConstant(Expression e) {
+		auto c = evaluate(e);
+
+		import d.ir.error;
+		if (auto err = errorize(c)) {
+			import source.exception;
+			throw new CompileException(err.location, err.message);
+		}
+
+		return c;
+	}
+
 	void analyze(VariableDeclaration d, Variable v) {
 		auto value = getValue(d);
 		assert(value);
@@ -456,7 +472,8 @@ struct SymbolAnalyzer {
 		       "Static variables must be GlobalVariable.");
 
 		if (v.storage.isGlobal) {
-			value = new ConstantExpression(value.location, evaluate(value));
+			value =
+				new ConstantExpression(value.location, requireConstant(value));
 		}
 
 		// XXX: Make sure type is at least signed.
@@ -493,7 +510,7 @@ struct SymbolAnalyzer {
 		mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
 		g.mangle = context.getName(mangle);
 
-		g.value = evaluate(value);
+		g.value = requireConstant(value);
 		g.step = Step.Processed;
 	}
 
@@ -506,7 +523,7 @@ struct SymbolAnalyzer {
 		m.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
 		m.mangle = m.name;
-		m.value = evaluate(value);
+		m.value = requireConstant(value);
 
 		m.step = Step.Processed;
 	}
@@ -520,7 +537,7 @@ struct SymbolAnalyzer {
 		f.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
 		f.mangle = f.name;
-		f.value = evaluate(value);
+		f.value = requireConstant(value);
 
 		// XXX: Make sure type is at least signed.
 		import d.semantic.sizeof;
@@ -590,7 +607,7 @@ struct SymbolAnalyzer {
 	void analyze(ValueAliasDeclaration d, ValueAlias a) {
 		// XXX: remove selective import when dmd is sane.
 		import d.semantic.expression : ExpressionVisitor;
-		a.value = evaluate(ExpressionVisitor(pass).visit(d.value));
+		a.value = requireConstant(ExpressionVisitor(pass).visit(d.value));
 
 		import d.semantic.mangler;
 		auto typeMangle = TypeMangler(pass).visit(a.value.type);
@@ -1084,7 +1101,7 @@ struct SymbolAnalyzer {
 
 		import d.semantic.expression;
 		auto value = ExpressionVisitor(pass).visit(e);
-		m.value = evaluate(value);
+		m.value = requireConstant(value);
 		m.step = Step.Processed;
 	}
 
