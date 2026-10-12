@@ -311,6 +311,18 @@ class GlobalVariable : ValueSymbol {
 		this(location, Type.get(BuiltinType.None), name, null);
 	}
 
+	bool hasLinkTimeAddress()
+			in(step >= Step.Signed,
+			   "Global needs to be signed to use hasLinkTimeAddress!") {
+		final switch (type.getCanonical().qualifier) with (TypeQualifier) {
+			case Mutable, Inout, Const:
+				return false;
+
+			case Shared, ConstShared, Immutable:
+				return true;
+		}
+	}
+
 	override string toString(const Context c) const {
 		import std.format;
 		return format!"static %s %s = %s;"(type.toString(c), name.toString(c),

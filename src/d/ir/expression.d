@@ -675,23 +675,6 @@ class VariableExpression : Expression {
 }
 
 /**
- * Address of a global.
- */
-class GlobalVariableExpression : Expression {
-	GlobalVariable var;
-
-	this(Location location, GlobalVariable var) {
-		super(location, var.type.getPointer());
-
-		this.var = var;
-	}
-
-	override string toString(const Context c) const {
-		return var.name.toString(c);
-	}
-}
-
-/**
  * Address of a field: &expr.field.
  *
  * The base is a pointer to the aggregate. Class references are

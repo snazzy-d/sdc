@@ -160,8 +160,11 @@ public:
 			return knownRange(ve.var);
 		}
 
-		if (auto ge = cast(GlobalVariableExpression) e.address) {
-			return knownRange(ge.var);
+		// Link-time globals are constants. The load is still of that symbol.
+		if (auto ce = cast(ConstantExpression) e.address) {
+			if (auto gc = cast(GlobalConstant) ce.value) {
+				return knownRange(gc.symbol);
+			}
 		}
 
 		return getRange(e.type);
@@ -531,7 +534,7 @@ unittest {
 		global.step = Step.Processed;
 		auto globalLoad = new LoadExpression(
 			Location.init, global.type,
-			new GlobalVariableExpression(Location.init, global));
+			new ConstantExpression(Location.init, new GlobalConstant(global)));
 		v = vrp.visit(globalLoad);
 		assert(v == VR(int.min, int.max));
 		assert(!vrp.canFit(globalLoad, BuiltinType.Ubyte));
@@ -539,7 +542,7 @@ unittest {
 		global.type = global.type.qualify(TypeQualifier.Immutable);
 		globalLoad = new LoadExpression(
 			Location.init, Type.get(BuiltinType.Int),
-			new GlobalVariableExpression(Location.init, global));
+			new ConstantExpression(Location.init, new GlobalConstant(global)));
 		v = vrp.visit(globalLoad);
 		assert(v == VR(-7));
 		assert(!vrp.canFit(globalLoad, BuiltinType.Ubyte));

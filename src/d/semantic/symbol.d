@@ -447,9 +447,20 @@ struct SymbolAnalyzer {
 	/**
 	 * evaluate() may return ErrorConstant so speculative compilation
 	 * can back out. A committed constant is not speculative.
+	 *
+	 * Every global address is a GlobalConstant. A thread-local one is
+	 * not a compile-time constant.
 	 */
 	private auto requireConstant(Expression e) {
 		auto c = evaluate(e);
+
+		if (auto gc = cast(GlobalConstant) c) {
+			if (!gc.symbol.hasLinkTimeAddress()) {
+				import source.exception;
+				throw new CompileException(
+					e.location, "Cannot use this address as a constant.");
+			}
+		}
 
 		import d.ir.error;
 		if (auto err = errorize(c)) {

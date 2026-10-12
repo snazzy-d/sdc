@@ -9,8 +9,6 @@ import d.gc.rbtree;
 import d.gc.spec;
 import d.gc.util;
 
-import sdc.intrinsics;
-
 alias ClassTree = RBTree!(Region, classAddrRegionCmp, "rbClass");
 alias RangeTree = RBTree!(Region, addrRangeRegionCmp, "rbRange");
 
@@ -28,20 +26,12 @@ static assert(RefillBlockCount == 512);
 shared(RegionAllocator)* gDataRegionAllocator() {
 	static shared RegionAllocator regionAllocator;
 
-	if (unlikely(regionAllocator.base is null)) {
-		regionAllocator.base = &gBase;
-	}
-
 	return &regionAllocator;
 }
 
 @property
 shared(RegionAllocator)* gPointerRegionAllocator() {
 	static shared RegionAllocator regionAllocator;
-
-	if (unlikely(regionAllocator.base is null)) {
-		regionAllocator.base = &gBase;
-	}
 
 	return &regionAllocator;
 }
@@ -50,7 +40,7 @@ enum MinimumBlockCollectThreshold = 8;
 
 struct RegionAllocator {
 private:
-	shared(Base)* base;
+	shared(Base)* base = &gBase;
 
 	import d.sync.mutex;
 	Mutex mutex;

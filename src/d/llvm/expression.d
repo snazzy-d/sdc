@@ -356,10 +356,6 @@ struct ExpressionGen {
 		return declare(e.var);
 	}
 
-	LLVMValueRef visit(GlobalVariableExpression e) {
-		return globalGen.declare(e.var);
-	}
-
 	LLVMValueRef visit(FieldExpression e) {
 		// The base is always a pointer (class references are pointers).
 		auto ptr = visit(e.base);
