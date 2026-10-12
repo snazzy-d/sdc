@@ -643,7 +643,8 @@ public:
 		auto flavor = implicitCastFrom(pass, arg.type, param.getType());
 
 		// Test whether we can pass by ref.
-		if (param.isRef && !(flavor >= CastKind.Qual && arg.isLvalue)) {
+		if (param.isRef
+			    && !(flavor >= CastKind.Qual && buildAddressOf(arg) !is null)) {
 			return MatchLevel.Not;
 		}
 

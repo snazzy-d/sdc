@@ -19,11 +19,6 @@ abstract class Expression : Value {
 
 		this.location = location;
 	}
-
-	@property
-	bool isLvalue() const {
-		return false;
-	}
 }
 
 Expression build(E, T...)(T args)
@@ -72,11 +67,6 @@ class LoadExpression : Expression {
 		super(location, type);
 
 		this.address = address;
-	}
-
-	@property
-	override bool isLvalue() const {
-		return true;
 	}
 
 	override string toString(const Context c) const {
