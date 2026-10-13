@@ -454,8 +454,7 @@ public:
 				return addrs[0];
 			}
 
-			pe.expressions = addrs;
-			return pe;
+			return new PolysemousExpression(pe.location, addrs);
 		}
 
 		if (auto c = cast(CastExpression) expr) {
