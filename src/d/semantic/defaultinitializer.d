@@ -224,27 +224,14 @@ struct DefaultInitializerVisitor(bool isNew) {
 		return build!TupleExpression(location, t.getArray(size), elements);
 	}
 
-	private Expression getTemporary(Expression value) {
-		if (auto e = cast(ErrorExpression) value) {
-			return e;
-		}
-
-		auto loc = value.location;
-
-		import source.name;
-		auto v = new Variable(loc, value.type, BuiltinName!"", value);
-		v.step = Step.Processed;
-
-		return new VariableExpression(loc, v);
-	}
-
 	Expression visit(Struct s) {
 		auto v = getDefaultInit(s);
 		if (!s.hasContext) {
 			return v;
 		}
 
-		v = getTemporary(v);
+		import d.semantic.expression;
+		v = ExpressionVisitor(pass).getTemporary(v).getAddressOf(v.location);
 
 		auto ctxField = s.fields[0];
 

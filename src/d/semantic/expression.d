@@ -89,9 +89,10 @@ private:
 		return getError(base, base.location, msg);
 	}
 
-	Expression getTemporary(Expression value) {
+	// FIXME: Move this into ValueBuilder.
+	public Value getTemporary(Expression value) {
 		if (auto e = cast(ErrorExpression) value) {
-			return e;
+			return Value.withAddress(e);
 		}
 
 		auto loc = value.location;
@@ -101,7 +102,7 @@ private:
 		v.step = Step.Processed;
 
 		auto addr = new VariableExpression(loc, v);
-		return new LoadExpression(loc, v.type, addr);
+		return Value.withAddress(addr);
 	}
 
 	Expression getFinal(Expression value) {
@@ -818,7 +819,7 @@ public:
 					return callCtor(location, calleeLoc, di, args);
 				}
 
-				auto thisExpr = getTemporary(di);
+				auto thisExpr = getTemporary(di).getExpression(di.location);
 				return build!BinaryExpression(
 					location, t, BinaryOp.Comma,
 					callCtor(location, calleeLoc, thisExpr, args), thisExpr);
