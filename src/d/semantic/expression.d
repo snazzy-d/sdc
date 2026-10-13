@@ -1238,8 +1238,7 @@ public:
 		return getThis(e.location);
 	}
 
-	Expression getIndex(Location location, Expression indexed,
-	                    Expression index) {
+	Value getIndex(Location location, Expression indexed, Expression index) {
 		auto t = indexed.type.getCanonical();
 		index = buildImplicitCast(pass, location, pass.object.getSizeT().type,
 		                          index);
@@ -1259,8 +1258,10 @@ public:
 
 				// If the array is not addressable, extract thee element.
 				if (base is null) {
-					return build!ArrayExtractExpression(location, t.element,
-					                                    indexed, index);
+					auto extract =
+						build!ArrayExtractExpression(location, t.element,
+						                             indexed, index);
+					return Value.withValue(extract);
 				}
 
 				addr = build!ArrayIndexExpression(location, base, index);
@@ -1268,15 +1269,16 @@ public:
 
 			default:
 				import std.format;
-				return getError(
+				return Value.withAddress(getError(
 					indexed, location,
-					format!"Can't index %s."(indexed.type.toString(context)));
+					format!"Can't index %s."(indexed.type.toString(context))));
 		}
 
-		return build!LoadExpression(location, t.element, addr);
+		return Value.withAddress(addr);
 	}
 
 	Expression visit(AstIndexExpression e) {
+		auto location = e.location;
 		auto indexed = visit(e.indexed);
 
 		import std.algorithm, std.array;
@@ -1284,7 +1286,8 @@ public:
 		assert(arguments.length == 1,
 		       "Multiple argument index are not supported!");
 
-		return getIndex(e.location, indexed, arguments[0]);
+		return
+			getIndex(location, indexed, arguments[0]).getExpression(location);
 	}
 
 	Expression visit(AstSliceExpression e) {

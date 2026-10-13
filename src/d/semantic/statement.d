@@ -481,7 +481,8 @@ public:
 		auto eLoc = eDecl.location;
 
 		import d.semantic.expression;
-		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr);
+		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr)
+		                                   .getExpression(eLoc);
 		auto eType = eVal.type.getParamType(eDecl.type.paramKind);
 
 		if (!eDecl.type.getType().isAuto) {
