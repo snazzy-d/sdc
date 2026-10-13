@@ -129,8 +129,12 @@ private:
 		auto type = value.type;
 
 		// Ref variables store the address; provide it directly.
-		value = buildAddressOf(value);
-		assert(value !is null, "getReference on non-lvalue.");
+		auto addr = buildAddressOf(value);
+		if (addr is null) {
+			return Value.withAddress(getError(value, "Expected an lvalue."));
+		}
+
+		value = addr;
 
 		import source.name;
 		auto v = new Variable(loc, type.getParamType(ParamKind.Ref),
@@ -478,10 +482,6 @@ public:
 		// Bind the operand's address once, in a reference. The load
 		// and the store below both go through it, so the address is
 		// computed exactly once, however complex the operand is.
-		if (buildAddressOf(expr) is null) {
-			return getError(expr, "Expected an lvalue.");
-		}
-
 		auto operand = getReference(expr);
 		auto addr = operand.getAddressOf(loc);
 
