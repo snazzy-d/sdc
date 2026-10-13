@@ -105,9 +105,9 @@ private:
 		return Value.withAddress(addr);
 	}
 
-	Expression getFinal(Expression value) {
+	Value getFinal(Expression value) {
 		if (auto e = cast(ErrorExpression) value) {
-			return e;
+			return Value.withValue(e);
 		}
 
 		auto loc = value.location;
@@ -117,7 +117,7 @@ private:
 		                      BuiltinName!"", value);
 		v.step = Step.Processed;
 
-		return new VariableExpression(loc, v);
+		return Value.withValue(new VariableExpression(loc, v));
 	}
 
 	Value getReference(Expression value) {
@@ -150,7 +150,7 @@ private:
 	                       Expression rhs) {
 		if (op.isOpAssign()) {
 			auto lhsRef = getReference(lhs);
-			rhs = getFinal(rhs);
+			rhs = getFinal(rhs).getExpression(rhs.location);
 
 			auto type = lhs.type;
 			auto llhs =
@@ -492,7 +492,7 @@ public:
 		// Post-inc/dec: snapshot the old value, then assign
 		// e = old +/- 1, returning the old value.
 		auto value = operand.getExpression(expr.location);
-		auto old = isPre ? value : getFinal(value);
+		auto old = isPre ? value : getFinal(value).getExpression(expr.location);
 		auto add = buildBinary(loc, op, old, one);
 
 		import d.semantic.caster;
