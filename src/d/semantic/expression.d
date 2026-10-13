@@ -11,6 +11,7 @@ import d.ir.error;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
 import source.location;
 
@@ -118,9 +119,9 @@ private:
 		return new VariableExpression(loc, v);
 	}
 
-	Expression getReference(Expression value) {
+	Value getReference(Expression value) {
 		if (auto e = cast(ErrorExpression) value) {
-			return e;
+			return Value.withAddress(e);
 		}
 
 		auto loc = value.location;
@@ -135,8 +136,7 @@ private:
 		                      BuiltinName!"", value);
 		v.step = Step.Processed;
 
-		auto addr = new VariableExpression(loc, v);
-		return new LoadExpression(loc, type, addr);
+		return Value.withAddress(new VariableExpression(loc, v));
 	}
 
 	auto buildAssign(Location location, Expression lhs, Expression rhs) {
@@ -152,16 +152,18 @@ private:
 	Expression buildBinary(Location location, AstBinaryOp op, Expression lhs,
 	                       Expression rhs) {
 		if (op.isOpAssign()) {
-			lhs = getReference(lhs);
+			auto lhsRef = getReference(lhs);
+			auto lhsValue = lhsRef.getExpression(lhs.location);
+
 			rhs = getFinal(rhs);
 
 			auto type = lhs.type;
 			auto llhs = build!BinaryExpression(location, type, BinaryOp.Comma,
-			                                   rhs, lhs);
+			                                   rhs, lhsValue);
 
 			return buildAssign(
 				location,
-				lhs,
+				lhsValue,
 				buildExplicitCast(
 					pass, location, type,
 					buildBinary(location, op.getBaseOp(), llhs, rhs))
@@ -480,7 +482,7 @@ public:
 		}
 
 		auto operand = getReference(expr);
-		auto addr = buildAddressOf(operand);
+		auto addr = operand.getAddressOf(loc);
 
 		import d.ir.constant;
 		auto one = new ConstantExpression(
@@ -488,7 +490,8 @@ public:
 
 		// Post-inc/dec: snapshot the old value, then assign
 		// e = old +/- 1, returning the old value.
-		auto old = isPre ? operand : getFinal(operand);
+		auto value = operand.getExpression(expr.location);
+		auto old = isPre ? value : getFinal(value);
 		auto add = buildBinary(loc, op, old, one);
 
 		import d.semantic.caster;
