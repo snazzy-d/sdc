@@ -481,26 +481,44 @@ public:
 		auto eLoc = eDecl.location;
 
 		import d.semantic.expression;
-		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr)
-		                                   .getExpression(eLoc);
-		auto eType = eVal.type.getParamType(eDecl.type.paramKind);
+		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr);
+		auto exprVal = eVal.getExpression(eLoc);
+		auto eType = exprVal.type.getParamType(eDecl.type.paramKind);
 
 		if (!eDecl.type.getType().isAuto) {
 			import d.semantic.type;
 			eType = TypeVisitor(pass).visit(eDecl.type);
 
 			import d.semantic.caster;
-			eVal = buildImplicitCast(pass, eLoc, eType.getType(), eVal);
+			exprVal = buildImplicitCast(pass, eLoc, eType.getType(), exprVal);
 		}
 
 		if (eDecl.type.paramKind == ParamKind.Ref) {
 			// Ref variables hold the address of the element.
 			import d.semantic.expression : ExpressionVisitor;
-			eVal = ExpressionVisitor(pass).buildAddressOf(eVal);
-			assert(eVal !is null, "Ref element isn't an lvalue.");
+			auto addr = ExpressionVisitor(pass).buildAddressOf(exprVal);
+
+			if (addr is null) {
+				import source.exception;
+				if (!eVal.hasAddress()) {
+					throw new CompileException(eLoc,
+					                           "Ref element isn't an lvalue.");
+				}
+
+				import std.format;
+				throw new CompileException(
+					eLoc,
+					format!"Can't bind element of type %s by ref to %s."(
+						eVal.type.toString(context),
+						eType.getType().toString(context)
+					)
+				);
+			}
+
+			exprVal = addr;
 		}
 
-		auto element = new Variable(eLoc, eType, eDecl.name, eVal);
+		auto element = new Variable(eLoc, eType, eDecl.name, exprVal);
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);
 
