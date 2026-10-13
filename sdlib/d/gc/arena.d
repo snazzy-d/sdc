@@ -88,7 +88,7 @@ public:
 
 		import d.gc.region;
 		a.filler.regionAllocator =
-			(index & 0x01) ? gPointerRegionAllocator : gDataRegionAllocator;
+			(index & 0x01) ? &gPointerRegionAllocator : &gDataRegionAllocator;
 
 		// Mark as initialized and return.
 		a.bits = index | InitializedBit;

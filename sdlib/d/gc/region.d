@@ -22,19 +22,8 @@ enum uint RefillBlockCount = RefillSize / BlockSize;
 
 static assert(RefillBlockCount == 512);
 
-@property
-shared(RegionAllocator)* gDataRegionAllocator() {
-	static shared RegionAllocator regionAllocator;
-
-	return &regionAllocator;
-}
-
-@property
-shared(RegionAllocator)* gPointerRegionAllocator() {
-	static shared RegionAllocator regionAllocator;
-
-	return &regionAllocator;
-}
+shared RegionAllocator gDataRegionAllocator;
+shared RegionAllocator gPointerRegionAllocator;
 
 enum MinimumBlockCollectThreshold = 8;
 
