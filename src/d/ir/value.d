@@ -85,7 +85,18 @@ public:
 		);
 
 		auto found = isConstant() ? constant.type : expression.type;
-		return hasAddress() ? found.getCanonical().element : found;
+		if (!hasAddress()) {
+			return found;
+		}
+
+		auto canonical = found.getCanonical();
+
+		// The type of an error is the error type itself.
+		if (canonical.kind == TypeKind.Error) {
+			return found;
+		}
+
+		return canonical.element;
 	}
 
 	/// The value as an expression. A constant becomes a ConstantExpression.
@@ -220,7 +231,13 @@ unittest {
 	assert(propagated !is null);
 	assert(propagated.error.message == "boom");
 
+	auto errorExprAddress = Value.withAddress(boom.expression);
+	assert(errorExprAddress.type.kind == TypeKind.Error);
+	assert(errorExprAddress.type.error.message == "boom");
+
 	auto errorAddress = Value.withAddress(boom.constant);
+	assert(errorAddress.type.kind == TypeKind.Error);
+	assert(errorAddress.type.error.message == "boom");
 	auto propagatedLoad =
 		cast(ErrorExpression) errorAddress.getExpression(location);
 	assert(propagatedLoad !is null);

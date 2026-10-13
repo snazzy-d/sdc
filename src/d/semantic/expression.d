@@ -139,12 +139,8 @@ private:
 		return Value.withAddress(new VariableExpression(loc, v));
 	}
 
-	auto buildAssign(Location location, Expression lhs, Expression rhs) {
-		auto addr = buildAddressOf(lhs);
-		if (addr is null) {
-			return getError(lhs, "Expected an lvalue.");
-		}
-
+	auto buildAssign(Location location, Value lhs, Expression rhs) {
+		auto addr = lhs.getAddressOf(location);
 		rhs = buildImplicitCast(pass, rhs.location, lhs.type, rhs);
 		return build!StoreExpression(location, rhs, addr);
 	}
@@ -153,17 +149,16 @@ private:
 	                       Expression rhs) {
 		if (op.isOpAssign()) {
 			auto lhsRef = getReference(lhs);
-			auto lhsValue = lhsRef.getExpression(lhs.location);
-
 			rhs = getFinal(rhs);
 
 			auto type = lhs.type;
-			auto llhs = build!BinaryExpression(location, type, BinaryOp.Comma,
-			                                   rhs, lhsValue);
+			auto llhs =
+				build!BinaryExpression(location, type, BinaryOp.Comma, rhs,
+				                       lhsRef.getExpression(lhs.location));
 
 			return buildAssign(
 				location,
-				lhsValue,
+				lhsRef,
 				buildExplicitCast(
 					pass, location, type,
 					buildBinary(location, op.getBaseOp(), llhs, rhs))
@@ -179,7 +174,12 @@ private:
 				                              BinaryOp.Comma, lhs, rhs);
 
 			case Assign:
-				return buildAssign(location, lhs, rhs);
+				auto addr = buildAddressOf(lhs);
+				if (addr is null) {
+					return getError(lhs, "Expected an lvalue.");
+				}
+
+				return buildAssign(location, Value.withAddress(addr), rhs);
 
 			case Add, Sub:
 				auto isSub = op == Sub;
@@ -732,7 +732,12 @@ public:
 		final switch (thisKind) with (ParamKind) {
 			case Regular:
 				// Value type, by value.
-				return buildAssign(c.location, thisExpr, call);
+				auto addr = buildAddressOf(thisExpr);
+				if (addr is null) {
+					return getError(thisExpr, "Expected an lvalue.");
+				}
+
+				return buildAssign(c.location, Value.withAddress(addr), call);
 
 			case Final:
 				// Classes.
