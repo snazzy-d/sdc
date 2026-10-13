@@ -406,6 +406,17 @@ public:
 		ifTrue = buildExplicitCast(pass, ifTrue.location, t, ifTrue);
 		ifFalse = buildExplicitCast(pass, ifFalse.location, t, ifFalse);
 
+		// If both branches are addressable, the conditional itself
+		// is an lvalue. Build the ternary over the branches'
+		// addresses and load through it.
+		auto trueAddr = buildAddressOf(ifTrue);
+		auto falseAddr = (trueAddr is null) ? null : buildAddressOf(ifFalse);
+		if (falseAddr !is null) {
+			auto addr = build!TernaryExpression(e.location, t.getPointer(),
+			                                    condition, trueAddr, falseAddr);
+			return build!LoadExpression(e.location, t, addr);
+		}
+
 		return
 			build!TernaryExpression(e.location, t, condition, ifTrue, ifFalse);
 	}
