@@ -4,8 +4,11 @@ import d.ir.constant;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
 import d.semantic.semantic;
+
+import source.location;
 
 import std.traits;
 
@@ -35,13 +38,14 @@ struct ValueRangePropagator(T) if (is(T == uint) || is(T == ulong)) {
 		this.pass = pass;
 	}
 
-	bool canFit(Expression e, Type t)
-			in(isValidExpr(e), "VRP expect integral types.") {
+	bool canFit(E)(E e, Type t) if (is(E : Expression) || is(E == Value))
+			in(isValidType(e.type), "VRP expect integral types.") {
 		return canFit(e, getBuiltin(t));
 	}
 
-	bool canFit(Expression e, BuiltinType t) in {
-		assert(isValidExpr(e), "VRP expect integral types.");
+	bool canFit(E)(E e,
+	               BuiltinType t) if (is(E : Expression) || is(E == Value)) in {
+		assert(isValidType(e.type), "VRP expect integral types.");
 		assert(canConvertToIntegral(t), "VRP only supports integral types.");
 	} do {
 		static canFitDMDMonkeyDance(R)(R r, BuiltinType t) {
@@ -74,8 +78,8 @@ private:
 		return r.as!T;
 	}
 
-	auto processExpr(alias handler = asHandlerDMDMonkeyDance,
-	                 A...)(Expression e, A args) {
+	auto processExpr(alias handler = asHandlerDMDMonkeyDance, E, A...)(E e,
+	                                                                   A args) {
 		import std.algorithm;
 		auto s = max(getBuiltin(e.type).getSize(), uint.sizeof);
 		if (s == T.sizeof) {
@@ -135,8 +139,21 @@ public:
 		return ValueRange!ulong(c.value).as!T;
 	}
 
-	VR visit(Expression e) in(isValidExpr(e), "VRP expect integral types.") {
+	VR visit(Expression e)
+			in(isValidType(e.type), "VRP expect integral types.") {
 		return this.dispatch!(e => getRange(e.type))(e);
+	}
+
+	VR visit(Value v) in(isValidType(v.type), "VRP expect integral types.") {
+		if (v.hasAddress()) {
+			// The value has an address, so this cannot fail.
+			auto address = v.getAddress(Location.init);
+			return address.isConstant()
+				? visitLoad(address.constant, v.type)
+				: visitLoad(address.expression, v.type);
+		}
+
+		return v.isConstant() ? visit(v.constant) : visit(v.expression);
 	}
 
 	VR visit(ConstantExpression e) {
@@ -156,18 +173,28 @@ public:
 	}
 
 	VR visit(LoadExpression e) {
-		if (auto ve = cast(VariableExpression) e.address) {
+		return visitLoad(e.address, e.type);
+	}
+
+	private VR visitLoad(Expression address, Type type) {
+		if (auto ve = cast(VariableExpression) address) {
 			return knownRange(ve.var);
 		}
 
-		// Link-time globals are constants. The load is still of that symbol.
-		if (auto ce = cast(ConstantExpression) e.address) {
-			if (auto gc = cast(GlobalConstant) ce.value) {
-				return knownRange(gc.symbol);
-			}
+		if (auto ce = cast(ConstantExpression) address) {
+			return visitLoad(ce.value, type);
 		}
 
-		return getRange(e.type);
+		return getRange(type);
+	}
+
+	private VR visitLoad(Constant address, Type type) {
+		// Link-time globals are constants. The load is still of that symbol.
+		if (auto gc = cast(GlobalConstant) address) {
+			return knownRange(gc.symbol);
+		}
+
+		return getRange(type);
 	}
 
 	VR visit(StoreExpression e) {
@@ -563,6 +590,41 @@ unittest {
 		assert(!vrp.canFit(other, BuiltinType.Ubyte));
 
 		/**
+		 * Values use the same rules as the expressions they stand for.
+		 */
+		v = vrp.visit(Value.withValue(i1));
+		assert(v == VR(-7));
+		assert(vrp.canFit(Value.withValue(i1), BuiltinType.Byte)
+			== vrp.canFit(i1, BuiltinType.Byte));
+
+		auto big = Value.withValue(new IntegerConstant(300, BuiltinType.Int));
+		assert(!vrp.canFit(big, BuiltinType.Ubyte));
+		assert(vrp.canFit(big, BuiltinType.Ushort));
+
+		v = vrp
+			.visit(Value.withValue(new IntegerConstant(42, BuiltinType.Int)));
+		assert(v == VR(42));
+
+		auto globalValue = Value.withAddress(
+			new ConstantExpression(Location.init, new GlobalConstant(global)));
+		v = vrp.visit(globalValue);
+		assert(v == VR(256));
+		assert(vrp.canFit(globalValue, BuiltinType.Ushort));
+		assert(!vrp.canFit(globalValue, BuiltinType.Ubyte));
+
+		v = vrp.visit(Value.withAddress(new GlobalConstant(global)));
+		assert(v == VR(256));
+
+		var.type = tuint.qualify(TypeQualifier.Immutable);
+		v = vrp.visit(
+			Value.withAddress(new VariableExpression(Location.init, var)));
+		assert(v == VR(-7));
+
+		auto unknown = new NullConstant(Type.get(BuiltinType.Int).getPointer());
+		v = vrp.visit(Value.withAddress(unknown));
+		assert(v == VR(int.min, int.max));
+
+		/**
 		 * Casts
 		 */
 		v = vrp.visit(
@@ -669,8 +731,8 @@ unittest {
 
 private:
 
-auto isValidExpr(Expression e) {
-	auto t = e.type.getCanonicalAndPeelEnum();
+auto isValidType(Type t) {
+	t = t.getCanonicalAndPeelEnum();
 	return t.kind == TypeKind.Builtin && canConvertToIntegral(t.builtin);
 }
 
