@@ -6,6 +6,7 @@ import d.semantic.typepromotion;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
 import source.location;
 
@@ -21,6 +22,16 @@ Expression buildExplicitCast(SemanticPass pass, Location location, Type to,
 	return buildCast!true(pass, location, to, e);
 }
 
+Value buildImplicitCast(SemanticPass pass, Location location, Type to,
+                        Value value) {
+	return buildCastValue!false(pass, location, to, value);
+}
+
+Value buildExplicitCast(SemanticPass pass, Location location, Type to,
+                        Value value) {
+	return buildCastValue!true(pass, location, to, value);
+}
+
 CastKind implicitCastFrom(SemanticPass pass, Type from, Type to) {
 	return ImplicitCaster(pass, to).castFrom(from);
 }
@@ -33,6 +44,32 @@ private:
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
+
+private
+Value buildCastValue(bool isExplicit)(SemanticPass pass, Location location,
+                                      Type to, Value value) {
+	if (!value.hasAddress()) {
+		return Value.withValue(
+			buildCast!isExplicit(pass, location, to,
+			                     value.getExpression(location)));
+	}
+
+	// A cast that does not change the bits of the value
+	// commutes with the load: perform it on the address
+	// instead, and the value remains addressable.
+	auto kind = isExplicit
+		? explicitCastFrom(pass, value.type(), to)
+		: implicitCastFrom(pass, value.type(), to);
+	if (kind >= CastKind.Qual) {
+		auto addr = buildCast!isExplicit(pass, location, to.getPointer(),
+		                                 value.getAddressOf(location));
+		return Value.withAddress(addr);
+	}
+
+	return Value.withValue(
+		buildCast!isExplicit(pass, location, to, value.getExpression(location))
+	);
+}
 
 Expression buildCast(bool isExplicit)(
 	SemanticPass pass,
