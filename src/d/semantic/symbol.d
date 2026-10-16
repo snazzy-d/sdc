@@ -419,13 +419,49 @@ struct SymbolAnalyzer {
 		analyze(d, cast(Function) m);
 	}
 
+	/**
+	 * All the members of an overload set share the same symbol,
+	 * so the first member that wraps a function gives the name
+	 * of the set.
+	 */
+	private string getOverloadSetName(PolysemousExpression pe) {
+		foreach (candidate; pe.expressions) {
+			if (auto ce = cast(ConstantExpression) candidate) {
+				import d.ir.constant : FunctionConstant;
+				if (auto fc = cast(FunctionConstant) ce.value) {
+					return fc.fun.name.toString(context);
+				}
+			} else if (auto de = cast(DelegateExpression) candidate) {
+				return de.method.name.toString(context);
+			}
+		}
+
+		assert(0, "Overload set members must be functions.");
+	}
+
 	private auto getValue(VariableDeclaration d) {
 		auto stc = d.storageClass;
 
 		if (d.type.isAuto) {
 			// XXX: remove selective import when dmd is sane.
 			import d.semantic.expression : ExpressionVisitor;
-			return ExpressionVisitor(pass).visit(d.value);
+			auto value = ExpressionVisitor(pass).visit(d.value);
+
+			// There is no expected type to resolve an overload set
+			// against, so it cannot be given a type. This also
+			// covers address-of expressions, which are a
+			// passthrough for functions and preserve the set.
+			if (auto pe = cast(PolysemousExpression) value) {
+				import std.format;
+				import source.exception;
+				throw new CompileException(
+					d.value.location,
+					format!"Cannot infer type from overloaded function symbol %s."(
+						getOverloadSetName(pe))
+				);
+			}
+
+			return value;
 		}
 
 		import d.semantic.type : TypeVisitor;

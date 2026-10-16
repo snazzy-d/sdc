@@ -1,4 +1,5 @@
-//T error: core.exception.AssertError@src/d/common/builtintype.d(202): Use SizeofVisitor for None
+//T error: overload_set_ambiguous.d:12:10:
+//T error: Cannot infer type from overloaded function symbol ov.
 int ov(int x) {
 	return x + 1;
 }
