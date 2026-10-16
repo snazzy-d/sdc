@@ -231,7 +231,8 @@ struct DefaultInitializerVisitor(bool isNew) {
 		}
 
 		import d.semantic.expression;
-		v = ExpressionVisitor(pass).getTemporary(v).getAddressOf(v.location);
+		v = ExpressionVisitor(pass).getTemporary(v).getAddress(v.location)
+		                           .getExpression(v.location);
 
 		auto ctxField = s.fields[0];
 

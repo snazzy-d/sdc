@@ -99,9 +99,9 @@ public:
 		return canonical.element;
 	}
 
-	/// The value as an expression. A constant becomes a ConstantExpression.
-	/// A value that has an address is loaded. A constant address is both.
-	Expression getExpression(Location location) in(payload !is null) {
+	// The value as an expression. A constant becomes a ConstantExpression.
+	// A value that has an address is loaded. A constant address is both.
+	Expression getExpression(Location location) {
 		auto value = isConstant()
 			? build!ConstantExpression(location, constant)
 			: expression;
@@ -118,24 +118,20 @@ public:
 		return build!LoadExpression(location, type, value);
 	}
 
-	/// The address of the value. A constant address becomes a
-	/// ConstantExpression. A value with no address is an error.
-	Expression getAddressOf(Location location) in(payload !is null) {
-		if (!hasAddress()) {
-			if (isConstant()) {
-				return getError(constant, location, "Expected an lvalue.")
-					.expression;
-			}
-
-			return getError(expression, location, "Expected an lvalue.")
-				.expression;
+	// The address of the value, as a value. A value with no address
+	// is an error. The address bit is cleared: the result is the pointer.
+	Value getAddress(Location location) {
+		if (hasAddress()) {
+			Value address = this;
+			address.payload = cast(void*) (cast(size_t) payload & ~AddressBit);
+			return address;
 		}
 
-		if (isConstant()) {
-			return build!ConstantExpression(location, constant);
-		}
+		auto error = isConstant()
+			? getError(constant, location, "Expected an lvalue.")
+			: getError(expression, location, "Expected an lvalue.");
 
-		return expression;
+		return Value.withValue(error.constant);
 	}
 }
 
@@ -158,9 +154,11 @@ unittest {
 	assert(fromExpr.type == rvalue.type);
 	assert(fromExpr.getExpression(location) is rvalue);
 
-	auto missing = cast(ErrorExpression) fromExpr.getAddressOf(location);
-	assert(missing !is null);
-	assert(missing.error.message == "Expected an lvalue.");
+	auto missing = fromExpr.getAddress(location);
+	assert(!missing.hasAddress());
+	auto missingExpr = cast(ErrorExpression) missing.getExpression(location);
+	assert(missingExpr !is null);
+	assert(missingExpr.error.message == "Expected an lvalue.");
 
 	// Constant rvalue: wrapped, and still has no address.
 	auto constant = new IntegerConstant(42, BuiltinType.Int);
@@ -175,8 +173,8 @@ unittest {
 	assert(wrapped.value is constant);
 	assert(wrapped.type == intType);
 
-	auto constantAddress =
-		cast(ErrorExpression) fromConstant.getAddressOf(location);
+	auto constantAddress = cast(ErrorExpression)
+		fromConstant.getAddress(location).getExpression(location);
 	assert(constantAddress !is null);
 	assert(constantAddress.error.message == "Expected an lvalue.");
 
@@ -189,7 +187,10 @@ unittest {
 	assert(!fromAddr.isConstant());
 	assert(fromAddr.hasAddress());
 	assert(fromAddr.type == intType);
-	assert(fromAddr.getAddressOf(location) is addr);
+	auto addrOf = fromAddr.getAddress(location);
+	assert(!addrOf.hasAddress());
+	assert(!addrOf.isConstant());
+	assert(addrOf.expression is addr);
 
 	auto loaded = cast(LoadExpression) fromAddr.getExpression(location);
 	assert(loaded !is null);
@@ -203,9 +204,10 @@ unittest {
 	assert(fromNull.hasAddress());
 	assert(fromNull.type == intType);
 
-	auto nullAddr = cast(ConstantExpression) fromNull.getAddressOf(location);
-	assert(nullAddr !is null);
-	assert(nullAddr.value is nullPtr);
+	auto nullAddr = fromNull.getAddress(location);
+	assert(nullAddr.isConstant());
+	assert(!nullAddr.hasAddress());
+	assert(nullAddr.constant is nullPtr);
 
 	auto nullLoad = cast(LoadExpression) fromNull.getExpression(location);
 	assert(nullLoad !is null);
@@ -219,15 +221,16 @@ unittest {
 	auto deref = cast(ErrorExpression) notPointer.getExpression(location);
 	assert(deref !is null);
 	assert(deref.error.message == "Only pointers can be dereferenced.");
-	auto raw = cast(ConstantExpression) notPointer.getAddressOf(location);
-	assert(raw !is null);
-	assert(raw.value is constant);
+	auto raw = notPointer.getAddress(location);
+	assert(raw.isConstant());
+	assert(raw.constant is constant);
 
 	// Existing errors win over a newly generated diagnostic.
 	auto boom = new CompileError(location, "boom");
 	auto errorValue = Value.withValue(boom.expression);
 	assert(errorValue.type.kind == TypeKind.Error);
-	auto propagated = cast(ErrorExpression) errorValue.getAddressOf(location);
+	auto propagated = cast(ErrorExpression)
+		errorValue.getAddress(location).getExpression(location);
 	assert(propagated !is null);
 	assert(propagated.error.message == "boom");
 
@@ -242,8 +245,8 @@ unittest {
 		cast(ErrorExpression) errorAddress.getExpression(location);
 	assert(propagatedLoad !is null);
 	assert(propagatedLoad.error.message == "boom");
-	auto propagatedAddr =
-		cast(ErrorExpression) errorAddress.getAddressOf(location);
+	auto propagatedAddr = cast(ErrorExpression)
+		errorAddress.getAddress(location).getExpression(location);
 	assert(propagatedAddr !is null);
 	assert(propagatedAddr.error.message == "boom");
 }

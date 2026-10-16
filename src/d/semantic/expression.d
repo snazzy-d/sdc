@@ -145,7 +145,7 @@ private:
 	}
 
 	auto buildAssign(Location location, Value lhs, Expression rhs) {
-		auto addr = lhs.getAddressOf(location);
+		auto addr = lhs.getAddress(location).getExpression(location);
 		rhs = buildImplicitCast(pass, rhs.location, lhs.type, rhs);
 		return build!StoreExpression(location, rhs, addr);
 	}
@@ -493,7 +493,7 @@ public:
 		// and the store below both go through it, so the address is
 		// computed exactly once, however complex the operand is.
 		auto operand = getReference(expr);
-		auto addr = operand.getAddressOf(loc);
+		auto addr = operand.getAddress(loc).getExpression(loc);
 
 		import d.ir.constant;
 		auto one = new ConstantExpression(
