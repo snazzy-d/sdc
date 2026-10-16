@@ -482,25 +482,22 @@ public:
 
 		import d.semantic.expression;
 		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr);
-		auto exprVal = eVal.getExpression(eLoc);
-		auto eType = exprVal.type.getParamType(eDecl.type.paramKind);
+		auto orig = eVal;
+		auto eType = eVal.type.getParamType(eDecl.type.paramKind);
 
 		if (!eDecl.type.getType().isAuto) {
 			import d.semantic.type;
 			eType = TypeVisitor(pass).visit(eDecl.type);
 
 			import d.semantic.caster;
-			exprVal = buildImplicitCast(pass, eLoc, eType.getType(), exprVal);
+			eVal = buildImplicitCast(pass, eLoc, eType.getType(), eVal);
 		}
 
 		if (eDecl.type.paramKind == ParamKind.Ref) {
 			// Ref variables hold the address of the element.
-			import d.semantic.expression : ExpressionVisitor;
-			auto addr = ExpressionVisitor(pass).buildAddressOf(exprVal);
-
-			if (addr is null) {
+			if (!eVal.hasAddress()) {
 				import source.exception;
-				if (!eVal.hasAddress()) {
+				if (!orig.hasAddress()) {
 					throw new CompileException(eLoc,
 					                           "Ref element isn't an lvalue.");
 				}
@@ -509,16 +506,17 @@ public:
 				throw new CompileException(
 					eLoc,
 					format!"Can't bind element of type %s by ref to %s."(
-						eVal.type.toString(context),
+						orig.type.toString(context),
 						eType.getType().toString(context)
 					)
 				);
 			}
 
-			exprVal = addr;
+			eVal = eVal.getAddress(eLoc);
 		}
 
-		auto element = new Variable(eLoc, eType, eDecl.name, exprVal);
+		auto element =
+			new Variable(eLoc, eType, eDecl.name, eVal.getExpression(eLoc));
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);
 

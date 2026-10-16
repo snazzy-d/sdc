@@ -74,6 +74,7 @@ public:
 		return cast(inout Constant) pointer;
 	}
 
+	@property
 	auto type() inout in(payload !is null) {
 		// The type sits at the same offset in Constant and
 		// Expression, so both branches below read the same
