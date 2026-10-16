@@ -127,10 +127,7 @@ public:
 			return address;
 		}
 
-		auto error = isConstant()
-			? getError(constant, location, "Expected an lvalue.")
-			: getError(expression, location, "Expected an lvalue.");
-
+		auto error = getError(this, location, "Expected an lvalue.");
 		return Value.withValue(error.constant);
 	}
 }
@@ -233,6 +230,16 @@ unittest {
 		errorValue.getAddress(location).getExpression(location);
 	assert(propagated !is null);
 	assert(propagated.error.message == "boom");
+
+	// Errors are found whatever the payload is.
+	assert(errorize(Value.withValue(boom.expression)) is boom);
+	assert(errorize(Value.withValue(boom.constant)) is boom);
+	assert(errorize(Value.withAddress(boom.expression)) is boom);
+	assert(errorize(Value.withAddress(boom.constant)) is boom);
+	assert(errorize(fromExpr) is null);
+	assert(errorize(fromConstant) is null);
+	assert(errorize(fromAddr) is null);
+	assert(errorize(fromNull) is null);
 
 	auto errorExprAddress = Value.withAddress(boom.expression);
 	assert(errorExprAddress.type.kind == TypeKind.Error);

@@ -7,6 +7,7 @@ import d.ir.constant;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
 class CompileError {
 	Location location;
@@ -100,6 +101,10 @@ CompileError errorize(C)(C c) if (is(C : Constant)) {
 	}
 
 	return null;
+}
+
+CompileError errorize(Value v) {
+	return v.isConstant() ? errorize(v.constant) : errorize(v.expression);
 }
 
 CompileError errorize(Type t) {
