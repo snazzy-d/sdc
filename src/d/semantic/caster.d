@@ -200,10 +200,11 @@ Expression buildCast(bool isExplicit)(
 				return ee;
 			}
 
+			import std.format;
 			return new CompileError(
 				location,
-				"Can't cast " ~ e.type.toString(pass.context) ~ " to "
-					~ to.toString(pass.context)
+				format!"Can't cast %s to %s."(e.type.toString(pass.context),
+				                              to.toString(pass.context)),
 			).expression;
 	}
 }
