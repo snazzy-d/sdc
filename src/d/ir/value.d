@@ -112,8 +112,8 @@ public:
 
 		auto canonical = value.type.getCanonical();
 		if (canonical.kind != TypeKind.Pointer) {
-			return getError(value, location,
-			                "Only pointers can be dereferenced.").expression;
+			return .getError(value, location,
+			                 "Only pointers can be dereferenced.").expression;
 		}
 
 		return build!LoadExpression(location, type, value);
@@ -128,8 +128,13 @@ public:
 			return address;
 		}
 
-		auto error = getError(this, location, "Expected an lvalue.");
-		return Value.withValue(error.constant);
+		return getError(location, "Expected an lvalue.");
+	}
+
+	// An error value. If this value already is an error, it is
+	// propagated, so the original diagnostic is not lost.
+	Value getError(Location location, string message) {
+		return Value.withValue(.getError(this, location, message).constant);
 	}
 }
 
@@ -231,6 +236,24 @@ unittest {
 		errorValue.getAddress(location).getExpression(location);
 	assert(propagated !is null);
 	assert(propagated.error.message == "boom");
+
+	// Errors are created, unless one is already there.
+	auto created = fromExpr.getError(location, "created");
+	assert(!created.hasAddress());
+	assert(created.type.kind == TypeKind.Error);
+	assert(created.type.error.message == "created");
+
+	auto existing = new CompileError(location, "existing");
+	foreach (v; [
+		Value.withValue(existing.expression),
+		Value.withValue(existing.constant),
+		Value.withAddress(existing.expression),
+		Value.withAddress(existing.constant)
+	]) {
+		auto e = v.getError(location, "ignored");
+		assert(!e.hasAddress());
+		assert(e.type.error is existing);
+	}
 
 	// Errors are found whatever the payload is.
 	assert(errorize(Value.withValue(boom.expression)) is boom);
