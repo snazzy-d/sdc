@@ -180,6 +180,61 @@ int test_foreach_reverse_range() {
 	return sum;
 }
 
+// CHECK-LABEL: define i32 @_D12foreachloops27test_foreach_shared_convertFMAOiZi(
+// CHECK-SAME: { i64, ptr } [[ARG_SLICE:%.*]]) #[[ATTR0]] {
+// CHECK-NEXT:    [[SLICE:%.*]] = alloca { i64, ptr }, align 8
+// CHECK-NEXT:    store { i64, ptr } [[ARG_SLICE]], ptr [[SLICE]], align 8
+// CHECK-NEXT:    [[SUM:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[TMP1:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[X:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    br label %[[ENTRY:.*]]
+// CHECK:       [[ENTRY]]:
+// CHECK-NEXT:    store i32 0, ptr [[SUM]], align 4
+// CHECK-NEXT:    store i64 0, ptr [[TMP1]], align 8
+// CHECK-NEXT:    br label %[[LOOP_TEST:.*]]
+// CHECK:       [[LOOP_CONTINUE:.*]]:
+// CHECK-NEXT:    [[TMP2:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP3:%.*]] = add i64 [[TMP2]], 1
+// CHECK-NEXT:    store i64 [[TMP3]], ptr [[TMP1]], align 8
+// CHECK-NEXT:    br label %[[LOOP_TEST]]
+// CHECK:       [[LOOP_TEST]]:
+// CHECK-NEXT:    [[TMP4:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds nuw { i64, ptr }, ptr [[SLICE]], i32 0, i32 0
+// CHECK-NEXT:    [[TMP6:%.*]] = load i64, ptr [[TMP5]], align 8
+// CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP4]], [[TMP6]]
+// CHECK-NEXT:    br i1 [[TMP7]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
+// CHECK:       [[LOOP_BODY]]:
+// CHECK-NEXT:    [[TMP8:%.*]] = load { i64, ptr }, ptr [[SLICE]], align 8
+// CHECK-NEXT:    [[DOTPTR:%.*]] = extractvalue { i64, ptr } [[TMP8]], 1
+// CHECK-NEXT:    [[DOTLENGTH:%.*]] = extractvalue { i64, ptr } [[TMP8]], 0
+// CHECK-NEXT:    [[TMP9:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP10:%.*]] = icmp ult i64 [[TMP9]], [[DOTLENGTH]]
+// CHECK-NEXT:    br i1 [[TMP10]], label %[[BOUND_OK:.*]], label %[[BOUND_FAIL:.*]], !prof [[PROF0]]
+// CHECK:       [[BOUND_FAIL]]:
+// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 231)
+// CHECK-NEXT:    unreachable
+// CHECK:       [[BOUND_OK]]:
+// CHECK-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[DOTPTR]], i64 [[TMP9]]
+// CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[TMP11]], align 4
+// CHECK-NEXT:    store i32 [[TMP12]], ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP15:%.*]] = add i32 [[TMP14]], [[TMP13]]
+// CHECK-NEXT:    store i32 [[TMP15]], ptr [[SUM]], align 4
+// CHECK-NEXT:    br label %[[LOOP_CONTINUE]]
+// CHECK:       [[LOOP_EXIT]]:
+// CHECK-NEXT:    [[TMP16:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    ret i32 [[TMP16]]
+//
+int test_foreach_shared_convert(shared(int)[] slice) {
+	int sum = 0;
+	foreach (int x; slice) {
+		sum += x;
+	}
+
+	return sum;
+}
+
 //.
 // CHECK: [[PROF0]] = !{!"branch_weights", i32 2000, i32 0}
 //.
