@@ -669,10 +669,10 @@ struct ConstantMatcher {
 			return IftiTypeMatcher(pass, matchedArgs, matchee.type).visit(t);
 		}
 
-		import d.semantic.caster;
+		import d.ir.value, d.semantic.caster;
 		matchee = evaluate(
-			buildImplicitCast(pass, location, t,
-			                  new ConstantExpression(location, matchee)));
+			buildImplicitCast(pass, location, t, Value.withValue(matchee))
+				.getExpression(location));
 
 		import d.ir.error;
 		if (cast(ErrorConstant) matchee) {
