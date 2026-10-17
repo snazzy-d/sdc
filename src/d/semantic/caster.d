@@ -24,12 +24,12 @@ Expression buildExplicitCast(SemanticPass pass, Location location, Type to,
 
 Value buildImplicitCast(SemanticPass pass, Location location, Type to,
                         Value value) {
-	return buildCastValue!false(pass, location, to, value);
+	return buildCast!false(pass, location, to, value);
 }
 
 Value buildExplicitCast(SemanticPass pass, Location location, Type to,
                         Value value) {
-	return buildCastValue!true(pass, location, to, value);
+	return buildCast!true(pass, location, to, value);
 }
 
 CastKind implicitCastFrom(SemanticPass pass, Type from, Type to) {
@@ -45,42 +45,26 @@ private:
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
 
-private
-Value buildCastValue(bool isExplicit)(SemanticPass pass, Location location,
-                                      Type to, Value value) {
-	if (!value.hasAddress()) {
-		return Value.withValue(
-			buildCast!isExplicit(pass, location, to,
-			                     value.getExpression(location)));
-	}
-
-	// A cast that does not change the bits of the value
-	// commutes with the load: perform it on the address
-	// instead, and the value remains addressable.
-	auto kind = isExplicit
-		? explicitCastFrom(pass, value.type(), to)
-		: implicitCastFrom(pass, value.type(), to);
-	if (kind >= CastKind.Qual) {
-		auto addr = buildCast!isExplicit(
-			pass, location, to.getPointer(),
-			value.getAddress(location).getExpression(location));
-		return Value.withAddress(addr);
-	}
-
-	return Value.withValue(
-		buildCast!isExplicit(pass, location, to, value.getExpression(location))
-	);
-}
-
 Expression buildCast(bool isExplicit)(
 	SemanticPass pass,
 	Location location,
 	Type to,
 	Expression e,
 ) in(e, "Expression must not be null") {
+	return buildCast!isExplicit(pass, location, to, Value.withValue(e))
+		.getExpression(location);
+}
+
+Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
+                                 Value value) {
+	// Polysemous expressions and array literals are rvalues, so
+	// a constant or a value that has an address is neither.
+	auto rvalue =
+		(value.isConstant() || value.hasAddress()) ? null : value.expression;
+
 	// If the expression is polysemous, we try the several meaning and
 	// exclude the ones that make no sense.
-	if (auto asPolysemous = cast(PolysemousExpression) e) {
+	if (auto asPolysemous = cast(PolysemousExpression) rvalue) {
 		Expression casted;
 		foreach (candidate; asPolysemous.expressions) {
 			candidate = buildCast!isExplicit(pass, location, to, candidate);
@@ -91,30 +75,27 @@ Expression buildCast(bool isExplicit)(
 			}
 
 			if (casted) {
-				return new CompileError(location, "Ambiguous").expression;
+				return value.getError(location, "Ambiguous");
 			}
 
 			casted = candidate;
 		}
 
 		if (casted) {
-			return casted;
+			return Value.withValue(casted);
 		}
 
-		import d.ir.error;
-		return new CompileError(location, "No match found").expression;
+		return value.getError(location, "No match found");
 	}
 
 	// When casting an array literal, we try to push down the
 	// cast to each element of the literal.
-	if (auto al = cast(ArrayLiteral) e) {
+	if (auto al = cast(ArrayLiteral) rvalue) {
 		switch (to.kind) with (TypeKind) {
 			case Array:
 				if (al.values.length != to.size) {
-					import d.ir.error;
-					return new CompileError(al.location,
-					                        "Incorrect element count")
-						.expression;
+					return
+						value.getError(al.location, "Incorrect element count");
 				}
 
 				goto case;
@@ -126,7 +107,8 @@ Expression buildCast(bool isExplicit)(
 					.values
 					.map!(v => buildCast!isExplicit(pass, location, et, v))
 					.array();
-				return build!ArrayLiteral(e.location, to, values);
+				return Value
+					.withValue(build!ArrayLiteral(al.location, to, values));
 
 			default:
 				break;
@@ -134,22 +116,29 @@ Expression buildCast(bool isExplicit)(
 	}
 
 	// D-style string literals can be implicitely converted to C-style ones.
-	if (auto c = cast(ConstantExpression) e) {
-		import d.ir.constant;
-		if (auto s = cast(StringConstant) c.value) {
-			if (to.kind == TypeKind.Pointer
-				    && implicitCastFrom(pass, e.type.element, to.element)
-					    >= CastKind.Qual) {
-				return new ConstantExpression(e.location,
-				                              new CStringConstant(s.value));
-			}
+	import d.ir.constant;
+	auto ce = cast(ConstantExpression) rvalue;
+	auto constant = ce !is null
+		? ce.value
+		: (value.isConstant() && !value.hasAddress()) ? value.constant : null;
+
+	if (auto s = cast(StringConstant) constant) {
+		if (to.kind == TypeKind.Pointer
+			    && implicitCastFrom(pass, value.type.element, to.element)
+				    >= CastKind.Qual) {
+			auto cs = new CStringConstant(s.value);
+
+			// Keep the location of the literal, if there is one.
+			return ce is null
+				? Value.withValue(cs)
+				: Value.withValue(new ConstantExpression(ce.location, cs));
 		}
 	}
 
 	auto kind = Caster!(isExplicit, delegate CastKind(c, t) {
 		alias T = typeof(t);
 		static if (is(T : Aggregate)) {
-			assert(e.type.getCanonical().isAggregate(),
+			assert(value.type.getCanonical().isAggregate(),
 			       "alias this ony works on aggregates.");
 
 			static struct AliasThisResult {
@@ -165,9 +154,9 @@ Expression buildCast(bool isExplicit)(
 			auto results = AliasThisResolver!((identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
-					auto oldE = e;
-					scope(exit) e = oldE;
-					e = identified;
+					auto oldValue = value;
+					scope(exit) value = oldValue;
+					value = Value.withValue(identified);
 
 					// XXX: Use buildCast?
 					auto cLevel = c.subCast(identified.type, to);
@@ -180,7 +169,8 @@ Expression buildCast(bool isExplicit)(
 				} else {
 					return InvalidResult;
 				}
-			})(pass).resolve(e, t).filter!(r => r.level == level);
+			})(pass).resolve(value.getExpression(location), t)
+			        .filter!(r => r.level == level);
 
 			if (level == CastKind.Invalid) {
 				return CastKind.Invalid;
@@ -198,7 +188,7 @@ Expression buildCast(bool isExplicit)(
 			assert(candidate,
 			       "if no candidate are found, level should be Invalid");
 
-			e = candidate;
+			value = Value.withValue(candidate);
 			return level;
 		} else static if (is(T : BuiltinType)) {
 			auto to = c.to;
@@ -210,40 +200,55 @@ Expression buildCast(bool isExplicit)(
 			assert(getSize(to.builtin) < getSize(t));
 
 			import d.semantic.vrp;
-			return ValueRangePropagator!uint(pass).canFit(e, to)
+			return ValueRangePropagator!uint(pass).canFit(value, to)
 				? CastKind.Trunc
 				: CastKind.Invalid;
 		} else {
 			return CastKind.Invalid;
 		}
-	})(pass, to).castFrom(e.type);
+	})(pass, to).castFrom(value.type);
+
+	// A cast that does not change the bits of the value
+	// commutes with the load: perform it on the address
+	// instead, and the value remains addressable.
+	if (value.hasAddress() && kind >= CastKind.Qual) {
+		auto addr = value.getAddress(location).getExpression(location);
+		auto ptr = to.getPointer();
+
+		// The address is an rvalue, so the qualifier of the pointer
+		// itself does not matter, only what it points to.
+		if (addr.type.getCanonical().unqual() == ptr.getCanonical().unqual()) {
+			return value;
+		}
+
+		return Value.withAddress(
+			new CastExpression(location, CastKind.Qual, ptr, addr));
+	}
 
 	switch (kind) with (CastKind) {
 		case Exact:
 			// FIXME: Because we don't cast type qualifier the proper
 			// way, we need to make sure they match.
+			auto e = value.getExpression(location);
 			e.type = e.type.qualify(to.qualifier);
-			return e;
+			return Value.withValue(e);
 
 		default:
-			return new CastExpression(location, kind, to, e);
+			return Value.withValue(
+				new CastExpression(location, kind, to,
+				                   value.getExpression(location)));
 
 		case Invalid:
 			if (to.kind == TypeKind.Error) {
-				return to.error.expression;
-			}
-
-			import d.ir.error;
-			if (auto ee = cast(ErrorExpression) e) {
-				return ee;
+				return Value.withValue(to.error.expression);
 			}
 
 			import std.format;
-			return new CompileError(
+			return value.getError(
 				location,
-				format!"Can't cast %s to %s."(e.type.toString(pass.context),
+				format!"Can't cast %s to %s."(value.type.toString(pass.context),
 				                              to.toString(pass.context)),
-			).expression;
+			);
 	}
 }
 
@@ -709,4 +714,83 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 	CastKind visit(CompileError e) {
 		return CastKind.Invalid;
 	}
+}
+
+unittest {
+	import d.ir.constant;
+
+	auto pass = SemanticPass.getTestSemanticPass();
+
+	auto base = Location.init.start;
+	auto literalLocation = base.getWithOffsets(1, 2);
+	auto castLocation = base.getWithOffsets(3, 4);
+
+	auto cstring =
+		Type.get(BuiltinType.Char).getPointer(TypeQualifier.Immutable);
+
+	// A string literal converted to a C string keeps its location.
+	auto literal =
+		new ConstantExpression(literalLocation, new StringConstant("abc"));
+	auto fromExpression = cast(ConstantExpression)
+		buildImplicitCast(pass, castLocation, cstring, literal);
+	assert(fromExpression !is null);
+	assert(fromExpression.location == literalLocation);
+	assert(cast(CStringConstant) fromExpression.value !is null);
+
+	// A string constant has no location: the cast's is used.
+	auto fromConstant =
+		buildImplicitCast(pass, castLocation, cstring,
+		                  Value.withValue(new StringConstant("abc")));
+	assert(fromConstant.isConstant());
+	assert(cast(CStringConstant) fromConstant.constant !is null);
+}
+
+unittest {
+	import source.name;
+
+	auto pass = SemanticPass.getTestSemanticPass();
+	auto location = Location.init;
+
+	auto i = Type.get(BuiltinType.Int);
+	auto ci = i.qualify(TypeQualifier.Const);
+
+	Value addressOf(Type t) {
+		auto v = new Variable(location, t, BuiltinName!"", null);
+		return Value.withAddress(new VariableExpression(location, v));
+	}
+
+	CastKind addressCastKind(Value v) {
+		auto c = cast(CastExpression) v.getAddress(location).expression;
+		return c is null ? CastKind.Invalid : c.kind;
+	}
+
+	// The same type: the value is returned as is.
+	auto same = addressOf(i);
+	assert(buildImplicitCast(pass, location, i, same) == same);
+
+	// A qualifier that converts: the address is cast.
+	auto toConst = buildImplicitCast(pass, location, ci, addressOf(i));
+	assert(toConst.hasAddress());
+	assert(toConst.type == ci);
+	assert(addressCastKind(toConst) == CastKind.Qual);
+
+	// The cast is done on the address even if the qualifier
+	// does not convert.
+	auto from = addressOf(i.getSlice(TypeQualifier.Const));
+	auto to = ci.getSlice();
+
+	auto explicit = buildExplicitCast(pass, location, to, from);
+	assert(explicit.hasAddress());
+	assert(explicit.type == to);
+	assert(addressCastKind(explicit) == CastKind.Qual);
+
+	auto implicit = buildImplicitCast(pass, location, to, from);
+	assert(implicit.hasAddress());
+	assert(implicit.type == to);
+	assert(addressCastKind(implicit) == CastKind.Qual);
+
+	auto si = i.qualify(TypeQualifier.Shared);
+	auto fromShared = buildImplicitCast(pass, location, i, addressOf(si));
+	assert(fromShared.hasAddress());
+	assert(addressCastKind(fromShared) == CastKind.Qual);
 }
