@@ -16,7 +16,7 @@ private:
 
 public:
 	@property
-	ref ulong[NimbleCount] rawContent() const {
+	ref ulong[NimbleCount] rawContent() {
 		return bits;
 	}
 
