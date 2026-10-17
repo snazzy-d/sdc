@@ -272,10 +272,6 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		}
 	}
 
-	CastKind bailoutDefault(T)(T t) {
-		return CastKind.Invalid;
-	}
-
 	// FIXME: handle qualifiers.
 	CastKind castFrom(Type from) {
 		from = from.getCanonical();
