@@ -215,7 +215,7 @@ int test_foreach_reverse_range() {
 // CHECK-NEXT:    unreachable
 // CHECK:       [[BOUND_OK]]:
 // CHECK-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[DOTPTR]], i64 [[TMP9]]
-// CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[TMP11]], align 4
+// CHECK-NEXT:    [[TMP12:%.*]] = load atomic i32, ptr [[TMP11]] seq_cst, align 4
 // CHECK-NEXT:    store i32 [[TMP12]], ptr [[X]], align 4
 // CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[X]], align 4
 // CHECK-NEXT:    [[TMP14:%.*]] = load i32, ptr [[SUM]], align 4

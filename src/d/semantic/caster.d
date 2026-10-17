@@ -210,8 +210,12 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 
 	// A cast that does not change the bits of the value
 	// commutes with the load: perform it on the address
-	// instead, and the value remains addressable.
-	if (value.hasAddress() && kind >= CastKind.Qual) {
+	// instead, and the value remains addressable. This is
+	// only sound if the qualifier of the value converts to
+	// the target's, or the load would not honor it.
+	if (value.hasAddress() && kind >= CastKind.Qual
+		    && canConvert(value.type.getCanonical().qualifier,
+		                  to.getCanonical().qualifier)) {
 		auto addr = value.getAddress(location).getExpression(location);
 		auto ptr = to.getPointer();
 
@@ -774,23 +778,21 @@ unittest {
 	assert(toConst.type == ci);
 	assert(addressCastKind(toConst) == CastKind.Qual);
 
-	// The cast is done on the address even if the qualifier
-	// does not convert.
+	// A qualifier that does not convert cannot be done on the address,
+	// so the value is cast after being loaded.
 	auto from = addressOf(i.getSlice(TypeQualifier.Const));
 	auto to = ci.getSlice();
 
 	auto explicit = buildExplicitCast(pass, location, to, from);
-	assert(explicit.hasAddress());
+	assert(!explicit.hasAddress());
 	assert(explicit.type == to);
-	assert(addressCastKind(explicit) == CastKind.Qual);
 
 	auto implicit = buildImplicitCast(pass, location, to, from);
-	assert(implicit.hasAddress());
+	assert(!implicit.hasAddress());
 	assert(implicit.type == to);
-	assert(addressCastKind(implicit) == CastKind.Qual);
 
+	// Neither can dropping shared.
 	auto si = i.qualify(TypeQualifier.Shared);
 	auto fromShared = buildImplicitCast(pass, location, i, addressOf(si));
-	assert(fromShared.hasAddress());
-	assert(addressCastKind(fromShared) == CastKind.Qual);
+	assert(!fromShared.hasAddress());
 }
