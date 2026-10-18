@@ -50,3 +50,57 @@ unittest foreach_value_conversion {
 
 	assert(sum == 4);
 }
+
+unittest scope_exit_loops {
+	// Scope guards run at the end of each iteration.
+	uint a;
+	for (int i = 0; i < 5; i++) {
+		assert(a == i);
+
+		scope(exit) a++;
+		assert(a == i);
+
+		a = i;
+		assert(a == i);
+	}
+
+	assert(a == 5);
+}
+
+unittest scope_exit_break {
+	// Scope guards run when breaking out of the loop.
+	uint a;
+	while (true) {
+		scope(exit) a = 23;
+		break;
+	}
+
+	assert(a == 23);
+}
+
+unittest scope_exit_continue {
+	// Scope guards run when continuing the loop.
+	uint a = 23;
+	do {
+		scope(exit) a--;
+
+		if (a > 10) {
+			continue;
+		}
+
+		break;
+	} while (true);
+
+	assert(a == 9);
+}
+
+int scopeExitReturn() {
+	while (true) {
+		scope(exit) return 123;
+	}
+}
+
+unittest scope_exit_return {
+	// A scope guard can return out of an infinite loop.
+	assert(scopeExitReturn() == 123);
+}
