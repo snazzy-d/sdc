@@ -54,6 +54,54 @@ int test_foreach_array(int[10] arr) {
 	return sum;
 }
 
+// CHECK-LABEL: define i32 @_D12foreachloops26test_foreach_reverse_arrayFMG10iZi(
+// CHECK-SAME: [10 x i32] [[ARG_ARR:%.*]]) #[[ATTR0]] {
+// CHECK-NEXT:    [[ARR:%.*]] = alloca [10 x i32], align 4
+// CHECK-NEXT:    store [10 x i32] [[ARG_ARR]], ptr [[ARR]], align 4
+// CHECK-NEXT:    [[SUM:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[TMP1:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[X:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    br label %[[ENTRY:.*]]
+// CHECK:       [[ENTRY]]:
+// CHECK-NEXT:    store i32 0, ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP2:%.*]] = load [10 x i32], ptr [[ARR]], align 4
+// CHECK-NEXT:    store i64 10, ptr [[TMP1]], align 8
+// CHECK-NEXT:    br label %[[LOOP_CONTINUE:.*]]
+// CHECK:       [[LOOP_CONTINUE]]:
+// CHECK-NEXT:    [[TMP3:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP4:%.*]] = sub i64 [[TMP3]], 1
+// CHECK-NEXT:    store i64 [[TMP4]], ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP5:%.*]] = icmp ugt i64 [[TMP3]], 0
+// CHECK-NEXT:    br i1 [[TMP5]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
+// CHECK:       [[LOOP_BODY]]:
+// CHECK-NEXT:    [[TMP6:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP7:%.*]] = icmp ult i64 [[TMP6]], 10
+// CHECK-NEXT:    br i1 [[TMP7]], label %[[BOUND_OK:.*]], label %[[BOUND_FAIL:.*]], !prof [[PROF0]]
+// CHECK:       [[BOUND_FAIL]]:
+// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 98)
+// CHECK-NEXT:    unreachable
+// CHECK:       [[BOUND_OK]]:
+// CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[ARR]], i64 [[TMP6]]
+// CHECK-NEXT:    [[TMP9:%.*]] = load i32, ptr [[TMP8]], align 4
+// CHECK-NEXT:    store i32 [[TMP9]], ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP10:%.*]] = load i32, ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP11:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP12:%.*]] = add i32 [[TMP11]], [[TMP10]]
+// CHECK-NEXT:    store i32 [[TMP12]], ptr [[SUM]], align 4
+// CHECK-NEXT:    br label %[[LOOP_CONTINUE]]
+// CHECK:       [[LOOP_EXIT]]:
+// CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    ret i32 [[TMP13]]
+//
+int test_foreach_reverse_array(int[10] arr) {
+	int sum = 0;
+	foreach_reverse (x; arr) {
+		sum += x;
+	}
+
+	return sum;
+}
+
 // CHECK-LABEL: define i32 @_D12foreachloops18test_foreach_sliceFMAiZi(
 // CHECK-SAME: { i64, ptr } [[ARG_SLICE:%.*]]) #[[ATTR0]] {
 // CHECK-NEXT:    [[SLICE:%.*]] = alloca { i64, ptr }, align 8
@@ -85,7 +133,7 @@ int test_foreach_array(int[10] arr) {
 // CHECK-NEXT:    [[TMP10:%.*]] = icmp ult i64 [[TMP9]], [[DOTLENGTH]]
 // CHECK-NEXT:    br i1 [[TMP10]], label %[[BOUND_OK:.*]], label %[[BOUND_FAIL:.*]], !prof [[PROF0]]
 // CHECK:       [[BOUND_FAIL]]:
-// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 105)
+// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 153)
 // CHECK-NEXT:    unreachable
 // CHECK:       [[BOUND_OK]]:
 // CHECK-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[DOTPTR]], i64 [[TMP9]]
@@ -103,6 +151,58 @@ int test_foreach_array(int[10] arr) {
 int test_foreach_slice(int[] slice) {
 	int sum = 0;
 	foreach (x; slice) {
+		sum += x;
+	}
+
+	return sum;
+}
+
+// CHECK-LABEL: define i32 @_D12foreachloops26test_foreach_reverse_sliceFMAiZi(
+// CHECK-SAME: { i64, ptr } [[ARG_SLICE:%.*]]) #[[ATTR0]] {
+// CHECK-NEXT:    [[SLICE:%.*]] = alloca { i64, ptr }, align 8
+// CHECK-NEXT:    store { i64, ptr } [[ARG_SLICE]], ptr [[SLICE]], align 8
+// CHECK-NEXT:    [[SUM:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    [[TMP1:%.*]] = alloca i64, align 8
+// CHECK-NEXT:    [[X:%.*]] = alloca i32, align 4
+// CHECK-NEXT:    br label %[[ENTRY:.*]]
+// CHECK:       [[ENTRY]]:
+// CHECK-NEXT:    store i32 0, ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds nuw { i64, ptr }, ptr [[SLICE]], i32 0, i32 0
+// CHECK-NEXT:    [[TMP3:%.*]] = load i64, ptr [[TMP2]], align 8
+// CHECK-NEXT:    store i64 [[TMP3]], ptr [[TMP1]], align 8
+// CHECK-NEXT:    br label %[[LOOP_CONTINUE:.*]]
+// CHECK:       [[LOOP_CONTINUE]]:
+// CHECK-NEXT:    [[TMP4:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP5:%.*]] = sub i64 [[TMP4]], 1
+// CHECK-NEXT:    store i64 [[TMP5]], ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP6:%.*]] = icmp ugt i64 [[TMP4]], 0
+// CHECK-NEXT:    br i1 [[TMP6]], label %[[LOOP_BODY:.*]], label %[[LOOP_EXIT:.*]]
+// CHECK:       [[LOOP_BODY]]:
+// CHECK-NEXT:    [[TMP7:%.*]] = load { i64, ptr }, ptr [[SLICE]], align 8
+// CHECK-NEXT:    [[DOTPTR:%.*]] = extractvalue { i64, ptr } [[TMP7]], 1
+// CHECK-NEXT:    [[DOTLENGTH:%.*]] = extractvalue { i64, ptr } [[TMP7]], 0
+// CHECK-NEXT:    [[TMP8:%.*]] = load i64, ptr [[TMP1]], align 8
+// CHECK-NEXT:    [[TMP9:%.*]] = icmp ult i64 [[TMP8]], [[DOTLENGTH]]
+// CHECK-NEXT:    br i1 [[TMP9]], label %[[BOUND_OK:.*]], label %[[BOUND_FAIL:.*]], !prof [[PROF0]]
+// CHECK:       [[BOUND_FAIL]]:
+// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 205)
+// CHECK-NEXT:    unreachable
+// CHECK:       [[BOUND_OK]]:
+// CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i32, ptr [[DOTPTR]], i64 [[TMP8]]
+// CHECK-NEXT:    [[TMP11:%.*]] = load i32, ptr [[TMP10]], align 4
+// CHECK-NEXT:    store i32 [[TMP11]], ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP12:%.*]] = load i32, ptr [[X]], align 4
+// CHECK-NEXT:    [[TMP13:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    [[TMP14:%.*]] = add i32 [[TMP13]], [[TMP12]]
+// CHECK-NEXT:    store i32 [[TMP14]], ptr [[SUM]], align 4
+// CHECK-NEXT:    br label %[[LOOP_CONTINUE]]
+// CHECK:       [[LOOP_EXIT]]:
+// CHECK-NEXT:    [[TMP15:%.*]] = load i32, ptr [[SUM]], align 4
+// CHECK-NEXT:    ret i32 [[TMP15]]
+//
+int test_foreach_reverse_slice(int[] slice) {
+	int sum = 0;
+	foreach_reverse (x; slice) {
 		sum += x;
 	}
 
@@ -211,7 +311,7 @@ int test_foreach_reverse_range() {
 // CHECK-NEXT:    [[TMP10:%.*]] = icmp ult i64 [[TMP9]], [[DOTLENGTH]]
 // CHECK-NEXT:    br i1 [[TMP10]], label %[[BOUND_OK:.*]], label %[[BOUND_FAIL:.*]], !prof [[PROF0]]
 // CHECK:       [[BOUND_FAIL]]:
-// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 231)
+// CHECK-NEXT:    call void @__sd_array_outofbounds({ i64, ptr } { i64 14, ptr @.str }, i32 331)
 // CHECK-NEXT:    unreachable
 // CHECK:       [[BOUND_OK]]:
 // CHECK-NEXT:    [[TMP11:%.*]] = getelementptr inbounds i32, ptr [[DOTPTR]], i64 [[TMP9]]

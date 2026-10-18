@@ -398,8 +398,6 @@ public:
 	}
 
 	void process(ForeachStatement f, LoopVisitor* lv) {
-		assert(!f.reverse, "foreach_reverse not supported at this point.");
-
 		import d.semantic.expression;
 		auto iterated = ExpressionVisitor(pass).visit(f.iterated);
 
@@ -458,6 +456,15 @@ public:
 		}
 
 		assert(idx);
+
+		import d.semantic.caster;
+		length = buildImplicitCast(pass, idx.location, idx.type, length);
+
+		// Iterating in reverse starts past the last element.
+		if (f.reverse) {
+			idx.value = length;
+		}
+
 		currentBlock.alloca(idx.location, idx);
 
 		auto idxExpr =
@@ -465,12 +472,22 @@ public:
 			                     new VariableExpression(idx.location, idx));
 
 		import d.semantic.expression;
-		auto increment = ExpressionVisitor(pass).buildPreInc(loc, idxExpr);
-
-		import d.semantic.caster;
-		length = buildImplicitCast(pass, idx.location, idx.type, length);
-		auto condition =
-			build!ICmpExpression(loc, ICmpOp.SmallerThan, idxExpr, length);
+		Expression increment, condition;
+		if (f.reverse) {
+			// for(idx = length; idx-- > 0;)
+			import d.semantic.defaultinitializer;
+			condition = build!ICmpExpression(
+				loc,
+				ICmpOp.GreaterThan,
+				ExpressionVisitor(pass).buildPostDec(loc, idxExpr),
+				InitBuilder(pass, loc).asExpression(idx.type)
+			);
+		} else {
+			// for(idx = 0; idx < length; idx++)
+			condition =
+				build!ICmpExpression(loc, ICmpOp.SmallerThan, idxExpr, length);
+			increment = ExpressionVisitor(pass).buildPreInc(loc, idxExpr);
+		}
 
 		auto iType = iterated.type.getCanonical();
 		assert(iType.hasElement, "Only array and slice are supported for now.");

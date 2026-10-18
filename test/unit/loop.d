@@ -104,3 +104,89 @@ unittest scope_exit_return {
 	// A scope guard can return out of an infinite loop.
 	assert(scopeExitReturn() == 123);
 }
+
+unittest foreach_array {
+	int[4] a = [1, 2, 3, 4];
+
+	int acc;
+	foreach (i, e; a) {
+		acc = acc * 10 + e;
+		assert(e == i + 1);
+	}
+
+	assert(acc == 1234);
+
+	foreach (ref e; a) {
+		e *= 2;
+	}
+
+	assert(a[0] == 2 && a[3] == 8);
+}
+
+unittest foreach_reverse_array {
+	int[4] a = [1, 2, 3, 4];
+
+	int acc;
+	foreach_reverse (i, e; a) {
+		acc = acc * 10 + e;
+		assert(e == i + 1);
+	}
+
+	assert(acc == 4321);
+
+	foreach_reverse (ref e; a) {
+		e *= 2;
+	}
+
+	assert(a[0] == 2 && a[3] == 8);
+}
+
+unittest foreach_slice {
+	int[] s = [1, 2, 3, 4];
+
+	int acc;
+	foreach (e; s) {
+		acc = acc * 10 + e;
+	}
+
+	assert(acc == 1234);
+
+	size_t indices;
+	foreach (i, ref e; s) {
+		e += 10;
+		indices = indices * 10 + i;
+	}
+
+	assert(indices == 123);
+	assert(s[0] == 11 && s[3] == 14);
+
+	int[] empty;
+	foreach (e; empty) {
+		assert(0);
+	}
+}
+
+unittest foreach_reverse_slice {
+	int[] s = [1, 2, 3, 4];
+
+	int acc;
+	foreach_reverse (e; s) {
+		acc = acc * 10 + e;
+	}
+
+	assert(acc == 4321);
+
+	size_t indices;
+	foreach_reverse (i, ref e; s) {
+		e += 10;
+		indices = indices * 10 + i;
+	}
+
+	assert(indices == 3210);
+	assert(s[0] == 11 && s[3] == 14);
+
+	int[] empty;
+	foreach_reverse (e; empty) {
+		assert(0);
+	}
+}
