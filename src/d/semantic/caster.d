@@ -244,7 +244,7 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 
 		case Invalid:
 			if (to.kind == TypeKind.Error) {
-				return Value.withValue(to.error.expression);
+				return Value.withValue(to.error.constant);
 			}
 
 			import std.format;
