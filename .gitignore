@@ -46,3 +46,6 @@ build.rf
 
 # OSX
 .DS_Store
+
+# LLVM lit
+test/llvm/.lit_test_times.txt
