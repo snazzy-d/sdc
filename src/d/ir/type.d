@@ -377,7 +377,7 @@ public:
 				return format!"shared(%s)"(s);
 
 			case ConstShared:
-				assert(0, "const shared isn't supported");
+				return format!"shared(const(%s))"(s);
 
 			case Immutable:
 				return format!"immutable(%s)"(s);
@@ -527,6 +527,25 @@ unittest {
 	}
 
 	assert(t == i);
+}
+
+unittest {
+	import source.context;
+	auto c = new Context();
+
+	auto i = Type.get(BuiltinType.Int);
+	assert(i.toString(c) == "int");
+	assert(i.qualify(TypeQualifier.Const).toString(c) == "const(int)");
+	assert(i.qualify(TypeQualifier.Shared).toString(c) == "shared(int)");
+	assert(
+		i.qualify(TypeQualifier.ConstShared).toString(c) == "shared(const(int))"
+	);
+	assert(i.qualify(TypeQualifier.Immutable).toString(c) == "immutable(int)");
+
+	auto csi = i.qualify(TypeQualifier.ConstShared);
+	assert(csi.getPointer().toString(c) == "shared(const(int))*");
+	assert(csi.getPointer(TypeQualifier.ConstShared).toString(c)
+		== "shared(const(int*))");
 }
 
 unittest {

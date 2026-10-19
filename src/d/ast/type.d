@@ -232,7 +232,7 @@ public:
 				return "shared(" ~ s ~ ")";
 
 			case ConstShared:
-				assert(0, "const shared isn't supported");
+				return "shared(const(" ~ s ~ "))";
 
 			case Immutable:
 				return "immutable(" ~ s ~ ")";
