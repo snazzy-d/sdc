@@ -836,3 +836,60 @@ unittest {
 	auto fromShared = buildImplicitCast(pass, location, i, addressOf(si));
 	assert(!fromShared.hasAddress());
 }
+
+unittest {
+	auto pass = SemanticPass.getTestSemanticPass();
+
+	auto i = Type.get(BuiltinType.Int);
+	auto u = Type.get(BuiltinType.Uint);
+	auto ci = i.qualify(TypeQualifier.Const);
+	auto ii = i.qualify(TypeQualifier.Immutable);
+	auto si = i.qualify(TypeQualifier.Shared);
+	auto csi = i.qualify(TypeQualifier.ConstShared);
+
+	CastKind kind(Type from, Type to) {
+		return explicitCastFrom(pass, from, to);
+	}
+
+	// An explicit cast can change any qualifier, at any level.
+	// FIXME: This is reported as exact.
+	assert(kind(ci, i) == CastKind.Exact);
+	assert(kind(i, si) == CastKind.Exact);
+
+	auto pi = i.getPointer();
+	assert(kind(ci.getPointer(), pi) == CastKind.Qual);
+	assert(kind(ii.getPointer(), pi) == CastKind.Qual);
+	assert(kind(si.getPointer(), pi) == CastKind.Qual);
+	assert(kind(pi, ii.getPointer()) == CastKind.Qual);
+	assert(kind(ci.getPointer(), ii.getPointer()) == CastKind.Qual);
+	assert(kind(csi.getPointer(), si.getPointer()) == CastKind.Qual);
+
+	auto ppi = pi.getPointer();
+	auto ppci = ci.getPointer().getPointer();
+	assert(kind(ppi, ppci) == CastKind.Qual);
+	assert(kind(ppci, ppi) == CastKind.Qual);
+	assert(kind(ii.getPointer().getPointer(), ppci) == CastKind.Qual);
+	assert(kind(si.getPointer().getPointer(), csi.getPointer().getPointer())
+		== CastKind.Qual);
+
+	assert(kind(ci.getSlice(), i.getSlice()) == CastKind.Qual);
+	assert(kind(i.getSlice(), ii.getSlice()) == CastKind.Qual);
+	assert(
+		kind(i.getSlice().getSlice(), ci.getSlice().getSlice()) == CastKind.Qual
+	);
+	assert(kind(pi.getSlice(), ci.getPointer().getSlice()) == CastKind.Qual);
+
+	assert(kind(ci.getArray(2).getPointer(), i.getArray(2).getPointer())
+		== CastKind.Qual);
+	assert(kind(ci.getPointer().getArray(2), pi.getArray(2)) == CastKind.Qual);
+
+	// FIXME: The qualifier of the elements is not changed.
+	assert(kind(pi.getArray(2, TypeQualifier.Const), pi.getArray(2))
+		== CastKind.Bit);
+
+	// Changing more than qualifiers is not a qualifier cast.
+	assert(kind(pi, u.getPointer()) == CastKind.Bit);
+	assert(kind(ci.getPointer(), u.getPointer()) == CastKind.Bit);
+	assert(kind(ppci, u.getPointer().getPointer()) == CastKind.Bit);
+	assert(kind(ci.getSlice(), u.getSlice()) == CastKind.Bit);
+}
