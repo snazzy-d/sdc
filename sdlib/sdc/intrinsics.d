@@ -25,45 +25,46 @@ ushort bswap(ushort n);
 uint bswap(uint n);
 ulong bswap(ulong n);
 
-ubyte fetchAdd(ubyte* ptr, ubyte value);
-ushort fetchAdd(ushort* ptr, ushort value);
-uint fetchAdd(uint* ptr, uint value);
-ulong fetchAdd(ulong* ptr, ulong value);
+ubyte fetchAdd(shared(ubyte)* ptr, ubyte value);
+ushort fetchAdd(shared(ushort)* ptr, ushort value);
+uint fetchAdd(shared(uint)* ptr, uint value);
+ulong fetchAdd(shared(ulong)* ptr, ulong value);
 
-ubyte fetchSub(ubyte* ptr, ubyte value);
-ushort fetchSub(ushort* ptr, ushort value);
-uint fetchSub(uint* ptr, uint value);
-ulong fetchSub(ulong* ptr, ulong value);
+ubyte fetchSub(shared(ubyte)* ptr, ubyte value);
+ushort fetchSub(shared(ushort)* ptr, ushort value);
+uint fetchSub(shared(uint)* ptr, uint value);
+ulong fetchSub(shared(ulong)* ptr, ulong value);
 
-ubyte fetchAnd(ubyte* ptr, ubyte value);
-ushort fetchAnd(ushort* ptr, ushort value);
-uint fetchAnd(uint* ptr, uint value);
-ulong fetchAnd(ulong* ptr, ulong value);
+ubyte fetchAnd(shared(ubyte)* ptr, ubyte value);
+ushort fetchAnd(shared(ushort)* ptr, ushort value);
+uint fetchAnd(shared(uint)* ptr, uint value);
+ulong fetchAnd(shared(ulong)* ptr, ulong value);
 
-ubyte fetchOr(ubyte* ptr, ubyte value);
-ushort fetchOr(ushort* ptr, ushort value);
-uint fetchOr(uint* ptr, uint value);
-ulong fetchOr(ulong* ptr, ulong value);
+ubyte fetchOr(shared(ubyte)* ptr, ubyte value);
+ushort fetchOr(shared(ushort)* ptr, ushort value);
+uint fetchOr(shared(uint)* ptr, uint value);
+ulong fetchOr(shared(ulong)* ptr, ulong value);
 
-ubyte fetchXor(ubyte* ptr, ubyte value);
-ushort fetchXor(ushort* ptr, ushort value);
-uint fetchXor(uint* ptr, uint value);
-ulong fetchXor(ulong* ptr, ulong value);
+ubyte fetchXor(shared(ubyte)* ptr, ubyte value);
+ushort fetchXor(shared(ushort)* ptr, ushort value);
+uint fetchXor(shared(uint)* ptr, uint value);
+ulong fetchXor(shared(ulong)* ptr, ulong value);
 
 struct CompareAndSwapResult(T) {
 	T value;
 	bool success;
 }
 
-CompareAndSwapResult!ubyte cas(ubyte* ptr, ubyte old, ubyte val);
-CompareAndSwapResult!ushort cas(ushort* ptr, ushort old, ushort val);
-CompareAndSwapResult!uint cas(uint* ptr, uint old, uint val);
-CompareAndSwapResult!ulong cas(ulong* ptr, ulong old, ulong val);
+CompareAndSwapResult!ubyte cas(shared(ubyte)* ptr, ubyte old, ubyte val);
+CompareAndSwapResult!ushort cas(shared(ushort)* ptr, ushort old, ushort val);
+CompareAndSwapResult!uint cas(shared(uint)* ptr, uint old, uint val);
+CompareAndSwapResult!ulong cas(shared(ulong)* ptr, ulong old, ulong val);
 
-CompareAndSwapResult!ubyte casWeak(ubyte* ptr, ubyte old, ubyte val);
-CompareAndSwapResult!ushort casWeak(ushort* ptr, ushort old, ushort val);
-CompareAndSwapResult!uint casWeak(uint* ptr, uint old, uint val);
-CompareAndSwapResult!ulong casWeak(ulong* ptr, ulong old, ulong val);
+CompareAndSwapResult!ubyte casWeak(shared(ubyte)* ptr, ubyte old, ubyte val);
+CompareAndSwapResult!ushort casWeak(shared(ushort)* ptr, ushort old,
+                                    ushort val);
+CompareAndSwapResult!uint casWeak(shared(uint)* ptr, uint old, uint val);
+CompareAndSwapResult!ulong casWeak(shared(ulong)* ptr, ulong old, ulong val);
 
 ulong readCycleCounter();
 void* readFramePointer();

@@ -95,26 +95,26 @@ ulong doBswap(ushort n1, uint n2, ulong n3) {
 	return bswap(n1) + bswap(n2) + bswap(n3);
 }
 
-// CHECK-LABEL: define i1 @_D10intrinsics5doCasFMPkkkZb(
+// CHECK-LABEL: define i1 @_D10intrinsics5doCasFMPOkkkZb(
 // CHECK-SAME: ptr nofree captures(none) [[ARG_PTR:%.*]], i32 [[ARG_OLD:%.*]], i32 [[ARG_VAL:%.*]]) local_unnamed_addr #[[ATTR4:[0-9]+]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[TMP0:%.*]] = cmpxchg ptr [[ARG_PTR]], i32 [[ARG_OLD]], i32 [[ARG_VAL]] seq_cst seq_cst, align 4
 // CHECK-NEXT:    [[TMP1:%.*]] = extractvalue { i32, i1 } [[TMP0]], 1
 // CHECK-NEXT:    ret i1 [[TMP1]]
 //
-bool doCas(uint* ptr, uint old, uint val) {
+bool doCas(shared(uint)* ptr, uint old, uint val) {
 	auto cr = cas(ptr, old, val);
 	return cr.success;
 }
 
-// CHECK-LABEL: define i1 @_D10intrinsics9doCasWeakFMPkkkZb(
+// CHECK-LABEL: define i1 @_D10intrinsics9doCasWeakFMPOkkkZb(
 // CHECK-SAME: ptr nofree captures(none) [[ARG_PTR:%.*]], i32 [[ARG_OLD:%.*]], i32 [[ARG_VAL:%.*]]) local_unnamed_addr #[[ATTR4]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
 // CHECK-NEXT:    [[TMP0:%.*]] = cmpxchg weak ptr [[ARG_PTR]], i32 [[ARG_OLD]], i32 [[ARG_VAL]] seq_cst seq_cst, align 4
 // CHECK-NEXT:    [[TMP1:%.*]] = extractvalue { i32, i1 } [[TMP0]], 1
 // CHECK-NEXT:    ret i1 [[TMP1]]
 //
-bool doCasWeak(uint* ptr, uint old, uint val) {
+bool doCasWeak(shared(uint)* ptr, uint old, uint val) {
 	auto cr = casWeak(ptr, old, val);
 	return cr.success;
 }
