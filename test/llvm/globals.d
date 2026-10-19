@@ -40,7 +40,7 @@ immutable S immutableStruct;
 // CHECK: @_D7globals14constSharedIntxOi = global i32 2
 // CHECK: @_D7globals12immutableIntyi = constant i32 3
 // CHECK: @_D7globals10gsharedInti = thread_local global i32 0
-// CHECK: @_D7globals16aliasedSharedInti = thread_local global i32 0
+// CHECK: @_D7globals16aliasedSharedIntOi = thread_local global i32 0
 // CHECK: @_D7globals14mutablePointerPi = thread_local global ptr null
 // CHECK: @_D7globals15pointerToSharedPOi = thread_local global ptr null
 // CHECK: @_D7globals13sharedPointerOPOi = global ptr null

@@ -224,17 +224,14 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 	if (value.hasAddress() && kind >= CastKind.Qual
 		    && canConvert(value.type.getCanonical().qualifier,
 		                  to.getCanonical().qualifier)) {
-		auto addr = value.getAddress(location).getExpression(location);
-		auto ptr = to.getPointer();
-
-		// The address is an rvalue, so the qualifier of the pointer
-		// itself does not matter, only what it points to.
-		if (addr.type.getCanonical().unqual() == ptr.getCanonical().unqual()) {
+		// The value already has the right type.
+		if (kind == CastKind.Exact) {
 			return value;
 		}
 
+		auto addr = value.getAddress(location).getExpression(location);
 		return Value.withAddress(
-			new CastExpression(location, CastKind.Qual, ptr, addr));
+			new CastExpression(location, CastKind.Qual, to.getPointer(), addr));
 	}
 
 	switch (kind) with (CastKind) {
@@ -289,7 +286,6 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		}
 	}
 
-	// FIXME: handle qualifiers.
 	CastKind castFrom(Type from) {
 		from = from.getCanonical();
 		to = to.getCanonical();
@@ -298,7 +294,12 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Exact;
 		}
 
-		return from.accept(this);
+		// The visitors do not consider qualifiers, so a cast to what only
+		// differs by its qualifier is a qualifier cast.
+		auto kind = from.accept(this);
+		return (kind == CastKind.Exact && from.qualifier != to.qualifier)
+			? CastKind.Qual
+			: kind;
 	}
 
 	CastKind subCast(Type from, Type to) {
@@ -449,14 +450,14 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		auto subCast = subCast(t, e);
 		switch (subCast) with (CastKind) {
 			case Qual:
-				if (canConvert(t.qualifier, e.qualifier)) {
+				if (isExplicit || canConvert(t.qualifier, e.qualifier)) {
 					return Qual;
 				}
 
 				goto default;
 
 			case Exact:
-				return Qual;
+				return Exact;
 
 			case Bit:
 				bool canConvert =
@@ -482,14 +483,14 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		auto subCast = subCast(t, e);
 		switch (subCast) with (CastKind) {
 			case Qual:
-				if (canConvert(t.qualifier, e.qualifier)) {
+				if (isExplicit || canConvert(t.qualifier, e.qualifier)) {
 					return Qual;
 				}
 
 				goto default;
 
 			case Exact:
-				return Qual;
+				return Exact;
 
 			case Bit:
 				bool canConvert =
@@ -516,17 +517,13 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		auto e = to.element.getCanonical();
 
+		// The elements are copied with the array, so changing
+		// their qualifier is just like changing the qualifier of
+		// any other value.
 		auto subCast = subCast(t, e);
 		switch (subCast) with (CastKind) {
-			case Qual:
-				if (canConvert(t.qualifier, e.qualifier)) {
-					return Qual;
-				}
-
-				goto default;
-
-			case Exact:
-				return Exact;
+			case Qual, Exact:
+				return subCast;
 
 			case Bit:
 				bool canConvert =
@@ -841,6 +838,34 @@ unittest {
 	auto pass = SemanticPass.getTestSemanticPass();
 
 	auto i = Type.get(BuiltinType.Int);
+	auto ci = i.qualify(TypeQualifier.Const);
+	auto si = i.qualify(TypeQualifier.Shared);
+
+	// An exact cast is a cast to the very same type.
+	assert(implicitCastFrom(pass, i, i) == CastKind.Exact);
+	assert(
+		implicitCastFrom(pass, i.getArray(2), i.getArray(2)) == CastKind.Exact);
+
+	// Changing only the qualifier is a qualifier cast, whatever the type.
+	assert(implicitCastFrom(pass, i, ci) == CastKind.Qual);
+	assert(implicitCastFrom(pass, i, si) == CastKind.Qual);
+	assert(
+		implicitCastFrom(pass, i.getPointer(), ci.getPointer()) == CastKind.Qual
+	);
+	assert(
+		implicitCastFrom(pass, i.getArray(2), ci.getArray(2)) == CastKind.Qual);
+
+	// What a pointer points to cannot lose its qualifier implicitly.
+	assert(implicitCastFrom(pass, ci.getPointer(), i.getPointer())
+		== CastKind.Invalid);
+	assert(implicitCastFrom(pass, si.getPointer(), i.getPointer())
+		== CastKind.Invalid);
+}
+
+unittest {
+	auto pass = SemanticPass.getTestSemanticPass();
+
+	auto i = Type.get(BuiltinType.Int);
 	auto u = Type.get(BuiltinType.Uint);
 	auto ci = i.qualify(TypeQualifier.Const);
 	auto ii = i.qualify(TypeQualifier.Immutable);
@@ -852,9 +877,8 @@ unittest {
 	}
 
 	// An explicit cast can change any qualifier, at any level.
-	// FIXME: This is reported as exact.
-	assert(kind(ci, i) == CastKind.Exact);
-	assert(kind(i, si) == CastKind.Exact);
+	assert(kind(ci, i) == CastKind.Qual);
+	assert(kind(i, si) == CastKind.Qual);
 
 	auto pi = i.getPointer();
 	assert(kind(ci.getPointer(), pi) == CastKind.Qual);
@@ -883,9 +907,8 @@ unittest {
 		== CastKind.Qual);
 	assert(kind(ci.getPointer().getArray(2), pi.getArray(2)) == CastKind.Qual);
 
-	// FIXME: The qualifier of the elements is not changed.
 	assert(kind(pi.getArray(2, TypeQualifier.Const), pi.getArray(2))
-		== CastKind.Bit);
+		== CastKind.Qual);
 
 	// Changing more than qualifiers is not a qualifier cast.
 	assert(kind(pi, u.getPointer()) == CastKind.Bit);

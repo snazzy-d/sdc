@@ -24,9 +24,9 @@ shared uint a;
 // O0-NEXT:    br label %[[ENTRY:.*]]
 // O0:       [[ENTRY]]:
 // O0-NEXT:    [[TMP1:%.*]] = load atomic ptr, ptr [[PTR]] seq_cst, align 8
-// O0-NEXT:    [[TMP2:%.*]] = load atomic i32, ptr [[VAL]] seq_cst, align 4
+// O0-NEXT:    [[TMP2:%.*]] = load i32, ptr [[VAL]], align 4
 // O0-NEXT:    store atomic i32 [[TMP2]], ptr [[TMP1]] seq_cst, align 4
-// O0-NEXT:    [[TMP3:%.*]] = load atomic i32, ptr [[VAL]] seq_cst, align 4
+// O0-NEXT:    [[TMP3:%.*]] = load i32, ptr [[VAL]], align 4
 // O0-NEXT:    store atomic i32 [[TMP3]], ptr @_D9memaccess1aOk seq_cst, align 4
 // O0-NEXT:    [[TMP4:%.*]] = load atomic i32, ptr @_D9memaccess1aOk seq_cst, align 4
 // O0-NEXT:    [[TMP5:%.*]] = load atomic ptr, ptr [[PTR]] seq_cst, align 8

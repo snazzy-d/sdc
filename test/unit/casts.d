@@ -62,9 +62,8 @@ unittest explicit_qualifier_casts {
 	assert(cast(void*) &cast(int[2]*) cpa is cast(void*) &cpa);
 	assert(cast(void*) &cast(int*[2]) cpa1 is cast(void*) &cpa1);
 
-	// FIXME: The qualifier of the elements is not changed.
-	// const(int*)[2] cpa2 = [p, p];
-	// assert(cast(void*) &cast(int*[2]) cpa2 is cast(void*) &cpa2);
+	const(int*)[2] cpa2 = [p, p];
+	assert(cast(void*) &cast(int*[2]) cpa2 is cast(void*) &cpa2);
 }
 
 unittest static_array_qualifier {
@@ -145,10 +144,9 @@ unittest implicit_qualifier_conversions {
 	const(shared(int[2]))* cpsa = psa;
 	assert((*cpsa)[1] == 2);
 
-	// FIXME: The qualifier of the pointers is not looked through.
-	// const(int*)[2] cpa5 = pa2;
-	// const(int)*[2] cpa6 = cpa5;
-	// assert(*cpa6[0] == 1);
+	const(int*)[2] cpa5 = pa2;
+	const(int)*[2] cpa6 = cpa5;
+	assert(*cpa6[0] == 1);
 
 	// Shared and immutable data can both be referred to as const shared.
 	shared(int)* sp = &si;

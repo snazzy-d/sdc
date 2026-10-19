@@ -28,7 +28,7 @@ int main() {
 		assert(str2[j] == str[k++]);
 	}
 
-	foreach (char* it; str.ptr .. str.ptr + str.length) {
+	foreach (immutable(char)* it; str.ptr .. str.ptr + str.length) {
 		assert(*it == str[i]);
 		i++;
 	}
