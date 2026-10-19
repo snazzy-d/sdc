@@ -306,6 +306,29 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		return Caster!isExplicit(pass, to).castFrom(from);
 	}
 
+	/**
+	 * Through an indirection, the original and the converted types refer to
+	 * the same data, so anything written through one must be valid for the
+	 * other. The qualifier of what is referred to can only become const, and
+	 * as long as it is writable, nothing below it can change, or one could
+	 * store something that breaks the guarantees of the original type. An
+	 * explicit cast can change any qualifier.
+	 */
+	CastKind castReferred(Type from, Type to) {
+		auto kind = subCast(from, to);
+		if (isExplicit || kind == CastKind.Exact) {
+			return kind;
+		}
+
+		if (!canConvert(from.qualifier, to.qualifier)) {
+			return CastKind.Invalid;
+		}
+
+		return (kind == CastKind.Qual && to.qualifier.isWritable())
+			? CastKind.Invalid
+			: kind;
+	}
+
 	CastKind castParam(ParamType from, ParamType to) {
 		if (from.isRef != to.isRef) {
 			return CastKind.Invalid;
@@ -447,26 +470,16 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				: CastKind.Invalid;
 		}
 
-		auto subCast = subCast(t, e);
+		auto subCast = castReferred(t, e);
 		switch (subCast) with (CastKind) {
 			case Qual:
-				if (isExplicit || canConvert(t.qualifier, e.qualifier)) {
-					return Qual;
-				}
-
-				goto default;
+				return Qual;
 
 			case Exact:
 				return Exact;
 
 			case Bit:
-				bool canConvert =
-					!isExplicit && canConvert(t.qualifier, e.qualifier);
-				if (canConvert) {
-					return subCast;
-				}
-
-				goto default;
+				return Bit;
 
 			default:
 				return isExplicit ? Bit : Invalid;
@@ -480,26 +493,16 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		auto e = to.element.getCanonical();
 
-		auto subCast = subCast(t, e);
+		auto subCast = castReferred(t, e);
 		switch (subCast) with (CastKind) {
 			case Qual:
-				if (isExplicit || canConvert(t.qualifier, e.qualifier)) {
-					return Qual;
-				}
-
-				goto default;
+				return Qual;
 
 			case Exact:
 				return Exact;
 
 			case Bit:
-				bool canConvert =
-					!isExplicit && canConvert(t.qualifier, e.qualifier);
-				if (canConvert) {
-					return subCast;
-				}
-
-				goto default;
+				return Bit;
 
 			default:
 				return isExplicit ? Bit : Invalid;
@@ -517,22 +520,12 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		auto e = to.element.getCanonical();
 
-		// The elements are copied with the array, so changing
-		// their qualifier is just like changing the qualifier of
-		// any other value.
+		// The elements are stored in the array, so their qualifier
+		// can change just like the qualifier of the array itself.
 		auto subCast = subCast(t, e);
 		switch (subCast) with (CastKind) {
-			case Qual, Exact:
+			case Qual, Exact, Bit:
 				return subCast;
-
-			case Bit:
-				bool canConvert =
-					!isExplicit && canConvert(t.qualifier, e.qualifier);
-				if (canConvert) {
-					return subCast;
-				}
-
-				goto default;
 
 			default:
 				return isExplicit ? Bit : Invalid;
