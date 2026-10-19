@@ -39,24 +39,49 @@ private:
 	}
 
 	bool allowUnreachable;
-	BreakKind breakKind;
 
 	UnwindInfo[] unwindActions;
 
 	VariableExpression retval;
 
+	enum BreakKind {
+		None,
+		Loop,
+		Switch,
+	}
+
 	struct Label {
 		BasicBlockRef block;
-		uint level;
-
 		alias block this;
+
+		import std.bitmanip;
+		mixin(bitfields!(
+			// sdfmt off
+			uint, "level", 30,
+			BreakKind, "breakKind", 2,
+			// sdfmt on
+		));
+
+		this(BasicBlockRef block, size_t level) in(level < 1 << 30) {
+			this.block = block;
+			this.level = cast(uint) level;
+		}
+
+		this(BreakKind breakKind, size_t level) in(level < 1 << 30) {
+			this.breakKind = breakKind;
+			this.level = cast(uint) level;
+		}
 	}
+
+	// The label of the innermost loop or switch, if it has one.
+	Name breakName;
 
 	Label breakLabel;
 	Label continueLabel;
 
 	Label[Name] labels;
 	Label[Name] namedContinues;
+	Label[Name] namedBreaks;
 
 	// Forward goto can only be resolved when the label is reached.
 	struct UnresolvedGoto {
@@ -604,34 +629,90 @@ public:
 		return maybeBranchTo(location, l.block);
 	}
 
+	void restoreBreak(Label oldBreakLabel, Name oldBreakName, Name label) {
+		auto block = breakLabel.block;
+
+		breakName = oldBreakName;
+		breakLabel = oldBreakLabel;
+
+		if (label != BuiltinName!"") {
+			if (!block) {
+				// Unfortunately, D doesn't provide a way to extract
+				// a value from the map, so we must double lookup.
+				block = namedBreaks[label].block;
+			}
+
+			namedBreaks.remove(label);
+		}
+
+		currentBlockRef = block;
+	}
+
 	Label getBreakLabel(Location location, Name name = BuiltinName!"") {
+		if (name == breakName) {
+			name = BuiltinName!"";
+		}
+
+		auto l = &breakLabel;
 		if (name != BuiltinName!"") {
-			import source.exception;
-			throw new CompileException(
-				location, "Labeled break statement are not supported.");
+			l = name in namedBreaks;
+			if (l is null) {
+				import source.exception;
+				throw new CompileException(
+					location, "No corresponding label for this break statement."
+				);
+			}
 		}
 
-		if (breakLabel) {
-			return breakLabel;
+		// If the exit has already been created, just return.
+		if (l.block) {
+			return *l;
 		}
 
-		final switch (breakKind) with (BreakKind) {
+		// If we have a corresponding named break, make sure we keep it in sync.
+		auto namedBreak =
+			(name == BuiltinName!"" && breakName != BuiltinName!"")
+				? breakName in namedBreaks
+				: null;
+
+		// A labeled break from an inner loop or switch may already have
+		// created the exit, but only updated namedBreaks.
+		if (namedBreak !is null && namedBreak.block) {
+			breakLabel = *namedBreak;
+			return *namedBreak;
+		}
+
+		/**
+		 * The exit is only created when a break statement targets it, so
+		 * the code after the loop or switch is only reachable then. At this
+		 * stage, we do not know if the break point is reachable or not, so
+		 * a break in unreachable code still makes it reachable.
+		 */
+		Name blockName;
+		final switch (l.breakKind) with (BreakKind) {
 			case None:
 				import source.exception;
 				throw new CompileException(
 					location, "Cannot break outside of switches and loops.");
 
 			case Loop:
-				name = BuiltinName!"loop.exit";
+				blockName = BuiltinName!"loop.exit";
 				break;
 
 			case Switch:
-				name = BuiltinName!"endswitch";
+				blockName = BuiltinName!"endswitch";
 				break;
 		}
 
-		breakLabel.block = makeNewBranch(name);
-		return breakLabel;
+		auto block = makeNewBranch(blockName);
+
+		// Also update the named break.
+		if (namedBreak !is null) {
+			namedBreak.block = block;
+		}
+
+		l.block = block;
+		return *l;
 	}
 
 	void visit(BreakStatement s) {
@@ -650,7 +731,7 @@ public:
 			);
 		}
 
-		if (continueLabel) {
+		if (continueLabel.block) {
 			return continueLabel;
 		}
 
@@ -734,7 +815,11 @@ public:
 	}
 
 	void visit(SwitchStatement s) {
-		auto oldBreakKind = breakKind;
+		visit(s, BuiltinName!"");
+	}
+
+	void visit(SwitchStatement s, Name label) {
+		auto oldBreakName = breakName;
 		auto oldBreakLabel = breakLabel;
 		auto oldCases = cases;
 		auto oldSwitchStack = switchStack;
@@ -746,10 +831,8 @@ public:
 		}
 
 		scope(exit) {
-			currentBlockRef = breakLabel.block;
+			restoreBreak(oldBreakLabel, oldBreakName, label);
 
-			breakKind = oldBreakKind;
-			breakLabel = oldBreakLabel;
 			cases = oldCases;
 			switchStack = oldSwitchStack;
 
@@ -759,13 +842,16 @@ public:
 		}
 
 		switchStack = varStack;
-		breakKind = BreakKind.Switch;
+		breakName = label;
 
 		auto switchBlock = currentBlockRef;
 
 		cases = [CaseEntry.init];
 
-		breakLabel = Label(BasicBlockRef.init, cast(uint) unwindActions.length);
+		breakLabel = Label(BreakKind.Switch, unwindActions.length);
+		if (label != BuiltinName!"") {
+			namedBreaks[label] = breakLabel;
+		}
 
 		currentBlockRef = null;
 		visit(s.statement);
@@ -872,7 +958,7 @@ public:
 
 		auto caseBlock = maybeBranchToNewBlock(s.location, BuiltinName!"case");
 		fixupGoto(s.location, BuiltinName!"case",
-		          Label(caseBlock, cast(uint) unwindActions.length));
+		          Label(caseBlock, unwindActions.length));
 
 		foreach (e; s.cases) {
 			auto c = cast(uint) evalIntegral(buildExpression(e));
@@ -898,7 +984,7 @@ public:
 		}
 
 		auto labelBlock = maybeBranchToNewBlock(s.location, name);
-		auto label = Label(labelBlock, cast(uint) unwindActions.length);
+		auto label = Label(labelBlock, unwindActions.length);
 		labels[name] = label;
 		labelStacks[name] = varStack;
 
@@ -906,6 +992,8 @@ public:
 
 		if (auto ls = cast(LoopStatement) s.statement) {
 			LoopVisitor(&this, name).visit(ls);
+		} else if (auto ss = cast(SwitchStatement) s.statement) {
+			visit(ss, name);
 		} else {
 			visit(s.statement);
 		}
@@ -1271,12 +1359,6 @@ public:
 
 private:
 
-enum BreakKind {
-	None,
-	Loop,
-	Switch,
-}
-
 struct UnwindInfo {
 private:
 	import std.bitmanip;
@@ -1400,18 +1482,20 @@ struct LoopVisitor {
 		Variable element = null,
 		bool skipFirstCond = false,
 	) {
-		auto oldBreakKind = breakKind;
+		auto oldBreakName = breakName;
 		auto oldBreakLabel = breakLabel;
 		auto oldContinueLabel = continueLabel;
 		scope(exit) {
-			currentBlockRef = breakLabel.block;
+			restoreBreak(oldBreakLabel, oldBreakName, label);
 
-			breakKind = oldBreakKind;
-			breakLabel = oldBreakLabel;
 			continueLabel = oldContinueLabel;
+
+			if (label != BuiltinName!"") {
+				namedContinues.remove(label);
+			}
 		}
 
-		breakKind = BreakKind.Loop;
+		breakName = label;
 
 		auto entryBlock = currentBlockRef;
 		auto incBlock = startNewBranch(BuiltinName!"loop.continue");
@@ -1423,22 +1507,12 @@ struct LoopVisitor {
 			maybeBranchToNewBlock(location, BuiltinName!"loop.test");
 		auto bodyBlock = startNewBranch(BuiltinName!"loop.body");
 
-		continueLabel = Label(incBlock, cast(uint) unwindActions.length);
-		breakLabel = Label(BasicBlockRef.init, cast(uint) unwindActions.length);
+		continueLabel = Label(incBlock, unwindActions.length);
+		breakLabel = Label(BreakKind.Loop, unwindActions.length);
 
-		/**
-		 * We could do the same for break statement, but this is more complex.
-		 * At this stage, we do not know if the break point is reachable or not,
-		 * and by the time we compute that, only the inner loop is available.
-		 */
 		if (label != BuiltinName!"") {
 			namedContinues[label] = continueLabel;
-		}
-
-		scope(exit) {
-			if (label != BuiltinName!"") {
-				namedContinues.remove(label);
-			}
+			namedBreaks[label] = breakLabel;
 		}
 
 		if (element !is null) {

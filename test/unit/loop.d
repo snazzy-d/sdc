@@ -15,7 +15,6 @@ unittest labeled_continue {
 	assert(m == 168);
 }
 
-/*
 unittest labeled_break {
 	uint k;
 	Outer: foreach (i; 0 .. 42) {
@@ -29,7 +28,20 @@ unittest labeled_break {
 
 	assert(k == 4);
 }
-// */
+
+unittest labeled_break_only_exit {
+	uint k;
+	Outer: while (true) {
+		foreach (i; 0 .. 42) {
+			k = i;
+			if (i > 3) {
+				break Outer;
+			}
+		}
+	}
+
+	assert(k == 4);
+}
 
 unittest foreach_ref_qualifier_conversion {
 	// A qualifier change that is only read through binds by ref.
