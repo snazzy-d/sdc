@@ -13,7 +13,7 @@ immutable EXE_EXTENSION = ".bin";
 
 string getTestFilename(int n) {
 	import std.format;
-	return format("test/valid/test%04s.d", n);
+	return format("test/legacy/test%04s.d", n);
 }
 
 enum Mode {
