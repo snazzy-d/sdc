@@ -1160,6 +1160,12 @@ struct SymbolAnalyzer {
 
 		import d.semantic.expression;
 		auto value = ExpressionVisitor(pass).visit(e);
+
+		// The value has the type the enum is based on.
+		import d.semantic.caster;
+		auto base = m.type.denum.type;
+		value = buildImplicitCast(pass, value.location, base, value);
+
 		m.value = requireConstant(value);
 		m.step = Step.Processed;
 	}
