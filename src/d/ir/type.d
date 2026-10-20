@@ -278,7 +278,10 @@ public:
 
 		// XXX: Consider caching in context.
 		auto n = new inout(Type)(t.desc, t.payload);
-		return inout(Type)(Desc(TypeKind.Array, q, size), n);
+
+		// The elements are stored in the array, so the
+		// array has the qualifier of its elements.
+		return inout(Type)(Desc(TypeKind.Array, t.qualifier, size), n);
 	}
 
 	bool hasElement() const {
@@ -553,6 +556,20 @@ unittest {
 	auto ai = i.getArray(42);
 	assert(i == ai.element);
 	assert(ai.size == 42);
+}
+
+unittest {
+	// A static array has the qualifier of its elements.
+	auto i = Type.get(BuiltinType.Int);
+	auto ci = i.qualify(TypeQualifier.Const);
+
+	auto cai = ci.getArray(2);
+	assert(cai.qualifier == TypeQualifier.Const);
+	assert(cai.element == ci);
+
+	auto aci = i.getArray(2).qualify(TypeQualifier.Const);
+	assert(aci.qualifier == TypeQualifier.Const);
+	assert(aci.element == ci);
 }
 
 unittest {

@@ -48,9 +48,9 @@ immutable S immutableStruct;
 // CHECK: @_D7globals16immutablePointeryPyi = constant ptr null
 // CHECK: @_D7globals12mutableArrayG2i = thread_local global [2 x i32] zeroinitializer
 // CHECK: @_D7globals11sharedArrayOG2Oi = global [2 x i32] zeroinitializer
-// CHECK: @_D7globals13arrayOfSharedG2Oi = thread_local global [2 x i32] zeroinitializer
+// CHECK: @_D7globals13arrayOfSharedOG2Oi = global [2 x i32] zeroinitializer
 // CHECK: @_D7globals14immutableArrayyG2yi = constant [2 x i32] [i32 4, i32 5]
-// CHECK: @_D7globals16arrayOfImmutableG2yi = thread_local global [2 x i32] [i32 6, i32 7]
+// CHECK: @_D7globals16arrayOfImmutableyG2yi = constant [2 x i32] [i32 6, i32 7]
 // CHECK: @_D7globals13mutableStructS7globals1S = thread_local global %S7globals1S zeroinitializer
 // CHECK: @_D7globals12sharedStructOS7globals1S = global %S7globals1S zeroinitializer
 // CHECK: @_D7globals15immutableStructyS7globals1S = constant %S7globals1S zeroinitializer
