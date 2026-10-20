@@ -55,3 +55,17 @@ unittest enum_vrp {
 	ubyte fb = Foo.Bar;
 	assert(fb == 42);
 }
+
+enum Second {
+	B = 5,
+	A = 2,
+}
+
+Second gSecond;
+
+unittest enum_default_value {
+	// The default value is the first member.
+	Second s;
+	assert(s == Second.B);
+	assert(gSecond == Second.B);
+}

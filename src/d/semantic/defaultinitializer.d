@@ -135,7 +135,14 @@ struct InitBuilder {
 	}
 
 	Constant visit(Enum e) {
-		assert(0, "Not implemented.");
+		// The default value of an enum is its first member.
+		scheduler.require(e);
+
+		auto first = e.entries[0];
+		scheduler.require(first);
+
+		import d.ir.expression;
+		return new CastConstant(CastKind.Bit, Type.get(e), first.value);
 	}
 
 	Constant visit(TypeAlias a) {
