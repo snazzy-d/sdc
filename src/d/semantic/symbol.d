@@ -1166,7 +1166,8 @@ struct SymbolAnalyzer {
 		auto base = m.type.denum.type;
 		value = buildImplicitCast(pass, value.location, base, value);
 
-		m.value = requireConstant(value);
+		m.value =
+			new CastConstant(CastKind.Bit, m.type, requireConstant(value));
 		m.step = Step.Processed;
 	}
 

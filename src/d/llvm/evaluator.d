@@ -364,8 +364,8 @@ struct JitRepacker {
 	}
 
 	Constant visit(Enum e) {
-		// TODO: build implicit cast.
-		return visit(e.type);
+		import d.ir.expression;
+		return new CastConstant(CastKind.Bit, Type.get(e), visit(e.type));
 	}
 
 	Constant visit(TypeAlias a) {

@@ -63,3 +63,24 @@ unittest variables {
 	SizeOf!ulong = 69;
 	assert(SizeOf!ulong == 69);
 }
+
+enum Kind {
+	A,
+	B,
+}
+
+Kind pick(Kind K)() {
+	return K;
+}
+
+Kind getB() {
+	return Kind.B;
+}
+
+unittest enum_value_parameter {
+	assert(pick!(Kind.A)() == Kind.A);
+	assert(pick!(Kind.B)() == Kind.B);
+
+	// Evaluated at compile time.
+	assert(pick!(getB())() == Kind.B);
+}

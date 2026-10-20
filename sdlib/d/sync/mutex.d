@@ -415,8 +415,8 @@ private:
 		return unlockSlowImpl!(UnlockKind.Condition)(current, wp);
 	}
 
-	bool unlockSlowImpl(/* UnlockKind */ int Kind)(size_t current,
-	                                               WaitParams* wp) shared {
+	bool unlockSlowImpl(UnlockKind Kind)(size_t current,
+	                                     WaitParams* wp) shared {
 		enum Fair = Kind == UnlockKind.Fair;
 		enum Condition = Kind == UnlockKind.Condition;
 		if (Condition) {

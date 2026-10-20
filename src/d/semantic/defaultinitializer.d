@@ -140,9 +140,7 @@ struct InitBuilder {
 
 		auto first = e.entries[0];
 		scheduler.require(first);
-
-		import d.ir.expression;
-		return new CastConstant(CastKind.Bit, Type.get(e), first.value);
+		return first.value;
 	}
 
 	Constant visit(TypeAlias a) {
