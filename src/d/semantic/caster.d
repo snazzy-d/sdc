@@ -208,6 +208,14 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 		}
 	})(pass, to).castFrom(value.type);
 
+	// A cast of a constant is a constant, unless it needs to inspect the
+	// value at runtime.
+	bool isConstantCast = kind != CastKind.Invalid && kind != CastKind.Exact
+		&& kind != CastKind.Down;
+	if (constant !is null && isConstantCast) {
+		return Value.withValue(new CastConstant(kind, to, constant));
+	}
+
 	// A cast that does not change the bits of the value
 	// commutes with the load: perform it on the address
 	// instead, and the value remains addressable. This is
@@ -747,6 +755,38 @@ unittest {
 		                  Value.withValue(new StringConstant("abc")));
 	assert(fromConstant.isConstant());
 	assert(cast(CStringConstant) fromConstant.constant !is null);
+
+	// A string literal is immutable(char[]), and string is
+	// immutable(char)[], so this is a qualifier cast.
+	auto literalType =
+		Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable)
+		    .qualify(TypeQualifier.Immutable);
+	auto stringType =
+		Type.get(BuiltinType.Char).qualify(TypeQualifier.Immutable).getSlice();
+	auto str = new StringConstant("abc");
+	assert(str.type == literalType);
+
+	auto qualified =
+		buildImplicitCast(pass, castLocation, stringType, Value.withValue(str));
+	assert(qualified.isConstant());
+
+	auto cc = cast(CastConstant) qualified.constant;
+	assert(cc !is null);
+	assert(cc.kind == CastKind.Qual);
+	assert(cc.type == stringType);
+	assert(cc.value is str);
+
+	// An integer cast to a pointer is a constant too.
+	auto zero = new IntegerConstant(0, BuiltinType.Ulong);
+	auto voidPtr = Type.get(BuiltinType.Void).getPointer();
+	auto fromInt =
+		buildExplicitCast(pass, castLocation, voidPtr, Value.withValue(zero));
+	assert(fromInt.isConstant());
+
+	auto ic = cast(CastConstant) fromInt.constant;
+	assert(ic !is null);
+	assert(ic.kind == CastKind.UnsignedToPointer);
+	assert(ic.value is zero);
 }
 
 unittest {

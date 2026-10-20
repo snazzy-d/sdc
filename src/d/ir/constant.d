@@ -232,6 +232,28 @@ class FunctionConstant : Constant {
 }
 
 /**
+ * A constant cast to another type.
+ */
+class CastConstant : Constant {
+	import d.ir.expression;
+	CastKind kind;
+
+	Constant value;
+
+	this(CastKind kind, Type type, Constant value) {
+		super(type);
+
+		this.kind = kind;
+		this.value = value;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"cast(%s) %s"(type.toString(c), value.toString(c));
+	}
+}
+
+/**
  * Link-time address of a global.
  *
  * Relocatable: the linker fills in the real address. Only valid for

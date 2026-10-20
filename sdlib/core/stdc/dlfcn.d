@@ -1,20 +1,14 @@
 module core.stdc.dlfcn;
 
+enum RTLD_DEFAULT = cast(void*) 0;
+
 /**
- * FIXME:
- * Ideally, we'd want the following:
- *   enum RTLD_DEFAULT = cast(void*) 0;
+ * FIXME: Ideally, we'd want the following:
  *   enum RTLD_NEXT = cast(void*) -1L;
  *
- * but SDC currently does not support integral to
- * pointer casts at compile time. Instead, we use
- * properties that emulate the desired behavior.
+ * but SDC currently does not fold the negation before casting.
+ * Instead, we use a property that emulates the desired behavior.
  */
-@property
-auto RTLD_DEFAULT() {
-	return cast(void*) 0;
-}
-
 @property
 auto RTLD_NEXT() {
 	return cast(void*) -1L;

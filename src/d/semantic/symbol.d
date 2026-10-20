@@ -490,12 +490,24 @@ struct SymbolAnalyzer {
 	private auto requireConstant(Expression e) {
 		auto c = evaluate(e);
 
-		if (auto gc = cast(GlobalConstant) c) {
-			if (!gc.symbol.hasLinkTimeAddress()) {
-				import source.exception;
-				throw new CompileException(
-					e.location, "Cannot use this address as a constant.");
+		static struct LinkTimeChecker {
+			bool visit(Constant c) {
+				return this.dispatch!(c => true)(c);
 			}
+
+			bool visit(GlobalConstant c) {
+				return c.symbol.hasLinkTimeAddress();
+			}
+
+			bool visit(CastConstant c) {
+				return visit(c.value);
+			}
+		}
+
+		if (!LinkTimeChecker().visit(c)) {
+			import source.exception;
+			throw new CompileException(
+				e.location, "Cannot use this address as a constant.");
 		}
 
 		import d.ir.error;

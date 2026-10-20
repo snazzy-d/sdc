@@ -189,12 +189,26 @@ public:
 	}
 
 	private VR visitLoad(Constant address, Type type) {
-		// Link-time globals are constants. The load is still of that symbol.
-		if (auto gc = cast(GlobalConstant) address) {
-			return knownRange(gc.symbol);
+		static struct AddressLoader {
+			ValueRangePropagator* vrp;
+			Type type;
+
+			VR visit(Constant c) {
+				return this.dispatch!(c => vrp.getRange(type))(c);
+			}
+
+			VR visit(GlobalConstant c) {
+				// Link-time globals are constants. The load is still of
+				// that symbol.
+				return vrp.knownRange(c.symbol);
+			}
+
+			VR visit(CastConstant c) {
+				return visit(c.value);
+			}
 		}
 
-		return getRange(type);
+		return AddressLoader(&this, type).visit(address);
 	}
 
 	VR visit(StoreExpression e) {
@@ -264,7 +278,15 @@ public:
 	}
 
 	VR visit(CastExpression e) {
-		final switch (e.kind) with (CastKind) {
+		return visitCast(e.kind, e.type, e.expr);
+	}
+
+	VR visit(CastConstant c) {
+		return visitCast(c.kind, c.type, c.value);
+	}
+
+	private VR visitCast(E)(CastKind kind, Type type, E e) {
+		final switch (kind) with (CastKind) {
 			case Invalid:
 				assert(0, "Invalid cast");
 
@@ -272,7 +294,7 @@ public:
 				assert(0, "Do not make any sense on integrals");
 
 			case PointerToInt:
-				auto t = getBuiltin(e.type);
+				auto t = getBuiltin(type);
 				return getRange(t);
 
 			case SignedToFloat, UnsignedToFloat:
@@ -280,7 +302,7 @@ public:
 				assert(0, "VRP not valid on float-yielding casts");
 
 			case FloatToSigned, FloatToUnsigned:
-				auto t = getBuiltin(e.type);
+				auto t = getBuiltin(type);
 				return getRange(t);
 
 			case IntToBool, PointerToBool:
@@ -288,7 +310,7 @@ public:
 					return VR(!r.containsZero, r != R(0));
 				}
 
-				return processExpr!doTheDMDMonkeyDance(e.expr);
+				return processExpr!doTheDMDMonkeyDance(e);
 
 			case Trunc:
 				static doTheDMDMonkeyDance(R)(R r, BuiltinType t) {
@@ -300,25 +322,24 @@ public:
 						: r.trunc(mask).as!T;
 				}
 
-				return
-					processExpr!doTheDMDMonkeyDance(e.expr, getBuiltin(e.type));
+				return processExpr!doTheDMDMonkeyDance(e, getBuiltin(type));
 
 			case UPad:
-				auto t = getBuiltin(e.expr.type);
-				auto r = processExpr(e.expr);
+				auto t = getBuiltin(e.type);
+				auto r = processExpr(e);
 
 				auto mask = cast(T) ((1UL << t.getBits()) - 1);
 				return r.pad(mask);
 
 			case SPad:
-				auto t = getBuiltin(e.expr.type);
-				auto r = processExpr(e.expr);
+				auto t = getBuiltin(e.type);
+				auto r = processExpr(e);
 
 				auto mask = cast(T) ((1UL << t.getBits()) - 1);
 				return r.signed.pad(mask).unsigned;
 
 			case Bit, Qual, Exact:
-				return visit(e.expr);
+				return visit(e);
 		}
 	}
 

@@ -152,6 +152,54 @@ struct ConstantGen {
 		                                cast(uint) elts.length, false);
 	}
 
+	LLVMValueRef visit(CastConstant c) {
+		auto value = visit(c.value);
+		auto type = typeGen.visit(c.type);
+
+		final switch (c.kind) with (CastKind) {
+			case Exact, Qual:
+				return value;
+
+			case Bit:
+				return LLVMConstBitCast(value, type);
+
+			case Trunc:
+				return LLVMConstTrunc(value, type);
+
+			case UPad:
+				return
+					LLVMConstInt(type, LLVMConstIntGetZExtValue(value), false);
+
+			case SPad:
+				return
+					LLVMConstInt(type, LLVMConstIntGetSExtValue(value), true);
+
+			case SignedToPointer:
+				value =
+					LLVMConstInt(i64, LLVMConstIntGetSExtValue(value), true);
+				goto case UnsignedToPointer;
+
+			case UnsignedToPointer:
+				return LLVMConstIntToPtr(value, type);
+
+			case PointerToInt:
+				return LLVMConstPtrToInt(value, type);
+
+			case IntToBool, PointerToBool:
+				return LLVMConstInt(type, !LLVMIsNull(value), false);
+
+			case FloatTrunc, FloatExtend, FloatToSigned, FloatToUnsigned:
+			case SignedToFloat, UnsignedToFloat:
+				assert(0, "Floating point casts are not implemented.");
+
+			case Down:
+				assert(0, "A downcast is not a constant.");
+
+			case Invalid:
+				assert(0, "Invalid cast");
+		}
+	}
+
 	LLVMValueRef visit(FunctionConstant f) {
 		return declare(f.fun);
 	}

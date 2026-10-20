@@ -214,6 +214,13 @@ struct ConstantMangler {
 		return b.value ? "0" : "1";
 	}
 
+	string visit(CastConstant c) {
+		// FIXME: This mangles the value before the cast, which is wrong when
+		// the cast changes it, for instance cast(byte) 300 is mangled as 300
+		// instead of 44.
+		return visit(c.value);
+	}
+
 	string visit(IntegerConstant i) {
 		if (!isSigned(i.type.builtin)) {
 			import std.conv;
