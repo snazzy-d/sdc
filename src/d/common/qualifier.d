@@ -115,6 +115,26 @@ bool canConvert(TypeQualifier from, TypeQualifier to) {
 	}
 }
 
+/**
+ * Whether something with this qualifier can be written to.
+ */
+bool isWritable(TypeQualifier q) {
+	enum Mask = 1 << TypeQualifier.Mutable | 1 << TypeQualifier.Inout
+		| 1 << TypeQualifier.Shared;
+	return ((Mask >> q) & 0x01) != 0;
+}
+
+unittest {
+	with (TypeQualifier) {
+		assert(Mutable.isWritable());
+		assert(Inout.isWritable());
+		assert(!Const.isWritable());
+		assert(Shared.isWritable());
+		assert(!ConstShared.isWritable());
+		assert(!Immutable.isWritable());
+	}
+}
+
 enum ParamKind {
 	/// Regular parameter. A slot on the stack will be allocated and value
 	/// copied in it when calling the function.
