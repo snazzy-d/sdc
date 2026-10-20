@@ -40,11 +40,14 @@ unittest immutable_enum_address {
 }
 
 unittest const_shared_enum_address {
-	// FIXME: This runs into improper folding when casting constants.
-	// alias CS = const shared(int);
-	// enum CS* p = &gConstShared;
 	enum const(shared(int))* p = &gConstShared;
 	assert(p is &gConstShared);
+	assert(*p == 3);
+}
+
+unittest const_shared_alias_address {
+	alias CS = const shared(int);
+	enum CS* p = &gConstShared;
 	assert(*p == 3);
 }
 
