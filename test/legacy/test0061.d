@@ -6,7 +6,7 @@ int main() {
 	immutable char* cmsg = msg.ptr;
 	assert(*cmsg == 'h');
 
-	const char* cmsg2 = cmsg + 7;
+	const(char)* cmsg2 = cmsg + 7;
 	assert(*cmsg2 == 'w');
 	assert(cmsg2 != cmsg);
 
