@@ -50,7 +50,7 @@ private void arenaFree(ref CachedExtentMap emap, void* ptr) {
 		return;
 	}
 
-	const(void*)[1] worklist = [ptr];
+	void*[1] worklist = [ptr];
 	pd.arena.batchFree(emap, worklist[0 .. 1], &pd);
 }
 

@@ -136,8 +136,8 @@ struct Bin {
 		goto Refill;
 	}
 
-	uint batchFree(const(void*)[] worklist, PageDescriptor* pds,
-	               Extent** dallocSlabs, ref uint ndalloc) shared {
+	uint batchFree(void*[] worklist, PageDescriptor* pds, Extent** dallocSlabs,
+	               ref uint ndalloc) shared {
 		mutex.lock();
 		scope(exit) mutex.unlock();
 
@@ -146,7 +146,7 @@ struct Bin {
 	}
 
 private:
-	uint batchFreeImpl(const(void*)[] worklist, PageDescriptor* pds,
+	uint batchFreeImpl(void*[] worklist, PageDescriptor* pds,
 	                   Extent** dallocSlabs, ref uint ndalloc) {
 		// FIXME: in contract.
 		assert(mutex.isHeld(), "Mutex not held!");

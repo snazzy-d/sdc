@@ -286,7 +286,7 @@ private:
 		return true;
 	}
 
-	void flushImpl(ref CachedExtentMap emap, const(void*)[] worklist,
+	void flushImpl(ref CachedExtentMap emap, void*[] worklist,
 	               PageDescriptor* pds) {
 		// Actually do flush to the arenas.
 		while (worklist.length > 0) {
