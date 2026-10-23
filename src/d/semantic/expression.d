@@ -144,10 +144,23 @@ private:
 		return Value.withAddress(new VariableExpression(loc, v));
 	}
 
-	auto buildAssign(Location location, Value lhs, Expression rhs) {
+	/**
+	 * Store a value, if what it is stored to can be written to.
+	 */
+	Expression buildAssign(Location location, Value lhs, Expression rhs) {
 		auto addr = lhs.getAddress(location).getExpression(location);
 		rhs = buildImplicitCast(pass, rhs.location, lhs.type, rhs);
-		return build!StoreExpression(location, rhs, addr);
+
+		// The address is not a pointer if it is an error.
+		auto at = addr.type.getCanonical();
+		if (at.kind != TypeKind.Pointer || at.element.qualifier.isWritable()) {
+			return build!StoreExpression(location, rhs, addr);
+		}
+
+		import std.format;
+		return getError(
+			addr, location,
+			format!"Can't modify %s."(at.element.toString(context)));
 	}
 
 	Expression buildBinary(Location location, AstBinaryOp op, Expression lhs,
@@ -493,7 +506,6 @@ public:
 		// and the store below both go through it, so the address is
 		// computed exactly once, however complex the operand is.
 		auto operand = getReference(expr);
-		auto addr = operand.getAddress(loc).getExpression(loc);
 
 		import d.ir.constant;
 		auto one = new ConstantExpression(
@@ -507,7 +519,7 @@ public:
 
 		import d.semantic.caster;
 		auto cadd = buildExplicitCast(pass, loc, type, add);
-		auto inc = build!StoreExpression(loc, cadd, addr);
+		auto inc = buildAssign(loc, operand, cadd);
 
 		if (isPre) {
 			return inc;
