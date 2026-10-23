@@ -135,6 +135,65 @@ unittest foreach_array {
 	assert(a[0] == 2 && a[3] == 8);
 }
 
+unittest foreach_literal {
+	// The index is mutable, even though the literal is immutable.
+	uint n;
+	foreach (c; "test") {
+		n++;
+	}
+
+	assert(n == 4);
+
+	foreach (i, c; "test") {
+		assert("test"[i] == c);
+		i = 3;
+	}
+}
+
+unittest foreach_index_type {
+	int[4] a = [10, 11, 12, 13];
+	int[] s = a[0 .. a.length];
+
+	// The index is a size_t, unless declared otherwise.
+	uint n;
+	foreach (i, e; a) {
+		size_t si = i;
+		assert(a[si] == e);
+		n++;
+	}
+
+	foreach (ulong i, e; s) {
+		assert(e == 10 + i);
+		n++;
+	}
+
+	foreach_reverse (ubyte i, e; a) {
+		assert(e == 10 + i);
+		n++;
+	}
+
+	foreach_reverse (long i, e; s) {
+		assert(e == 10 + i);
+		n++;
+	}
+
+	assert(n == 16);
+
+	// A narrower index can be used if it can count up to the length.
+	int[255] b;
+	foreach (int i, ref e; b) {
+		e = i;
+	}
+
+	n = 0;
+	foreach (ubyte i, e; b) {
+		assert(i == e);
+		n++;
+	}
+
+	assert(n == 255);
+}
+
 unittest foreach_reverse_array {
 	int[4] a = [1, 2, 3, 4];
 

@@ -441,15 +441,16 @@ public:
 				}
 			})();
 
+		auto sizeT = pass.object.getSizeT().type;
+
 		Variable idx;
 
 		auto loc = f.location;
 		switch (f.tupleElements.length) {
 			case 1:
 				import d.semantic.defaultinitializer;
-				idx = new Variable(
-					loc, length.type, BuiltinName!"",
-					InitBuilder(pass, loc).asExpression(length.type));
+				idx = new Variable(loc, sizeT, BuiltinName!"",
+				                   InitBuilder(pass, loc).asExpression(sizeT));
 
 				idx.step = Step.Processed;
 				break;
@@ -462,10 +463,20 @@ public:
 
 				import d.semantic.type;
 				auto t = idxDecl.type.getType().isAuto
-					? length.type
+					? sizeT
 					: TypeVisitor(pass).visit(idxDecl.type.getType());
 
 				auto idxLoc = idxDecl.location;
+
+				auto ct = t.getCanonical();
+				if (ct.kind != TypeKind.Builtin || !isIntegral(ct.builtin)) {
+					import source.exception, std.format;
+					throw new CompileException(
+						idxLoc,
+						format!"foreach: key cannot be of non-integral type %s."(
+							t.toString(context))
+					);
+				}
 
 				import d.semantic.defaultinitializer;
 				idx = new Variable(idxLoc, t, idxDecl.name,
@@ -482,8 +493,19 @@ public:
 
 		assert(idx);
 
+		// The index must be able to count up to the length.
 		import d.semantic.caster;
 		length = buildImplicitCast(pass, idx.location, idx.type, length);
+
+		import d.ir.error;
+		if (auto e = cast(ErrorExpression) length) {
+			import source.exception, std.format;
+			throw new CompileException(
+				idx.location,
+				format!"index type %s cannot cover the length of %s."(
+					idx.type.toString(context), iterated.type.toString(context))
+			);
+		}
 
 		// Iterating in reverse starts past the last element.
 		if (f.reverse) {
