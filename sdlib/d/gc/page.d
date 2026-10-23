@@ -867,7 +867,7 @@ private:
 		 */
 		// Clear the metadata of element we collected.
 		metadataFlags &= ~evicted;
-		e.slabMetadataFlags.rawContent[nimbleIndex] = metadataFlags;
+		e.slabMetadataFlags.unsafeRawContent[nimbleIndex] = metadataFlags;
 	}
 
 	void collectDenseAllocations(ref CachedExtentMap emap,

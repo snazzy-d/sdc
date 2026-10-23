@@ -25,6 +25,16 @@ public:
 		return bits;
 	}
 
+	/**
+	 * Writable access to the content of a shared bitmap, bypassing any
+	 * synchronization. Only use this when nothing else can access the
+	 * bitmap concurrently.
+	 */
+	@property
+	ref shared(ulong[NimbleCount]) unsafeRawContent() shared {
+		return bits;
+	}
+
 	void clear() {
 		foreach (i; 0 .. NimbleCount) {
 			bits[i] = 0;
