@@ -40,6 +40,27 @@ CastKind explicitCastFrom(SemanticPass pass, Type from, Type to) {
 	return ExplicitCaster(pass, to).castFrom(from);
 }
 
+/**
+ * Whether the result of a cast of kind kind can refer to what is cast. A
+ * value always refers to itself. Through a qualifier cast, nothing can be
+ * written through the result that is not valid for the original: its
+ * qualifier can only change as an implicit conversion allows, and nothing
+ * below it can change as long as it can be written to.
+ */
+bool canRefer(CastKind kind, Type from, Type to) {
+	if (kind == CastKind.Exact) {
+		return true;
+	}
+
+	if (kind != CastKind.Qual) {
+		return false;
+	}
+
+	auto fq = from.getCanonical().qualifier;
+	auto tq = to.getCanonical().qualifier;
+	return canConvert(fq, tq) && !tq.isWritable();
+}
+
 private:
 
 // Conflict with Interface in object.di
@@ -220,14 +241,9 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 		return Value.withValue(new CastConstant(kind, to, constant));
 	}
 
-	// A cast that does not change the bits of the value
-	// commutes with the load: perform it on the address
-	// instead, and the value remains addressable. This is
-	// only sound if the qualifier of the value converts to
-	// the target's, or the load would not honor it.
-	if (value.hasAddress() && kind == CastKind.Qual
-		    && canConvert(value.type.getCanonical().qualifier,
-		                  to.getCanonical().qualifier)) {
+	// A qualifier cast commutes with the load: perform it on the address
+	// instead, and the value remains addressable.
+	if (value.hasAddress() && canRefer(kind, value.type, to)) {
 		auto addr = value.getAddress(location).getExpression(location);
 		return Value.withAddress(
 			new CastExpression(location, CastKind.Qual, to.getPointer(), addr));
@@ -794,8 +810,8 @@ unittest {
 	assert(toConst.type == ci);
 	assert(addressCastKind(toConst) == CastKind.Qual);
 
-	// A qualifier that does not convert cannot be done on the address,
-	// so the value is cast after being loaded.
+	// A qualifier that does not convert cannot be done on the address, even
+	// explicitly, so the value is cast after being loaded.
 	auto from = addressOf(i.getSlice(TypeQualifier.Const));
 	auto to = ci.getSlice();
 
@@ -809,8 +825,8 @@ unittest {
 
 	// Neither can dropping shared.
 	auto si = i.qualify(TypeQualifier.Shared);
-	auto fromShared = buildImplicitCast(pass, location, i, addressOf(si));
-	assert(!fromShared.hasAddress());
+	assert(!buildImplicitCast(pass, location, i, addressOf(si)).hasAddress());
+	assert(!buildExplicitCast(pass, location, i, addressOf(si)).hasAddress());
 }
 
 unittest {

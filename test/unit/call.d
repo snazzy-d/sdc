@@ -32,6 +32,39 @@ ref int bump(ref int x) {
 	return x;
 }
 
+ref const(int*) refConstReturn(ref int* p) {
+	return p;
+}
+
+ref const(shared(int)) refConstSharedReturn(ref immutable(int) x) {
+	return x;
+}
+
+ref const(shared(int)) refConstSharedFromShared(ref shared(int) x) {
+	return x;
+}
+
+int* refConstSharedValue(ref const(shared(int)) v) {
+	return cast(int*) &v;
+}
+
+unittest ref_return_qualifier {
+	// What a returned reference refers to can become const, if nothing
+	// below can then be written.
+	int x = 1;
+	int* p = &x;
+	assert(cast(void*) &refConstReturn(p) is cast(void*) &p);
+
+	// Immutable data is never written, so it can be accessed as shared.
+	immutable(int) i = 2;
+	assert(cast(void*) &refConstSharedReturn(i) is cast(void*) &i);
+	assert(refConstSharedValue(i) is cast(int*) &i);
+
+	shared(int) si = 3;
+	assert(cast(void*) &refConstSharedFromShared(si) is cast(void*) &si);
+	assert(refConstSharedValue(si) is cast(int*) &si);
+}
+
 unittest ref_return_address {
 	int x = 3;
 	bump(x);

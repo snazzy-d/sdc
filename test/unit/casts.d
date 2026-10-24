@@ -15,55 +15,23 @@ unittest address_of_cast {
 }
 
 unittest explicit_qualifier_casts {
-	// An explicit cast can change qualifiers in any way, and the
-	// result refers to the same data.
+	// The result of an explicit cast refers to the same data if nothing can
+	// be written through it that is not valid for the original.
 	int i = 1;
-	const(int) ci = 2;
-	shared(int) si = 3;
-	assert(cast(void*) &cast(int) ci is cast(void*) &ci);
-	assert(cast(void*) &cast(shared(int)) i is cast(void*) &i);
-	assert(cast(void*) &cast(int) si is cast(void*) &si);
+	shared(int) si = 2;
+	immutable(int) ii = 3;
+	assert(cast(void*) &cast(const(int)) i is cast(void*) &i);
+	assert(cast(void*) &cast(const(shared(int))) si is cast(void*) &si);
+	assert(cast(void*) &cast(const(shared(int))) ii is cast(void*) &ii);
 
 	int* p = &i;
-	const(int)* cp = &ci;
-	immutable(int)* ip = null;
-	shared(int)* sp = &si;
-	const(shared(int))* csp = sp;
-	assert(cast(void*) &cast(int*) cp is cast(void*) &cp);
-	assert(cast(void*) &cast(int*) ip is cast(void*) &ip);
-	assert(cast(void*) &cast(int*) sp is cast(void*) &sp);
-	assert(cast(void*) &cast(immutable(int)*) p is cast(void*) &p);
-	assert(cast(void*) &cast(immutable(int)*) cp is cast(void*) &cp);
-	assert(cast(void*) &cast(shared(int)*) p is cast(void*) &p);
-	assert(cast(void*) &cast(shared(int)*) csp is cast(void*) &csp);
-	assert(cast(void*) &cast(int*) cast(shared(int*)) sp is cast(void*) &sp);
-
 	int** pp = &p;
-	const(int)** cpp = &cp;
-	immutable(int)** ipp = &ip;
-	shared(int)** spp = &sp;
-	assert(cast(void*) &cast(const(int)**) pp is cast(void*) &pp);
-	assert(cast(void*) &cast(int**) cpp is cast(void*) &cpp);
-	assert(cast(void*) &cast(const(int)**) ipp is cast(void*) &ipp);
-	assert(cast(void*) &cast(const(shared(int))**) spp is cast(void*) &spp);
-
 	int[] s = [1, 2];
-	const(int)[] cs = s;
-	int[][] ss = [s];
-	int*[] ps = [p];
-	assert(cast(void*) &cast(int[]) cs is cast(void*) &cs);
-	assert(cast(void*) &cast(immutable(int)[]) s is cast(void*) &s);
-	assert(cast(void*) &cast(const(int)[][]) ss is cast(void*) &ss);
-	assert(cast(void*) &cast(const(int)*[]) ps is cast(void*) &ps);
-
 	int[2] a = [1, 2];
-	const(int)[2]* cpa = &a;
-	const(int)*[2] cpa1 = [cp, cp];
-	assert(cast(void*) &cast(int[2]*) cpa is cast(void*) &cpa);
-	assert(cast(void*) &cast(int*[2]) cpa1 is cast(void*) &cpa1);
-
-	const(int*)[2] cpa2 = [p, p];
-	assert(cast(void*) &cast(int*[2]) cpa2 is cast(void*) &cpa2);
+	assert(cast(void*) &cast(const(int*)) p is cast(void*) &p);
+	assert(cast(void*) &cast(const(int**)) pp is cast(void*) &pp);
+	assert(cast(void*) &cast(const(int[])) s is cast(void*) &s);
+	assert(cast(void*) &cast(const(int)[2]) a is cast(void*) &a);
 }
 
 unittest static_array_qualifier {

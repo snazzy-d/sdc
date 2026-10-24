@@ -470,24 +470,6 @@ public:
 			return new PolysemousExpression(pe.location, addrs);
 		}
 
-		if (auto c = cast(CastExpression) expr) {
-			switch (c.kind) with (CastKind) {
-				case Qual, Exact:
-					auto addr = buildAddressOf(c.expr);
-					if (addr is null) {
-						return null;
-					}
-
-					auto ptr = c.type.getPointer();
-					return addr.type == ptr
-						? addr
-						: new CastExpression(c.location, c.kind, ptr, addr);
-
-				default:
-					return null;
-			}
-		}
-
 		return null;
 	}
 
