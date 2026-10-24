@@ -56,6 +56,18 @@ public:
 		return Value(cast(void*) constant, true, true);
 	}
 
+	// The value an expression evaluates to. A load is the value at
+	// its address, and a constant expression is its constant.
+	static Value fromExpression(Expression expression) {
+		if (auto l = cast(LoadExpression) expression) {
+			auto ce = cast(ConstantExpression) l.address;
+			return ce is null ? withAddress(l.address) : withAddress(ce.value);
+		}
+
+		auto ce = cast(ConstantExpression) expression;
+		return ce is null ? withValue(expression) : withValue(ce.value);
+	}
+
 	bool isConstant() const {
 		return (cast(size_t) payload & ConstantBit) != 0;
 	}
@@ -218,6 +230,30 @@ unittest {
 	auto nullLoadAddr = cast(ConstantExpression) nullLoad.address;
 	assert(nullLoadAddr !is null);
 	assert(nullLoadAddr.value is nullPtr);
+
+	// An expression is its value.
+	auto fromVariable = Value.fromExpression(addr);
+	assert(!fromVariable.isConstant());
+	assert(!fromVariable.hasAddress());
+	assert(fromVariable.expression is addr);
+
+	// A constant expression is its constant.
+	auto fromLiteral = Value.fromExpression(rvalue);
+	assert(fromLiteral.isConstant());
+	assert(!fromLiteral.hasAddress());
+	assert(fromLiteral.constant is rvalue.value);
+
+	// A load is the value at its address.
+	auto fromLoad = Value.fromExpression(loaded);
+	assert(!fromLoad.isConstant());
+	assert(fromLoad.hasAddress());
+	assert(fromLoad.getAddress(location).expression is addr);
+
+	// A load from a constant is the value at that constant.
+	auto fromNullLoad = Value.fromExpression(nullLoad);
+	assert(fromNullLoad.isConstant());
+	assert(fromNullLoad.hasAddress());
+	assert(fromNullLoad.getAddress(location).constant is nullPtr);
 
 	// Has an address, but the payload is not a pointer.
 	auto notPointer = Value.withAddress(constant);

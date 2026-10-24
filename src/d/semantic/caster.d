@@ -51,8 +51,15 @@ Expression buildCast(bool isExplicit)(
 	Type to,
 	Expression e,
 ) in(e, "Expression must not be null") {
-	return buildCast!isExplicit(pass, location, to, Value.withValue(e))
-		.getExpression(location);
+	auto value = Value.fromExpression(e);
+	auto casted = buildCast!isExplicit(pass, location, to, value);
+	if (casted == value) {
+		return e;
+	}
+
+	// A constant keeps the location of the literal it comes from.
+	auto isLiteral = value.isConstant() && !value.hasAddress();
+	return casted.getExpression(isLiteral ? e.location : location);
 }
 
 Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
@@ -117,21 +124,14 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 
 	// D-style string literals can be implicitely converted to C-style ones.
 	import d.ir.constant;
-	auto ce = cast(ConstantExpression) rvalue;
-	auto constant = ce !is null
-		? ce.value
-		: (value.isConstant() && !value.hasAddress()) ? value.constant : null;
+	auto constant =
+		(value.isConstant() && !value.hasAddress()) ? value.constant : null;
 
 	if (auto s = cast(StringConstant) constant) {
 		if (to.kind == TypeKind.Pointer
 			    && implicitCastFrom(pass, value.type.element, to.element)
 				    >= CastKind.Qual) {
-			auto cs = new CStringConstant(s.value);
-
-			// Keep the location of the literal, if there is one.
-			return ce is null
-				? Value.withValue(cs)
-				: Value.withValue(new ConstantExpression(ce.location, cs));
+			return Value.withValue(new CStringConstant(s.value));
 		}
 	}
 
@@ -208,10 +208,14 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 		}
 	})(pass, to).castFrom(value.type);
 
+	// The value already has the right type.
+	if (kind == CastKind.Exact) {
+		return value;
+	}
+
 	// A cast of a constant is a constant, unless it needs to inspect the
 	// value at runtime.
-	bool isConstantCast = kind != CastKind.Invalid && kind != CastKind.Exact
-		&& kind != CastKind.Down;
+	bool isConstantCast = kind != CastKind.Invalid && kind != CastKind.Down;
 	if (constant !is null && isConstantCast) {
 		return Value.withValue(new CastConstant(kind, to, constant));
 	}
@@ -221,44 +225,30 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 	// instead, and the value remains addressable. This is
 	// only sound if the qualifier of the value converts to
 	// the target's, or the load would not honor it.
-	if (value.hasAddress() && kind >= CastKind.Qual
+	if (value.hasAddress() && kind == CastKind.Qual
 		    && canConvert(value.type.getCanonical().qualifier,
 		                  to.getCanonical().qualifier)) {
-		// The value already has the right type.
-		if (kind == CastKind.Exact) {
-			return value;
-		}
-
 		auto addr = value.getAddress(location).getExpression(location);
 		return Value.withAddress(
 			new CastExpression(location, CastKind.Qual, to.getPointer(), addr));
 	}
 
-	switch (kind) with (CastKind) {
-		case Exact:
-			// FIXME: Because we don't cast type qualifier the proper
-			// way, we need to make sure they match.
-			auto e = value.getExpression(location);
-			e.type = e.type.qualify(to.qualifier);
-			return Value.withValue(e);
+	if (kind == CastKind.Invalid) {
+		if (to.kind == TypeKind.Error) {
+			return Value.withValue(to.error.constant);
+		}
 
-		default:
-			return Value.withValue(
-				new CastExpression(location, kind, to,
-				                   value.getExpression(location)));
-
-		case Invalid:
-			if (to.kind == TypeKind.Error) {
-				return Value.withValue(to.error.constant);
-			}
-
-			import std.format;
-			return value.getError(
-				location,
-				format!"Can't cast %s to %s."(value.type.toString(pass.context),
-				                              to.toString(pass.context)),
-			);
+		import std.format;
+		return value.getError(
+			location,
+			format!"Can't cast %s to %s."(value.type.toString(pass.context),
+			                              to.toString(pass.context)),
+		);
 	}
+
+	assert(kind != CastKind.Exact, "Exact casts are handled above.");
+	return Value.withValue(
+		new CastExpression(location, kind, to, value.getExpression(location)));
 }
 
 alias ExplicitCaster = Caster!true;
