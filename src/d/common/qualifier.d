@@ -135,6 +135,24 @@ unittest {
 	}
 }
 
+/**
+ * Whether something with this qualifier is accessed atomically.
+ */
+bool isShared(TypeQualifier q) {
+	return q == TypeQualifier.Shared || q == TypeQualifier.ConstShared;
+}
+
+unittest {
+	with (TypeQualifier) {
+		assert(!Mutable.isShared());
+		assert(!Inout.isShared());
+		assert(!Const.isShared());
+		assert(Shared.isShared());
+		assert(ConstShared.isShared());
+		assert(!Immutable.isShared());
+	}
+}
+
 enum ParamKind {
 	/// Regular parameter. A slot on the stack will be allocated and value
 	/// copied in it when calling the function.
