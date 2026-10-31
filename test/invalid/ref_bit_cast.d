@@ -1,5 +1,5 @@
 //T error: ref_bit_cast.d:10:6:
-//T error: Argument isn't a lvalue.
+//T error: Can't pass argument (int) by ref to ref uint.
 
 void take(ref uint x) {
 	x = 1;

@@ -612,27 +612,26 @@ public:
 	}
 
 	Expression buildArgument(Expression arg, ParamType pt) {
-		if (pt.isRef && !canConvert(arg.type.qualifier, pt.qualifier)) {
-			import std.format;
-			return getError(
-				arg,
-				format!"Can't pass argument (%s) by ref to %s."(
-					arg.type.toString(context), pt.toString(context))
-			);
-		}
-
-		arg = buildImplicitCast(pass, arg.location, pt.getType(), arg);
-
+		auto value = buildImplicitCast(pass, arg.location, pt.getType(), arg);
 		if (!pt.isRef) {
-			return arg;
+			return value;
 		}
 
 		// Ref parameters take the address of the argument.
-		if (auto addr = buildAddressOf(arg)) {
+		if (auto addr = buildAddressOf(value)) {
 			return addr;
 		}
 
-		return getError(arg, "Argument isn't a lvalue.");
+		if (buildAddressOf(arg) is null) {
+			return getError(arg, "Argument isn't a lvalue.");
+		}
+
+		import std.format;
+		return getError(
+			arg,
+			format!"Can't pass argument (%s) by ref to %s."(
+				arg.type.toString(context), pt.toString(context))
+		);
 	}
 
 	enum MatchLevel {
@@ -644,15 +643,12 @@ public:
 
 	// TODO: deduplicate.
 	private auto matchArgument(Expression arg, ParamType param) {
-		if (param.isRef && !canConvert(arg.type.qualifier, param.qualifier)) {
-			return MatchLevel.Not;
-		}
-
-		auto flavor = implicitCastFrom(pass, arg.type, param.getType());
+		auto type = param.getType();
+		auto flavor = implicitCastFrom(pass, arg.type, type);
 
 		// Test whether we can pass by ref.
-		if (param.isRef
-			    && !(flavor >= CastKind.Qual && buildAddressOf(arg) !is null)) {
+		if (param.isRef && (!canRefer(flavor, arg.type, type)
+			    || buildAddressOf(arg) is null)) {
 			return MatchLevel.Not;
 		}
 

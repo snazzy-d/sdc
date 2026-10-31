@@ -72,3 +72,75 @@ unittest ref_return_address {
 	bump(x) = 9;
 	assert(x == 9);
 }
+
+void* refConstValue(ref const(int) x) {
+	return cast(void*) &x;
+}
+
+void* refConstPointer(ref const(int*) x) {
+	return cast(void*) &x;
+}
+
+void* refConstNestedPointer(ref const(int**) x) {
+	return cast(void*) &x;
+}
+
+void* refConstSlice(ref const(int[]) x) {
+	return cast(void*) &x;
+}
+
+unittest ref_argument_qualifier {
+	// An argument is passed by ref if nothing can be written through the
+	// parameter that is not valid for the argument.
+	int i = 1;
+	immutable(int) ii = 2;
+	assert(refConstValue(i) is cast(void*) &i);
+	assert(refConstValue(ii) is cast(void*) &ii);
+
+	int* p = &i;
+	int** pp = &p;
+	int[] s = [1, 2];
+	assert(refConstPointer(p) is cast(void*) &p);
+	assert(refConstNestedPointer(pp) is cast(void*) &pp);
+	assert(refConstSlice(s) is cast(void*) &s);
+}
+
+int bindExact(ref int* x) {
+	return 1;
+}
+
+int bindExact(const(int)* x) {
+	return 2;
+}
+
+int bindConst(ref const(int*) x) {
+	return 1;
+}
+
+int bindConst(const(int)* x) {
+	return 2;
+}
+
+unittest ref_argument_overload {
+	// A ref overload is picked when the argument can be passed by ref.
+	int i;
+	int* p = &i;
+	assert(bindExact(p) == 1);
+	assert(bindConst(p) == 1);
+}
+
+int bindPointer(ref const(int)* x) {
+	return 1;
+}
+
+int bindPointer(const(int)* x) {
+	return 2;
+}
+
+unittest ref_argument_overload_value {
+	// Through a reference to const(int)*, a pointer to immutable data could
+	// be stored in the argument, so it is passed by value.
+	int i;
+	int* p = &i;
+	assert(bindPointer(p) == 2);
+}
