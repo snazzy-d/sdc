@@ -423,6 +423,27 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		return to.qualifier.isWritable() ? CastKind.Invalid : kind;
 	}
 
+	/**
+	 * A context is bound with the function and given back to it unchanged,
+	 * so the function never sees another context than the one it was bound
+	 * with. What the context is can be hidden, as long as it is passed the
+	 * same way, even explicitly, or the function would not find it.
+	 */
+	CastKind castContext(ParamType from, ParamType to) {
+		auto f = from.isRef ? from.getType().getPointer() : from.getType();
+		auto t = to.isRef ? to.getType().getPointer() : to.getType();
+
+		auto k = ExplicitCaster(pass, t).castFrom(f);
+		if (k >= CastKind.Bit) {
+			return k;
+		}
+
+		// Everything passed as a pointer is passed the same way.
+		return (f.hasPointerABI() && t.hasPointerABI())
+			? CastKind.Bit
+			: CastKind.Invalid;
+	}
+
 	CastKind castParam(ParamType from, ParamType to) {
 		if (from.isRef != to.isRef) {
 			return CastKind.Invalid;
@@ -740,6 +761,17 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Invalid;
 		}
 
+		auto k = CastKind.Exact;
+
+		import std.algorithm, std.range;
+		foreach (fromc, toc; lockstep(f.contexts, tf.contexts)) {
+			k = min(k, castContext(fromc, toc));
+		}
+
+		if (k == CastKind.Invalid) {
+			return CastKind.Invalid;
+		}
+
 		enum onFail = isExplicit ? CastKind.Bit : CastKind.Invalid;
 
 		if (f.parameters.length != tf.parameters.length) {
@@ -754,32 +786,12 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return onFail;
 		}
 
-		auto k = castParam(f.returnType, tf.returnType);
-		if (k < CastKind.Bit) {
+		auto kr = castParam(f.returnType, tf.returnType);
+		if (kr < CastKind.Bit) {
 			return onFail;
 		}
 
-		import std.range;
-		foreach (fromc, toc; lockstep(f.contexts, tf.contexts)) {
-			// ref context decay to void*
-			if (fromc.isRef && !toc.isRef && toc.kind == TypeKind.Pointer) {
-				auto e = toc.getType().element;
-				if (e.kind == TypeKind.Builtin
-					    && e.builtin == BuiltinType.Void) {
-					k = CastKind.Bit;
-					continue;
-				}
-			}
-
-			// Contexts are covariant.
-			auto kc = castParam(fromc, toc);
-			if (kc < CastKind.Bit) {
-				return onFail;
-			}
-
-			import std.algorithm;
-			k = min(k, kc);
-		}
+		k = min(k, kr);
 
 		foreach (fromp, top; lockstep(f.parameters, tf.parameters)) {
 			// Parameters are contrevariant.
@@ -788,7 +800,6 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 				return onFail;
 			}
 
-			import std.algorithm;
 			k = min(k, kp);
 		}
 
@@ -1106,4 +1117,39 @@ unittest {
 	// Slices of void have a different length, so they are not the same data
 	// seen as a different type.
 	assert(kind(i.getSlice(), v.getSlice()) == CastKind.Invalid);
+}
+
+unittest {
+	auto pass = SemanticPass.getTestSemanticPass();
+
+	auto i = Type.get(BuiltinType.Int);
+	auto u = Type.get(BuiltinType.Uint);
+	auto l = Type.get(BuiltinType.Long);
+	auto vp = Type.get(BuiltinType.Void).getPointer();
+
+	auto ret = i.getParamType(ParamKind.Regular);
+	Type delegateOf(ParamType context) {
+		return FunctionType(Linkage.D, ret, [context], false).getDelegate()
+		                                                     .getType();
+	}
+
+	auto byRef = delegateOf(i.getParamType(ParamKind.Ref));
+	auto byPointer = delegateOf(vp.getParamType(ParamKind.Regular));
+	auto bySlice = delegateOf(i.getSlice().getParamType(ParamKind.Final));
+	auto byInt = delegateOf(i.getParamType(ParamKind.Final));
+	auto byUint = delegateOf(u.getParamType(ParamKind.Final));
+	auto byLong = delegateOf(l.getParamType(ParamKind.Final));
+
+	// The context is given back unchanged to the function, so what it is can
+	// be hidden as long as it is passed the same way.
+	assert(implicitCastFrom(pass, byRef, byPointer) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byPointer, byRef) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byInt, byUint) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byInt, byInt) == CastKind.Exact);
+
+	// Otherwise, the function would not find it, even explicitly.
+	assert(implicitCastFrom(pass, bySlice, byPointer) == CastKind.Invalid);
+	assert(explicitCastFrom(pass, bySlice, byPointer) == CastKind.Invalid);
+	assert(explicitCastFrom(pass, byInt, byLong) == CastKind.Invalid);
+	assert(explicitCastFrom(pass, byInt, byPointer) == CastKind.Invalid);
 }
