@@ -314,9 +314,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Invalid;
 		}
 
-		return (kind == CastKind.Qual && to.qualifier.isWritable())
-			? CastKind.Invalid
-			: kind;
+		return to.qualifier.isWritable() ? CastKind.Invalid : kind;
 	}
 
 	CastKind castParam(ParamType from, ParamType to) {
@@ -324,12 +322,10 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 			return CastKind.Invalid;
 		}
 
-		auto k = subCast(from.getType(), to.getType());
-		if (from.isRef && k < CastKind.Qual) {
-			return CastKind.Invalid;
-		}
-
-		return k;
+		// A ref parameter refers to the data it is given.
+		return from.isRef
+			? castReferred(from.getType(), to.getType())
+			: subCast(from.getType(), to.getType());
 	}
 
 	CastKind visit(BuiltinType t) {
@@ -898,4 +894,50 @@ unittest {
 	assert(kind(ci.getPointer(), u.getPointer()) == CastKind.Bit);
 	assert(kind(ppci, u.getPointer().getPointer()) == CastKind.Bit);
 	assert(kind(ci.getSlice(), u.getSlice()) == CastKind.Bit);
+}
+
+unittest {
+	auto pass = SemanticPass.getTestSemanticPass();
+
+	auto i = Type.get(BuiltinType.Int);
+	auto v = Type.get(BuiltinType.Void);
+
+	CastKind kind(Type from, Type to) {
+		return implicitCastFrom(pass, from, to);
+	}
+
+	Type pointerTo(Type t, TypeQualifier q) {
+		return t.qualify(q).getPointer();
+	}
+
+	// Nothing is written as void, so a pointer can point to anything as void,
+	// as long as the qualifier converts.
+	auto qualifiers =
+		[TypeQualifier.Mutable, TypeQualifier.Const, TypeQualifier.Immutable,
+		 TypeQualifier.Shared, TypeQualifier.ConstShared];
+	foreach (q; qualifiers) {
+		assert(kind(pointerTo(i, q), pointerTo(v, q)) == CastKind.Bit);
+	}
+
+	auto pi = i.getPointer();
+	auto pv = v.getPointer();
+	assert(kind(pi, pointerTo(v, TypeQualifier.Const)) == CastKind.Bit);
+	assert(kind(pointerTo(i, TypeQualifier.Immutable),
+	            pointerTo(v, TypeQualifier.ConstShared)) == CastKind.Bit);
+	assert(kind(pointerTo(i, TypeQualifier.Const), pv) == CastKind.Invalid);
+	assert(kind(pointerTo(i, TypeQualifier.Shared), pv) == CastKind.Invalid);
+	assert(kind(pi, pointerTo(v, TypeQualifier.Shared)) == CastKind.Invalid);
+
+	// What is pointed to can itself be a pointer.
+	auto ppi = pi.getPointer();
+	assert(kind(ppi, pv) == CastKind.Bit);
+
+	// Something else that can be written could hold something else than
+	// what is pointed to.
+	assert(kind(ppi, pv.getPointer()) == CastKind.Invalid);
+	assert(kind(ppi, pointerTo(pv, TypeQualifier.Const)) == CastKind.Bit);
+
+	// Slices of void have a different length, so they are not the same data
+	// seen as a different type.
+	assert(kind(i.getSlice(), v.getSlice()) == CastKind.Invalid);
 }

@@ -158,3 +158,90 @@ unittest implicit_qualifier_conversions {
 	const(shared(int)*)* cspp = spp;
 	assert(**cspp == 1);
 }
+
+unittest void_pointer_conversions {
+	// Nothing is written as void, so anything can be referred to as void, as
+	// long as the qualifier converts.
+	int i = 1;
+	const(int) ci = 2;
+	immutable(int) ii = 3;
+	shared(int) si = 4;
+
+	void* p = &i;
+	const(void)* cp = &ci;
+	const(void)* cpi = &ii;
+	immutable(void)* ip = &ii;
+	shared(void)* sp = &si;
+	const(shared(void))* csp = &si;
+	const(shared(void))* csip = &ii;
+	assert(p is cast(void*) &i);
+	assert(cp is cast(void*) &ci);
+	assert(cpi is cast(void*) &ii);
+	assert(ip is cast(immutable(void)*) &ii);
+	assert(sp is cast(shared(void)*) &si);
+	assert(csp is cast(const(shared(void))*) &si);
+	assert(csip is cast(const(shared(void))*) &ii);
+
+	// What is pointed to can be anything, including a pointer.
+	int* pi = &i;
+	void* ppi = &pi;
+	assert(ppi is cast(void*) &pi);
+}
+
+class Base {}
+class Derived : Base {}
+
+unittest referred_type_conversions {
+	// What a reference refers to can be seen as another type with the same
+	// representation, as long as nothing is written through it.
+	auto d = new Derived();
+	Derived* pd = &d;
+	const(Base)* cpb = pd;
+	assert(*cpb is d);
+
+	Derived[] ds = [d];
+	const(Base)[] cbs = ds;
+	assert(cbs[0] is d);
+
+	int i = -1;
+	int* pi = &i;
+	const(uint)* cpu = pi;
+	assert(*cpu == uint.max);
+
+	int[] s = [-1];
+	const(uint)[] cus = s;
+	assert(cus[0] == uint.max);
+
+	immutable(int) ii = -1;
+	immutable(uint)* ipu = &ii;
+	assert(*ipu == uint.max);
+
+	int** ppi = &pi;
+	const(void*)* cppv = ppi;
+	assert(cast(void*) cppv is cast(void*) &pi);
+
+	int*[] pis = [pi];
+	const(void*)[] cpvs = pis;
+	assert(cpvs[0] is cast(void*) pi);
+}
+
+int readConstUint(ref const(uint) x) {
+	return cast(int) x;
+}
+
+Base readConstBase(ref const(Base) b) {
+	return cast(Base) b;
+}
+
+unittest referred_parameter_conversions {
+	// A function taking a ref parameter can be seen as one taking a ref to
+	// another type with the same representation, as long as nothing is
+	// written through it.
+	int function(ref int) readInt = &readConstUint;
+	int i = -1;
+	assert(readInt(i) == -1);
+
+	Base function(ref Derived) readDerived = &readConstBase;
+	auto d = new Derived();
+	assert(readDerived(d) is d);
+}
