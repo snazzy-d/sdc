@@ -524,14 +524,9 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		// The elements are stored in the array, so their qualifier
 		// can change just like the qualifier of the array itself.
+		// Casting each element is not supported.
 		auto subCast = subCast(t, e);
-		switch (subCast) with (CastKind) {
-			case Qual, Exact, Bit:
-				return subCast;
-
-			default:
-				return isExplicit ? Bit : Invalid;
-		}
+		return subCast >= CastKind.Bit ? subCast : CastKind.Invalid;
 	}
 
 	CastKind visit(Struct s) {

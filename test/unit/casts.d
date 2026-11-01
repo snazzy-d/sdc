@@ -213,3 +213,27 @@ unittest referred_parameter_conversions {
 	auto d = new Derived();
 	assert(readDerived(d) is d);
 }
+
+class ArrayBase {}
+class ArrayDerived : ArrayBase {}
+
+unittest static_array_casts {
+	// The elements are stored in the array, so it can be cast to an array of
+	// elements with the same representation.
+	int[2] a = [-1, 2];
+	uint[2] u = cast(uint[2]) a;
+	assert(u[0] == uint.max && u[1] == 2);
+
+	int[2][2] n = [[-1, 1], [2, 3]];
+	uint[2][2] un = cast(uint[2][2]) n;
+	assert(un[0][0] == uint.max && un[1][1] == 3);
+
+	const(int)[2] ca = a;
+	int[2] ma = cast(int[2]) ca;
+	assert(ma[1] == 2);
+
+	auto d = new ArrayDerived();
+	ArrayDerived[2] ds = [d, d];
+	ArrayBase[2] bs = cast(ArrayBase[2]) ds;
+	assert(bs[0] is d);
+}
