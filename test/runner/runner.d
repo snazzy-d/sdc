@@ -11,6 +11,60 @@ immutable SDC = "bin/sdc";
 
 immutable EXE_EXTENSION = ".bin";
 
+// A test that takes longer than this is assumed to never finish.
+enum Timeout = 300;
+
+struct ExecuteResult {
+	int status;
+	string output;
+	bool timedOut;
+}
+
+/**
+ * Execute the command, and kill it if it does not finish in time, so that a
+ * test that never finishes fails instead of blocking the run.
+ */
+ExecuteResult executeWithTimeout(string[] command, string dir) {
+	import std.process, std.stdio;
+	auto output = File.tmpfile();
+	// Keep the output open to read it once the process is done.
+	auto config = Config.retainStdout | Config.retainStderr;
+	auto pid = spawnProcess(command, stdin, output, output, /* env = */ null,
+	                        config, dir);
+
+	import core.thread, core.time;
+	auto deadline = MonoTime.currTime + Timeout.seconds;
+
+	ExecuteResult result;
+	while (true) {
+		auto r = tryWait(pid);
+		if (r.terminated) {
+			result.status = r.status;
+			break;
+		}
+
+		if (MonoTime.currTime >= deadline) {
+			kill(pid);
+			result.status = wait(pid);
+			result.timedOut = true;
+			break;
+		}
+
+		Thread.sleep(10.msecs);
+	}
+
+	output.rewind();
+
+	import std.array;
+	auto content = appender!string();
+	foreach (chunk; output.byChunk(4096)) {
+		content ~= cast(const(char)[]) chunk;
+	}
+
+	result.output = content.data;
+	return result;
+}
+
 string getTestFilename(int n) {
 	import std.format;
 	return format("test/legacy/test%04s.d", n);
@@ -101,11 +155,13 @@ struct Task {
 			}
 		}
 
-		import std.process;
 		string[] command = [compiler, "-o", exeName, file] ~ dependencies;
 
-		auto result = execute(command, /* env = */ null,
-		                      Config.none, /* maxOutput = */ size_t.max, dir);
+		auto result = executeWithTimeout(command, dir);
+		if (result.timedOut) {
+			stderr.writefln("%s: compilation timed out.", name);
+			return TestResult(name, false, hasPassed);
+		}
 
 		string output = result.output;
 		foreach (e; errors) {
@@ -139,9 +195,13 @@ struct Task {
 			return TestResult(name, false, hasPassed);
 		}
 
-		auto retval = execute(
-			["./" ~ exeName], /* env = */ null, Config.none, /* maxOutput = */
-			size_t.max, dir).status;
+		auto run = executeWithTimeout(["./" ~ exeName], dir);
+		if (run.timedOut) {
+			stderr.writefln("%s: execution timed out.", name);
+			return TestResult(name, false, hasPassed);
+		}
+
+		auto retval = run.status;
 		if (retval != expectedRetval) {
 			stderr.writefln("%s: expected reval %s, got %s", name,
 			                expectedRetval, retval);
