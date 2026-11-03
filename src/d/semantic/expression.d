@@ -612,17 +612,20 @@ public:
 	}
 
 	Expression buildArgument(Expression arg, ParamType pt) {
-		auto value = buildImplicitCast(pass, arg.location, pt.getType(), arg);
+		auto value = Value.fromExpression(arg);
+		auto casted =
+			buildImplicitCast(pass, arg.location, pt.getType(), value);
 		if (!pt.isRef) {
-			return value;
+			return casted.getExpression(arg.location);
 		}
 
-		// Ref parameters take the address of the argument.
-		if (auto addr = buildAddressOf(value)) {
-			return addr;
+		// Ref parameters take the address of the argument, which the cast
+		// keeps if the parameter can refer to it.
+		if (casted.hasAddress()) {
+			return casted.getAddress(arg.location).getExpression(arg.location);
 		}
 
-		if (buildAddressOf(arg) is null) {
+		if (!value.hasAddress()) {
 			return getError(arg, "Argument isn't a lvalue.");
 		}
 
@@ -643,12 +646,13 @@ public:
 
 	// TODO: deduplicate.
 	private auto matchArgument(Expression arg, ParamType param) {
+		auto value = Value.fromExpression(arg);
 		auto type = param.getType();
-		auto flavor = implicitCastFrom(pass, arg.type, type);
+		auto flavor = implicitCastFrom(pass, value.type, type);
 
-		// Test whether we can pass by ref.
-		if (param.isRef && (!canRefer(flavor, arg.type, type)
-			    || buildAddressOf(arg) is null)) {
+		// The argument can be passed by ref if the cast keeps its address.
+		if (param.isRef && !(value.hasAddress()
+			    && canRefer(flavor, value.type, type))) {
 			return MatchLevel.Not;
 		}
 
