@@ -32,36 +32,45 @@ Value buildExplicitCast(SemanticPass pass, Location location, Type to,
 	return buildCast!true(pass, location, to, value);
 }
 
+Value buildImplicitCast(SemanticPass pass, Location location, ParamType to,
+                        Value value) {
+	return buildCast!false(pass, location, to, value);
+}
+
 CastKind implicitCastFrom(SemanticPass pass, Type from, Type to) {
 	return ImplicitCaster(pass, to).castFrom(from);
 }
 
-CastKind explicitCastFrom(SemanticPass pass, Type from, Type to) {
-	return ExplicitCaster(pass, to).castFrom(from);
+/**
+ * The implicit cast of a value of type from to a value of type to. A
+ * reference can only bind to something that has an address, as a pointer
+ * would, else the cast is invalid.
+ */
+CastKind implicitCastFrom(SemanticPass pass, ParamType from, ParamType to) {
+	// A reference needs something with an address to bind to.
+	if (to.isRef && !from.isRef) {
+		return CastKind.Invalid;
+	}
+
+	auto f = from.getType();
+	auto t = to.getType();
+	auto kind = implicitCastFrom(pass, f, t);
+	if (!to.isRef || kind == CastKind.Exact) {
+		return kind;
+	}
+
+	// Only a value of the same representation can be seen as another type.
+	if (kind < CastKind.Bit) {
+		return CastKind.Invalid;
+	}
+
+	auto fq = f.getCanonical().qualifier;
+	auto tq = t.getCanonical().qualifier;
+	return canBind(fq, tq) ? kind : CastKind.Invalid;
 }
 
-/**
- * Whether the result of a cast of kind kind can refer to what is cast. A
- * value always refers to itself. Through a qualifier cast, nothing can be
- * written through the result that is not valid for the original: its
- * qualifier can only change as an implicit conversion allows, and nothing
- * below it can change as long as it can be written to. The cast converts the
- * value, so it can only refer to it if the value is accessed as it needs to
- * be: whether it is shared cannot change.
- */
-bool canRefer(CastKind kind, Type from, Type to) {
-	if (kind == CastKind.Exact) {
-		return true;
-	}
-
-	if (kind != CastKind.Qual) {
-		return false;
-	}
-
-	auto fq = from.getCanonical().qualifier;
-	auto tq = to.getCanonical().qualifier;
-	return canConvert(fq, tq) && !tq.isWritable()
-		&& fq.isShared() == tq.isShared();
+CastKind explicitCastFrom(SemanticPass pass, Type from, Type to) {
+	return ExplicitCaster(pass, to).castFrom(from);
 }
 
 private:
@@ -84,6 +93,63 @@ Expression buildCast(bool isExplicit)(
 	// A constant keeps the location of the literal it comes from.
 	auto isLiteral = value.isConstant() && !value.hasAddress();
 	return casted.getExpression(isLiteral ? e.location : location);
+}
+
+Value buildCast(bool isExplicit)(SemanticPass pass, Location location,
+                                 ParamType to, Value value) {
+	auto type = to.getType();
+	return to.isRef
+		? buildReference!isExplicit(pass, location, type, value)
+		: buildCast!isExplicit(pass, location, type, value);
+}
+
+/**
+ * A reference refers to the value, so the result is the value seen as the
+ * type to, with its address, if the reference can bind to it.
+ */
+Value buildReference(bool isExplicit)(SemanticPass pass, Location location,
+                                      Type to, Value value) {
+	import std.format;
+
+	// Only a value with an address can be referred to.
+	if (!value.hasAddress()) {
+		return value.getError(
+			location,
+			format!"Can't bind a value without an address to ref %s."(
+				to.toString(pass.context))
+		);
+	}
+
+	auto kind = Caster!isExplicit(pass, to).castFrom(value.type);
+	if (kind == CastKind.Exact) {
+		return value;
+	}
+
+	// Only a value of the same representation can be seen as another type.
+	if (kind >= CastKind.Bit) {
+		auto fq = value.type.getCanonical().qualifier;
+		auto tq = to.getCanonical().qualifier;
+		if (canBind(fq, tq)) {
+			return castAddress(location, kind, to, value);
+		}
+	}
+
+	return value.getError(
+		location,
+		format!"Can't bind %s to ref %s."(value.type.toString(pass.context),
+		                                  to.toString(pass.context))
+	);
+}
+
+/**
+ * Whether a reference can refer to a value with a cast to the same
+ * representation, from being the qualifier of the value and to the one of the
+ * reference. A reference is a pointer to the value, so it follows the same
+ * rules: the qualifier can change as an implicit conversion allows, as long
+ * as nothing can be written through the reference.
+ */
+bool canBind(TypeQualifier from, TypeQualifier to) {
+	return !to.isWritable() && canConvert(from, to);
 }
 
 Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
@@ -244,10 +310,16 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 		return Value.withValue(new CastConstant(kind, to, constant));
 	}
 
-	// A qualifier cast commutes with the load: perform it on the address
-	// instead, and the value remains addressable.
-	if (value.hasAddress() && canRefer(kind, value.type, to)) {
-		return castAddress(location, CastKind.Qual, to, value);
+	// When a reference could bind to the value, the cast commutes with the
+	// load: perform it on the address instead, and the value remains
+	// addressable. The value is converted, so it must still be accessed as it
+	// needs to be: whether it is shared cannot change.
+	if (kind >= CastKind.Bit && value.hasAddress()) {
+		auto fq = value.type.getCanonical().qualifier;
+		auto tq = to.getCanonical().qualifier;
+		if (fq.isShared() == tq.isShared() && canBind(fq, tq)) {
+			return castAddress(location, kind, to, value);
+		}
 	}
 
 	if (kind == CastKind.Invalid) {
@@ -840,6 +912,29 @@ unittest {
 	auto si = i.qualify(TypeQualifier.Shared);
 	assert(!buildImplicitCast(pass, location, i, addressOf(si)).hasAddress());
 	assert(!buildExplicitCast(pass, location, i, addressOf(si)).hasAddress());
+
+	// The value can be seen as another type of the same size, as long as it
+	// cannot be written to.
+	auto u = Type.get(BuiltinType.Uint);
+	auto cu = u.qualify(TypeQualifier.Const);
+	auto toBits = buildImplicitCast(pass, location, cu, addressOf(i));
+	assert(toBits.hasAddress());
+	assert(toBits.type == cu);
+	assert(addressCastKind(toBits) == CastKind.Bit);
+
+	assert(!buildImplicitCast(pass, location, u, addressOf(i)).hasAddress());
+
+	// It still cannot drop shared.
+	auto csu = cu.qualify(TypeQualifier.Shared);
+	auto toSharedBits = buildImplicitCast(pass, location, csu, addressOf(si));
+	assert(toSharedBits.hasAddress());
+	assert(addressCastKind(toSharedBits) == CastKind.Bit);
+
+	assert(!buildImplicitCast(pass, location, cu, addressOf(si)).hasAddress());
+
+	// A value of another size cannot be seen in place.
+	auto cl = Type.get(BuiltinType.Long).qualify(TypeQualifier.Const);
+	assert(!buildImplicitCast(pass, location, cl, addressOf(i)).hasAddress());
 }
 
 unittest {
@@ -868,6 +963,48 @@ unittest {
 		== CastKind.Invalid);
 	assert(implicitCastFrom(pass, si.getPointer(), i.getPointer())
 		== CastKind.Invalid);
+}
+
+unittest {
+	auto pass = SemanticPass.getTestSemanticPass();
+
+	auto i = Type.get(BuiltinType.Int);
+	auto l = Type.get(BuiltinType.Long);
+	auto ci = i.qualify(TypeQualifier.Const);
+	auto si = i.qualify(TypeQualifier.Shared);
+	auto ii = i.qualify(TypeQualifier.Immutable);
+	auto csi = si.qualify(TypeQualifier.Const);
+
+	auto test(Type from, ParamKind fk, Type to, ParamKind tk) {
+		return
+			implicitCastFrom(pass, from.getParamType(fk), to.getParamType(tk));
+	}
+
+	// A value is cast the same way, whether it has an address or not.
+	foreach (k; [ParamKind.Regular, ParamKind.Final, ParamKind.Ref]) {
+		assert(test(i, k, i, ParamKind.Regular) == CastKind.Exact);
+		assert(test(i, k, ci, ParamKind.Regular) == CastKind.Qual);
+		assert(test(ci, k, i, ParamKind.Regular) == CastKind.Qual);
+		assert(
+			test(i, k, l, ParamKind.Regular) == implicitCastFrom(pass, i, l));
+	}
+
+	// A reference needs something with an address to bind to.
+	assert(test(i, ParamKind.Regular, i, ParamKind.Ref) == CastKind.Invalid);
+	assert(test(i, ParamKind.Final, i, ParamKind.Ref) == CastKind.Invalid);
+	assert(test(i, ParamKind.Ref, i, ParamKind.Ref) == CastKind.Exact);
+
+	// It can view it as a pointer would.
+	assert(test(i, ParamKind.Ref, ci, ParamKind.Ref) == CastKind.Qual);
+	assert(test(ii, ParamKind.Ref, csi, ParamKind.Ref) == CastKind.Qual);
+
+	// But it cannot write what the value doesn't allow.
+	assert(test(ci, ParamKind.Ref, i, ParamKind.Ref) == CastKind.Invalid);
+	assert(test(i, ParamKind.Ref, si, ParamKind.Ref) == CastKind.Invalid);
+	assert(test(ii, ParamKind.Ref, si, ParamKind.Ref) == CastKind.Invalid);
+
+	// Nor can it see a value as a value of another size.
+	assert(test(i, ParamKind.Ref, l, ParamKind.Ref) == CastKind.Invalid);
 }
 
 unittest {

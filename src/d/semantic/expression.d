@@ -612,29 +612,15 @@ public:
 	}
 
 	Expression buildArgument(Expression arg, ParamType pt) {
-		auto value = Value.fromExpression(arg);
-		auto casted =
-			buildImplicitCast(pass, arg.location, pt.getType(), value);
-		if (!pt.isRef) {
-			return casted.getExpression(arg.location);
+		auto value = buildImplicitCast(pass, arg.location, pt,
+		                               Value.fromExpression(arg));
+
+		// Ref parameters take the address of the argument.
+		if (pt.isRef) {
+			value = value.getAddress(arg.location);
 		}
 
-		// Ref parameters take the address of the argument, which the cast
-		// keeps if the parameter can refer to it.
-		if (casted.hasAddress()) {
-			return casted.getAddress(arg.location).getExpression(arg.location);
-		}
-
-		if (!value.hasAddress()) {
-			return getError(arg, "Argument isn't a lvalue.");
-		}
-
-		import std.format;
-		return getError(
-			arg,
-			format!"Can't pass argument (%s) by ref to %s."(
-				arg.type.toString(context), pt.toString(context))
-		);
+		return value.getExpression(arg.location);
 	}
 
 	enum MatchLevel {
@@ -644,35 +630,15 @@ public:
 		Exact,
 	}
 
-	// TODO: deduplicate.
 	private auto matchArgument(Expression arg, ParamType param) {
+		// What has an address can be passed by ref.
 		auto value = Value.fromExpression(arg);
-		auto type = param.getType();
-		auto flavor = implicitCastFrom(pass, value.type, type);
-
-		// The argument can be passed by ref if the cast keeps its address.
-		if (param.isRef && !(value.hasAddress()
-			    && canRefer(flavor, value.type, type))) {
-			return MatchLevel.Not;
-		}
-
-		return matchLevel(flavor);
+		auto kind = value.hasAddress() ? ParamKind.Ref : ParamKind.Regular;
+		return matchArgument(value.type.getParamType(kind), param);
 	}
 
-	// TODO: deduplicate.
 	private auto matchArgument(ParamType type, ParamType param) {
-		if (param.isRef && !canConvert(type.qualifier, param.qualifier)) {
-			return MatchLevel.Not;
-		}
-
-		auto flavor = implicitCastFrom(pass, type.getType(), param.getType());
-
-		// Test whether we can pass by ref.
-		if (param.isRef && !(flavor >= CastKind.Qual && type.isRef)) {
-			return MatchLevel.Not;
-		}
-
-		return matchLevel(flavor);
+		return matchLevel(implicitCastFrom(pass, type, param));
 	}
 
 	private auto matchLevel(CastKind flavor) {

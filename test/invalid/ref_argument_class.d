@@ -1,5 +1,5 @@
 //T error: ref_argument_class.d:9:3:
-//T error: Can't pass argument (B) by ref to ref A.
+//T error: Can't bind B to ref A.
 class A {}
 class B : A {}
 

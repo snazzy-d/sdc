@@ -546,36 +546,18 @@ public:
 
 		import d.semantic.expression;
 		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr);
-		auto orig = eVal;
 		auto eType = eVal.type.getParamType(eDecl.type.paramKind);
 
 		if (!eDecl.type.getType().isAuto) {
 			import d.semantic.type;
 			eType = TypeVisitor(pass).visit(eDecl.type);
-
-			import d.semantic.caster;
-			eVal = buildImplicitCast(pass, eLoc, eType.getType(), eVal);
 		}
 
-		if (eDecl.type.paramKind == ParamKind.Ref) {
-			// Ref variables hold the address of the element.
-			if (!eVal.hasAddress()) {
-				import source.exception;
-				if (!orig.hasAddress()) {
-					throw new CompileException(eLoc,
-					                           "Ref element isn't an lvalue.");
-				}
+		import d.semantic.caster;
+		eVal = buildImplicitCast(pass, eLoc, eType, eVal);
 
-				import std.format;
-				throw new CompileException(
-					eLoc,
-					format!"Can't bind element of type %s by ref to %s."(
-						orig.type.toString(context),
-						eType.getType().toString(context)
-					)
-				);
-			}
-
+		// Ref variables hold the address of the element.
+		if (eType.isRef) {
 			eVal = eVal.getAddress(eLoc);
 		}
 
@@ -793,18 +775,16 @@ public:
 			// TODO: auto ref return.
 			returnType = value.type.getParamType(ParamKind.Regular);
 		} else {
-			import d.semantic.caster;
-			value = buildImplicitCast(pass, s.location, returnType.getType(),
-			                          value);
+			import d.semantic.caster, d.ir.value;
+			auto v = buildImplicitCast(pass, s.location, returnType,
+			                           Value.fromExpression(value));
+
+			// A ref return returns the address of the value.
 			if (returnType.isRef) {
-				import d.semantic.expression;
-				value = ExpressionVisitor(pass).buildAddressOf(value);
-				if (value is null) {
-					import source.exception;
-					throw new CompileException(s.location,
-					                           "Cannot ref return lvalues");
-				}
+				v = v.getAddress(s.location);
 			}
+
+			value = v.getExpression(value.location);
 		}
 
 		// If unwind work is needed, store the result in a temporary.
