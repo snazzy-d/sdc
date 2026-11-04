@@ -45,7 +45,9 @@ CastKind explicitCastFrom(SemanticPass pass, Type from, Type to) {
  * value always refers to itself. Through a qualifier cast, nothing can be
  * written through the result that is not valid for the original: its
  * qualifier can only change as an implicit conversion allows, and nothing
- * below it can change as long as it can be written to.
+ * below it can change as long as it can be written to. The cast converts the
+ * value, so it can only refer to it if the value is accessed as it needs to
+ * be: whether it is shared cannot change.
  */
 bool canRefer(CastKind kind, Type from, Type to) {
 	if (kind == CastKind.Exact) {
@@ -58,7 +60,8 @@ bool canRefer(CastKind kind, Type from, Type to) {
 
 	auto fq = from.getCanonical().qualifier;
 	auto tq = to.getCanonical().qualifier;
-	return canConvert(fq, tq) && !tq.isWritable();
+	return canConvert(fq, tq) && !tq.isWritable()
+		&& fq.isShared() == tq.isShared();
 }
 
 private:

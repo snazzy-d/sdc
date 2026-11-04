@@ -36,10 +36,6 @@ ref const(int*) refConstReturn(ref int* p) {
 	return p;
 }
 
-ref const(shared(int)) refConstSharedReturn(ref immutable(int) x) {
-	return x;
-}
-
 ref const(shared(int)) refConstSharedFromShared(ref shared(int) x) {
 	return x;
 }
@@ -54,11 +50,6 @@ unittest ref_return_qualifier {
 	int x = 1;
 	int* p = &x;
 	assert(cast(void*) &refConstReturn(p) is cast(void*) &p);
-
-	// Immutable data is never written, so it can be accessed as shared.
-	immutable(int) i = 2;
-	assert(cast(void*) &refConstSharedReturn(i) is cast(void*) &i);
-	assert(refConstSharedValue(i) is cast(int*) &i);
 
 	shared(int) si = 3;
 	assert(cast(void*) &refConstSharedFromShared(si) is cast(void*) &si);
@@ -143,4 +134,19 @@ unittest ref_argument_overload_value {
 	int i;
 	int* p = &i;
 	assert(bindPointer(p) == 2);
+}
+
+int bindShared(ref const(shared(int)) x) {
+	return 1;
+}
+
+int bindShared(const(shared(int)) x) {
+	return 2;
+}
+
+unittest ref_argument_shared_overload {
+	// Immutable data is accessed differently than shared data, so it cannot
+	// be passed by ref as shared and is passed by value.
+	immutable(int) i = 1;
+	assert(bindShared(i) == 2);
 }

@@ -57,12 +57,6 @@ unittest foreach_ref_qualifier_conversion {
 		assert(cast(void*) &p is cast(void*) &ptrs[i]);
 	}
 
-	// Immutable data is never written, so it can be accessed as shared.
-	immutable(int)[] imm = [1, 2];
-	foreach (i, ref const(shared(int)) e; imm) {
-		assert(cast(void*) &e is cast(void*) &imm[i]);
-	}
-
 	shared(int)[] sh = [1, 2];
 	foreach (i, ref const(shared(int)) e; sh) {
 		assert(cast(void*) &e is cast(void*) &sh[i]);

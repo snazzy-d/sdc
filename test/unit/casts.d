@@ -19,10 +19,8 @@ unittest explicit_qualifier_casts {
 	// be written through it that is not valid for the original.
 	int i = 1;
 	shared(int) si = 2;
-	immutable(int) ii = 3;
 	assert(cast(void*) &cast(const(int)) i is cast(void*) &i);
 	assert(cast(void*) &cast(const(shared(int))) si is cast(void*) &si);
-	assert(cast(void*) &cast(const(shared(int))) ii is cast(void*) &ii);
 
 	int* p = &i;
 	int** pp = &p;

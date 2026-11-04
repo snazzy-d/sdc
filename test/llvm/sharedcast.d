@@ -21,3 +21,43 @@ int loadUnshared(ref shared(int) x) {
 int loadShared(ref int x) {
 	return cast(shared(int)) x;
 }
+
+// CHECK-LABEL: define i32 @_D10sharedcast19loadImmutableSharedFMKyiZi(
+// CHECK-SAME: ptr nofree readonly captures(none) [[X:%.*]]) local_unnamed_addr #[[ATTR1]] {
+// CHECK-NEXT:  [[ENTRY:.*:]]
+// CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[X]], align 4
+// CHECK-NEXT:    ret i32 [[TMP0]]
+//
+int loadImmutableShared(ref immutable(int) x) {
+	return cast(const(shared(int))) x;
+}
+
+// CHECK-LABEL: define i32 @_D10sharedcast17loadImmutableViewFMKyiZk(
+// CHECK-SAME: ptr nofree readonly captures(none) [[X:%.*]]) local_unnamed_addr #[[ATTR1]] {
+// CHECK-NEXT:  [[ENTRY:.*:]]
+// CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[X]], align 4
+// CHECK-NEXT:    ret i32 [[TMP0]]
+//
+uint loadImmutableView(ref immutable(int) x) {
+	return cast(const(shared(uint))) x;
+}
+
+// CHECK-LABEL: define i32 @_D10sharedcast16loadUnsharedViewFMKOiZk(
+// CHECK-SAME: ptr nofree captures(none) [[X:%.*]]) local_unnamed_addr #[[ATTR0]] {
+// CHECK-NEXT:  [[ENTRY:.*:]]
+// CHECK-NEXT:    [[TMP0:%.*]] = load atomic i32, ptr [[X]] seq_cst, align 4
+// CHECK-NEXT:    ret i32 [[TMP0]]
+//
+uint loadUnsharedView(ref shared(int) x) {
+	return cast(const(uint)) x;
+}
+
+// CHECK-LABEL: define i32 @_D10sharedcast15loadMutableViewFMKiZk(
+// CHECK-SAME: ptr nofree readonly captures(none) [[X:%.*]]) local_unnamed_addr #[[ATTR1]] {
+// CHECK-NEXT:  [[ENTRY:.*:]]
+// CHECK-NEXT:    [[TMP0:%.*]] = load i32, ptr [[X]], align 4
+// CHECK-NEXT:    ret i32 [[TMP0]]
+//
+uint loadMutableView(ref int x) {
+	return cast(const(shared(uint))) x;
+}
