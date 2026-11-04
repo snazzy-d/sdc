@@ -579,8 +579,8 @@ public:
 			eVal = eVal.getAddress(eLoc);
 		}
 
-		auto element =
-			new Variable(eLoc, eType, eDecl.name, eVal.getExpression(eLoc));
+		auto element = new Variable(eLoc, eType, eDecl.name,
+		                            check(eVal.getExpression(eLoc)));
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);
 
