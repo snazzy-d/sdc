@@ -247,9 +247,7 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 	// A qualifier cast commutes with the load: perform it on the address
 	// instead, and the value remains addressable.
 	if (value.hasAddress() && canRefer(kind, value.type, to)) {
-		auto addr = value.getAddress(location).getExpression(location);
-		return Value.withAddress(
-			new CastExpression(location, CastKind.Qual, to.getPointer(), addr));
+		return castAddress(location, CastKind.Qual, to, value);
 	}
 
 	if (kind == CastKind.Invalid) {
@@ -268,6 +266,23 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 	assert(kind != CastKind.Exact, "Exact casts are handled above.");
 	return Value.withValue(
 		new CastExpression(location, kind, to, value.getExpression(location)));
+}
+
+/**
+ * The value seen as the type to, at the same address. A constant address
+ * remains a constant.
+ */
+Value castAddress(Location location, CastKind kind, Type to, Value value) {
+	auto type = to.getPointer();
+	auto address = value.getAddress(location);
+	if (address.isConstant()) {
+		import d.ir.constant;
+		return
+			Value.withAddress(new CastConstant(kind, type, address.constant));
+	}
+
+	return Value.withAddress(
+		new CastExpression(location, kind, type, address.expression));
 }
 
 alias ExplicitCaster = Caster!true;

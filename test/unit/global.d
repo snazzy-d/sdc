@@ -55,3 +55,21 @@ unittest global_compound_assign {
 	g -= 1;
 	assert(g == 12);
 }
+
+int tlsValue = 1;
+shared int sharedValue = 2;
+immutable int immutableValue = 3;
+
+const(shared(int))* sharedValueAddress = &cast(const(shared(int))) sharedValue;
+const(int)* immutableValueAddress = &cast(const(int)) immutableValue;
+
+unittest global_cast_address {
+	// A cast that refers to a global has the address of the global.
+	assert(&cast(const(int)) tlsValue is &tlsValue);
+	assert(&cast(const(shared(int))) sharedValue is &sharedValue);
+	assert(&cast(const(int)) immutableValue is &immutableValue);
+
+	// This address is a constant when the global is not thread local.
+	assert(sharedValueAddress is &sharedValue);
+	assert(immutableValueAddress is &immutableValue);
+}
