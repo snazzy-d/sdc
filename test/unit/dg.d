@@ -147,3 +147,49 @@ unittest delegate_context_kind {
 	dg = (new Constant()).value;
 	assert(dg() == 7);
 }
+
+struct Shared {
+	int value;
+
+	int get() immutable {
+		return value;
+	}
+
+	int next() {
+		return ++value;
+	}
+
+	int peek() shared {
+		return 3;
+	}
+}
+
+unittest delegate_qualifier {
+	// A delegate can always be seen as const: its context could be changed
+	// by the function when it was created, and still can.
+	Shared s;
+	const(int delegate()) next = s.next;
+	assert(next() == 1);
+	assert(s.value == 1);
+
+	// A delegate with an immutable context can be immutable, and shared.
+	Shared m;
+	m.value = 5;
+	immutable(Shared) i = m;
+	immutable(int delegate()) get = i.get;
+	assert(get() == 5);
+
+	const(int delegate()) constGet = get;
+	assert(constGet() == 5);
+
+	shared(int delegate()) sharedGet = get;
+	const(shared(int delegate())) constSharedGet = get;
+
+	// Qualifiers can always be dropped.
+	int delegate() mutableGet = get;
+	assert(mutableGet() == 5);
+
+	// A delegate with a shared context can be shared.
+	shared(Shared) ss;
+	shared(int delegate()) peek = ss.peek;
+}

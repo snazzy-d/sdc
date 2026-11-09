@@ -153,6 +153,63 @@ unittest {
 	}
 }
 
+/**
+ * Whether something qualified holder can refer to data qualified target. The
+ * qualifier of the holder applies to everything it refers to, so the target
+ * must already have it: immutable data can only refer to immutable data,
+ * shared data to data that is shared or immutable, and const data to data
+ * that is const or immutable.
+ */
+bool canRefer(TypeQualifier holder, TypeQualifier target) {
+	return holder.add(target) == target;
+}
+
+unittest {
+	alias Q = TypeQualifier;
+
+	// Mutable data can refer to anything.
+	foreach (t;
+		[Q.Mutable, Q.Inout, Q.Const, Q.Shared, Q.ConstShared, Q.Immutable]
+	) {
+		assert(canRefer(Q.Mutable, t));
+	}
+
+	// Const data can only refer to data that is const or immutable.
+	assert(canRefer(Q.Const, Q.Const));
+	assert(canRefer(Q.Const, Q.ConstShared));
+	assert(canRefer(Q.Const, Q.Immutable));
+	assert(!canRefer(Q.Const, Q.Mutable));
+	assert(!canRefer(Q.Const, Q.Inout));
+	assert(!canRefer(Q.Const, Q.Shared));
+
+	// Shared data can only refer to data that is shared or immutable.
+	assert(canRefer(Q.Shared, Q.Shared));
+	assert(canRefer(Q.Shared, Q.ConstShared));
+	assert(canRefer(Q.Shared, Q.Immutable));
+	assert(!canRefer(Q.Shared, Q.Mutable));
+	assert(!canRefer(Q.Shared, Q.Const));
+
+	// And const shared data to data that is const shared or immutable.
+	assert(canRefer(Q.ConstShared, Q.ConstShared));
+	assert(canRefer(Q.ConstShared, Q.Immutable));
+	assert(!canRefer(Q.ConstShared, Q.Shared));
+	assert(!canRefer(Q.ConstShared, Q.Const));
+	assert(!canRefer(Q.ConstShared, Q.Mutable));
+
+	// Immutable data can only refer to immutable data.
+	assert(canRefer(Q.Immutable, Q.Immutable));
+	assert(!canRefer(Q.Immutable, Q.Mutable));
+	assert(!canRefer(Q.Immutable, Q.Const));
+	assert(!canRefer(Q.Immutable, Q.Inout));
+	assert(!canRefer(Q.Immutable, Q.Shared));
+	assert(!canRefer(Q.Immutable, Q.ConstShared));
+
+	// Inout can stand for immutable.
+	assert(canRefer(Q.Inout, Q.Inout));
+	assert(canRefer(Q.Inout, Q.Immutable));
+	assert(!canRefer(Q.Inout, Q.Mutable));
+}
+
 enum ParamKind {
 	/// Regular parameter. A slot on the stack will be allocated and value
 	/// copied in it when calling the function.

@@ -738,6 +738,12 @@ class DelegateExpression : Expression {
 	Function method;
 
 	this(Location location, Expression[] contexts, Function method) {
+		// The contexts are typed as the method expects them, so a const method
+		// gives a const context, even when bound to an immutable or shared
+		// object. This is valid, as the object converts to what the method
+		// expects, but loses that the context is immutable or shared, so the
+		// delegate cannot be immutable or shared. The qualifier of the object
+		// would be tighter.
 		super(location, method.type.getDelegate(contexts.length).getType());
 
 		this.contexts = contexts;

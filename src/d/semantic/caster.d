@@ -367,6 +367,9 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 	Type to;
 
+	// The qualifier of what is cast, which the visitors do not get.
+	TypeQualifier fromQualifier;
+
 	this(SemanticPass pass, Type to) {
 		this.pass = pass;
 		this.to = to;
@@ -392,6 +395,7 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		// The visitors do not consider qualifiers, so a cast to what only
 		// differs by its qualifier is a qualifier cast.
+		fromQualifier = from.qualifier;
 		auto kind = from.accept(this);
 		return (kind == CastKind.Exact && from.qualifier != to.qualifier)
 			? CastKind.Qual
@@ -421,6 +425,38 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 		}
 
 		return to.qualifier.isWritable() ? CastKind.Invalid : kind;
+	}
+
+	/**
+	 * A delegate refers to its context, so what it is converted to must be
+	 * able to refer to it: an immutable delegate needs an immutable context,
+	 * and a shared one a context that is shared or immutable. The qualifier
+	 * of the delegate applies to its context, and hiding what the context is
+	 * cannot change its qualifier either.
+	 *
+	 * The function could change its context when the delegate was bound, so
+	 * a const context can be mutable, and a delegate can be seen as const
+	 * whatever its context. Only immutable and shared restrict what it can
+	 * refer to. An explicit cast can change any qualifier.
+	 */
+	bool canReferToContext(ParamType from, ParamType to) {
+		static TypeQualifier getQualifier(TypeQualifier q, ParamType c) {
+			auto t = c.getType().getCanonical();
+			if (!c.isRef && t.kind == TypeKind.Pointer) {
+				t = t.element.getCanonical();
+			}
+
+			// Const does not restrict what a delegate refers to.
+			q = q.add(t.qualifier);
+			if (q == TypeQualifier.Const) {
+				return TypeQualifier.Mutable;
+			}
+
+			return q == TypeQualifier.ConstShared ? TypeQualifier.Shared : q;
+		}
+
+		return isExplicit || canRefer(getQualifier(this.to.qualifier, to),
+		                              getQualifier(fromQualifier, from));
 	}
 
 	/**
@@ -765,6 +801,10 @@ struct Caster(bool isExplicit, alias bailoutOverride = null) {
 
 		import std.algorithm, std.range;
 		foreach (fromc, toc; lockstep(f.contexts, tf.contexts)) {
+			if (!canReferToContext(fromc, toc)) {
+				return CastKind.Invalid;
+			}
+
 			k = min(k, castContext(fromc, toc));
 		}
 
@@ -1152,4 +1192,86 @@ unittest {
 	assert(explicitCastFrom(pass, bySlice, byPointer) == CastKind.Invalid);
 	assert(explicitCastFrom(pass, byInt, byLong) == CastKind.Invalid);
 	assert(explicitCastFrom(pass, byInt, byPointer) == CastKind.Invalid);
+}
+
+unittest {
+	auto pass = SemanticPass.getTestSemanticPass();
+
+	auto i = Type.get(BuiltinType.Int);
+	auto ret = i.getParamType(ParamKind.Regular);
+	Type delegateOf(Type context, ParamKind kind) {
+		auto c = context.getParamType(kind);
+		return FunctionType(Linkage.D, ret, [c], false).getDelegate().getType();
+	}
+
+	auto vp = Type.get(BuiltinType.Void).getPointer();
+	auto byPointer = delegateOf(vp, ParamKind.Regular);
+	auto byMutable = delegateOf(i, ParamKind.Ref);
+	auto byConst = delegateOf(i.qualify(TypeQualifier.Const), ParamKind.Ref);
+	auto byShared = delegateOf(i.qualify(TypeQualifier.Shared), ParamKind.Ref);
+	auto byImmutable =
+		delegateOf(i.qualify(TypeQualifier.Immutable), ParamKind.Ref);
+	auto byImmutablePointer =
+		delegateOf(vp.qualify(TypeQualifier.Immutable), ParamKind.Regular);
+
+	auto toConst = byPointer.qualify(TypeQualifier.Const);
+	auto toShared = byPointer.qualify(TypeQualifier.Shared);
+	auto toConstShared = byPointer.qualify(TypeQualifier.ConstShared);
+	auto toImmutable = byPointer.qualify(TypeQualifier.Immutable);
+	auto toInout = byPointer.qualify(TypeQualifier.Inout);
+
+	// A delegate can always be seen as const, and its context too.
+	assert(implicitCastFrom(pass, byMutable, toConst) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byMutable, byConst) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byConst, byMutable) == CastKind.Bit);
+
+	// An immutable context can be referred to from anywhere.
+	assert(implicitCastFrom(pass, byImmutable, toImmutable) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byImmutable, toShared) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byImmutable, toInout) == CastKind.Bit);
+	assert(
+		implicitCastFrom(pass, byImmutablePointer, toImmutable) == CastKind.Bit
+	);
+	assert(implicitCastFrom(pass, byImmutable, toConst) == CastKind.Bit);
+	assert(implicitCastFrom(pass, toImmutable, toConst) == CastKind.Qual);
+	assert(implicitCastFrom(pass, toImmutable, toShared) == CastKind.Qual);
+	assert(implicitCastFrom(pass, toImmutable, toConstShared) == CastKind.Qual);
+
+	// A shared context can only be referred to from mutable or shared data.
+	assert(implicitCastFrom(pass, byShared, toShared) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byShared, toConstShared) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byShared, byPointer) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byShared, toImmutable) == CastKind.Invalid);
+
+	auto byConstShared =
+		delegateOf(i.qualify(TypeQualifier.ConstShared), ParamKind.Ref);
+	assert(implicitCastFrom(pass, byConstShared, toShared) == CastKind.Bit);
+	assert(implicitCastFrom(pass, byConstShared, byShared) == CastKind.Bit);
+	assert(
+		implicitCastFrom(pass, byConstShared, toImmutable) == CastKind.Invalid);
+
+	// A mutable or const context can only be referred to from mutable data.
+	foreach (from; [byPointer, byMutable, byConst, toConst]) {
+		assert(implicitCastFrom(pass, from, toImmutable) == CastKind.Invalid);
+		assert(implicitCastFrom(pass, from, toShared) == CastKind.Invalid);
+		assert(implicitCastFrom(pass, from, toConstShared) == CastKind.Invalid);
+		assert(implicitCastFrom(pass, from, toInout) == CastKind.Invalid);
+	}
+
+	// Hiding what the context is cannot make it immutable or shared.
+	assert(implicitCastFrom(pass, byPointer, byImmutable) == CastKind.Invalid);
+	assert(implicitCastFrom(pass, byMutable, byShared) == CastKind.Invalid);
+	assert(
+		implicitCastFrom(pass, byConst, byImmutablePointer) == CastKind.Invalid
+	);
+
+	// But it can always be dropped.
+	assert(implicitCastFrom(pass, toImmutable, byPointer) == CastKind.Qual);
+	assert(implicitCastFrom(pass, toShared, byPointer) == CastKind.Qual);
+	assert(implicitCastFrom(pass, byImmutable, byPointer) == CastKind.Bit);
+
+	// An explicit cast can change any qualifier.
+	assert(explicitCastFrom(pass, byPointer, toImmutable) == CastKind.Qual);
+	assert(explicitCastFrom(pass, byMutable, toShared) == CastKind.Bit);
+	assert(explicitCastFrom(pass, byPointer, byImmutable) == CastKind.Bit);
 }
