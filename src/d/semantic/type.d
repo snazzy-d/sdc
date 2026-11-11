@@ -65,16 +65,17 @@ struct TypeVisitor {
 	Type visitArrayOf(AstExpression size, AstType t) {
 		auto type = visit(t);
 
-		import d.semantic.expression;
-		return buildArray(ExpressionVisitor(pass).visit(size), type);
+		import d.ir.value, d.semantic.expression;
+		auto value = Value.fromExpression(ExpressionVisitor(pass).visit(size));
+		return buildArray(size.location, value, type);
 	}
 
-	import d.ir.expression;
-	private Type buildArray(Expression size, Type t) {
-		import d.semantic.caster, d.semantic.expression;
-		auto s = evalIntegral(
-			buildImplicitCast(pass, size.location, pass.object.getSizeT().type,
-			                  size));
+	import d.ir.expression, d.ir.value, source.location;
+	private Type buildArray(Location location, Value size, Type t) {
+		import d.semantic.caster;
+		auto value = buildImplicitCast(pass, location,
+		                               pass.object.getSizeT().type, size);
+		auto s = evalIntegral(value.getExpression(location));
 
 		assert(s <= uint.max, "Array larger than uint.max are not supported.");
 		return t.getArray(cast(uint) s, qualifier);
@@ -96,7 +97,8 @@ struct TypeVisitor {
 				static if (is(T : Type)) {
 					assert(0, "Not implemented.");
 				} else static if (is(T : Expression)) {
-					return buildArray(identified, type);
+					return buildArray(identified.location,
+					                  Value.fromExpression(identified), type);
 				} else if (auto v = cast(ValueTemplateParameter) identified) {
 					return Pattern(type, v).getType();
 				} else {
