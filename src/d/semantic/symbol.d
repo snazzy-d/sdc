@@ -501,24 +501,29 @@ struct SymbolAnalyzer {
 	private auto requireConstant(Location location, Value value) {
 		auto c = evaluate(value.getExpression(location));
 
-		static struct LinkTimeChecker {
-			bool visit(Constant c) {
-				return this.dispatch!(c => true)(c);
+		// The address of a thread local variable is only known at runtime,
+		// as each thread has its own.
+		static struct ThreadLocalFinder {
+			GlobalVariable visit(Constant c) {
+				return this.dispatch!(c => cast(GlobalVariable) null)(c);
 			}
 
-			bool visit(GlobalConstant c) {
-				return c.symbol.hasLinkTimeAddress();
+			GlobalVariable visit(GlobalConstant c) {
+				return c.symbol.hasLinkTimeAddress() ? null : c.symbol;
 			}
 
-			bool visit(CastConstant c) {
+			GlobalVariable visit(CastConstant c) {
 				return visit(c.value);
 			}
 		}
 
-		if (!LinkTimeChecker().visit(c)) {
-			import source.exception;
+		if (auto tls = ThreadLocalFinder().visit(c)) {
+			import source.exception, std.format;
 			throw new CompileException(
-				location, "Cannot use this address as a constant.");
+				location,
+				format!"Thread local %s has no address at compile time."(
+					tls.name.toString(context))
+			);
 		}
 
 		import d.ir.error;
