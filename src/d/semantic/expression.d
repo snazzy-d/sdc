@@ -592,8 +592,10 @@ public:
 
 	Expression visit(AstCastExpression e) {
 		import d.semantic.type;
-		return buildExplicitCast(
-			pass, e.location, TypeVisitor(pass).visit(e.type), visit(e.expr));
+		auto type = TypeVisitor(pass).visit(e.type);
+		auto value = Value.fromExpression(visit(e.expr));
+		return buildExplicitCast(pass, e.location, type, value)
+			.getExpression(e.location);
 	}
 
 	Expression visit(AstArrayLiteral e) {
