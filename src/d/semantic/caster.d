@@ -164,7 +164,9 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 	if (auto asPolysemous = cast(PolysemousExpression) rvalue) {
 		Expression casted;
 		foreach (candidate; asPolysemous.expressions) {
-			candidate = buildCast!isExplicit(pass, location, to, candidate);
+			candidate = buildCast!isExplicit(pass, location, to,
+			                                 Value.fromExpression(candidate))
+				.getExpression(candidate.location);
 
 			import d.ir.error;
 			if (cast(ErrorExpression) candidate) {
@@ -202,7 +204,9 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 				auto et = to.element;
 				auto values = al
 					.values
-					.map!(v => buildCast!isExplicit(pass, location, et, v))
+					.map!(v => buildCast!isExplicit(pass, location, et,
+					                                Value.fromExpression(v))
+						.getExpression(v.location))
 					.array();
 				return Value
 					.withValue(build!ArrayLiteral(al.location, to, values));
