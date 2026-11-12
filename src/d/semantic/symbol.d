@@ -12,6 +12,9 @@ import d.ir.constant;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
+
+import source.location;
 
 alias AstModule = d.ast.declaration.Module;
 alias Module = d.ir.symbol.Module;
@@ -439,7 +442,7 @@ struct SymbolAnalyzer {
 		assert(0, "Overload set members must be functions.");
 	}
 
-	private auto getValue(VariableDeclaration d) {
+	private Value getValue(VariableDeclaration d) {
 		auto stc = d.storageClass;
 
 		if (d.type.isAuto) {
@@ -461,23 +464,32 @@ struct SymbolAnalyzer {
 				);
 			}
 
-			return value;
+			return Value.fromExpression(value);
 		}
 
 		import d.semantic.type : TypeVisitor;
 		auto type = TypeVisitor(pass).withStorageClass(stc).visit(d.type);
 		if (auto vi = cast(AstVoidInitializer) d.value) {
-			return new ConstantExpression(vi.location, new VoidConstant(type));
+			return Value.withValue(new VoidConstant(type));
 		}
 
 		// XXX: remove selective import when dmd is sane.
 		import d.semantic.expression : ExpressionVisitor;
 		import d.semantic.defaultinitializer : InitBuilder;
-		auto value = d.value
+		auto e = d.value
 			? ExpressionVisitor(pass).visit(d.value)
 			: InitBuilder(pass, d.location).asExpression(type);
 
+		auto value = Value.fromExpression(e);
 		return buildImplicitCast(pass, d.location, type, value);
+	}
+
+	/**
+	 * Where the value of a variable comes from: its initializer, or the
+	 * variable itself when it is default initialized.
+	 */
+	private static Location getValueLocation(VariableDeclaration d) {
+		return d.value ? d.value.location : d.location;
 	}
 
 	/**
@@ -487,8 +499,8 @@ struct SymbolAnalyzer {
 	 * Every global address is a GlobalConstant. A thread-local one is
 	 * not a compile-time constant.
 	 */
-	private auto requireConstant(Expression e) {
-		auto c = evaluate(e);
+	private auto requireConstant(Location location, Value value) {
+		auto c = evaluate(value.getExpression(location));
 
 		static struct LinkTimeChecker {
 			bool visit(Constant c) {
@@ -507,7 +519,7 @@ struct SymbolAnalyzer {
 		if (!LinkTimeChecker().visit(c)) {
 			import source.exception;
 			throw new CompileException(
-				e.location, "Cannot use this address as a constant.");
+				location, "Cannot use this address as a constant.");
 		}
 
 		import d.ir.error;
@@ -521,7 +533,7 @@ struct SymbolAnalyzer {
 
 	void analyze(VariableDeclaration d, Variable v) {
 		auto value = getValue(d);
-		assert(value);
+		auto location = getValueLocation(d);
 
 		// We peel alias for auto variable as it can lead to
 		// very confusing results, like a template parameter.
@@ -531,8 +543,7 @@ struct SymbolAnalyzer {
 		       "Static variables must be GlobalVariable.");
 
 		if (v.storage.isGlobal) {
-			value =
-				new ConstantExpression(value.location, requireConstant(value));
+			value = Value.withValue(requireConstant(location, value));
 		}
 
 		// XXX: Make sure type is at least signed.
@@ -546,14 +557,14 @@ struct SymbolAnalyzer {
 			assert(address !is null, "Ref initializer isn't an lvalue.");
 		}
 
-		v.value = value;
+		v.value = value.getExpression(location);
 		v.mangle = v.name;
 		v.step = Step.Processed;
 	}
 
 	void analyze(VariableDeclaration d, GlobalVariable g) {
 		auto value = getValue(d);
-		assert(value);
+		auto location = getValueLocation(d);
 
 		// We peel alias for auto variable as it can lead to
 		// very confusing results, like a template parameter.
@@ -569,34 +580,34 @@ struct SymbolAnalyzer {
 		mangle = "_D" ~ manglePrefix ~ to!string(name.length) ~ name ~ mangle;
 		g.mangle = context.getName(mangle);
 
-		g.value = requireConstant(value);
+		g.value = requireConstant(location, value);
 		g.step = Step.Processed;
 	}
 
 	void analyze(VariableDeclaration d, ManifestConstant m) {
 		auto value = getValue(d);
-		assert(value);
+		auto location = getValueLocation(d);
 
 		// We peel alias for auto variable as it can lead to
 		// very confusing results, like a template parameter.
 		m.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
 		m.mangle = m.name;
-		m.value = requireConstant(value);
+		m.value = requireConstant(location, value);
 
 		m.step = Step.Processed;
 	}
 
 	void analyze(VariableDeclaration d, Field f) {
 		auto value = getValue(d);
-		assert(value);
+		auto location = getValueLocation(d);
 
 		// We peel alias for auto variable as it can lead to
 		// very confusing results, like a template parameter.
 		f.type = d.type.isAuto ? value.type.getCanonical() : value.type;
 
 		f.mangle = f.name;
-		f.value = requireConstant(value);
+		f.value = requireConstant(location, value);
 
 		// XXX: Make sure type is at least signed.
 		import d.semantic.sizeof;
@@ -666,7 +677,10 @@ struct SymbolAnalyzer {
 	void analyze(ValueAliasDeclaration d, ValueAlias a) {
 		// XXX: remove selective import when dmd is sane.
 		import d.semantic.expression : ExpressionVisitor;
-		a.value = requireConstant(ExpressionVisitor(pass).visit(d.value));
+		auto e = ExpressionVisitor(pass).visit(d.value);
+		auto value = Value.fromExpression(e);
+
+		a.value = requireConstant(d.value.location, value);
 
 		import d.semantic.mangler;
 		auto typeMangle = TypeMangler(pass).visit(a.value.type);
@@ -1159,15 +1173,16 @@ struct SymbolAnalyzer {
 		m.step = Step.Signed;
 
 		import d.semantic.expression;
-		auto value = ExpressionVisitor(pass).visit(e);
+		auto expr = ExpressionVisitor(pass).visit(e);
+		auto value = Value.fromExpression(expr);
 
 		// The value has the type the enum is based on.
 		import d.semantic.caster;
 		auto base = m.type.denum.type;
-		value = buildImplicitCast(pass, value.location, base, value);
+		value = buildImplicitCast(pass, e.location, base, value);
 
-		m.value =
-			new CastConstant(CastKind.Bit, m.type, requireConstant(value));
+		m.value = new CastConstant(CastKind.Bit, m.type,
+		                           requireConstant(e.location, value));
 		m.step = Step.Processed;
 	}
 
