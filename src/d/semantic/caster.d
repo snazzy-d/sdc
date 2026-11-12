@@ -4,7 +4,6 @@ import d.semantic.semantic;
 import d.semantic.typepromotion;
 
 import d.ir.common;
-import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
 import d.ir.value;
@@ -12,16 +11,6 @@ import d.ir.value;
 import source.location;
 
 import source.exception;
-
-Expression buildImplicitCast(SemanticPass pass, Location location, Type to,
-                             Expression e) {
-	return buildCast!false(pass, location, to, e);
-}
-
-Expression buildExplicitCast(SemanticPass pass, Location location, Type to,
-                             Expression e) {
-	return buildCast!true(pass, location, to, e);
-}
 
 Value buildImplicitCast(SemanticPass pass, Location location, Type to,
                         Value value) {
@@ -78,23 +67,6 @@ private:
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
-
-Expression buildCast(bool isExplicit)(
-	SemanticPass pass,
-	Location location,
-	Type to,
-	Expression e,
-) in(e, "Expression must not be null") {
-	auto value = Value.fromExpression(e);
-	auto casted = buildCast!isExplicit(pass, location, to, value);
-	if (casted == value) {
-		return e;
-	}
-
-	// A constant keeps the location of the literal it comes from.
-	auto isLiteral = value.isConstant() && !value.hasAddress();
-	return casted.getExpression(isLiteral ? e.location : location);
-}
 
 Value buildCast(bool isExplicit)(SemanticPass pass, Location location,
                                  ParamType to, Value value) {
@@ -162,6 +134,7 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 
 	// If the expression is polysemous, we try the several meaning and
 	// exclude the ones that make no sense.
+	import d.ir.expression;
 	if (auto asPolysemous = cast(PolysemousExpression) rvalue) {
 		Expression casted;
 		foreach (candidate; asPolysemous.expressions) {
@@ -358,6 +331,7 @@ Value castAddress(Location location, CastKind kind, Type to, Value value) {
 			Value.withAddress(new CastConstant(kind, type, address.constant));
 	}
 
+	import d.ir.expression;
 	return Value.withAddress(
 		new CastExpression(location, kind, type, address.expression));
 }
@@ -866,23 +840,12 @@ unittest {
 
 	auto pass = SemanticPass.getTestSemanticPass();
 
-	auto base = Location.init.start;
-	auto literalLocation = base.getWithOffsets(1, 2);
-	auto castLocation = base.getWithOffsets(3, 4);
+	auto castLocation = Location.init.start.getWithOffsets(3, 4);
 
 	auto cstring =
 		Type.get(BuiltinType.Char).getPointer(TypeQualifier.Immutable);
 
-	// A string literal converted to a C string keeps its location.
-	auto literal =
-		new ConstantExpression(literalLocation, new StringConstant("abc"));
-	auto fromExpression = cast(ConstantExpression)
-		buildImplicitCast(pass, castLocation, cstring, literal);
-	assert(fromExpression !is null);
-	assert(fromExpression.location == literalLocation);
-	assert(cast(CStringConstant) fromExpression.value !is null);
-
-	// A string constant has no location: the cast's is used.
+	// A string constant converts to a C string.
 	auto fromConstant =
 		buildImplicitCast(pass, castLocation, cstring,
 		                  Value.withValue(new StringConstant("abc")));
@@ -931,6 +894,7 @@ unittest {
 	auto i = Type.get(BuiltinType.Int);
 	auto ci = i.qualify(TypeQualifier.Const);
 
+	import d.ir.expression;
 	Value addressOf(Type t) {
 		auto v = new Variable(location, t, BuiltinName!"", null);
 		return Value.withAddress(new VariableExpression(location, v));
