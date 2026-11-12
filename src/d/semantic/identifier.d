@@ -138,9 +138,11 @@ public:
 
 		return build(location, BuiltinName!"this").apply!((identified) {
 			static if (is(typeof(identified) : Expression)) {
-				import d.semantic.caster;
-				return buildImplicitCast(pass, location, thisType.getType(),
-				                         identified);
+				import d.ir.value, d.semantic.caster;
+				auto value =
+					buildImplicitCast(pass, location, thisType.getType(),
+					                  Value.fromExpression(identified));
+				return value.getExpression(identified.location);
 			} else {
 				return getError(location,
 				                "Cannot find a suitable this pointer.")
@@ -398,10 +400,11 @@ private:
 
 	Identifiable resolveBracket(Location location, Type base,
 	                            Expression index) {
-		import d.semantic.caster, d.semantic.expression;
-		auto size = evalIntegral(
-			buildImplicitCast(pass.pass, index.location,
-			                  pass.object.getSizeT().type, index));
+		import d.ir.value, d.semantic.caster;
+		auto value = buildImplicitCast(
+			pass.pass, index.location, pass.object.getSizeT().type,
+			Value.fromExpression(index));
+		auto size = evalIntegral(index.location, value);
 
 		assert(size <= uint.max,
 		       "Array larger than uint.max are not supported.");
@@ -940,10 +943,11 @@ struct ExpressionDotIdentifierResolver {
 					getIdentifiableError(e, e.location, "Expected an lvalue.");
 			}
 
-			import d.semantic.caster;
-			return Identifiable(
+			import d.ir.value, d.semantic.caster;
+			auto value =
 				buildExplicitCast(pass.pass, location, et.element.getPointer(),
-				                  ptr));
+				                  Value.fromExpression(ptr));
+			return Identifiable(value.getExpression(ptr.location));
 		}
 
 		// UFCS
