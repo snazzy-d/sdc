@@ -1,4 +1,4 @@
-//T error: delegate_shared_field.d:8:8:
+//T error: delegate_shared_field.d:8:1:
 //T error: Can't cast int delegate() <{void*}> to shared(int delegate() <{void*}>).
 class K {
 	int delegate() dg;

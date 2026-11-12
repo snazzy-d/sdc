@@ -147,17 +147,15 @@ private:
 	/**
 	 * Store a value, if what it is stored to can be written to.
 	 */
-	Expression buildAssign(Location location, Value lhs, Expression rhs) {
+	Expression buildAssign(Location location, Value lhs, Value rhs) {
 		auto addr = lhs.getAddress(location).getExpression(location);
-
-		auto assigned = Value.fromExpression(rhs);
-		assigned = buildImplicitCast(pass, rhs.location, lhs.type, assigned);
-		rhs = assigned.getExpression(rhs.location);
+		rhs = buildImplicitCast(pass, location, lhs.type, rhs);
 
 		// The address is not a pointer if it is an error.
 		auto at = addr.type.getCanonical();
 		if (at.kind != TypeKind.Pointer || at.element.qualifier.isWritable()) {
-			return build!StoreExpression(location, rhs, addr);
+			return build!StoreExpression(location, rhs.getExpression(location),
+			                             addr);
 		}
 
 		import std.format;
@@ -197,8 +195,7 @@ private:
 			auto result = Value.fromExpression(e);
 			result = buildExplicitCast(pass, location, type, result);
 
-			return
-				buildAssign(location, lhsRef, result.getExpression(e.location));
+			return buildAssign(location, lhsRef, result);
 		}
 
 		Type type;
@@ -215,7 +212,8 @@ private:
 					return getError(lhs, "Expected an lvalue.");
 				}
 
-				return buildAssign(location, Value.withAddress(addr), rhs);
+				return buildAssign(location, Value.withAddress(addr),
+				                   Value.fromExpression(rhs));
 
 			case Add, Sub:
 				auto isSub = op == Sub;
@@ -525,8 +523,7 @@ public:
 		auto sum = Value.fromExpression(add);
 		sum = buildExplicitCast(pass, loc, type, sum);
 
-		auto cadd = sum.getExpression(add.location);
-		auto inc = buildAssign(loc, operand, cadd);
+		auto inc = buildAssign(loc, operand, sum);
 
 		if (isPre) {
 			return inc;
@@ -741,7 +738,8 @@ public:
 					return getError(thisExpr, "Expected an lvalue.");
 				}
 
-				return buildAssign(c.location, Value.withAddress(addr), call);
+				return buildAssign(c.location, Value.withAddress(addr),
+				                   Value.fromExpression(call));
 
 			case Final:
 				// Classes.
