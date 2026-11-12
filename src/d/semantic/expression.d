@@ -821,7 +821,9 @@ public:
 				scheduler.require(s, Step.Signed);
 
 				import d.semantic.defaultinitializer;
-				auto di = InstanceBuilder(pass, calleeLoc).visit(s);
+				auto di =
+					InstanceBuilder(pass, calleeLoc).visit(s)
+					                                .getExpression(calleeLoc);
 				if (s.isSmall) {
 					return callCtor(location, calleeLoc, di, args);
 				}
@@ -1188,7 +1190,8 @@ public:
 		auto type = TypeVisitor(pass).visit(e.type);
 
 		import d.semantic.defaultinitializer;
-		auto di = NewBuilder(pass, e.location).visit(type);
+		auto di =
+			NewBuilder(pass, e.location).visit(type).getExpression(e.location);
 		auto hackForDg = (&di)[0 .. 1];
 
 		import source.name, d.semantic.identifier;

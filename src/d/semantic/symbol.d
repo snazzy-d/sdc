@@ -476,11 +476,10 @@ struct SymbolAnalyzer {
 		// XXX: remove selective import when dmd is sane.
 		import d.semantic.expression : ExpressionVisitor;
 		import d.semantic.defaultinitializer : InitBuilder;
-		auto e = d.value
-			? ExpressionVisitor(pass).visit(d.value)
-			: InitBuilder(pass, d.location).asExpression(type);
+		auto value = d.value
+			? Value.fromExpression(ExpressionVisitor(pass).visit(d.value))
+			: InitBuilder(pass, d.location).asValue(type);
 
-		auto value = Value.fromExpression(e);
 		return buildImplicitCast(pass, d.location, type, value);
 	}
 

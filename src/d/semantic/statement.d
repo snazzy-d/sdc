@@ -358,18 +358,18 @@ public:
 
 				import d.semantic.expression;
 				import d.semantic.defaultinitializer : InitBuilder;
-				auto e = s.value
-					? ExpressionVisitor(pass).visit(s.value)
-					: InitBuilder(pass, s.location).asExpression(t);
-
-				auto value = Value.fromExpression(e);
+				auto ev = ExpressionVisitor(pass);
+				auto location = s.value ? s.value.location : s.location;
+				auto value = s.value
+					? Value.fromExpression(ev.visit(s.value))
+					: InitBuilder(pass, s.location).asValue(t);
 
 				import d.semantic.caster;
 				value = buildImplicitCast(pass, s.location, t, value);
 
 				auto v =
 					new Variable(s.location, t.getParamType(ParamKind.Regular),
-					             s.name, check(e.location, value));
+					             s.name, check(location, value));
 
 				v.step = Step.Processed;
 				pass.currentScope.addSymbol(v);
@@ -463,8 +463,9 @@ public:
 		switch (f.tupleElements.length) {
 			case 1:
 				import d.semantic.defaultinitializer;
-				idx = new Variable(loc, sizeT, BuiltinName!"",
-				                   InitBuilder(pass, loc).asExpression(sizeT));
+				idx = new Variable(
+					loc, sizeT, BuiltinName!"",
+					check(loc, InitBuilder(pass, loc).asValue(sizeT)));
 
 				idx.step = Step.Processed;
 				break;
@@ -493,8 +494,9 @@ public:
 				}
 
 				import d.semantic.defaultinitializer;
-				idx = new Variable(idxLoc, t, idxDecl.name,
-				                   InitBuilder(pass, idxLoc).asExpression(t));
+				idx = new Variable(
+					idxLoc, t, idxDecl.name,
+					check(idxLoc, InitBuilder(pass, idxLoc).asValue(t)));
 
 				idx.step = Step.Processed;
 				currentScope.addSymbol(idx);
@@ -542,7 +544,7 @@ public:
 				loc,
 				ICmpOp.GreaterThan,
 				ExpressionVisitor(pass).buildPostDec(loc, idxExpr),
-				InitBuilder(pass, loc).asExpression(idx.type)
+				check(loc, InitBuilder(pass, loc).asValue(idx.type))
 			);
 		} else {
 			// for(idx = 0; idx < length; idx++)

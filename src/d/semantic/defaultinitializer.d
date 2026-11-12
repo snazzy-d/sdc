@@ -7,6 +7,7 @@ import d.ir.error;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
 import source.location;
 
@@ -15,6 +16,16 @@ alias NewBuilder = DefaultInitializerVisitor!true;
 
 // Conflict with Interface in object.di
 alias Interface = d.ir.symbol.Interface;
+
+/**
+ * A default value refers to nothing, so it can have the qualifier of what it
+ * initializes.
+ */
+private Value qualify(SemanticPass pass, Location location, TypeQualifier q,
+                      Value value) {
+	import d.semantic.caster;
+	return buildExplicitCast(pass, location, value.type.qualify(q), value);
+}
 
 struct InitBuilder {
 	private SemanticPass pass;
@@ -27,13 +38,17 @@ struct InitBuilder {
 		this.location = location;
 	}
 
-	ConstantExpression asExpression(T)(T t) {
-		auto c = new ConstantExpression(location, visit(t));
+	/**
+	 * The default value of something of type t, which has the qualifier of
+	 * what it initializes.
+	 */
+	Value asValue(T)(T t) {
+		auto value = Value.withValue(visit(t));
 		static if (is(T : Type)) {
-			c.type = c.type.qualify(t.qualifier);
+			value = qualify(pass, location, t.qualifier, value);
 		}
 
-		return c;
+		return value;
 	}
 
 	Constant visit(Type t) {
@@ -198,46 +213,49 @@ struct DefaultInitializerVisitor(bool isNew) {
 		this.location = location;
 	}
 
-	Expression visit(Type t) {
-		auto e = t.accept(this);
-		e.type = e.type.qualify(t.qualifier);
-
-		return e;
+	Value visit(Type t) {
+		return qualify(pass, location, t.qualifier, t.accept(this));
 	}
 
-	Expression getDefaultInit(T)(T t) {
-		return InitBuilder(pass, location).asExpression(t);
+	Expression buildExpression(Type t) {
+		return visit(t).getExpression(location);
 	}
 
-	Expression visit(BuiltinType t) {
+	Value getDefaultInit(T)(T t) {
+		return InitBuilder(pass, location).asValue(t);
+	}
+
+	Value visit(BuiltinType t) {
 		return getDefaultInit(t);
 	}
 
-	Expression visitPointerOf(Type t) {
+	Value visitPointerOf(Type t) {
 		return getDefaultInit(t);
 	}
 
-	Expression visitSliceOf(Type t) {
+	Value visitSliceOf(Type t) {
 		return getDefaultInit(t);
 	}
 
-	Expression visitArrayOf(uint size, Type t) {
+	Value visitArrayOf(uint size, Type t) {
 		Expression[] elements;
 		elements.length = size;
-		elements[] = visit(t);
+		elements[] = buildExpression(t);
 
-		return build!TupleExpression(location, t.getArray(size), elements);
+		return Value.withValue(
+			build!TupleExpression(location, t.getArray(size), elements));
 	}
 
-	Expression visit(Struct s) {
-		auto v = getDefaultInit(s);
+	Value visit(Struct s) {
+		auto value = getDefaultInit(s);
 		if (!s.hasContext) {
-			return v;
+			return value;
 		}
 
 		import d.semantic.expression;
-		v = ExpressionVisitor(pass).getTemporary(v).getAddress(v.location)
-		                           .getExpression(v.location);
+		auto v = ExpressionVisitor(pass)
+			.getTemporary(value.getExpression(location)).getAddress(location)
+			.getExpression(location);
 
 		auto ctxField = s.fields[0];
 
@@ -254,17 +272,18 @@ struct DefaultInitializerVisitor(bool isNew) {
 		auto assign = build!StoreExpression(location, ctx, field);
 
 		auto t = Type.get(s);
-		return build!BinaryExpression(location, t, BinaryOp.Comma, assign,
-		                              build!LoadExpression(v.location, t, v));
+		return Value.withValue(
+			build!BinaryExpression(location, t, BinaryOp.Comma, assign,
+			                       build!LoadExpression(location, t, v)));
 	}
 
-	Expression visit(Union u) {
+	Value visit(Union u) {
 		// FIXME: Computing this properly would require layout
 		// informations from the backend. Will do for now.
-		return new ConstantExpression(location, new VoidConstant(Type.get(u)));
+		return Value.withValue(new VoidConstant(Type.get(u)));
 	}
 
-	Expression visit(Class c) {
+	Value visit(Class c) {
 		if (!isNew) {
 			return getDefaultInit(c);
 		}
@@ -295,41 +314,42 @@ struct DefaultInitializerVisitor(bool isNew) {
 			}
 		}
 
-		return build!TupleExpression(
-			location, Type.get(fields.map!(f => f.type).array()), fields);
+		return Value.withValue(build!TupleExpression(
+			location, Type.get(fields.map!(f => f.type).array()), fields));
 	}
 
-	Expression visit(Interface i) {
+	Value visit(Interface i) {
 		return getDefaultInit(i);
 	}
 
-	Expression visit(Enum e) {
+	Value visit(Enum e) {
 		return getDefaultInit(e);
 	}
 
-	Expression visit(TypeAlias a) {
+	Value visit(TypeAlias a) {
 		// TODO: build implicit cast.
 		return visit(a.type);
 	}
 
-	Expression visit(Function f) {
+	Value visit(Function f) {
 		return getDefaultInit(f);
 	}
 
-	Expression visit(Type[] splat) {
+	Value visit(Type[] splat) {
 		import std.algorithm, std.array;
-		auto elements = splat.map!(t => visit(t)).array();
+		auto elements = splat.map!(t => buildExpression(t)).array();
 
-		return build!TupleExpression(location, Type.get(splat), elements);
+		return Value.withValue(
+			build!TupleExpression(location, Type.get(splat), elements));
 	}
 
-	Expression visit(ParamType t) {
+	Value visit(ParamType t) {
 		assert(!t.isRef, "ref initializer is not implemented.");
 
 		return visit(t.getType());
 	}
 
-	Expression visit(FunctionType f) {
+	Value visit(FunctionType f) {
 		if (f.contexts.length == 0) {
 			return getDefaultInit(f);
 		}
@@ -337,15 +357,17 @@ struct DefaultInitializerVisitor(bool isNew) {
 		assert(f.contexts.length == 1,
 		       "delegate initializer is not implemented.");
 
-		auto elements = [visit(f.contexts[0]), visit(f.getFunction())];
-		return build!TupleExpression(location, f.getType(), elements);
+		auto elements = [visit(f.contexts[0]).getExpression(location),
+		                 visit(f.getFunction()).getExpression(location)];
+		return Value
+			.withValue(build!TupleExpression(location, f.getType(), elements));
 	}
 
-	Expression visit(Pattern p) {
+	Value visit(Pattern p) {
 		return getDefaultInit(p);
 	}
 
-	Expression visit(CompileError e) {
+	Value visit(CompileError e) {
 		return getDefaultInit(e);
 	}
 }

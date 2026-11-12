@@ -193,3 +193,14 @@ unittest delegate_qualifier {
 	shared(Shared) ss;
 	shared(int delegate()) peek = ss.peek;
 }
+
+shared(int delegate()) sharedDelegate;
+immutable(int delegate()) immutableDelegate;
+
+unittest delegate_default {
+	// A delegate is initialized as what it is declared to be, so it can be
+	// shared or immutable without anything to refer to.
+	shared(int delegate()) s;
+	immutable(int delegate()) i;
+	const(shared(int delegate())) cs;
+}
