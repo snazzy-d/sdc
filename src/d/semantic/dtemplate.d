@@ -424,7 +424,7 @@ struct TypeParameterMatcher {
 			static if (is(typeof(o) : Type)) {
 				return matchedArgs[p.index].apply!(() => false, (m) {
 					static if (is(typeof(m) : Type)) {
-						import d.semantic.caster;
+						import d.ir.common, d.semantic.caster;
 						return implicitCastFrom(pass, m, o) == CastKind.Exact;
 					} else {
 						return false;
@@ -469,6 +469,8 @@ struct TypeMatcher(bool isIFTI) {
 	bool visit(BuiltinType t) {
 		import d.semantic.caster;
 		auto castKind = implicitCastFrom(pass, matchee, Type.get(t));
+
+		import d.ir.common;
 		return isIFTI
 			? castKind > CastKind.Invalid
 			: castKind == CastKind.Exact;
@@ -566,6 +568,8 @@ struct TypeMatcher(bool isIFTI) {
 			static if (is(typeof(identified) : Type)) {
 				import d.semantic.caster;
 				auto castKind = implicitCastFrom(pass, matchee, identified);
+
+				import d.ir.common;
 				return isIFTI
 					? castKind > CastKind.Invalid
 					: castKind == CastKind.Exact;

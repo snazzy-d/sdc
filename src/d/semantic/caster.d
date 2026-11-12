@@ -3,6 +3,7 @@ module d.semantic.caster;
 import d.semantic.semantic;
 import d.semantic.typepromotion;
 
+import d.ir.common;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;

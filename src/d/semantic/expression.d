@@ -671,6 +671,7 @@ public:
 		return matchLevel(implicitCastFrom(pass, type, param));
 	}
 
+	import d.ir.common;
 	private auto matchLevel(CastKind flavor) {
 		final switch (flavor) with (CastKind) {
 			case Invalid:

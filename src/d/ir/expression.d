@@ -596,31 +596,10 @@ class ArrayLiteral : Expression {
 /**
  * Cast expressions
  */
-enum CastKind {
-	Invalid,
-	UnsignedToPointer,
-	SignedToPointer,
-	PointerToInt,
-	Down,
-	IntToBool,
-	PointerToBool,
-	Trunc,
-	UPad,
-	SPad,
-	FloatToSigned,
-	FloatToUnsigned,
-	SignedToFloat,
-	UnsignedToFloat,
-	FloatTrunc,
-	FloatExtend,
-	Bit,
-	Qual,
-	Exact,
-}
-
 class CastExpression : Expression {
 	Expression expr;
 
+	import d.ir.common;
 	CastKind kind;
 
 	this(Location location, CastKind kind, Type type, Expression expr) {

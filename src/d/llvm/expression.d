@@ -671,6 +671,8 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(CastExpression e) {
 		auto value = visit(e.expr);
+
+		import d.ir.common;
 		if (e.kind == CastKind.Exact || e.kind == CastKind.Qual) {
 			return value;
 		}

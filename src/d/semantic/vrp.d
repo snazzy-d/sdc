@@ -285,6 +285,7 @@ public:
 		return visitCast(c.kind, c.type, c.value);
 	}
 
+	import d.ir.common;
 	private VR visitCast(E)(CastKind kind, Type type, E e) {
 		final switch (kind) with (CastKind) {
 			case Invalid:
@@ -648,6 +649,7 @@ unittest {
 		/**
 		 * Casts
 		 */
+		import d.ir.common;
 		v = vrp.visit(
 			new CastExpression(Location.init, CastKind.IntToBool, tbool, zero));
 		assert(v == VR(0));

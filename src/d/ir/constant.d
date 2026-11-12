@@ -235,7 +235,7 @@ class FunctionConstant : Constant {
  * A constant cast to another type.
  */
 class CastConstant : Constant {
-	import d.ir.expression;
+	import d.ir.common;
 	CastKind kind;
 
 	Constant value;

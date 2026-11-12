@@ -869,6 +869,7 @@ struct SymbolAnalyzer {
 					continue;
 				}
 
+				import d.ir.common;
 				auto rk = implicitCastFrom(pass, rt.getType(), crt.getType());
 				if (rk < CastKind.Exact) {
 					continue;
@@ -1181,6 +1182,7 @@ struct SymbolAnalyzer {
 		auto base = m.type.denum.type;
 		value = buildImplicitCast(pass, e.location, base, value);
 
+		import d.ir.common;
 		m.value = new CastConstant(CastKind.Bit, m.type,
 		                           requireConstant(e.location, value));
 		m.step = Step.Processed;

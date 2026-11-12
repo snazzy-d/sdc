@@ -156,6 +156,7 @@ struct ConstantGen {
 		auto value = visit(c.value);
 		auto type = typeGen.visit(c.type);
 
+		import d.ir.common;
 		final switch (c.kind) with (CastKind) {
 			case Exact, Qual:
 				return value;
