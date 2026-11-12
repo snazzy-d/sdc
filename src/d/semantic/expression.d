@@ -149,7 +149,10 @@ private:
 	 */
 	Expression buildAssign(Location location, Value lhs, Expression rhs) {
 		auto addr = lhs.getAddress(location).getExpression(location);
-		rhs = buildImplicitCast(pass, rhs.location, lhs.type, rhs);
+
+		auto assigned = Value.fromExpression(rhs);
+		assigned = buildImplicitCast(pass, rhs.location, lhs.type, assigned);
+		rhs = assigned.getExpression(rhs.location);
 
 		// The address is not a pointer if it is an error.
 		auto at = addr.type.getCanonical();
@@ -163,6 +166,21 @@ private:
 			format!"Can't modify %s."(at.element.toString(context)));
 	}
 
+	/**
+	 * Cast both operands of an operation to the type of the operation.
+	 */
+	void castOperands(alias buildCast)(Type type, ref Expression lhs,
+	                                   ref Expression rhs) {
+		auto lv = Value.fromExpression(lhs);
+		auto rv = Value.fromExpression(rhs);
+
+		lv = buildCast(pass, lhs.location, type, lv);
+		rv = buildCast(pass, rhs.location, type, rv);
+
+		lhs = lv.getExpression(lhs.location);
+		rhs = rv.getExpression(rhs.location);
+	}
+
 	Expression buildBinary(Location location, AstBinaryOp op, Expression lhs,
 	                       Expression rhs) {
 		if (op.isOpAssign()) {
@@ -174,13 +192,13 @@ private:
 				build!BinaryExpression(location, type, BinaryOp.Comma, rhs,
 				                       lhsRef.getExpression(lhs.location));
 
-			return buildAssign(
-				location,
-				lhsRef,
-				buildExplicitCast(
-					pass, location, type,
-					buildBinary(location, op.getBaseOp(), llhs, rhs))
-			);
+			auto e = buildBinary(location, op.getBaseOp(), llhs, rhs);
+
+			auto result = Value.fromExpression(e);
+			result = buildExplicitCast(pass, location, type, result);
+
+			return
+				buildAssign(location, lhsRef, result.getExpression(e.location));
 		}
 
 		Type type;
@@ -225,7 +243,10 @@ private:
 				// Pointer arithmetic.
 				if (!isRPtr) {
 					auto t = pass.object.getSizeT().type;
-					auto index = buildImplicitCast(pass, rhs.location, t, rhs);
+					auto offset = Value.fromExpression(rhs);
+					offset = buildImplicitCast(pass, rhs.location, t, offset);
+
+					auto index = offset.getExpression(rhs.location);
 					if (isSub) {
 						index = build!UnaryExpression(rhs.location, t,
 						                              UnaryOp.Minus, index);
@@ -237,8 +258,7 @@ private:
 				// Pointer difference.
 				if (isSub && isLPtr && isRPtr) {
 					auto t = pass.object.getPtrDiffT().type;
-					lhs = buildExplicitCast(pass, lhs.location, t, lhs);
-					rhs = buildExplicitCast(pass, rhs.location, t, rhs);
+					castOperands!buildExplicitCast(t, lhs, rhs);
 
 					auto d = build!BinaryExpression(location, t, BinaryOp.Sub,
 					                                lhs, rhs);
@@ -305,39 +325,39 @@ private:
 				import d.common.binaryop;
 				bop = getLogicalBinaryOp(op);
 
-				lhs = buildExplicitCast(pass, lhs.location, type, lhs);
-				rhs = buildExplicitCast(pass, rhs.location, type, rhs);
+				castOperands!buildExplicitCast(type, lhs, rhs);
 
 				goto BuildBinaryOp;
 
 			CastBinaryOp:
-				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
-				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
+				castOperands!buildImplicitCast(type, lhs, rhs);
 
 				goto BuildBinaryOp;
 
 			BuildBinaryOp:
 				return build!BinaryExpression(location, type, bop, lhs, rhs);
 
-			case Concat:
+			case Concat: {
 				type = lhs.type;
 				if (type.getCanonical().kind != TypeKind.Slice) {
 					return getError(lhs, "Expected a slice.");
 				}
 
-				rhs = buildImplicitCast(
+				auto appended = Value.fromExpression(rhs);
+				appended = buildImplicitCast(
 					pass,
 					rhs.location,
 					(rhs.type.getCanonical().kind == TypeKind.Slice)
 						? type
 						: type.element,
-					rhs
+					appended,
 				);
 
 				auto concat = pass.object.getArrayConcat();
-				auto args = [lhs, rhs];
+				auto args = [lhs, appended.getExpression(rhs.location)];
 				auto callee = handleIFTI(location, concat, args);
 				return callCallable(location, callee, args);
+			}
 
 			case AddAssign, SubAssign:
 			case MulAssign, PowAssign:
@@ -378,9 +398,7 @@ private:
 			HandleICmp:
 				import d.semantic.typepromotion;
 				type = getPromotedType(pass, location, lhs.type, rhs.type);
-
-				lhs = buildImplicitCast(pass, lhs.location, type, lhs);
-				rhs = buildImplicitCast(pass, rhs.location, type, rhs);
+				castOperands!buildImplicitCast(type, lhs, rhs);
 
 				return build!ICmpExpression(location, icmpop, lhs, rhs);
 
@@ -406,9 +424,9 @@ public:
 	}
 
 	Expression visit(AstTernaryExpression e) {
-		auto condition =
-			buildExplicitCast(pass, e.condition.location,
-			                  Type.get(BuiltinType.Bool), visit(e.condition));
+		auto condition = Value.fromExpression(visit(e.condition));
+		condition = buildExplicitCast(pass, e.condition.location,
+		                              Type.get(BuiltinType.Bool), condition);
 
 		auto ifTrue = visit(e.ifTrue);
 		auto ifFalse = visit(e.ifFalse);
@@ -416,8 +434,7 @@ public:
 		import d.semantic.typepromotion;
 		auto t = getPromotedType(pass, e.location, ifTrue.type, ifFalse.type);
 
-		ifTrue = buildExplicitCast(pass, ifTrue.location, t, ifTrue);
-		ifFalse = buildExplicitCast(pass, ifFalse.location, t, ifFalse);
+		castOperands!buildExplicitCast(t, ifTrue, ifFalse);
 
 		// If both branches are addressable, the conditional itself
 		// is an lvalue. Build the ternary over the branches'
@@ -425,13 +442,19 @@ public:
 		auto trueAddr = buildAddressOf(ifTrue);
 		auto falseAddr = (trueAddr is null) ? null : buildAddressOf(ifFalse);
 		if (falseAddr !is null) {
-			auto addr = build!TernaryExpression(e.location, t.getPointer(),
-			                                    condition, trueAddr, falseAddr);
+			auto addr = build!TernaryExpression(
+				e.location,
+				t.getPointer(),
+				condition.getExpression(e.condition.location),
+				trueAddr,
+				falseAddr
+			);
 			return build!LoadExpression(e.location, t, addr);
 		}
 
-		return
-			build!TernaryExpression(e.location, t, condition, ifTrue, ifFalse);
+		return build!TernaryExpression(
+			e.location, t, condition.getExpression(e.condition.location),
+			ifTrue, ifFalse);
 	}
 
 	/**
@@ -499,8 +522,10 @@ public:
 		auto old = isPre ? value : getFinal(value).getExpression(expr.location);
 		auto add = buildBinary(loc, op, old, one);
 
-		import d.semantic.caster;
-		auto cadd = buildExplicitCast(pass, loc, type, add);
+		auto sum = Value.fromExpression(add);
+		sum = buildExplicitCast(pass, loc, type, sum);
+
+		auto cadd = sum.getExpression(add.location);
 		auto inc = buildAssign(loc, operand, cadd);
 
 		if (isPre) {
@@ -577,17 +602,19 @@ public:
 				import d.semantic.typepromotion;
 				type = getPromotedType(pass, expr.location, expr.type,
 				                       Type.get(BuiltinType.Int));
-				expr = buildExplicitCast(pass, expr.location, type, expr);
 				break;
 
 			case Not:
 				op = UnaryOp.Not;
 				type = Type.get(BuiltinType.Bool);
-				expr = buildExplicitCast(pass, expr.location, type, expr);
 				break;
 		}
 
-		return build!UnaryExpression(e.location, type, op, expr);
+		auto operand = Value.fromExpression(expr);
+		operand = buildExplicitCast(pass, expr.location, type, operand);
+
+		return build!UnaryExpression(e.location, type, op,
+		                             operand.getExpression(expr.location));
 	}
 
 	Expression visit(AstCastExpression e) {
@@ -607,8 +634,12 @@ public:
 			values.length > 0 ? values[0].type : Type.get(BuiltinType.Void);
 
 		// Cast all the value to the proper type.
-		values = values.map!(v => buildImplicitCast(pass, v.location, type, v))
-		               .array();
+		foreach (ref v; values) {
+			auto element = Value.fromExpression(v);
+			element = buildImplicitCast(pass, v.location, type, element);
+
+			v = element.getExpression(v.location);
+		}
 
 		return build!ArrayLiteral(e.location, type.getSlice(), values);
 	}
@@ -776,7 +807,12 @@ public:
 		switch (t.kind) with (TypeKind) {
 			case Builtin:
 				if (args.length == 1) {
-					return buildImplicitCast(pass, location, t, args[0]);
+					auto arg = args[0];
+
+					auto argument = Value.fromExpression(arg);
+					argument = buildImplicitCast(pass, location, t, argument);
+
+					return argument.getExpression(arg.location);
 				}
 
 				return getError(t, location, "Expected one argument.");
@@ -1212,8 +1248,11 @@ public:
 
 	Value getIndex(Location location, Expression indexed, Expression index) {
 		auto t = indexed.type.getCanonical();
-		index = buildImplicitCast(pass, location, pass.object.getSizeT().type,
-		                          index);
+		auto position = Value.fromExpression(index);
+		position = buildImplicitCast(pass, location,
+		                             pass.object.getSizeT().type, position);
+
+		index = position.getExpression(index.location);
 
 		Expression addr;
 		switch (t.kind) with (TypeKind) {
@@ -1272,10 +1311,9 @@ public:
 		}
 
 		auto sizeType = pass.object.getSizeT().type;
-		auto first =
-			buildImplicitCast(pass, e.location, sizeType, visit(e.first[0]));
-		auto second =
-			buildImplicitCast(pass, e.location, sizeType, visit(e.second[0]));
+		auto first = visit(e.first[0]);
+		auto second = visit(e.second[0]);
+		castOperands!buildImplicitCast(sizeType, first, second);
 
 		switch (t.kind) with (TypeKind) {
 			case Pointer:
