@@ -749,13 +749,20 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 			in(unit.type == CtUnitType.StaticIf) {
 		auto d = unit.staticIf;
 
-		import d.ir.expression, d.semantic.caster, d.semantic.expression;
-		auto condition = evalIntegral(buildExplicitCast(
-			pass, d.condition.location, Type.get(BuiltinType.Bool),
-			ExpressionVisitor(pass).visit(d.condition)));
+		auto location = d.condition.location;
+
+		import d.semantic.expression;
+		auto e = ExpressionVisitor(pass).visit(d.condition);
+
+		import d.ir.value;
+		auto value = Value.fromExpression(e);
+
+		import d.semantic.caster;
+		value = buildExplicitCast(pass, location, Type.get(BuiltinType.Bool),
+		                          value);
 
 		CtUnit[] items;
-		if (condition) {
+		if (evalIntegral(location, value)) {
 			dscope.resolveConditional(d, true);
 			items = unit.items;
 		} else {
@@ -832,12 +839,19 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 	}
 
 	private void checkStaticAssert(StaticAssert!Declaration a) {
-		import d.semantic.caster, d.semantic.expression;
-		auto condition = evalIntegral(buildExplicitCast(
-			pass, a.condition.location, Type.get(BuiltinType.Bool),
-			ExpressionVisitor(pass).visit(a.condition)));
+		auto location = a.condition.location;
 
-		if (condition) {
+		import d.semantic.expression;
+		auto e = ExpressionVisitor(pass).visit(a.condition);
+
+		import d.ir.value;
+		auto value = Value.fromExpression(e);
+
+		import d.semantic.caster;
+		value = buildExplicitCast(pass, location, Type.get(BuiltinType.Bool),
+		                          value);
+
+		if (evalIntegral(location, value)) {
 			return;
 		}
 
@@ -846,13 +860,18 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 			throw new CompileException(a.location, "assertion failure");
 		}
 
-		auto msg = evalString(buildExplicitCast(
+		auto m = ExpressionVisitor(pass).visit(a.message);
+		auto message = buildExplicitCast(
 			pass,
-			a.condition.location,
+			location,
 			Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable),
-			ExpressionVisitor(pass).visit(a.message),
-		));
+			Value.fromExpression(m),
+		);
 
-		throw new CompileException(a.location, "assertion failure: " ~ msg);
+		auto msg = evalString(message.getExpression(location));
+
+		import std.format;
+		throw new CompileException(a.location,
+		                           format!"assertion failure: %s"(msg));
 	}
 }

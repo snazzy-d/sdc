@@ -353,10 +353,13 @@ private:
 					return false;
 				}
 
-				import d.semantic.caster;
-				auto e =
-					buildImplicitCast(pass, p.location, p.type, p.defaultValue);
+				import d.ir.value;
+				auto value = Value.fromExpression(p.defaultValue);
 
+				import d.semantic.caster;
+				value = buildImplicitCast(pass, p.location, p.type, value);
+
+				auto e = value.getExpression(p.defaultValue.location);
 				return ConstantMatcher(pass, matchedArgs, p.location,
 				                       evaluate(e)).visit(p);
 			} else {
