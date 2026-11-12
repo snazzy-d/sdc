@@ -15,6 +15,7 @@ import d.ir.expression;
 import d.ir.instruction;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
 struct StatementVisitor {
 private:
@@ -285,15 +286,24 @@ private:
 		return e;
 	}
 
+	Expression check(Location location, Value value) {
+		return check(value.getExpression(location));
+	}
+
 	auto buildExpression(AstExpression expr) {
 		import d.semantic.expression;
 		return check(ExpressionVisitor(pass).visit(expr));
 	}
 
 	auto buildExpression(AstExpression expr, Type type) {
-		import d.semantic.caster, d.semantic.expression;
-		return check(buildExplicitCast(pass, expr.location, type,
-		                               ExpressionVisitor(pass).visit(expr)));
+		import d.semantic.expression;
+		auto e = ExpressionVisitor(pass).visit(expr);
+		auto value = Value.fromExpression(e);
+
+		import d.semantic.caster;
+		value = buildExplicitCast(pass, expr.location, type, value);
+
+		return check(expr.location, value);
 	}
 
 	auto buildCondition(AstExpression expr) {
@@ -348,14 +358,18 @@ public:
 
 				import d.semantic.expression;
 				import d.semantic.defaultinitializer : InitBuilder;
-				auto value = s.value
+				auto e = s.value
 					? ExpressionVisitor(pass).visit(s.value)
 					: InitBuilder(pass, s.location).asExpression(t);
 
+				auto value = Value.fromExpression(e);
+
 				import d.semantic.caster;
-				auto v = new Variable(
-					s.location, t.getParamType(ParamKind.Regular), s.name,
-					buildImplicitCast(pass, s.location, t, value));
+				value = buildImplicitCast(pass, s.location, t, value);
+
+				auto v =
+					new Variable(s.location, t.getParamType(ParamKind.Regular),
+					             s.name, check(e.location, value));
 
 				v.step = Step.Processed;
 				pass.currentScope.addSymbol(v);
@@ -429,15 +443,15 @@ public:
 		import source.name, d.semantic.identifier;
 		auto length = IdentifierResolver(pass)
 			.buildIn(iterated.location, iterated, BuiltinName!"length")
-			.apply!(delegate Expression(e) {
+			.apply!(delegate Value(e) {
 				static if (is(typeof(e) : Expression)) {
-					return e;
+					return Value.fromExpression(e);
 				} else {
 					import d.ir.error, std.format;
-					return new CompileError(
+					return Value.withValue(new CompileError(
 						iterated.location,
 						format!"%s is not a valid length."(typeid(e))
-					).expression;
+					).constant);
 				}
 			})();
 
@@ -497,8 +511,7 @@ public:
 		import d.semantic.caster;
 		length = buildImplicitCast(pass, idx.location, idx.type, length);
 
-		import d.ir.error;
-		if (auto e = cast(ErrorExpression) length) {
+		if (length.type.kind == TypeKind.Error) {
 			import source.exception, std.format;
 			throw new CompileException(
 				idx.location,
@@ -507,9 +520,11 @@ public:
 			);
 		}
 
+		auto lengthExpr = length.getExpression(iterated.location);
+
 		// Iterating in reverse starts past the last element.
 		if (f.reverse) {
-			idx.value = length;
+			idx.value = lengthExpr;
 		}
 
 		currentBlock.alloca(idx.location, idx);
@@ -531,8 +546,8 @@ public:
 			);
 		} else {
 			// for(idx = 0; idx < length; idx++)
-			condition =
-				build!ICmpExpression(loc, ICmpOp.SmallerThan, idxExpr, length);
+			condition = build!ICmpExpression(loc, ICmpOp.SmallerThan, idxExpr,
+			                                 lengthExpr);
 			increment = ExpressionVisitor(pass).buildPreInc(loc, idxExpr);
 		}
 
@@ -561,8 +576,7 @@ public:
 			eVal = eVal.getAddress(eLoc);
 		}
 
-		auto element = new Variable(eLoc, eType, eDecl.name,
-		                            check(eVal.getExpression(eLoc)));
+		auto element = new Variable(eLoc, eType, eDecl.name, check(eLoc, eVal));
 		element.step = Step.Processed;
 		currentScope.addSymbol(element);
 
@@ -575,8 +589,9 @@ public:
 
 	void process(ForeachRangeStatement f, LoopVisitor* lv) {
 		import d.semantic.expression;
-		auto start = ExpressionVisitor(pass).visit(f.start);
-		auto stop = ExpressionVisitor(pass).visit(f.stop);
+		auto ev = ExpressionVisitor(pass);
+		auto start = Value.fromExpression(ev.visit(f.start));
+		auto stop = Value.fromExpression(ev.visit(f.stop));
 
 		assert(f.tupleElements.length == 1, "Wrong number of elements");
 		auto iDecl = f.tupleElements[0];
@@ -589,18 +604,21 @@ public:
 			: TypeVisitor(pass).visit(iDecl.type).getType();
 
 		import d.semantic.caster;
-		start = buildImplicitCast(pass, start.location, type, start);
-		stop = buildImplicitCast(pass, stop.location, type, stop);
+		start = buildImplicitCast(pass, f.start.location, type, start);
+		stop = buildImplicitCast(pass, f.stop.location, type, stop);
+
+		auto first = check(f.start.location, start);
+		auto last = check(f.stop.location, stop);
 
 		if (f.reverse) {
-			auto tmp = start;
-			start = stop;
-			stop = tmp;
+			auto tmp = first;
+			first = last;
+			last = tmp;
 		}
 
 		auto idx = new Variable(
 			iDecl.location, type.getParamType(iDecl.type.paramKind), iDecl.name,
-			start);
+			first);
 
 		idx.step = Step.Processed;
 		currentScope.addSymbol(idx);
@@ -613,14 +631,14 @@ public:
 
 		import d.semantic.expression;
 		if (f.reverse) {
-			// for(...; idx-- > stop; idx)
+			// for(...; idx-- > last; idx)
 			condition = build!ICmpExpression(
 				loc, ICmpOp.GreaterThan,
-				ExpressionVisitor(pass).buildPostDec(loc, idxExpr), stop);
+				ExpressionVisitor(pass).buildPostDec(loc, idxExpr), last);
 		} else {
-			// for(...; idx < stop; idx++)
+			// for(...; idx < last; idx++)
 			condition =
-				build!ICmpExpression(loc, ICmpOp.SmallerThan, idxExpr, stop);
+				build!ICmpExpression(loc, ICmpOp.SmallerThan, idxExpr, last);
 			increment = ExpressionVisitor(pass).buildPreInc(loc, idxExpr);
 		}
 
@@ -775,16 +793,17 @@ public:
 			// TODO: auto ref return.
 			returnType = value.type.getParamType(ParamKind.Regular);
 		} else {
-			import d.semantic.caster, d.ir.value;
-			auto v = buildImplicitCast(pass, s.location, returnType,
-			                           Value.fromExpression(value));
+			auto v = Value.fromExpression(value);
+
+			import d.semantic.caster;
+			v = buildImplicitCast(pass, s.location, returnType, v);
 
 			// A ref return returns the address of the value.
 			if (returnType.isRef) {
 				v = v.getAddress(s.location);
 			}
 
-			value = v.getExpression(value.location);
+			value = check(value.location, v);
 		}
 
 		// If unwind work is needed, store the result in a temporary.
