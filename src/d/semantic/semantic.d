@@ -15,7 +15,9 @@ import d.ir.constant;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
+import source.location;
 import source.name;
 
 alias AstModule = d.ast.declaration.Module;
@@ -123,6 +125,10 @@ final class SemanticPass {
 
 	auto evalIntegral(Expression e) {
 		return evaluator.evalIntegral(e);
+	}
+
+	auto evalIntegral(Location location, Value value) {
+		return evalIntegral(value.getExpression(location));
 	}
 
 	auto evalString(Expression e) {
