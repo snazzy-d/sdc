@@ -112,11 +112,7 @@ public:
 	}
 
 	ulong evalIntegral(Expression e) in {
-		auto t = e.type.getCanonical();
-		while (t.kind = TypeKing.Enum) {
-			t = t.denum.type.getCanonical();
-		}
-
+		auto t = e.type.getCanonicalAndPeelEnum();
 		assert(t.kind == TypeKind.Builtin);
 
 		auto bt = t.builtin;
