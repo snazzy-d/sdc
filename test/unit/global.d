@@ -73,3 +73,22 @@ unittest global_cast_address {
 	assert(sharedValueAddress is &sharedValue);
 	assert(immutableValueAddress is &immutableValue);
 }
+
+enum immutableEnum = immutableValue;
+
+template Identity(int N) {
+	enum Identity = N;
+}
+
+immutable string immutableCode = "enum mixedIn = 7;";
+mixin(immutableCode);
+
+int[immutableValue] immutableSized;
+
+unittest global_evaluate {
+	// An immutable global is known at compile time.
+	assert(immutableEnum == 3);
+	assert(Identity!immutableValue == 3);
+	assert(immutableSized.length == 3);
+	assert(mixedIn == 7);
+}

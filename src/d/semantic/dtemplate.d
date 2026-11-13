@@ -359,9 +359,8 @@ private:
 				import d.semantic.caster;
 				value = buildImplicitCast(pass, p.location, p.type, value);
 
-				auto e = value.getExpression(p.defaultValue.location);
 				return ConstantMatcher(pass, matchedArgs, p.location,
-				                       evaluate(e)).visit(p);
+				                       evaluate(value)).visit(p);
 			} else {
 				return false;
 			}
@@ -678,8 +677,7 @@ struct ConstantMatcher {
 
 		import d.ir.value, d.semantic.caster;
 		matchee = evaluate(
-			buildImplicitCast(pass, location, t, Value.withValue(matchee))
-				.getExpression(location));
+			buildImplicitCast(pass, location, t, Value.withValue(matchee)));
 
 		import d.ir.error;
 		if (cast(ErrorConstant) matchee) {
@@ -752,7 +750,8 @@ struct SymbolMatcher {
 				.postProcess(p.location, vs).apply!(delegate bool(identified) {
 					alias T = typeof(identified);
 					static if (is(T : Expression)) {
-						auto v = evaluate(identified);
+						import d.ir.value;
+						auto v = evaluate(Value.fromExpression(identified));
 						return ConstantMatcher(pass, matchedArgs,
 						                       identified.location, v).visit(p);
 					} else {
@@ -784,7 +783,8 @@ struct SymbolMatcher {
 			.postProcess(p.location, matchee).apply!(delegate bool(identified) {
 				alias T = typeof(identified);
 				static if (is(T : Expression)) {
-					auto v = evaluate(identified);
+					import d.ir.value;
+					auto v = evaluate(Value.fromExpression(identified));
 					return ConstantMatcher(pass, matchedArgs,
 					                       identified.location, v).visit(p);
 				} else {

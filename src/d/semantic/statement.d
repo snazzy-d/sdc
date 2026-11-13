@@ -275,19 +275,24 @@ private:
 		maybeBranchToNewBlock(v.location, BuiltinName!"");
 	}
 
-	Expression check(Expression e) {
-		auto t = e.type;
+	Value check(Value value) {
+		auto t = value.type;
 		if (t.kind == TypeKind.Error) {
 			import source.exception;
 			throw new CompileException(t.error.location, t.error.message);
 		}
 
 		// FIXME: Update flags.
+		return value;
+	}
+
+	Expression check(Expression e) {
+		check(Value.fromExpression(e));
 		return e;
 	}
 
 	Expression check(Location location, Value value) {
-		return check(value.getExpression(location));
+		return check(value).getExpression(location);
 	}
 
 	auto buildExpression(AstExpression expr) {
@@ -295,23 +300,29 @@ private:
 		return check(ExpressionVisitor(pass).visit(expr));
 	}
 
-	auto buildExpression(AstExpression expr, Type type) {
+	Value buildValue(AstExpression expr) {
 		import d.semantic.expression;
 		auto e = ExpressionVisitor(pass).visit(expr);
-		auto value = Value.fromExpression(e);
+		return check(Value.fromExpression(e));
+	}
 
+	Value buildValue(AstExpression expr, Type type) {
 		import d.semantic.caster;
-		value = buildExplicitCast(pass, expr.location, type, value);
-
-		return check(expr.location, value);
+		auto value =
+			buildExplicitCast(pass, expr.location, type, buildValue(expr));
+		return check(value);
 	}
 
-	auto buildCondition(AstExpression expr) {
-		return buildExpression(expr, Type.get(BuiltinType.Bool));
+	auto buildExpression(AstExpression expr, Type type) {
+		return buildValue(expr, type).getExpression(expr.location);
 	}
 
-	auto buildString(AstExpression expr) {
-		return buildExpression(
+	Value buildCondition(AstExpression expr) {
+		return buildValue(expr, Type.get(BuiltinType.Bool));
+	}
+
+	Value buildString(AstExpression expr) {
+		return buildValue(
 			expr, Type.get(BuiltinType.Char).getSlice(TypeQualifier.Immutable));
 	}
 
@@ -408,8 +419,12 @@ public:
 			maybeBranchTo(s.then.location, mergeTrue, mergeBlock);
 		}
 
-		fbody[ifBlock]
-			.branch(s.location, buildCondition(s.condition), ifTrue, ifFalse);
+		fbody[ifBlock].branch(
+			s.location,
+			buildCondition(s.condition).getExpression(s.condition.location),
+			ifTrue,
+			ifFalse
+		);
 	}
 
 	void visit(WhileStatement w) {
@@ -984,7 +999,7 @@ public:
 		          Label(caseBlock, unwindActions.length));
 
 		foreach (e; s.cases) {
-			auto c = cast(uint) evalIntegral(buildExpression(e));
+			auto c = cast(uint) evalIntegral(buildValue(e));
 			cases ~= CaseEntry(caseBlock, c);
 		}
 
@@ -1067,7 +1082,7 @@ public:
 	void visit(AssertStatement s) {
 		Expression msg;
 		if (s.message) {
-			msg = buildString(s.message);
+			msg = buildString(s.message).getExpression(s.message.location);
 		}
 
 		static isTrivialFalse(AstExpression c) {
@@ -1091,7 +1106,8 @@ public:
 			return;
 		}
 
-		auto condition = buildCondition(s.condition);
+		auto condition =
+			buildCondition(s.condition).getExpression(s.condition.location);
 
 		auto testBlock = currentBlockRef;
 		auto failBlock = startNewBranch(BuiltinName!"assert.fail");
@@ -1581,7 +1597,7 @@ struct LoopVisitor {
 		}
 
 		if (!isTrivialTrue(condition)) {
-			cond = buildCondition(condition);
+			cond = buildCondition(condition).getExpression(condition.location);
 		}
 
 		if (increment) {

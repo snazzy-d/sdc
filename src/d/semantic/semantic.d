@@ -119,20 +119,16 @@ final class SemanticPass {
 		scheduler.terminate();
 	}
 
-	auto evaluate(Expression e) {
-		return evaluator.evaluate(e);
+	auto evaluate(Value value) {
+		return evaluator.evaluate(value);
 	}
 
-	auto evalIntegral(Expression e) {
-		return evaluator.evalIntegral(e);
+	auto evalIntegral(Value value) {
+		return evaluator.evalIntegral(value);
 	}
 
-	auto evalIntegral(Location location, Value value) {
-		return evalIntegral(value.getExpression(location));
-	}
-
-	auto evalString(Expression e) {
-		return evaluator.evalString(e);
+	auto evalString(Value value) {
+		return evaluator.evalString(value);
 	}
 
 	auto importModule(Name[] pkgs) {

@@ -1,11 +1,11 @@
 module d.semantic.evaluator;
 
 import d.ir.constant;
-import d.ir.expression;
+import d.ir.value;
 
 interface Evaluator {
-	Constant evaluate(Expression e);
+	Constant evaluate(Value value);
 
-	ulong evalIntegral(Expression e);
-	string evalString(Expression e);
+	ulong evalIntegral(Value value);
+	string evalString(Value value);
 }

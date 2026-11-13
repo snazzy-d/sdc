@@ -762,7 +762,7 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 		                          value);
 
 		CtUnit[] items;
-		if (evalIntegral(location, value)) {
+		if (evalIntegral(value)) {
 			dscope.resolveConditional(d, true);
 			items = unit.items;
 		} else {
@@ -817,7 +817,10 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 
 	private auto lowerMixin(Mixin!Declaration d) {
 		import d.semantic.expression : ExpressionVisitor;
-		auto str = evalString(ExpressionVisitor(pass).visit(d.value));
+		auto e = ExpressionVisitor(pass).visit(d.value);
+
+		import d.ir.value : Value;
+		auto str = evalString(Value.fromExpression(e));
 
 		// XXX: in order to avoid identifier resolution weirdness.
 		auto location = d.location;
@@ -851,7 +854,7 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 		value = buildExplicitCast(pass, location, Type.get(BuiltinType.Bool),
 		                          value);
 
-		if (evalIntegral(location, value)) {
+		if (evalIntegral(value)) {
 			return;
 		}
 
@@ -868,7 +871,7 @@ struct DeclarationFlattener(S) if (is(S : Scope)) {
 			Value.fromExpression(m),
 		);
 
-		auto msg = evalString(message.getExpression(location));
+		auto msg = evalString(message);
 
 		import std.format;
 		throw new CompileException(a.location,

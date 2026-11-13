@@ -333,7 +333,9 @@ private:
 
 				return visit(a).apply!((val) {
 					static if (is(typeof(val) : Expression)) {
-						return TemplateArgument(evaluate(val));
+						import d.ir.value;
+						auto v = Value.fromExpression(val);
+						return TemplateArgument(evaluate(v));
 					} else {
 						return TemplateArgument(val);
 					}
@@ -344,7 +346,10 @@ private:
 			} else {
 				import d.semantic.expression;
 				auto e = ExpressionVisitor(pass.pass).visit(a);
-				return TemplateArgument(evaluate(e));
+
+				import d.ir.value;
+				auto v = Value.fromExpression(e);
+				return TemplateArgument(evaluate(v));
 			}
 		})(a)).array();
 
@@ -404,7 +409,7 @@ private:
 		auto value = buildImplicitCast(
 			pass.pass, index.location, pass.object.getSizeT().type,
 			Value.fromExpression(index));
-		auto size = evalIntegral(index.location, value);
+		auto size = evalIntegral(value);
 
 		assert(size <= uint.max,
 		       "Array larger than uint.max are not supported.");

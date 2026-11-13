@@ -3,7 +3,7 @@ module d.llvm.evaluator;
 import d.llvm.codegen;
 
 import d.ir.constant;
-import d.ir.expression;
+import d.ir.value;
 
 import d.semantic.evaluator;
 
@@ -87,67 +87,90 @@ public:
 		this.pass = pass;
 	}
 
-	Constant evaluate(Expression e) {
-		if (auto ce = cast(ConstantExpression) e) {
-			return ce.value;
+	Constant evaluate(Value value) {
+		if (auto c = getConstant(value)) {
+			return c;
 		}
 
-		import d.ir.error;
-		if (auto ee = cast(ErrorExpression) e) {
-			return ee.error.constant;
+		import d.ir.type;
+		auto t = value.type;
+		if (t.kind == TypeKind.Error) {
+			return t.error.constant;
 		}
 
-		static Constant repack(CodeGen pass, Expression e, void[] buffer) {
+		static Constant repack(CodeGen pass, Value value, void[] buffer) {
 			scope(failure) {
 				import std.stdio;
-				stderr.writefln!"Failed to repack expression %s type %s."(
-					e.toString(pass.context), e.type.toString(pass.context));
+				stderr.writefln!"Failed to repack value %s type %s."(
+					value.toString(pass.context),
+					value.type.toString(pass.context)
+				);
 			}
 
-			return JitRepacker(pass, buffer).visit(e.type);
+			return JitRepacker(pass, buffer).visit(value.type);
 		}
 
 		// We agressively JIT all CTFE.
-		return jit!repack(e);
+		return jit!repack(value);
 	}
 
-	ulong evalIntegral(Expression e) in {
-		auto t = e.type.getCanonicalAndPeelEnum();
+	ulong evalIntegral(Value value) in {
+		auto t = value.type.getCanonicalAndPeelEnum();
 		assert(t.kind == TypeKind.Builtin);
 
 		auto bt = t.builtin;
 		assert(isIntegral(bt) || bt == BuiltinType.Bool);
 	} do {
+		auto c = getConstant(value);
+		if (auto i = cast(IntegerConstant) c) {
+			return i.value;
+		}
+
+		if (auto b = cast(BooleanConstant) c) {
+			return b.value;
+		}
+
 		static ulong repack(ulong r) {
 			return r;
 		}
 
-		return jit!(repack, JitReturn.Direct)(e);
+		return jit!(repack, JitReturn.Direct)(value);
 	}
 
-	string evalString(Expression e) in {
-		auto t = e.type.getCanonical();
+	string evalString(Value value) in {
+		auto t = value.type.getCanonical();
 		assert(t.kind = TypeKind.Slice);
 
 		auto et = t.element.getCanonical();
 		assert(et.builtin = BuiltinType.Char);
 	} do {
-		static string repack(CodeGen pass, Expression e, void[] p)
+		if (auto s = cast(StringConstant) getConstant(value)) {
+			return s.value;
+		}
+
+		static string repack(CodeGen pass, Value value, void[] p)
 				in(p.length == string.sizeof) {
 			auto s = *(cast(string*) p.ptr);
 			return s.idup;
 		}
 
-		return jit!repack(e);
+		return jit!repack(value);
+	}
+
+	// A constant needs no evaluation.
+	private static Constant getConstant(Value value) {
+		return (value.isConstant() && !value.hasAddress())
+			? value.constant
+			: null;
 	}
 
 	private
-	auto jit(alias handler, JitReturn R = JitReturn.Indirect)(Expression e) {
+	auto jit(alias handler, JitReturn R = JitReturn.Indirect)(Value value) {
 		scope(failure) LLVMDumpModule(dmodule);
 
 		// Create a global variable to hold the returned blob.
 		import d.llvm.type;
-		auto type = TypeGen(pass).visit(e.type);
+		auto type = TypeGen(pass).visit(value.type);
 
 		static if (R == JitReturn.Direct) {
 			auto returnType = type;
@@ -178,13 +201,13 @@ public:
 		auto bodyBB = LLVMAppendBasicBlockInContext(llvmCtx, fun, "");
 		LLVMPositionBuilderAtEnd(builder, bodyBB);
 
-		import d.llvm.expression;
-		auto value = ExpressionGen(&lg).visit(e);
+		import d.llvm.value;
+		auto generated = ValueGen(&lg).visit(value);
 
 		static if (R == JitReturn.Direct) {
-			LLVMBuildRet(builder, value);
+			LLVMBuildRet(builder, generated);
 		} else {
-			LLVMBuildStore(builder, value, buffer);
+			LLVMBuildStore(builder, generated, buffer);
 			// FIXME This is 64bit only code.
 			auto ptrToInt = LLVMBuildPtrToInt(builder, buffer, i64, "");
 
@@ -208,7 +231,7 @@ public:
 			// of the "__ctfe" is specifically a i64. This is due to MCJIT
 			// not supporting pointer return values directly at this time.
 			auto asInt = LLVMGenericValueToInt(result, false);
-			return handler(pass, e, (cast(void*) asInt)[0 .. size]);
+			return handler(pass, value, (cast(void*) asInt)[0 .. size]);
 		}
 	}
 }

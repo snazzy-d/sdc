@@ -499,7 +499,7 @@ struct SymbolAnalyzer {
 	 * not a compile-time constant.
 	 */
 	private auto requireConstant(Location location, Value value) {
-		auto c = evaluate(value.getExpression(location));
+		auto c = evaluate(value);
 
 		// The address of a thread local variable is only known at runtime,
 		// as each thread has its own.

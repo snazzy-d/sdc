@@ -75,7 +75,7 @@ struct TypeVisitor {
 		import d.semantic.caster;
 		auto value = buildImplicitCast(pass, location,
 		                               pass.object.getSizeT().type, size);
-		auto s = evalIntegral(location, value);
+		auto s = evalIntegral(value);
 
 		assert(s <= uint.max, "Array larger than uint.max are not supported.");
 		return t.getArray(cast(uint) s, qualifier);

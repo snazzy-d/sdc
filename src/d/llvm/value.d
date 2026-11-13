@@ -3,6 +3,7 @@ module d.llvm.value;
 import d.llvm.local;
 
 import d.ir.type;
+import d.ir.value;
 
 import llvm.c.core;
 
@@ -12,6 +13,24 @@ struct ValueGen {
 
 	this(LocalPass pass) {
 		this.pass = pass;
+	}
+
+	/**
+	 * The value is computed by its constant or its expression, and loaded
+	 * from there if that is its address.
+	 */
+	LLVMValueRef visit(Value value) {
+		import d.llvm.constant, d.llvm.expression;
+		auto v = value.isConstant()
+			? ConstantGen(pass.pass).visit(value.constant)
+			: ExpressionGen(pass).visit(value.expression);
+
+		if (!value.hasAddress()) {
+			return v;
+		}
+
+		auto t = value.type.getCanonical();
+		return buildLoad(v, typeGen.visit(t), t.qualifier);
 	}
 
 	LLVMValueRef buildLoad(LLVMValueRef ptr, LLVMTypeRef type,

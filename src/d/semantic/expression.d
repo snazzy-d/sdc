@@ -1508,8 +1508,8 @@ public:
 
 	import d.ast.conditional;
 	Expression visit(Mixin!AstExpression e) {
-		import d.semantic.evaluator;
-		auto str = evalString(visit(e.value));
+		auto value = Value.fromExpression(visit(e.value));
+		auto str = evalString(value);
 		auto pos = context.registerMixin(e.location, str);
 
 		import source.dlexer;
