@@ -5,6 +5,7 @@ import d.ir.error;
 import d.ir.expression;
 import d.ir.type;
 
+import source.context;
 import source.location;
 
 /**
@@ -147,6 +148,11 @@ public:
 	// propagated, so the original diagnostic is not lost.
 	Value getError(Location location, string message) {
 		return Value.withValue(.getError(this, location, message).constant);
+	}
+
+	string toString(const Context c) const {
+		auto s = isConstant() ? constant.toString(c) : expression.toString(c);
+		return hasAddress() ? "*" ~ s : s;
 	}
 }
 
@@ -316,4 +322,21 @@ unittest {
 		errorAddress.getAddress(location).getExpression(location);
 	assert(propagatedAddr !is null);
 	assert(propagatedAddr.error.message == "boom");
+}
+
+unittest {
+	auto context = new Context();
+
+	auto location = Location.init;
+	auto i = new IntegerConstant(42, BuiltinType.Int);
+
+	// A value is printed as the expression it evaluates to.
+	auto e = new ConstantExpression(location, i);
+	assert(Value.withValue(i).toString(context) == e.toString(context));
+	assert(Value.withValue(e).toString(context) == e.toString(context));
+
+	// A value at an address is printed as a load from it.
+	auto load = new LoadExpression(location, i.type, e);
+	assert(Value.withAddress(e).toString(context) == load.toString(context));
+	assert(Value.withAddress(i).toString(context) == load.toString(context));
 }
