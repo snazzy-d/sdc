@@ -1147,23 +1147,20 @@ public:
 			import d.semantic.identifier;
 			auto type = IdentifierResolver(pass)
 				.resolve(c.type).apply!(function Class(identified) {
-					alias T = typeof(identified);
-					static if (is(T : Symbol)) {
-						if (auto c = cast(Class) identified) {
-							return c;
-						}
-					}
-
-					static if (is(T : Type)) {
-						assert(0);
+					static if (is(typeof(identified) : Symbol)) {
+						return cast(Class) identified;
 					} else {
-						import source.exception, std.format;
-						throw new CompileException(
-							identified.location,
-							format!"%s is not a class."(typeid(identified))
-						);
+						return null;
 					}
 				})();
+
+			if (type is null) {
+				import source.exception, std.format;
+				throw new CompileException(
+					c.type.location,
+					format!"%s is not a class."(c.type.toString(context))
+				);
+			}
 
 			auto catchBlock = startNewBranch(BuiltinName!"catch");
 			catchpads ~= CatchPad(type, catchBlock);

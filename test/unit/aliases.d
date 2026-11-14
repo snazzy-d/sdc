@@ -18,3 +18,16 @@ alias ESame = EA == EB;
 unittest expressions {
 	assert(ESame == false);
 }
+
+class AliasedException : Exception {}
+alias ExceptionAlias = AliasedException;
+class DerivedException : ExceptionAlias {}
+
+unittest classes {
+	// A class can be named by an alias where a class is expected.
+	try {
+		throw new DerivedException();
+	} catch (ExceptionAlias e) {
+		return;
+	}
+}

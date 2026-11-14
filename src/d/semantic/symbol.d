@@ -971,22 +971,19 @@ struct SymbolAnalyzer {
 			c.base = IdentifierResolver(pass)
 				.resolve(i).apply!(function Class(identified) {
 					static if (is(typeof(identified) : Symbol)) {
-						if (auto c = cast(Class) identified) {
-							return c;
-						}
-					}
-
-					static if (is(typeof(identified.location))) {
-						import source.exception, std.format;
-						throw new CompileException(
-							identified.location,
-							format!"%s is not a class."(typeid(identified))
-						);
+						return cast(Class) identified;
 					} else {
-						// for typeof(null)
-						assert(0);
+						return null;
 					}
 				})();
+
+			if (c.base is null) {
+				import source.exception, std.format;
+				throw new CompileException(
+					i.location,
+					format!"%s is not a class."(i.toString(context))
+				);
+			}
 
 			break;
 		}
