@@ -10,8 +10,13 @@ DFLAGS = $(ARCHFLAG) -Isrc -w -debug -g
 # DFLAGS = $(ARCHFLAG) -w -O -release
 
 ASFLAGS ?=
-
 LDFLAGS ?=
+
+# Useful for CI.
+ifdef USE_LOWMEM
+	override DFLAGS += -lowmem
+endif
+
 ifdef LD_PATH
 	override LDFLAGS += $(addprefix -L, $(LD_PATH))
 endif
