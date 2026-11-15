@@ -3,6 +3,7 @@ module d.ir.expression;
 import d.ir.constant;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
 import d.common.node;
 
@@ -165,7 +166,6 @@ class UnaryExpression : Expression {
 }
 
 enum BinaryOp {
-	Comma,
 	Add,
 	Sub,
 	Mul,
@@ -771,5 +771,25 @@ class TupleExpression : Expression {
 		// TODO: make this look nice for structs, classes, arrays...
 		import std.format, std.algorithm;
 		return format!"tuple(%-(%s, %))"(values.map!(v => v.toString(c)));
+	}
+}
+
+/**
+ * Evaluates chain, then value, and is value.
+ */
+class ChainedValueExpression : Expression {
+	Value chain;
+	Value value;
+
+	this(Location location, Value chain, Value value) {
+		super(location, value.type);
+
+		this.chain = chain;
+		this.value = value;
+	}
+
+	override string toString(const Context c) const {
+		import std.format;
+		return format!"(%s, %s)"(chain.toString(c), value.toString(c));
 	}
 }

@@ -217,9 +217,6 @@ public:
 
 	VR visit(BinaryExpression e) {
 		switch (e.op) with (BinaryOp) {
-			case Comma:
-				return visit(e.rhs);
-
 			case Add:
 				return visit(e.lhs) + visit(e.rhs);
 
@@ -358,6 +355,10 @@ public:
 				return getRange(e.type);
 		}
 	}
+
+	VR visit(ChainedValueExpression e) {
+		return visit(e.value);
+	}
 }
 
 unittest {
@@ -465,10 +466,6 @@ unittest {
 		/**
 		 * Binary ops
 		 */
-		v = vrp.visit(
-			new BinaryExpression(Location.init, tint, BinaryOp.Comma, i1, i2));
-		assert(v == VR(42));
-
 		v = vrp.visit(
 			new BinaryExpression(Location.init, tint, BinaryOp.Add, i1, i2));
 		assert(v == VR(35));
@@ -749,6 +746,14 @@ unittest {
 				                        Intrinsic.CountTrailingZeros, [i2]));
 			assert(v == expected);
 		}
+
+		/**
+		 * Chained values.
+		 */
+		v = vrp.visit(
+			new ChainedValueExpression(Location.init, Value.withValue(i1),
+			                           Value.withValue(i2)));
+		assert(v == VR(42));
 	}
 }
 

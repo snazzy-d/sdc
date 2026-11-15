@@ -183,12 +183,12 @@ private:
 	                       Expression rhs) {
 		if (op.isOpAssign()) {
 			auto lhsRef = getReference(lhs);
-			rhs = getFinal(rhs).getExpression(rhs.location);
+			auto rhsFinal = getFinal(rhs);
+			rhs = rhsFinal.getExpression(rhs.location);
 
 			auto type = lhs.type;
 			auto llhs =
-				build!BinaryExpression(location, type, BinaryOp.Comma, rhs,
-				                       lhsRef.getExpression(lhs.location));
+				build!ChainedValueExpression(location, rhsFinal, lhsRef);
 
 			auto e = buildBinary(location, op.getBaseOp(), llhs, rhs);
 
@@ -203,8 +203,9 @@ private:
 		ICmpOp icmpop;
 		final switch (op) with (AstBinaryOp) {
 			case Comma:
-				return build!BinaryExpression(location, rhs.type,
-				                              BinaryOp.Comma, lhs, rhs);
+				return build!ChainedValueExpression(
+					location, Value.fromExpression(lhs),
+					Value.fromExpression(rhs));
 
 			case Assign:
 				auto addr = buildAddressOf(lhs);
@@ -516,9 +517,9 @@ public:
 
 		// Post-inc/dec: snapshot the old value, then assign
 		// e = old +/- 1, returning the old value.
-		auto value = operand.getExpression(expr.location);
-		auto old = isPre ? value : getFinal(value).getExpression(expr.location);
-		auto add = buildBinary(loc, op, old, one);
+		auto location = expr.location;
+		auto old = isPre ? operand : getFinal(operand.getExpression(location));
+		auto add = buildBinary(loc, op, old.getExpression(location), one);
 
 		auto sum = Value.fromExpression(add);
 		sum = buildExplicitCast(pass, loc, type, sum);
@@ -529,7 +530,7 @@ public:
 			return inc;
 		}
 
-		return build!BinaryExpression(loc, type, BinaryOp.Comma, inc, old);
+		return build!ChainedValueExpression(loc, Value.withValue(inc), old);
 	}
 
 	Expression buildPreInc(Location loc, Expression expr) {
@@ -748,9 +749,8 @@ public:
 
 			case Ref:
 				// Value type, by ref.
-				auto thisExpr = thisValue.getExpression(loc);
-				return build!BinaryExpression(location, thisExpr.type,
-				                              BinaryOp.Comma, call, thisExpr);
+				return build!ChainedValueExpression(
+					location, Value.withValue(call), thisValue);
 		}
 	}
 
@@ -831,10 +831,8 @@ public:
 				} else {
 					auto temporary = getTemporary(di.getExpression(calleeLoc));
 					auto call = callCtor(location, calleeLoc, temporary, args);
-					auto e = temporary.getExpression(calleeLoc);
-					instance = Value.withValue(
-						build!BinaryExpression(location, e.type, BinaryOp.Comma,
-						                       call, e));
+					instance = Value.withValue(build!ChainedValueExpression(
+						location, Value.withValue(call), temporary));
 				}
 
 				// The instance is built unqualified, then qualified as t.

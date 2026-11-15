@@ -110,10 +110,6 @@ struct ExpressionGen {
 
 	LLVMValueRef visit(BinaryExpression e) {
 		final switch (e.op) with (BinaryOp) {
-			case Comma:
-				visit(e.lhs);
-				return visit(e.rhs);
-
 			case Add:
 				return handleBinaryOp!LLVMBuildAdd(e);
 
@@ -822,5 +818,12 @@ struct ExpressionGen {
 		auto arg = visit(e.argument);
 		auto c = e.argument.type.getCanonical().dclass;
 		return c.isFinal ? getClassInfo(c) : loadTypeid(arg);
+	}
+
+	LLVMValueRef visit(ChainedValueExpression e) {
+		import d.llvm.value;
+		auto vg = ValueGen(pass);
+		vg.visit(e.chain);
+		return vg.visit(e.value);
 	}
 }

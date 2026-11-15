@@ -253,9 +253,9 @@ struct DefaultInitializerVisitor(bool isNew) {
 		}
 
 		import d.semantic.expression;
-		auto v = ExpressionVisitor(pass)
-			.getTemporary(value.getExpression(location)).getAddress(location)
-			.getExpression(location);
+		auto temporary =
+			ExpressionVisitor(pass).getTemporary(value.getExpression(location));
+		auto v = temporary.getAddress(location).getExpression(location);
 
 		auto ctxField = s.fields[0];
 
@@ -271,10 +271,9 @@ struct DefaultInitializerVisitor(bool isNew) {
 		auto field = build!FieldExpression(location, v, ctxField);
 		auto assign = build!StoreExpression(location, ctx, field);
 
-		auto t = Type.get(s);
 		return Value.withValue(
-			build!BinaryExpression(location, t, BinaryOp.Comma, assign,
-			                       build!LoadExpression(location, t, v)));
+			build!ChainedValueExpression(location, Value.withValue(assign),
+			                             temporary));
 	}
 
 	Value visit(Union u) {
