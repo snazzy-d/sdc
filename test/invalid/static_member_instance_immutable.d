@@ -1,5 +1,5 @@
 //T error: static_member_instance_immutable.d:9:1:
-//T error: Expected an lvalue.
+//T error: Can't modify immutable(int).
 
 struct S {
 	static immutable int g;

@@ -170,9 +170,18 @@ private:
 			return e;
 		}
 
+		auto value = Value.fromExpression(e);
+		auto hasAddress = value.hasAddress();
+		if (hasAddress) {
+			e = value.getAddress(location).getExpression(location);
+		}
+
 		import d.ir.expression : build;
-		return build!BinaryExpression(location, e.type, BinaryOp.Comma,
-		                              getThis(location), e);
+		auto comma = build!BinaryExpression(location, e.type, BinaryOp.Comma,
+		                                    getThis(location), e);
+		return hasAddress
+			? Value.withAddress(comma).getExpression(location)
+			: comma;
 	}
 
 	void setThis(Expression thisExpr) in(this.thisExpr is null) {
