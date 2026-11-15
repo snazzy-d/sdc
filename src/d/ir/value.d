@@ -77,6 +77,11 @@ public:
 		return (cast(size_t) payload & AddressBit) != 0;
 	}
 
+	// Whether there is no value, as in a Value that was never set.
+	bool isNull() const {
+		return pointer is null;
+	}
+
 	@property
 	auto expression() inout in(!isConstant(), "Not an expression.") {
 		return cast(inout Expression) pointer;
@@ -88,7 +93,7 @@ public:
 	}
 
 	@property
-	auto type() inout in(payload !is null) {
+	auto type() inout in(!isNull()) {
 		// The type sits at the same offset in Constant and
 		// Expression, so both branches below read the same
 		// address and the optimizer can collapse them into
@@ -161,6 +166,13 @@ unittest {
 
 	static assert(Value.sizeof == size_t.sizeof);
 
+	// A Value that was never set is null, whatever it was flagged as.
+	assert(Value.init.isNull());
+	assert(Value.withValue(cast(Expression) null).isNull());
+	assert(Value.withValue(cast(Constant) null).isNull());
+	assert(Value.withAddress(cast(Expression) null).isNull());
+	assert(Value.withAddress(cast(Constant) null).isNull());
+
 	auto location = Location.init;
 	auto intType = Type.get(BuiltinType.Int);
 	auto ptrType = intType.getPointer();
@@ -170,6 +182,7 @@ unittest {
 		new ConstantExpression(location,
 		                       new IntegerConstant(7, BuiltinType.Int));
 	auto fromExpr = Value.withValue(rvalue);
+	assert(!fromExpr.isNull());
 	assert(!fromExpr.isConstant());
 	assert(!fromExpr.hasAddress());
 	assert(fromExpr.type == rvalue.type);
@@ -184,6 +197,7 @@ unittest {
 	// Constant rvalue: wrapped, and still has no address.
 	auto constant = new IntegerConstant(42, BuiltinType.Int);
 	auto fromConstant = Value.withValue(constant);
+	assert(!fromConstant.isNull());
 	assert(fromConstant.isConstant());
 	assert(!fromConstant.hasAddress());
 	assert(fromConstant.type == intType);
