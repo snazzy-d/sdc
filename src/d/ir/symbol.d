@@ -4,6 +4,7 @@ import d.ir.constant;
 import d.ir.dscope;
 import d.ir.expression;
 import d.ir.type;
+import d.ir.value;
 
 import d.common.node;
 
@@ -450,10 +451,10 @@ class TypeTemplateParameter : TemplateParameter {
  */
 class ValueTemplateParameter : TemplateParameter {
 	Type type;
-	Expression defaultValue;
+	Value defaultValue;
 
 	this(Location location, Name name, uint index, Type type,
-	     Expression defaultValue) {
+	     Value defaultValue) {
 		super(location, name, index);
 
 		this.type = type;

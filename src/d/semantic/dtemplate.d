@@ -349,17 +349,18 @@ private:
 				return TypeParameterMatcher(pass, matchedArgs, p.defaultValue)
 					.visit(p);
 			} else static if (is(P : ValueTemplateParameter)) {
-				if (p.defaultValue is null) {
+				auto defaultValue = p.defaultValue;
+				if (defaultValue.isNull()) {
 					return false;
 				}
 
-				import d.ir.value;
-				auto value = Value.fromExpression(p.defaultValue);
+				auto location = p.location;
 
 				import d.semantic.caster;
-				value = buildImplicitCast(pass, p.location, p.type, value);
+				auto value =
+					buildImplicitCast(pass, location, p.type, defaultValue);
 
-				return ConstantMatcher(pass, matchedArgs, p.location,
+				return ConstantMatcher(pass, matchedArgs, location,
 				                       evaluate(value)).visit(p);
 			} else {
 				return false;

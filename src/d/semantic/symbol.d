@@ -1259,18 +1259,19 @@ struct SymbolAnalyzer {
 				tp.step = Step.Signed;
 				t.parameters[i] = tp;
 			} else if (auto avp = cast(AstValueTemplateParameter) p) {
-				auto vp = new ValueTemplateParameter(avp.location, avp.name,
-				                                     cast(uint) i, none, null);
+				auto vp =
+					new ValueTemplateParameter(avp.location, avp.name,
+					                           cast(uint) i, none, Value());
 
 				t.addSymbol(vp);
 
 				import d.semantic.type : TypeVisitor;
 				vp.type = TypeVisitor(pass).visit(avp.type);
 
-				if (avp.defaultValue !is null) {
+				if (auto defaultValue = avp.defaultValue) {
 					import d.semantic.expression : ExpressionVisitor;
-					vp.defaultValue =
-						ExpressionVisitor(pass).visit(avp.defaultValue);
+					auto e = ExpressionVisitor(pass).visit(defaultValue);
+					vp.defaultValue = Value.fromExpression(e);
 				}
 
 				vp.step = Step.Signed;

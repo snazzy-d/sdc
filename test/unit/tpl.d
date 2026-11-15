@@ -84,3 +84,24 @@ unittest enum_value_parameter {
 	// Evaluated at compile time.
 	assert(pick!(getB())() == Kind.B);
 }
+
+immutable uint three = 3;
+
+uint literalDefault(uint N = 2)() {
+	return N;
+}
+
+uint globalDefault(uint N = three)() {
+	return N;
+}
+
+ulong widenedDefault(ulong N = 5)() {
+	return N;
+}
+
+unittest default_value {
+	assert(literalDefault!()() == 2);
+	assert(literalDefault!7() == 7);
+	assert(globalDefault!()() == 3);
+	assert(widenedDefault!()() == 5);
+}
