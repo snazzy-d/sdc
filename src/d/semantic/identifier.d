@@ -152,15 +152,15 @@ public:
 	}
 
 	/* private */
-	Expression buildFunExpression(Location location, Function f) {
-		return SymbolPostProcessor(&this, location).buildFunExpression(f);
+	Value buildFunValue(Location location, Function f) {
+		return SymbolPostProcessor(&this, location).buildFunValue(f);
 	}
 
 	/* private */
-	Expression buildFunExpression(Location location, Expression thisExpr,
-	                              Function f) {
-		setThis(thisExpr);
-		return SymbolPostProcessor(&this, location).buildFunExpression(f);
+	Value buildFunValue(Location location, Value thisValue, Function f) {
+		// FIXME: The pending this should be a value.
+		setThis(thisValue.getExpression(location));
+		return SymbolPostProcessor(&this, location).buildFunValue(f);
 	}
 
 private:
@@ -586,7 +586,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		return thisExpr || f.hasThis;
 	}
 
-	private Expression buildFunExpression(Function f) {
+	private Value buildFunValue(Function f) {
 		scheduler.require(f, Step.Signed);
 
 		auto location = this.location;
@@ -609,29 +609,30 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 			                         params[ctxs.length]);
 		}
 
-		auto e = (ctxs.length == 0)
-			? new ConstantExpression(location, new FunctionConstant(f))
-			: build!DelegateExpression(location, ctxs, f);
+		auto value = (ctxs.length == 0)
+			? Value.withValue(new FunctionConstant(f))
+			: Value.withValue(build!DelegateExpression(location, ctxs, f));
 
 		// If this is not a property, things are straightforward.
 		if (!f.isProperty) {
-			return e;
+			return value;
 		}
 
 		assert(!hasContext, "Properties cannot have a context!");
 
 		if (f.params.length == ctxs.length) {
 			Expression[] args;
-			return ev.buildCall(location, e, args);
+			auto call =
+				ev.buildCall(location, value.getExpression(location), args);
+			return Value.fromExpression(call);
 		}
 
 		import std.format;
-		return getError(
-			e,
+		return value.getError(
 			location,
 			format!"Invalid argument count for @property %s."(
 				f.name.toString(context)),
-		).expression;
+		);
 	}
 
 	Identifiable buildFun(Function f) {
@@ -640,7 +641,8 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 			return Identifiable(f);
 		}
 
-		return Identifiable(buildFunExpression(f));
+		// FIXME: Identifiable should hold a value.
+		return Identifiable(buildFunValue(f).getExpression(location));
 	}
 
 	Identifiable visit(Function f) {
@@ -652,8 +654,9 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 	}
 
 	Identifiable visit(OverloadSet s) {
-		if (s.set.length == 1) {
-			return visit(s.set[0]);
+		auto set = s.set;
+		if (set.length == 1) {
+			return visit(set[0]);
 		}
 
 		if (thisExpr is null) {
@@ -662,31 +665,34 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 
 		auto baseThisExpr = consumeThis();
 
-		Expression[] exprs;
-		foreach (sym; s.set) {
+		Value[] candidates;
+		foreach (sym; set) {
 			auto f = cast(Function) sym;
 			assert(f, "Only function are implemented.");
 
 			// Make sure we process all overloads on the same base.
 			setThis(baseThisExpr);
 
-			auto e = buildFunExpression(f);
-			if (typeid(e) is typeid(ErrorExpression)) {
-				continue;
+			auto candidate = buildFunValue(f);
+			if (candidate.type.kind != TypeKind.Error) {
+				candidates ~= candidate;
 			}
-
-			exprs ~= e;
 		}
 
-		switch (exprs.length) {
+		auto location = this.location;
+		switch (candidates.length) {
 			case 0:
 				return getIdentifiableError(
 					location, "No valid candidate in overload set.");
 
 			case 1:
-				return Identifiable(exprs[0]);
+				// FIXME: Identifiable should hold a value.
+				return Identifiable(candidates[0].getExpression(location));
 
 			default:
+				import std.algorithm, std.array;
+				auto exprs =
+					candidates.map!(c => c.getExpression(location)).array();
 				return Identifiable(new PolysemousExpression(location, exprs));
 		}
 	}
@@ -974,8 +980,10 @@ struct ExpressionDotIdentifierResolver {
 		}
 
 		// UFCS
-		if (auto ufcs = resolveUFCS(e)) {
-			return Identifiable(ufcs);
+		auto ufcs = resolveUFCS(e);
+		if (!ufcs.isNull()) {
+			// FIXME: Identifiable should hold a value.
+			return Identifiable(ufcs.getExpression(location));
 		}
 
 		if (t.kind != TypeKind.Pointer) {
@@ -1000,21 +1008,21 @@ struct ExpressionDotIdentifierResolver {
 		return lookupInBase(c);
 	}
 
-	Expression resolveUFCS(Expression e) {
+	Value resolveUFCS(Expression e) {
 		auto location = this.location;
 
 		// FIXME: templates and IFTI should UFCS too.
-		Expression tryUFCS(Symbol s) {
+		Value tryUFCS(Symbol s) {
 			auto f = cast(Function) s;
 
 			// No UFCS on member methods.
 			if (f is null || f.hasThis) {
-				return null;
+				return Value();
 			}
 
 			setThis(e);
-			auto dg = buildFunExpression(location, f);
-			return dg.type.kind == TypeKind.Error ? null : dg;
+			auto dg = buildFunValue(location, f);
+			return dg.type.kind == TypeKind.Error ? Value() : dg;
 		}
 
 		// TODO: Cache this result maybe ?
@@ -1025,14 +1033,14 @@ struct ExpressionDotIdentifierResolver {
 			return tryUFCS(a);
 		}
 
-		Expression ufcs;
+		Value ufcs;
 		foreach (s; os.set) {
 			auto dg = tryUFCS(s);
-			if (dg is null) {
+			if (dg.isNull()) {
 				continue;
 			}
 
-			assert(ufcs is null, "Ambiguous UFCS!");
+			assert(ufcs.isNull(), "Ambiguous UFCS!");
 			ufcs = dg;
 		}
 

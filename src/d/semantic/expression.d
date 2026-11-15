@@ -690,16 +690,14 @@ public:
 
 	Expression getFrom(Location location, Function f) {
 		import d.semantic.identifier;
-		return IdentifierResolver(pass).buildFunExpression(location, f);
+		return IdentifierResolver(pass).buildFunValue(location, f)
+		                               .getExpression(location);
 	}
 
 	Expression getFrom(Location location, Value thisValue, Function f) {
-		// FIXME: Functions should be built from values.
-		auto thisExpr = thisValue.getExpression(location);
-
 		import d.semantic.identifier;
-		return
-			IdentifierResolver(pass).buildFunExpression(location, thisExpr, f);
+		return IdentifierResolver(pass).buildFunValue(location, thisValue, f)
+		                               .getExpression(location);
 	}
 
 	Expression visit(AstCallExpression c) {
