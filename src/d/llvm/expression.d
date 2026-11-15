@@ -41,76 +41,18 @@ struct ExpressionGen {
 		return ConstantGen(pass.pass).visit(e.value);
 	}
 
-	private LLVMValueRef buildLoad(LLVMValueRef ptr, LLVMTypeRef type,
-	                               TypeQualifier q) {
-		auto l = LLVMBuildLoad2(builder, type, ptr, "");
-		final switch (q) with (TypeQualifier) {
-			case Mutable, Inout, Const:
-				break;
-
-			case Shared, ConstShared:
-				auto k = LLVMGetTypeKind(type);
-				if (k != LLVMTypeKind.Integer && k != LLVMTypeKind.Function
-					    && k != LLVMTypeKind.Pointer) {
-					import std.format, std.string;
-					throw new Exception(
-						format!"Cannot generate atomic load for %s"(
-							fromStringz(LLVMPrintTypeToString(type))));
-				}
-
-				import llvm.c.target;
-				LLVMSetAlignment(l, LLVMABIAlignmentOfType(targetData, type));
-				LLVMSetOrdering(l, LLVMAtomicOrdering.SequentiallyConsistent);
-				break;
-
-			case Immutable:
-				// TODO: !invariant.load
-				break;
-		}
-
-		return l;
-	}
-
 	LLVMValueRef visit(LoadExpression e) {
 		auto t = e.type.getCanonical();
-		return buildLoad(visit(e.address), typeGen.visit(t), t.qualifier);
-	}
-
-	private LLVMValueRef buildStore(LLVMValueRef ptr, LLVMValueRef val,
-	                                TypeQualifier q) {
-		auto s = LLVMBuildStore(builder, val, ptr);
-		final switch (q) with (TypeQualifier) {
-			case Mutable, Inout, Const:
-				break;
-
-			case Shared, ConstShared:
-				auto t = LLVMTypeOf(val);
-				auto k = LLVMGetTypeKind(t);
-				if (k != LLVMTypeKind.Integer && k != LLVMTypeKind.Function
-					    && k != LLVMTypeKind.Pointer) {
-					import std.format, std.string;
-					throw new Exception(
-						format!"Cannot generate atomic store for %s"(
-							fromStringz(LLVMPrintTypeToString(t))));
-				}
-
-				import llvm.c.target;
-				LLVMSetAlignment(s, LLVMABIAlignmentOfType(targetData, t));
-				LLVMSetOrdering(s, LLVMAtomicOrdering.SequentiallyConsistent);
-				break;
-
-			case Immutable:
-				// TODO: !invariant.load
-				break;
-		}
-
-		return s;
+		import d.llvm.value;
+		return ValueGen(pass)
+			.buildLoad(visit(e.address), typeGen.visit(t), t.qualifier);
 	}
 
 	LLVMValueRef visit(StoreExpression e) {
 		auto ptr = visit(e.address);
 		auto value = visit(e.value);
-		buildStore(ptr, value, e.type.qualifier);
+		import d.llvm.value;
+		ValueGen(pass).buildStore(ptr, value, e.type.qualifier);
 		return value;
 	}
 
