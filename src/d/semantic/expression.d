@@ -722,7 +722,7 @@ public:
 		}
 
 		auto loc = callee.location;
-		auto thisValue = Value.fromExpression(getThis(loc));
+		auto thisValue = getThis(loc);
 
 		auto ctor = findCtor(location, loc, thisValue, args);
 		auto thisKind = ctor.type.asFunctionType().contexts[0].paramKind;
@@ -1233,13 +1233,14 @@ public:
 		return build!NewExpression(e.location, type, di, ctor, args);
 	}
 
-	Expression getThis(Location location) {
+	Value getThis(Location location) {
 		import d.semantic.identifier;
 		return IdentifierResolver(pass).getThis(location);
 	}
 
 	Expression visit(ThisExpression e) {
-		return getThis(e.location);
+		auto location = e.location;
+		return getThis(location).getExpression(location);
 	}
 
 	Value getIndex(Location location, Value indexed, Value index) {

@@ -132,22 +132,21 @@ public:
 		return finalize(location, id);
 	}
 
-	Expression getThis(Location location) {
+	Value getThis(Location location) {
 		if (thisExpr) {
-			return consumeThis();
+			// FIXME: The pending this should be a value.
+			return Value.fromExpression(consumeThis());
 		}
 
 		return build(location, BuiltinName!"this").apply!((identified) {
 			static if (is(typeof(identified) : Expression)) {
 				import d.semantic.caster;
-				auto value =
-					buildImplicitCast(pass, location, thisType.getType(),
-					                  Value.fromExpression(identified));
-				return value.getExpression(identified.location);
+				return buildImplicitCast(pass, location, thisType.getType(),
+				                         Value.fromExpression(identified));
 			} else {
-				return getError(location,
-				                "Cannot find a suitable this pointer.")
-					.expression;
+				return Value.withValue(
+					getError(location, "Cannot find a suitable this pointer.")
+						.constant);
 			}
 		})();
 	}
@@ -170,7 +169,7 @@ private:
 			return e;
 		}
 
-		auto thisValue = Value.fromExpression(getThis(location));
+		auto thisValue = getThis(location);
 		auto value = Value.fromExpression(e);
 
 		auto hasAddress = value.hasAddress();
@@ -555,32 +554,32 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 
 	Identifiable visit(Field f) {
 		scheduler.require(f, Step.Signed);
+
+		auto location = this.location;
 		auto base = getThis(location);
 		auto t = base.type.getCanonical();
 
-		// Rvalue aggregates have no address. Extract the field.
 		if (t.kind != TypeKind.Class && t.kind != TypeKind.Pointer) {
-			import d.semantic.expression;
-			auto ptr = ExpressionVisitor(pass.pass).buildAddressOf(base);
-			if (ptr is null) {
-				return Identifiable(
-					build!ExtractFieldExpression(location, base, f));
+			// Rvalue aggregates have no address. Extract the field.
+			if (!base.hasAddress()) {
+				return Identifiable(build!ExtractFieldExpression(
+					location, base.getExpression(location), f));
 			}
 
-			base = ptr;
+			base = base.getAddress(location);
 		}
 
-		auto addr = build!FieldExpression(location, base, f);
+		auto ptr = base.getExpression(location);
+		auto addr = build!FieldExpression(location, ptr, f);
 		return visit(build!LoadExpression(location, addr.type.element, addr));
 	}
 
-	private Expression getContext(Function f) in(f.step >= Step.Signed) {
+	private Value getContext(Function f) in(f.step >= Step.Signed) {
 		import d.semantic.closure;
 		auto ctx = ContextFinder(pass.pass).visit(f);
 
 		import d.ir.expression : build;
-		auto addr = build!ContextExpression(location, ctx);
-		return build!LoadExpression(location, Type.getContextType(ctx), addr);
+		return Value.withAddress(build!ContextExpression(location, ctx));
 	}
 
 	private bool hasThis(Function f) {
@@ -590,22 +589,24 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 	private Expression buildFunExpression(Function f) {
 		scheduler.require(f, Step.Signed);
 
-		Expression[] ctxs;
-		ctxs.reserve(hasThis(f) + f.hasContext);
-		if (f.hasContext) {
-			ctxs ~= getContext(f);
-		}
+		auto location = this.location;
+		auto hasContext = f.hasContext;
+		auto takesThis = hasThis(f);
 
-		if (hasThis(f)) {
-			ctxs ~= getThis(location);
-		}
-
-		import d.ir.value, d.semantic.expression;
+		import d.semantic.expression;
 		auto ev = ExpressionVisitor(pass.pass);
 		auto params = f.type.parameters;
-		foreach (i, ref c; ctxs) {
-			auto context = Value.fromExpression(c);
-			c = ev.buildArgument(c.location, context, params[i]);
+
+		Expression[] ctxs;
+		ctxs.reserve(takesThis + hasContext);
+		if (hasContext) {
+			ctxs ~=
+				ev.buildArgument(location, getContext(f), params[ctxs.length]);
+		}
+
+		if (takesThis) {
+			ctxs ~= ev.buildArgument(location, getThis(location),
+			                         params[ctxs.length]);
 		}
 
 		auto e = (ctxs.length == 0)
@@ -617,12 +618,11 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 			return e;
 		}
 
-		assert(!f.hasContext, "Properties cannot have a context!");
+		assert(!hasContext, "Properties cannot have a context!");
 
-		if (f.params.length == ctxs.length - f.hasContext) {
+		if (f.params.length == ctxs.length) {
 			Expression[] args;
-			import d.semantic.expression;
-			return ExpressionVisitor(pass.pass).buildCall(location, e, args);
+			return ev.buildCall(location, e, args);
 		}
 
 		import std.format;
