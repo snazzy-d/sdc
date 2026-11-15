@@ -1062,7 +1062,7 @@ public:
 		})(pass);
 
 		auto results = ar
-			.resolve(callee)
+			.resolve(location, Value.fromExpression(callee))
 			.filter!(e => e !is null && typeid(e) !is typeid(ErrorExpression))
 			.array();
 

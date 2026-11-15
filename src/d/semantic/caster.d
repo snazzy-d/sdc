@@ -237,8 +237,7 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 				} else {
 					return InvalidResult;
 				}
-			})(pass).resolve(value.getExpression(location), t)
-			        .filter!(r => r.level == level);
+			})(pass).resolve(location, value, t).filter!(r => r.level == level);
 
 			if (level == CastKind.Invalid) {
 				return CastKind.Invalid;

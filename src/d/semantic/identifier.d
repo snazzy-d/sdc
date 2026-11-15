@@ -913,7 +913,7 @@ struct ExpressionDotIdentifierResolver {
 			import d.semantic.aliasthis;
 			import std.algorithm, std.array;
 			auto results = AliasThisResolver!identifiableHandler(pass.pass)
-				.resolve(e, a).map!((c) {
+				.resolve(location, Value.fromExpression(e), a).map!((c) {
 					// Make sure we process all alias this on the same base.
 					// FIXME: We probably want to handle this
 					//        via consumeThis/setThis.

@@ -2,8 +2,8 @@ module d.semantic.aliasthis;
 
 import d.semantic.semantic;
 
-import d.ir.expression;
 import d.ir.symbol;
+import d.ir.value;
 
 import source.location;
 
@@ -19,28 +19,31 @@ struct AliasThisResolver(alias handler) {
 		this.pass = pass;
 	}
 
-	Ret[] resolve(Expression e) {
-		auto t = e.type.getCanonical();
+	Ret[] resolve(Location location, Value v) {
+		auto t = v.type.getCanonical();
 
 		import d.ir.type;
 		if (!t.isAggregate) {
 			return [];
 		}
 
-		return resolve(e, t.aggregate);
+		return resolve(location, v, t.aggregate);
 	}
 
-	Ret[] resolve(Expression e, Aggregate a)
-			in(e.type.getCanonical().aggregate is a) {
-		return resolve(e, a.aliasThis);
+	Ret[] resolve(Location location, Value v, Aggregate a)
+			in(v.type.getCanonical().aggregate is a) {
+		return resolve(location, v, a.aliasThis);
 	}
 
 	import source.name;
-	private Ret[] resolve(Expression e, Name[] aliases) {
+	private Ret[] resolve(Location location, Value v, Name[] aliases) {
+		// FIXME: Identifiers should be resolved in values.
+		auto e = v.getExpression(location);
+
 		import d.semantic.identifier;
 		import std.algorithm, std.array;
 		return aliases
-			.map!(n => IdentifierResolver(pass).buildIn(e.location, e, n))
+			.map!(n => IdentifierResolver(pass).buildIn(location, e, n))
 			.filter!(i => !i.isError()).map!(c => c.apply!handler()).array();
 	}
 }
