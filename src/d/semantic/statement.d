@@ -451,20 +451,45 @@ public:
 		LoopVisitor(&this).visit(f);
 	}
 
+	/**
+	 * The aggregate of a foreach loop, evaluated once, before the loop. It is
+	 * held by ref if it has an address, so its elements can be bound by ref.
+	 */
+	Value buildAggregate(AstExpression expr) {
+		auto location = expr.location;
+		auto value = buildValue(expr);
+
+		auto hasAddress = value.hasAddress();
+		auto kind = hasAddress ? ParamKind.Ref : ParamKind.Final;
+		auto type = value.type.getParamType(kind);
+		if (hasAddress) {
+			value = value.getAddress(location);
+		}
+
+		import source.name;
+		auto aggregate = new Variable(location, type, BuiltinName!"",
+		                              value.getExpression(location));
+		aggregate.step = Step.Processed;
+		alloca(aggregate);
+
+		auto e = new VariableExpression(location, aggregate);
+		return hasAddress ? Value.withAddress(e) : Value.withValue(e);
+	}
+
 	void process(ForeachStatement f, LoopVisitor* lv) {
-		import d.semantic.expression;
-		auto iterated = ExpressionVisitor(pass).visit(f.iterated);
+		auto iterated = buildAggregate(f.iterated);
+		auto iLoc = f.iterated.location;
 
 		import source.name, d.semantic.identifier;
 		auto length = IdentifierResolver(pass)
-			.buildIn(iterated.location, iterated, BuiltinName!"length")
+			.buildIn(iLoc, iterated.getExpression(iLoc), BuiltinName!"length")
 			.apply!(delegate Value(e) {
 				static if (is(typeof(e) : Expression)) {
 					return Value.fromExpression(e);
 				} else {
 					import d.ir.error, std.format;
 					return Value.withValue(new CompileError(
-						iterated.location,
+						iLoc,
 						format!"%s is not a valid length."(typeid(e))
 					).constant);
 				}
@@ -537,7 +562,7 @@ public:
 			);
 		}
 
-		auto lengthExpr = length.getExpression(iterated.location);
+		auto lengthExpr = length.getExpression(iLoc);
 
 		// Iterating in reverse starts past the last element.
 		if (f.reverse) {
@@ -577,7 +602,8 @@ public:
 		auto eLoc = eDecl.location;
 
 		import d.semantic.expression;
-		auto eVal = ExpressionVisitor(pass).getIndex(eLoc, iterated, idxExpr);
+		auto eVal = ExpressionVisitor(pass)
+			.getIndex(eLoc, iterated.getExpression(iLoc), idxExpr);
 		auto eType = eVal.type.getParamType(eDecl.type.paramKind);
 
 		if (!eDecl.type.getType().isAuto) {

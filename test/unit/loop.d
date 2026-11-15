@@ -278,3 +278,47 @@ unittest foreach_reverse_slice {
 		assert(0);
 	}
 }
+
+uint aggregateEvaluations;
+int[3] aggregateStorage = [1, 2, 3];
+
+int[] aggregateSlice() {
+	aggregateEvaluations++;
+	return aggregateStorage[0 .. aggregateStorage.length];
+}
+
+ref int[3] aggregateArray() {
+	aggregateEvaluations++;
+	return aggregateStorage;
+}
+
+unittest foreach_aggregate_evaluation {
+	// The aggregate is evaluated once.
+	aggregateEvaluations = 0;
+	int sum = 0;
+	foreach (i; aggregateSlice()) {
+		sum += i;
+	}
+
+	assert(sum == 6);
+	assert(aggregateEvaluations == 1);
+
+	aggregateEvaluations = 0;
+	foreach_reverse (i; aggregateSlice()) {
+		sum += i;
+	}
+
+	assert(sum == 12);
+	assert(aggregateEvaluations == 1);
+
+	// The elements are those of the array the aggregate is.
+	aggregateEvaluations = 0;
+	foreach (ref i; aggregateArray()) {
+		i *= 2;
+	}
+
+	assert(aggregateStorage[0] == 2);
+	assert(aggregateStorage[1] == 4);
+	assert(aggregateStorage[2] == 6);
+	assert(aggregateEvaluations == 1);
+}
