@@ -1001,44 +1001,42 @@ struct ExpressionDotIdentifierResolver {
 	}
 
 	Expression resolveUFCS(Expression e) {
+		auto location = this.location;
+
 		// FIXME: templates and IFTI should UFCS too.
-		Expression tryUFCS(Function f) {
+		Expression tryUFCS(Symbol s) {
+			auto f = cast(Function) s;
+
 			// No UFCS on member methods.
-			if (f.hasThis) {
+			if (f is null || f.hasThis) {
 				return null;
 			}
 
 			setThis(e);
 			auto dg = buildFunExpression(location, f);
-			if (typeid(dg) is typeid(ErrorExpression)) {
-				return null;
-			}
-
-			return dg;
-		}
-
-		auto findUFCS(Symbol[] syms) {
-			import std.algorithm, std.array;
-			return syms.map!(s => cast(Function) s).filter!(f => f !is null)
-			           .map!(f => tryUFCS(f)).filter!(e => e !is null).array();
+			return dg.type.kind == TypeKind.Error ? null : dg;
 		}
 
 		// TODO: Cache this result maybe ?
 		auto a = IdentifierVisitor(pass).resolve(location, name);
-		if (auto os = cast(OverloadSet) a) {
-			auto ufcs = findUFCS(os.set);
-			if (ufcs.length > 0) {
-				assert(ufcs.length == 1, "Ambiguous UFCS!");
-				return ufcs[0];
-			}
-		} else if (auto f = cast(Function) a) {
-			auto ufcs = tryUFCS(f);
-			if (ufcs !is null) {
-				return ufcs;
-			}
+
+		auto os = cast(OverloadSet) a;
+		if (os is null) {
+			return tryUFCS(a);
 		}
 
-		return null;
+		Expression ufcs;
+		foreach (s; os.set) {
+			auto dg = tryUFCS(s);
+			if (dg is null) {
+				continue;
+			}
+
+			assert(ufcs is null, "Ambiguous UFCS!");
+			ufcs = dg;
+		}
+
+		return ufcs;
 	}
 
 	Identifiable resolveInType(Expression e) {
