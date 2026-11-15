@@ -104,7 +104,21 @@ CompileError errorize(C)(C c) if (is(C : Constant)) {
 }
 
 CompileError errorize(Value v) {
-	return v.isConstant() ? errorize(v.constant) : errorize(v.expression);
+	auto t = v.type;
+	return t.kind == TypeKind.Error ? t.error : null;
+}
+
+unittest {
+	auto location = Location.init;
+	auto error = new CompileError(location, "error");
+
+	assert(errorize(Value.withValue(error.expression)) is error);
+	assert(errorize(Value.withValue(error.constant)) is error);
+	assert(errorize(Value.withAddress(error.expression)) is error);
+	assert(errorize(Value.withAddress(error.constant)) is error);
+
+	auto one = new IntegerConstant(1, BuiltinType.Int);
+	assert(errorize(Value.withValue(one)) is null);
 }
 
 CompileError errorize(Type t) {
