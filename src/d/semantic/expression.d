@@ -641,16 +641,15 @@ public:
 		return build!ArrayLiteral(e.location, type.getSlice(), values);
 	}
 
-	Expression buildArgument(Expression arg, ParamType pt) {
-		auto value = buildImplicitCast(pass, arg.location, pt,
-		                               Value.fromExpression(arg));
+	Expression buildArgument(Location location, Value arg, ParamType pt) {
+		arg = buildImplicitCast(pass, location, pt, arg);
 
 		// Ref parameters take the address of the argument.
 		if (pt.isRef) {
-			value = value.getAddress(arg.location);
+			arg = arg.getAddress(location);
 		}
 
-		return value.getExpression(arg.location);
+		return arg.getExpression(location);
 	}
 
 	enum MatchLevel {
@@ -1152,7 +1151,7 @@ public:
 
 		import std.range;
 		foreach (ref arg, pt; lockstep(args, paramTypes)) {
-			arg = buildArgument(arg, pt);
+			arg = buildArgument(arg.location, Value.fromExpression(arg), pt);
 		}
 
 		// If this is an intrinsic, create an intrinsic expression.
@@ -1229,7 +1228,7 @@ public:
 		import std.range;
 		assert(args.length >= parameters.length);
 		foreach (ref arg, pt; lockstep(args, parameters)) {
-			arg = buildArgument(arg, pt);
+			arg = buildArgument(arg.location, Value.fromExpression(arg), pt);
 		}
 
 		if (type.getCanonical().kind != TypeKind.Class) {

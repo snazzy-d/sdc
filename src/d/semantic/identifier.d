@@ -590,10 +590,12 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 			ctxs ~= getThis(location);
 		}
 
+		import d.ir.value, d.semantic.expression;
+		auto ev = ExpressionVisitor(pass.pass);
+		auto params = f.type.parameters;
 		foreach (i, ref c; ctxs) {
-			import d.semantic.expression;
-			c = ExpressionVisitor(pass.pass)
-				.buildArgument(c, f.type.parameters[i]);
+			auto context = Value.fromExpression(c);
+			c = ev.buildArgument(c.location, context, params[i]);
 		}
 
 		auto e = (ctxs.length == 0)
