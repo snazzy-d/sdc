@@ -701,7 +701,10 @@ public:
 		return IdentifierResolver(pass).buildFunExpression(location, f);
 	}
 
-	Expression getFrom(Location location, Expression thisExpr, Function f) {
+	Expression getFrom(Location location, Value thisValue, Function f) {
+		// FIXME: Functions should be built from values.
+		auto thisExpr = thisValue.getExpression(location);
+
 		import d.semantic.identifier;
 		return
 			IdentifierResolver(pass).buildFunExpression(location, thisExpr, f);
@@ -711,10 +714,13 @@ public:
 		import std.algorithm, std.array;
 		auto args = c.arguments.map!(a => visit(a)).array();
 
+		auto location = c.location;
+		auto callee = c.callee;
+
 		// FIXME: Have a ThisCallExpression.
-		auto te = cast(ThisExpression) c.callee;
+		auto te = cast(ThisExpression) callee;
 		if (te is null) {
-			return handleCall(c.location, visit(c.callee), args);
+			return handleCall(location, visit(callee), args);
 		}
 
 		// FIXME: check if we are in a constructor.
@@ -723,22 +729,17 @@ public:
 			assert(0, "ctor on non aggregate not implemented!");
 		}
 
-		auto loc = c.callee.location;
-		auto thisExpr = getThis(loc);
+		auto loc = callee.location;
+		auto thisValue = Value.fromExpression(getThis(loc));
 
-		auto ctor = findCtor(c.location, loc, thisExpr, args);
+		auto ctor = findCtor(location, loc, thisValue, args);
 		auto thisKind = ctor.type.asFunctionType().contexts[0].paramKind;
-		auto call = callCallable(c.location, ctor, args);
+		auto call = callCallable(location, ctor, args);
 
 		final switch (thisKind) with (ParamKind) {
 			case Regular:
 				// Value type, by value.
-				auto addr = buildAddressOf(thisExpr);
-				if (addr is null) {
-					return getError(thisExpr, "Expected an lvalue.");
-				}
-
-				return buildAssign(c.location, Value.withAddress(addr),
+				return buildAssign(location, thisValue,
 				                   Value.fromExpression(call));
 
 			case Final:
@@ -747,7 +748,8 @@ public:
 
 			case Ref:
 				// Value type, by ref.
-				return build!BinaryExpression(c.location, thisExpr.type,
+				auto thisExpr = thisValue.getExpression(loc);
+				return build!BinaryExpression(location, thisExpr.type,
 				                              BinaryOp.Comma, call, thisExpr);
 		}
 	}
@@ -820,41 +822,37 @@ public:
 				scheduler.require(s, Step.Signed);
 
 				import d.semantic.defaultinitializer;
-				auto di =
-					InstanceBuilder(pass, calleeLoc).visit(s)
-					                                .getExpression(calleeLoc);
+				auto di = InstanceBuilder(pass, calleeLoc).visit(s);
 				if (s.isSmall) {
 					return callCtor(location, calleeLoc, di, args);
 				}
 
-				auto thisExpr = getTemporary(di).getExpression(di.location);
+				auto temporary = getTemporary(di.getExpression(calleeLoc));
+				auto call = callCtor(location, calleeLoc, temporary, args);
 				return build!BinaryExpression(
-					location, t, BinaryOp.Comma,
-					callCtor(location, calleeLoc, thisExpr, args), thisExpr);
+					location, t, BinaryOp.Comma, call,
+					temporary.getExpression(calleeLoc));
 
 			default:
 				return getError(t, location, "Cannot build this type.");
 		}
 	}
 
-	private Expression callCtor(
-		Location location,
-		Location calleeLoc,
-		Expression thisExpr,
-		Expression[] args
-	) in(thisExpr.type.isAggregate()) {
-		auto ctor = findCtor(location, calleeLoc, thisExpr, args);
+	private
+	Expression callCtor(Location location, Location calleeLoc, Value thisValue,
+	                    Expression[] args) in(thisValue.type.isAggregate()) {
+		auto ctor = findCtor(location, calleeLoc, thisValue, args);
 		return callCallable(location, ctor, args);
 	}
 
 	// XXX: factorize with NewExpression
 	private Expression findCtor(Location location, Location calleeLoc,
-	                            Expression thisExpr, Expression[] args) in {
+	                            Value thisValue, Expression[] args) in {
 		import std.format;
-		assert(thisExpr.type.isAggregate(),
-		       format!"%s is not an aggregate!"(thisExpr.toString(context)));
+		assert(thisValue.type.isAggregate(),
+		       format!"%s is not an aggregate!"(thisValue.toString(context)));
 	} do {
-		auto agg = thisExpr.type.aggregate;
+		auto agg = thisValue.type.aggregate;
 
 		import source.name, d.semantic.identifier;
 		return IdentifierResolver(pass)
@@ -863,7 +861,7 @@ public:
 				alias T = typeof(i);
 				static if (is(T : Symbol)) {
 					if (auto f = cast(Function) i) {
-						return getFrom(calleeLoc, thisExpr, f);
+						return getFrom(calleeLoc, thisValue, f);
 					}
 
 					if (auto s = cast(OverloadSet) i) {
@@ -871,7 +869,7 @@ public:
 						// or VRP trunc, so we need a workaround here.
 						if (s.set.length == 1) {
 							if (auto f = cast(Function) s.set[0]) {
-								return getFrom(calleeLoc, thisExpr, f);
+								return getFrom(calleeLoc, thisValue, f);
 							}
 						}
 
@@ -879,7 +877,7 @@ public:
 						return chooseOverload(
 							location, s.set.map!(delegate Expression(s) {
 								if (auto f = cast(Function) s) {
-									return getFrom(calleeLoc, thisExpr, f);
+									return getFrom(calleeLoc, thisValue, f);
 								}
 
 								// XXX: Template ??!?!!?
