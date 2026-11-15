@@ -397,10 +397,11 @@ private:
 
 	Identifiable resolveBracket(Location location, Expression base,
 	                            Expression index) {
-		import d.semantic.expression;
-		auto e = ExpressionVisitor(pass.pass).getIndex(location, base, index)
-		                                     .getExpression(location);
-		return Identifiable(e);
+		import d.ir.value, d.semantic.expression;
+		auto value = ExpressionVisitor(pass.pass)
+			.getIndex(location, Value.fromExpression(base),
+			          Value.fromExpression(index));
+		return Identifiable(value.getExpression(location));
 	}
 
 	Identifiable resolveBracket(Location location, Type base,

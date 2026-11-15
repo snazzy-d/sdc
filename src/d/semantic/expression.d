@@ -1248,43 +1248,44 @@ public:
 		return getThis(e.location);
 	}
 
-	Value getIndex(Location location, Expression indexed, Expression index) {
-		auto t = indexed.type.getCanonical();
-		auto position = Value.fromExpression(index);
-		position = buildImplicitCast(pass, location,
-		                             pass.object.getSizeT().type, position);
-
-		index = position.getExpression(index.location);
+	Value getIndex(Location location, Value indexed, Value index) {
+		index = buildImplicitCast(pass, location, pass.object.getSizeT().type,
+		                          index);
+		auto i = index.getExpression(location);
 
 		Expression addr;
+		auto t = indexed.type.getCanonical();
 		switch (t.kind) with (TypeKind) {
 			case Pointer:
-				addr = build!PointerIndexExpression(location, indexed, index);
+				auto ptr = indexed.getExpression(location);
+				addr = build!PointerIndexExpression(location, ptr, i);
 				break;
 
 			case Slice:
-				addr = build!SliceIndexExpression(location, indexed, index);
+				auto slice = indexed.getExpression(location);
+				addr = build!SliceIndexExpression(location, slice, i);
 				break;
 
 			case Array:
-				auto base = buildAddressOf(indexed);
-
-				// If the array is not addressable, extract thee element.
-				if (base is null) {
+				// If the array has no address, extract the element.
+				if (!indexed.hasAddress()) {
+					auto array = indexed.getExpression(location);
 					auto extract =
-						build!ArrayExtractExpression(location, t.element,
-						                             indexed, index);
+						build!ArrayExtractExpression(location, t.element, array,
+						                             i);
 					return Value.withValue(extract);
 				}
 
-				addr = build!ArrayIndexExpression(location, base, index);
+				auto base =
+					indexed.getAddress(location).getExpression(location);
+				addr = build!ArrayIndexExpression(location, base, i);
 				break;
 
 			default:
 				import std.format;
-				return Value.withAddress(getError(
-					indexed, location,
-					format!"Can't index %s."(indexed.type.toString(context))));
+				auto message =
+					format!"Can't index %s."(indexed.type.toString(context));
+				return indexed.getError(location, message);
 		}
 
 		return Value.withAddress(addr);
@@ -1292,15 +1293,15 @@ public:
 
 	Expression visit(AstIndexExpression e) {
 		auto location = e.location;
-		auto indexed = visit(e.indexed);
+		auto indexed = Value.fromExpression(visit(e.indexed));
 
 		import std.algorithm, std.array;
 		auto arguments = e.arguments.map!(e => visit(e)).array();
 		assert(arguments.length == 1,
 		       "Multiple argument index are not supported!");
 
-		return
-			getIndex(location, indexed, arguments[0]).getExpression(location);
+		auto index = Value.fromExpression(arguments[0]);
+		return getIndex(location, indexed, index).getExpression(location);
 	}
 
 	Expression visit(AstSliceExpression e) {

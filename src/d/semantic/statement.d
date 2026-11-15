@@ -603,7 +603,7 @@ public:
 
 		import d.semantic.expression;
 		auto eVal = ExpressionVisitor(pass)
-			.getIndex(eLoc, iterated.getExpression(iLoc), idxExpr);
+			.getIndex(eLoc, iterated, Value.fromExpression(idxExpr));
 		auto eType = eVal.type.getParamType(eDecl.type.paramKind);
 
 		if (!eDecl.type.getType().isAuto) {
