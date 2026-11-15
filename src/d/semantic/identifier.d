@@ -9,6 +9,7 @@ import d.ir.error;
 import d.ir.expression;
 import d.ir.symbol;
 import d.ir.type;
+import d.ir.value;
 
 import source.location;
 import source.name;
@@ -138,7 +139,7 @@ public:
 
 		return build(location, BuiltinName!"this").apply!((identified) {
 			static if (is(typeof(identified) : Expression)) {
-				import d.ir.value, d.semantic.caster;
+				import d.semantic.caster;
 				auto value =
 					buildImplicitCast(pass, location, thisType.getType(),
 					                  Value.fromExpression(identified));
@@ -240,13 +241,13 @@ public:
 	}
 
 	Identifiable visit(IdentifierBracketIdentifier i) {
-		return resolveBracket(i.location, i.indexed, i.index);
+		return resolveBracket(i, i.index);
 	}
 
 	Identifiable visit(IdentifierBracketExpression i) {
 		import d.semantic.expression;
 		auto e = ExpressionVisitor(pass.pass).visit(i.index);
-		return resolveBracket(i.location, i.indexed, e);
+		return resolveBracket(i, Value.fromExpression(e));
 	}
 
 private:
@@ -333,7 +334,6 @@ private:
 
 				return visit(a).apply!((val) {
 					static if (is(typeof(val) : Expression)) {
-						import d.ir.value;
 						auto v = Value.fromExpression(val);
 						return TemplateArgument(evaluate(v));
 					} else {
@@ -346,8 +346,6 @@ private:
 			} else {
 				import d.semantic.expression;
 				auto e = ExpressionVisitor(pass.pass).visit(a);
-
-				import d.ir.value;
 				auto v = Value.fromExpression(e);
 				return TemplateArgument(evaluate(v));
 			}
@@ -379,38 +377,47 @@ private:
 		})();
 	}
 
-	Identifiable resolveBracket(I)(Location location, Identifier base,
-	                               I index) {
-		return
-			pass.build(base).apply!(b => resolveBracket(location, b, index))();
+	Identifiable resolveBracket(N, I)(N bracket, I index) {
+		return pass.build(bracket.indexed).apply!((b) {
+			// FIXME: Identifiable should hold a value.
+			static if (is(typeof(b) : Expression)) {
+				return resolveBracket(bracket, Value.fromExpression(b), index);
+			} else {
+				return resolveBracket(bracket, b, index);
+			}
+		})();
 	}
 
-	Identifiable resolveBracket(B)(Location location, B base, Identifier index)
-			if (!is(B : Identifier)) {
+	Identifiable resolveBracket(B)(IdentifierBracketIdentifier bracket, B base,
+	                               Identifier index) {
 		// We don't want to use the same this for base and index.
 		auto oldThisExpr = consumeThis();
 		scope(exit) setThis(oldThisExpr);
 
-		return
-			pass.build(index).apply!(i => resolveBracket(location, base, i))();
+		return pass.build(index).apply!((i) {
+			// FIXME: Identifiable should hold a value.
+			static if (is(typeof(i) : Expression)) {
+				return resolveBracket(bracket, base, Value.fromExpression(i));
+			} else {
+				return resolveBracket(bracket, base, i);
+			}
+		})();
 	}
 
-	Identifiable resolveBracket(Location location, Expression base,
-	                            Expression index) {
-		import d.ir.value, d.semantic.expression;
-		auto value = ExpressionVisitor(pass.pass)
-			.getIndex(location, Value.fromExpression(base),
-			          Value.fromExpression(index));
+	Identifiable resolveBracket(N)(N bracket, Value base, Value index) {
+		import d.semantic.expression;
+		auto location = bracket.location;
+		auto value =
+			ExpressionVisitor(pass.pass).getIndex(location, base, index);
 		return Identifiable(value.getExpression(location));
 	}
 
-	Identifiable resolveBracket(Location location, Type base,
-	                            Expression index) {
-		import d.ir.value, d.semantic.caster;
-		auto value = buildImplicitCast(
-			pass.pass, index.location, pass.object.getSizeT().type,
-			Value.fromExpression(index));
-		auto size = evalIntegral(value);
+	// The index is the size of an array of the base.
+	Identifiable resolveBracket(N)(N bracket, Type base, Value index) {
+		import d.semantic.caster;
+		index = buildImplicitCast(pass.pass, bracket.index.location,
+		                          pass.object.getSizeT().type, index);
+		auto size = evalIntegral(index);
 
 		assert(size <= uint.max,
 		       "Array larger than uint.max are not supported.");
@@ -418,30 +425,28 @@ private:
 		return Identifiable(base.getArray(cast(uint) size));
 	}
 
-	Identifiable resolveBracket(Location location, Type base, Type index) {
+	Identifiable resolveBracket(N)(N bracket, Type base, Type index) {
 		assert(0, "Maps not implemented.");
 	}
 
-	Identifiable resolveBracket(Location location, Expression base,
-	                            Type index) {
+	Identifiable resolveBracket(N)(N bracket, Value base, Type index) {
 		import std.format;
 		return getIdentifiableError(
 			base,
 			index,
-			location,
+			bracket.location,
 			format!"Cannot index expression %s using type %s."(
 				base.toString(context), index.toString(context)),
 		);
 	}
 
-	Identifiable resolveBracket(S1, S2)(Location location, S1 base, S2 index)
-			if ((is(S1 : Symbol) || is(S2 : Symbol))
-				    && !(is(S1 : Identifier) || is(S2 : Identifier))) {
+	Identifiable resolveBracket(N, S1, S2)(N bracket, S1 base, S2 index)
+			if ((is(S1 : Symbol) || is(S2 : Symbol)) && !is(S2 : Identifier)) {
 		import std.format;
 		return getIdentifiableError(
 			base,
 			index,
-			location,
+			bracket.location,
 			format!"%s[%s] is not valid."(base.toString(context),
 			                              index.toString(context)),
 		);
@@ -949,7 +954,7 @@ struct ExpressionDotIdentifierResolver {
 					getIdentifiableError(e, e.location, "Expected an lvalue.");
 			}
 
-			import d.ir.value, d.semantic.caster;
+			import d.semantic.caster;
 			auto value =
 				buildExplicitCast(pass.pass, location, et.element.getPointer(),
 				                  Value.fromExpression(ptr));

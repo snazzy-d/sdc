@@ -1,9 +1,13 @@
 alias T = uint;
 alias A = T[7];
 
+enum three = 3;
+alias B = T[three];
+
 unittest types {
 	assert(T.sizeof == 4);
 	assert(A.sizeof == 28);
+	assert(B.sizeof == 12);
 }
 
 enum E {
