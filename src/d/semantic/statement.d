@@ -360,7 +360,7 @@ public:
 			pass
 		).build(s.identifier).apply!(delegate void(identified) {
 			alias T = typeof(identified);
-			static if (is(T : Expression)) {
+			static if (is(T : Value)) {
 				assert(
 					0, "expression identifier * identifier are not implemented."
 				);
@@ -482,10 +482,10 @@ public:
 
 		import source.name, d.semantic.identifier;
 		auto length = IdentifierResolver(pass)
-			.buildIn(iLoc, iterated.getExpression(iLoc), BuiltinName!"length")
+			.buildIn(iLoc, iterated, BuiltinName!"length")
 			.apply!(delegate Value(e) {
-				static if (is(typeof(e) : Expression)) {
-					return Value.fromExpression(e);
+				static if (is(typeof(e) : Value)) {
+					return e;
 				} else {
 					import d.ir.error, std.format;
 					return Value.withValue(new CompileError(

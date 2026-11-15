@@ -14,7 +14,7 @@ import d.ir.value;
 import source.location;
 import source.name;
 
-alias Identifiable = Type.UnionType!(Symbol, Expression);
+alias Identifiable = Type.UnionType!(Symbol, Value);
 
 auto apply(alias handler)(Identifiable i) {
 	alias Tag = typeof(i.tag);
@@ -22,8 +22,8 @@ auto apply(alias handler)(Identifiable i) {
 		case Symbol:
 			return handler(i.get!Symbol);
 
-		case Expression:
-			return handler(i.get!Expression);
+		case Value:
+			return handler(i.get!Value);
 
 		case Type:
 			return handler(i.get!Type);
@@ -39,8 +39,8 @@ auto isError(Identifiable i) {
 		alias T = typeof(identified);
 		static if (is(T : Symbol)) {
 			return typeid(identified) is typeid(ErrorSymbol);
-		} else static if (is(T : Expression)) {
-			return typeid(identified) is typeid(ErrorExpression);
+		} else static if (is(T : Value)) {
+			return identified.type.kind == TypeKind.Error;
 		} else static if (is(T : Type)) {
 			return identified.kind == TypeKind.Error;
 		} else {
@@ -144,10 +144,10 @@ public:
 		}
 
 		return build(location, BuiltinName!"this").apply!((identified) {
-			static if (is(typeof(identified) : Expression)) {
+			static if (is(typeof(identified) : Value)) {
 				import d.semantic.caster;
 				return buildImplicitCast(pass, location, thisType.getType(),
-				                         Value.fromExpression(identified));
+				                         identified);
 			} else {
 				return Value.withValue(
 					getError(location, "Cannot find a suitable this pointer.")
@@ -168,13 +168,12 @@ public:
 	}
 
 private:
-	Expression wrap(Location location, Expression e) {
+	Value wrap(Location location, Value value) {
 		if (!hasPendingThis()) {
-			return e;
+			return value;
 		}
 
 		auto thisValue = getThis(location);
-		auto value = Value.fromExpression(e);
 
 		auto hasAddress = value.hasAddress();
 		if (hasAddress) {
@@ -184,8 +183,8 @@ private:
 		import d.ir.expression : build;
 		auto chained = build!ChainedValueExpression(location, thisValue, value);
 		return hasAddress
-			? Value.withAddress(chained).getExpression(location)
-			: chained;
+			? Value.withAddress(chained)
+			: Value.withValue(chained);
 	}
 
 	bool hasPendingThis() const {
@@ -210,8 +209,8 @@ Identifiable identifiableHandler(T)(T t) {
 
 private:
 
-enum isIdentifiable(T) = is(T : Expression) || is(T : Type) || is(T : Symbol)
-	|| is(T : Identifiable);
+enum isIdentifiable(T) =
+	is(T : Value) || is(T : Type) || is(T : Symbol) || is(T : Identifiable);
 
 alias IdentifierPass = IdentifierResolver*;
 
@@ -248,7 +247,7 @@ public:
 	Identifiable visit(ExpressionDotIdentifier i) {
 		import d.semantic.expression;
 		auto e = ExpressionVisitor(pass.pass).visit(i.expression);
-		return resolveIn(i.location, e, i.name);
+		return resolveIn(i.location, Value.fromExpression(e), i.name);
 	}
 
 	Identifiable visit(TypeDotIdentifier i) {
@@ -279,8 +278,8 @@ private:
 		return i.apply!(ii => resolveIn(location, ii, name))();
 	}
 
-	Identifiable resolveIn(Location location, Expression e, Name name) {
-		return ExpressionDotIdentifierResolver(pass, location, name).visit(e);
+	Identifiable resolveIn(Location location, Value v, Name name) {
+		return ExpressionDotIdentifierResolver(pass, location, name).visit(v);
 	}
 
 	Identifiable resolveIn(Location location, Type t, Name name) {
@@ -350,9 +349,8 @@ private:
 				assert(!pass.hasPendingThis());
 
 				return visit(a).apply!((val) {
-					static if (is(typeof(val) : Expression)) {
-						auto v = Value.fromExpression(val);
-						return TemplateArgument(evaluate(v));
+					static if (is(typeof(val) : Value)) {
+						return TemplateArgument(evaluate(val));
 					} else {
 						return TemplateArgument(val);
 					}
@@ -395,14 +393,8 @@ private:
 	}
 
 	Identifiable resolveBracket(N, I)(N bracket, I index) {
-		return pass.build(bracket.indexed).apply!((b) {
-			// FIXME: Identifiable should hold a value.
-			static if (is(typeof(b) : Expression)) {
-				return resolveBracket(bracket, Value.fromExpression(b), index);
-			} else {
-				return resolveBracket(bracket, b, index);
-			}
-		})();
+		return pass.build(bracket.indexed)
+		           .apply!(b => resolveBracket(bracket, b, index))();
 	}
 
 	Identifiable resolveBracket(B)(IdentifierBracketIdentifier bracket, B base,
@@ -411,22 +403,15 @@ private:
 		auto oldThis = consumeThis();
 		scope(exit) setThis(oldThis);
 
-		return pass.build(index).apply!((i) {
-			// FIXME: Identifiable should hold a value.
-			static if (is(typeof(i) : Expression)) {
-				return resolveBracket(bracket, base, Value.fromExpression(i));
-			} else {
-				return resolveBracket(bracket, base, i);
-			}
-		})();
+		return
+			pass.build(index).apply!(i => resolveBracket(bracket, base, i))();
 	}
 
 	Identifiable resolveBracket(N)(N bracket, Value base, Value index) {
 		import d.semantic.expression;
-		auto location = bracket.location;
-		auto value =
-			ExpressionVisitor(pass.pass).getIndex(location, base, index);
-		return Identifiable(value.getExpression(location));
+		return Identifiable(
+			ExpressionVisitor(pass.pass).getIndex(bracket.location, base, index)
+		);
 	}
 
 	// The index is the size of an array of the base.
@@ -511,8 +496,8 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		return i.apply!(ii => visit(ii))();
 	}
 
-	Identifiable visit(Expression e) {
-		return Identifiable(wrap(location, e));
+	Identifiable visit(Value v) {
+		return Identifiable(wrap(location, v));
 	}
 
 	Identifiable visit(Type t) {
@@ -533,12 +518,8 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		}
 
 		scheduler.require(v, Step.Signed);
-		auto addr = new VariableExpression(location, v);
-		if (v.isFinal) {
-			return visit(addr);
-		}
-
-		return visit(build!LoadExpression(location, v.type, addr));
+		auto e = new VariableExpression(location, v);
+		return visit(v.isFinal ? Value.withValue(e) : Value.withAddress(e));
 	}
 
 	Identifiable visit(GlobalVariable g) {
@@ -547,8 +528,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		}
 
 		scheduler.require(g, Step.Signed);
-		auto addr = new ConstantExpression(location, new GlobalConstant(g));
-		return visit(build!LoadExpression(location, g.type, addr));
+		return visit(Value.withAddress(new GlobalConstant(g)));
 	}
 
 	Identifiable visit(ManifestConstant m) {
@@ -557,7 +537,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		}
 
 		scheduler.require(m);
-		return visit(new ConstantExpression(location, m.type, m.value));
+		return visit(Value.withValue(m.value));
 	}
 
 	Identifiable visit(Field f) {
@@ -570,16 +550,17 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		if (t.kind != TypeKind.Class && t.kind != TypeKind.Pointer) {
 			// Rvalue aggregates have no address. Extract the field.
 			if (!base.hasAddress()) {
-				return Identifiable(build!ExtractFieldExpression(
-					location, base.getExpression(location), f));
+				return Identifiable(Value.withValue(
+					build!ExtractFieldExpression(
+						location, base.getExpression(location), f)));
 			}
 
 			base = base.getAddress(location);
 		}
 
 		auto ptr = base.getExpression(location);
-		auto addr = build!FieldExpression(location, ptr, f);
-		return visit(build!LoadExpression(location, addr.type.element, addr));
+		return
+			visit(Value.withAddress(build!FieldExpression(location, ptr, f)));
 	}
 
 	private Value getContext(Function f) in(f.step >= Step.Signed) {
@@ -649,8 +630,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 			return Identifiable(f);
 		}
 
-		// FIXME: Identifiable should hold a value.
-		return Identifiable(buildFunValue(f).getExpression(location));
+		return Identifiable(buildFunValue(f));
 	}
 
 	Identifiable visit(Function f) {
@@ -694,14 +674,14 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 					location, "No valid candidate in overload set.");
 
 			case 1:
-				// FIXME: Identifiable should hold a value.
-				return Identifiable(candidates[0].getExpression(location));
+				return Identifiable(candidates[0]);
 
 			default:
 				import std.algorithm, std.array;
 				auto exprs =
 					candidates.map!(c => c.getExpression(location)).array();
-				return Identifiable(new PolysemousExpression(location, exprs));
+				return Identifiable(
+					Value.withValue(new PolysemousExpression(location, exprs)));
 		}
 	}
 
@@ -711,7 +691,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 		}
 
 		scheduler.require(a, Step.Signed);
-		return visit(new ConstantExpression(a.location, a.value));
+		return visit(Value.withValue(a.value));
 	}
 
 	Identifiable visit(SymbolAlias s) {
@@ -913,16 +893,17 @@ struct ExpressionDotIdentifierResolver {
 		this.name = name;
 	}
 
-	Identifiable visit(Expression e) in(!hasPendingThis()) {
-		e = wrap(location, e);
-		return visit(e, e);
+	Identifiable visit(Value v) in(!hasPendingThis()) {
+		v = wrap(location, v);
+		return visit(v, v);
 	}
 
-	Identifiable visit(Expression e, Expression base) in(!hasPendingThis()) {
-		// FIXME: Identifiers should be resolved in values.
-		auto newThis = PendingThis(location, Value.fromExpression(e));
+	Identifiable visit(Value v, Value base) in(!hasPendingThis()) {
+		auto location = this.location;
+		auto name = this.name;
+		auto newThis = PendingThis(location, v);
 
-		auto t = e.type.getCanonical();
+		auto t = v.type.getCanonical();
 		if (t.isAggregate) {
 			auto a = t.aggregate;
 
@@ -942,7 +923,7 @@ struct ExpressionDotIdentifierResolver {
 			import d.semantic.aliasthis;
 			import std.algorithm, std.array;
 			auto results = AliasThisResolver!identifiableHandler(pass.pass)
-				.resolve(location, newThis.value, a).map!((c) {
+				.resolve(location, v, a).map!((c) {
 					// Make sure we process all alias this on the same base.
 					// FIXME: We probably want to handle this
 					//        via consumeThis/setThis.
@@ -977,17 +958,15 @@ struct ExpressionDotIdentifierResolver {
 		// array.ptr is a special case.
 		if (et.kind == TypeKind.Array && name == BuiltinName!"ptr") {
 			import d.semantic.caster;
-			auto value =
+			return Identifiable(
 				buildExplicitCast(pass.pass, location, et.element.getPointer(),
-				                  newThis.value.getAddress(location));
-			return Identifiable(value.getExpression(location));
+				                  v.getAddress(location)));
 		}
 
 		// UFCS
-		auto ufcs = resolveUFCS(e);
+		auto ufcs = resolveUFCS(v);
 		if (!ufcs.isNull()) {
-			// FIXME: Identifiable should hold a value.
-			return Identifiable(ufcs.getExpression(location));
+			return Identifiable(ufcs);
 		}
 
 		if (t.kind != TypeKind.Pointer) {
@@ -995,7 +974,7 @@ struct ExpressionDotIdentifierResolver {
 		}
 
 		// Try to autodereference pointers.
-		return visit(build!LoadExpression(e.location, t.element, e), base);
+		return visit(Value.withAddress(v.getExpression(location)), base);
 	}
 
 	Symbol lookupInBase(Class c) {
@@ -1012,7 +991,7 @@ struct ExpressionDotIdentifierResolver {
 		return lookupInBase(c);
 	}
 
-	Value resolveUFCS(Expression e) {
+	Value resolveUFCS(Value v) {
 		auto location = this.location;
 
 		// FIXME: templates and IFTI should UFCS too.
@@ -1024,8 +1003,7 @@ struct ExpressionDotIdentifierResolver {
 				return Value();
 			}
 
-			// FIXME: Identifiers should be resolved in values.
-			setThis(PendingThis(location, Value.fromExpression(e)));
+			setThis(PendingThis(location, v));
 			auto dg = buildFunValue(location, f);
 			return dg.type.kind == TypeKind.Error ? Value() : dg;
 		}
@@ -1052,14 +1030,9 @@ struct ExpressionDotIdentifierResolver {
 		return ufcs;
 	}
 
-	Identifiable resolveInType(Expression e) {
-		// FIXME: Identifiers should be resolved in values.
-		setThis(PendingThis(location, Value.fromExpression(e)));
-		return TypeDotIdentifierResolver(pass, location, name).visit(e.type);
-	}
-
-	Identifiable visit(ErrorExpression e) {
-		return Identifiable(e.error.symbol);
+	Identifiable resolveInType(Value v) {
+		setThis(PendingThis(location, v));
+		return TypeDotIdentifierResolver(pass, location, name).visit(v.type);
 	}
 }
 
@@ -1082,15 +1055,12 @@ struct TypeDotIdentifierResolver {
 	Identifiable bailout(Type t) {
 		if (name == BuiltinName!"init") {
 			import d.semantic.defaultinitializer;
-			auto value = InitBuilder(pass.pass, location).asValue(t);
-			return Identifiable(value.getExpression(location));
+			return Identifiable(InitBuilder(pass.pass, location).asValue(t));
 		} else if (name == BuiltinName!"sizeof") {
 			import d.semantic.sizeof;
-			return Identifiable(new ConstantExpression(
-				location,
+			return Identifiable(Value.withValue(
 				new IntegerConstant(SizeofVisitor(pass.pass).visit(t),
-				                    pass.object.getSizeT().type.builtin)
-			));
+				                    pass.object.getSizeT().type.builtin)));
 		}
 
 		import std.format;
@@ -1140,7 +1110,7 @@ struct TypeDotIdentifierResolver {
 		}
 
 		if (auto c = maybeGetConstant(name, t)) {
-			return Identifiable(new ConstantExpression(location, c));
+			return Identifiable(Value.withValue(c));
 		}
 
 		return bailout(Type.get(t));
@@ -1181,10 +1151,8 @@ struct TypeDotIdentifierResolver {
 			return bailout(t.getArray(size));
 		}
 
-		return Identifiable(new ConstantExpression(
-			location,
-			new IntegerConstant(size, pass.object.getSizeT().type.builtin)
-		));
+		return Identifiable(Value.withValue(
+			new IntegerConstant(size, pass.object.getSizeT().type.builtin)));
 	}
 
 	Symbol resolveInAggregate(Aggregate a) {

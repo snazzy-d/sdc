@@ -746,13 +746,13 @@ struct SymbolMatcher {
 
 	bool visit(TypedAliasTemplateParameter p) {
 		if (auto vs = cast(ValueSymbol) matchee) {
+			import d.ir.value;
 			import d.semantic.identifier : IdentifierResolver, apply;
 			return IdentifierResolver(pass)
 				.postProcess(p.location, vs).apply!(delegate bool(identified) {
 					alias T = typeof(identified);
-					static if (is(T : Expression)) {
-						import d.ir.value;
-						auto v = evaluate(Value.fromExpression(identified));
+					static if (is(T : Value)) {
+						auto v = evaluate(identified);
 						return ConstantMatcher(pass, matchedArgs, p.location, v)
 							.visit(p);
 					} else {
@@ -779,14 +779,14 @@ struct SymbolMatcher {
 	}
 
 	bool visit(ValueTemplateParameter p) {
+		import d.ir.value;
 		import d.semantic.identifier : IdentifierResolver, apply;
 		return IdentifierResolver(
 			pass
 		).postProcess(p.location, matchee).apply!(delegate bool(identified) {
 			alias T = typeof(identified);
-			static if (is(T : Expression)) {
-				import d.ir.value;
-				auto v = evaluate(Value.fromExpression(identified));
+			static if (is(T : Value)) {
+				auto v = evaluate(identified);
 				return
 					ConstantMatcher(pass, matchedArgs, p.location, v).visit(p);
 			} else {

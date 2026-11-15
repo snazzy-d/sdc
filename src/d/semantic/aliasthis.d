@@ -37,13 +37,10 @@ struct AliasThisResolver(alias handler) {
 
 	import source.name;
 	private Ret[] resolve(Location location, Value v, Name[] aliases) {
-		// FIXME: Identifiers should be resolved in values.
-		auto e = v.getExpression(location);
-
 		import d.semantic.identifier;
 		import std.algorithm, std.array;
 		return aliases
-			.map!(n => IdentifierResolver(pass).buildIn(location, e, n))
+			.map!(n => IdentifierResolver(pass).buildIn(location, v, n))
 			.filter!(i => !i.isError()).map!(c => c.apply!handler()).array();
 	}
 }

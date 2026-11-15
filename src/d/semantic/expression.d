@@ -750,8 +750,9 @@ public:
 		// XXX: Why are doing this here ?
 		// Shouldn't this be done in the identifier module ?
 		Expression postProcess(T)(T identified) {
-			static if (is(T : Expression)) {
-				return handleCall(c.location, identified, args);
+			static if (is(T : Value)) {
+				auto callee = identified.getExpression(c.callee.location);
+				return handleCall(c.location, callee, args);
 			} else {
 				static if (is(T : Symbol)) {
 					if (auto s = cast(OverloadSet) identified) {
@@ -900,8 +901,8 @@ public:
 			pass
 		).buildIn(location, i, t.name).apply!(delegate Expression(identified) {
 			alias T = typeof(identified);
-			static if (is(T : Expression)) {
-				return identified;
+			static if (is(T : Value)) {
+				return identified.getExpression(location);
 			} else {
 				import std.format;
 				return getError(
@@ -1046,8 +1047,9 @@ public:
 		import d.semantic.aliasthis;
 		auto ar = AliasThisResolver!((identified) {
 			alias T = typeof(identified);
-			static if (is(T : Expression)) {
-				return findCallable(location, identified, args);
+			static if (is(T : Value)) {
+				return findCallable(location,
+				                    identified.getExpression(location), args);
 			} else {
 				return cast(Expression) null;
 			}
@@ -1388,8 +1390,9 @@ public:
 				alias T = typeof(identified);
 				static if (is(T : Type)) {
 					return getTypeInfo(e.location, identified);
-				} else static if (is(T : Expression)) {
-					return handleTypeid(e.location, identified);
+				} else static if (is(T : Value)) {
+					return handleTypeid(e.location,
+					                    identified.getExpression(e.location));
 				} else {
 					import std.format;
 					return getError(
@@ -1407,8 +1410,8 @@ public:
 		return IdentifierResolver(pass)
 			.build(e.identifier).apply!(delegate Expression(identified) {
 				alias T = typeof(identified);
-				static if (is(T : Expression)) {
-					return identified;
+				static if (is(T : Value)) {
+					return identified.getExpression(e.location);
 				} else {
 					static if (is(T : Symbol)) {
 						if (auto s = cast(OverloadSet) identified) {
@@ -1436,8 +1439,8 @@ public:
 				.postProcess(location, s)
 				.apply!(delegate Expression(identified) {
 					alias T = typeof(identified);
-					static if (is(T : Expression)) {
-						return identified;
+					static if (is(T : Value)) {
+						return identified.getExpression(location);
 					} else static if (is(T : Type)) {
 						assert(0, "Type can't be overloaded!");
 					} else {

@@ -221,10 +221,10 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 			import std.algorithm;
 			auto results = AliasThisResolver!((identified) {
 				alias T = typeof(identified);
-				static if (is(T : Expression)) {
+				static if (is(T : Value)) {
 					auto oldValue = value;
 					scope(exit) value = oldValue;
-					value = Value.withValue(identified);
+					value = identified;
 
 					// XXX: Use buildCast?
 					auto cLevel = c.subCast(value.type, to);

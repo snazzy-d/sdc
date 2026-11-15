@@ -96,9 +96,8 @@ struct TypeVisitor {
 				alias T = typeof(identified);
 				static if (is(T : Type)) {
 					assert(0, "Not implemented.");
-				} else static if (is(T : Expression)) {
-					return buildArray(ikey.location,
-					                  Value.fromExpression(identified), type);
+				} else static if (is(T : Value)) {
+					return buildArray(ikey.location, identified, type);
 				} else if (auto v = cast(ValueTemplateParameter) identified) {
 					return Pattern(type, v).getType();
 				} else {
