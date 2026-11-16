@@ -62,7 +62,12 @@ private:
 	SemanticPass pass;
 	alias pass this;
 
-	Expression thisExpr;
+	struct PendingThis {
+		Location location;
+		Value value;
+	}
+
+	PendingThis pendingThis;
 
 public:
 	this(SemanticPass pass) {
@@ -70,15 +75,16 @@ public:
 	}
 
 	~this() {
-		if (thisExpr is null) {
+		if (!hasPendingThis()) {
 			return;
 		}
 
 		// FIXME: This is an abominable error message and it needs to go!
 		import std.format;
+		auto value = pendingThis.value;
 		auto e = getError(
-			thisExpr, thisExpr.location,
-			format!"%s has not been consumed."(thisExpr.toString(context)));
+			value, pendingThis.location,
+			format!"%s has not been consumed."(value.toString(context)));
 
 		import source.exception;
 		throw new CompileException(e.location, e.message);
@@ -133,9 +139,8 @@ public:
 	}
 
 	Value getThis(Location location) {
-		if (thisExpr) {
-			// FIXME: The pending this should be a value.
-			return Value.fromExpression(consumeThis());
+		if (hasPendingThis()) {
+			return consumeThis().value;
 		}
 
 		return build(location, BuiltinName!"this").apply!((identified) {
@@ -158,14 +163,13 @@ public:
 
 	/* private */
 	Value buildFunValue(Location location, Value thisValue, Function f) {
-		// FIXME: The pending this should be a value.
-		setThis(thisValue.getExpression(location));
+		setThis(PendingThis(location, thisValue));
 		return SymbolPostProcessor(&this, location).buildFunValue(f);
 	}
 
 private:
 	Expression wrap(Location location, Expression e) {
-		if (thisExpr is null) {
+		if (!hasPendingThis()) {
 			return e;
 		}
 
@@ -184,14 +188,18 @@ private:
 			: chained;
 	}
 
-	void setThis(Expression thisExpr) in(this.thisExpr is null) {
-		this.thisExpr = thisExpr;
+	bool hasPendingThis() const {
+		return !pendingThis.value.isNull();
 	}
 
-	Expression consumeThis() {
+	void setThis(PendingThis pendingThis) in(!hasPendingThis()) {
+		this.pendingThis = pendingThis;
+	}
+
+	PendingThis consumeThis() {
 		// Make sure we don't consume this twice.
-		scope(exit) thisExpr = null;
-		return thisExpr;
+		scope(exit) pendingThis = PendingThis();
+		return pendingThis;
 	}
 }
 
@@ -331,7 +339,7 @@ private:
 
 	Identifiable resolve(TemplateInstantiation i, Expression[] fargs)
 			// We don't want to resolve arguments with the same context we have here.
-			in(consumeThis() is null) {
+			in(!hasPendingThis()) {
 		alias astapply = d.ast.identifier.apply;
 
 		import d.ast.type : AstType;
@@ -339,7 +347,7 @@ private:
 		auto targs = i.arguments.map!(a => astapply!((a) {
 			alias T = typeof(a);
 			static if (is(T : Identifier)) {
-				assert(pass.consumeThis() is null);
+				assert(!pass.hasPendingThis());
 
 				return visit(a).apply!((val) {
 					static if (is(typeof(val) : Expression)) {
@@ -400,8 +408,8 @@ private:
 	Identifiable resolveBracket(B)(IdentifierBracketIdentifier bracket, B base,
 	                               Identifier index) {
 		// We don't want to use the same this for base and index.
-		auto oldThisExpr = consumeThis();
-		scope(exit) setThis(oldThisExpr);
+		auto oldThis = consumeThis();
+		scope(exit) setThis(oldThis);
 
 		return pass.build(index).apply!((i) {
 			// FIXME: Identifiable should hold a value.
@@ -520,7 +528,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 	}
 
 	Identifiable visit(Variable v) {
-		if (IsAlias && !thisExpr) {
+		if (IsAlias && !hasPendingThis()) {
 			return Identifiable(v);
 		}
 
@@ -534,7 +542,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 	}
 
 	Identifiable visit(GlobalVariable g) {
-		if (IsAlias && !thisExpr) {
+		if (IsAlias && !hasPendingThis()) {
 			return Identifiable(g);
 		}
 
@@ -544,7 +552,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 	}
 
 	Identifiable visit(ManifestConstant m) {
-		if (IsAlias && !thisExpr) {
+		if (IsAlias && !hasPendingThis()) {
 			return Identifiable(m);
 		}
 
@@ -583,7 +591,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 	}
 
 	private bool hasThis(Function f) {
-		return thisExpr || f.hasThis;
+		return hasPendingThis() || f.hasThis;
 	}
 
 	private Value buildFunValue(Function f) {
@@ -659,11 +667,11 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 			return visit(set[0]);
 		}
 
-		if (thisExpr is null) {
+		if (!hasPendingThis()) {
 			return Identifiable(s);
 		}
 
-		auto baseThisExpr = consumeThis();
+		auto baseThis = consumeThis();
 
 		Value[] candidates;
 		foreach (sym; set) {
@@ -671,7 +679,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 			assert(f, "Only function are implemented.");
 
 			// Make sure we process all overloads on the same base.
-			setThis(baseThisExpr);
+			setThis(baseThis);
 
 			auto candidate = buildFunValue(f);
 			if (candidate.type.kind != TypeKind.Error) {
@@ -698,7 +706,7 @@ struct IdentifierPostProcessor(PostProcessKind K) {
 	}
 
 	Identifiable visit(ValueAlias a) {
-		if (IsAlias && !thisExpr) {
+		if (IsAlias && !hasPendingThis()) {
 			return Identifiable(a);
 		}
 
@@ -905,25 +913,28 @@ struct ExpressionDotIdentifierResolver {
 		this.name = name;
 	}
 
-	Identifiable visit(Expression e) in(thisExpr is null) {
+	Identifiable visit(Expression e) in(!hasPendingThis()) {
 		e = wrap(location, e);
 		return visit(e, e);
 	}
 
-	Identifiable visit(Expression e, Expression base) in(thisExpr is null) {
+	Identifiable visit(Expression e, Expression base) in(!hasPendingThis()) {
+		// FIXME: Identifiers should be resolved in values.
+		auto newThis = PendingThis(location, Value.fromExpression(e));
+
 		auto t = e.type.getCanonical();
 		if (t.isAggregate) {
 			auto a = t.aggregate;
 
 			scheduler.require(a, Step.Populated);
 			if (auto sym = a.resolve(location, name)) {
-				setThis(e);
+				setThis(newThis);
 				return Identifiable(sym);
 			}
 
 			if (auto c = cast(Class) a) {
 				if (auto sym = lookupInBase(c)) {
-					setThis(e);
+					setThis(newThis);
 					return Identifiable(sym);
 				}
 			}
@@ -931,21 +942,21 @@ struct ExpressionDotIdentifierResolver {
 			import d.semantic.aliasthis;
 			import std.algorithm, std.array;
 			auto results = AliasThisResolver!identifiableHandler(pass.pass)
-				.resolve(location, Value.fromExpression(e), a).map!((c) {
+				.resolve(location, newThis.value, a).map!((c) {
 					// Make sure we process all alias this on the same base.
 					// FIXME: We probably want to handle this
 					//        via consumeThis/setThis.
-					auto oldThisExpr = thisExpr;
-					scope(exit) thisExpr = oldThisExpr;
+					auto oldThis = pendingThis;
+					scope(exit) pendingThis = oldThis;
 
 					auto i = resolveIn(location, c, name);
 
 					import std.typecons;
-					return tuple(i, thisExpr);
+					return tuple(i, pendingThis);
 				}).filter!((t) => !t[0].isError()).array();
 
 			if (results.length == 1) {
-				thisExpr = results[0][1];
+				pendingThis = results[0][1];
 				return results[0][0];
 			}
 
@@ -956,7 +967,7 @@ struct ExpressionDotIdentifierResolver {
 		while (et.kind == TypeKind.Enum) {
 			scheduler.require(et.denum, Step.Populated);
 			if (auto sym = et.denum.resolve(location, name)) {
-				setThis(e);
+				setThis(newThis);
 				return Identifiable(sym);
 			}
 
@@ -1020,7 +1031,8 @@ struct ExpressionDotIdentifierResolver {
 				return Value();
 			}
 
-			setThis(e);
+			// FIXME: Identifiers should be resolved in values.
+			setThis(PendingThis(location, Value.fromExpression(e)));
 			auto dg = buildFunValue(location, f);
 			return dg.type.kind == TypeKind.Error ? Value() : dg;
 		}
@@ -1048,7 +1060,8 @@ struct ExpressionDotIdentifierResolver {
 	}
 
 	Identifiable resolveInType(Expression e) {
-		setThis(e);
+		// FIXME: Identifiers should be resolved in values.
+		setThis(PendingThis(location, Value.fromExpression(e)));
 		return TypeDotIdentifierResolver(pass, location, name).visit(e.type);
 	}
 
