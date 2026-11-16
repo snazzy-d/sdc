@@ -90,58 +90,47 @@ private:
 	}
 
 	// FIXME: Move this into ValueBuilder.
-	public Value getTemporary(Expression value) {
-		if (auto e = cast(ErrorExpression) value) {
-			return Value.withAddress(e);
-		}
-
-		auto loc = value.location;
-
-		import source.name;
-		auto v = new Variable(loc, value.type, BuiltinName!"", value);
-		v.step = Step.Processed;
-
-		auto addr = new VariableExpression(loc, v);
-		return Value.withAddress(addr);
-	}
-
-	Value getFinal(Expression value) {
-		if (auto e = cast(ErrorExpression) value) {
-			return Value.withValue(e);
-		}
-
-		auto loc = value.location;
-
-		import source.name;
-		auto v = new Variable(loc, value.type.getParamType(ParamKind.Final),
-		                      BuiltinName!"", value);
-		v.step = Step.Processed;
-
-		return Value.withValue(new VariableExpression(loc, v));
-	}
-
-	Value getReference(Expression value) {
-		if (auto e = cast(ErrorExpression) value) {
-			return Value.withAddress(e);
-		}
-
-		auto loc = value.location;
+	public Value getTemporary(Location location, Value value) {
 		auto type = value.type;
-
-		// Ref variables store the address; provide it directly.
-		auto addr = buildAddressOf(value);
-		if (addr is null) {
-			return Value.withAddress(getError(value, "Expected an lvalue."));
+		if (type.kind == TypeKind.Error) {
+			return value;
 		}
 
-		value = addr;
-
 		import source.name;
-		auto v = new Variable(loc, type.getParamType(ParamKind.Ref),
-		                      BuiltinName!"", value);
+		auto v = new Variable(location, type, BuiltinName!"",
+		                      value.getExpression(location));
 		v.step = Step.Processed;
 
-		return Value.withAddress(new VariableExpression(loc, v));
+		return Value.withAddress(new VariableExpression(location, v));
+	}
+
+	Value getFinal(Location location, Value value) {
+		auto type = value.type;
+		if (type.kind == TypeKind.Error) {
+			return value;
+		}
+
+		import source.name;
+		auto v = new Variable(location, type.getParamType(ParamKind.Final),
+		                      BuiltinName!"", value.getExpression(location));
+		v.step = Step.Processed;
+
+		return Value.withValue(new VariableExpression(location, v));
+	}
+
+	Value getReference(Location location, Value value) {
+		// Ref variables store the address; provide it directly.
+		auto address = value.getAddress(location);
+		if (address.type.kind == TypeKind.Error) {
+			return address;
+		}
+
+		import source.name;
+		auto v = new Variable(location, value.type.getParamType(ParamKind.Ref),
+		                      BuiltinName!"", address.getExpression(location));
+		v.step = Step.Processed;
+
+		return Value.withAddress(new VariableExpression(location, v));
 	}
 
 	/**
@@ -182,9 +171,11 @@ private:
 	Expression buildBinary(Location location, AstBinaryOp op, Expression lhs,
 	                       Expression rhs) {
 		if (op.isOpAssign()) {
-			auto lhsRef = getReference(lhs);
-			auto rhsFinal = getFinal(rhs);
-			rhs = rhsFinal.getExpression(rhs.location);
+			auto lhsRef = getReference(lhs.location, Value.fromExpression(lhs));
+
+			auto rhsLocation = rhs.location;
+			auto rhsFinal = getFinal(rhsLocation, Value.fromExpression(rhs));
+			rhs = rhsFinal.getExpression(rhsLocation);
 
 			auto type = lhs.type;
 			auto llhs =
@@ -505,11 +496,12 @@ public:
 	                                                         Expression expr) {
 		// FIXME: check that type is integer or pointer.
 		auto type = expr.type;
+		auto location = expr.location;
 
 		// Bind the operand's address once, in a reference. The load
 		// and the store below both go through it, so the address is
 		// computed exactly once, however complex the operand is.
-		auto operand = getReference(expr);
+		auto operand = getReference(location, Value.fromExpression(expr));
 
 		import d.ir.constant;
 		auto one = new ConstantExpression(
@@ -517,8 +509,7 @@ public:
 
 		// Post-inc/dec: snapshot the old value, then assign
 		// e = old +/- 1, returning the old value.
-		auto location = expr.location;
-		auto old = isPre ? operand : getFinal(operand.getExpression(location));
+		auto old = isPre ? operand : getFinal(location, operand);
 		auto add = buildBinary(loc, op, old.getExpression(location), one);
 
 		auto sum = Value.fromExpression(add);
@@ -829,7 +820,7 @@ public:
 					auto call = callCtor(location, calleeLoc, di, args);
 					instance = Value.fromExpression(call);
 				} else {
-					auto temporary = getTemporary(di.getExpression(calleeLoc));
+					auto temporary = getTemporary(calleeLoc, di);
 					auto call = callCtor(location, calleeLoc, temporary, args);
 					instance = Value.withValue(build!ChainedValueExpression(
 						location, Value.withValue(call), temporary));
