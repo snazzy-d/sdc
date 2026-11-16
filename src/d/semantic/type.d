@@ -97,7 +97,7 @@ struct TypeVisitor {
 				static if (is(T : Type)) {
 					assert(0, "Not implemented.");
 				} else static if (is(T : Expression)) {
-					return buildArray(identified.location,
+					return buildArray(ikey.location,
 					                  Value.fromExpression(identified), type);
 				} else if (auto v = cast(ValueTemplateParameter) identified) {
 					return Pattern(type, v).getType();

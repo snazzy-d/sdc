@@ -753,8 +753,8 @@ struct SymbolMatcher {
 					static if (is(T : Expression)) {
 						import d.ir.value;
 						auto v = evaluate(Value.fromExpression(identified));
-						return ConstantMatcher(pass, matchedArgs,
-						                       identified.location, v).visit(p);
+						return ConstantMatcher(pass, matchedArgs, p.location, v)
+							.visit(p);
 					} else {
 						return false;
 					}
@@ -780,17 +780,18 @@ struct SymbolMatcher {
 
 	bool visit(ValueTemplateParameter p) {
 		import d.semantic.identifier : IdentifierResolver, apply;
-		return IdentifierResolver(pass)
-			.postProcess(p.location, matchee).apply!(delegate bool(identified) {
-				alias T = typeof(identified);
-				static if (is(T : Expression)) {
-					import d.ir.value;
-					auto v = evaluate(Value.fromExpression(identified));
-					return ConstantMatcher(pass, matchedArgs,
-					                       identified.location, v).visit(p);
-				} else {
-					return false;
-				}
-			})();
+		return IdentifierResolver(
+			pass
+		).postProcess(p.location, matchee).apply!(delegate bool(identified) {
+			alias T = typeof(identified);
+			static if (is(T : Expression)) {
+				import d.ir.value;
+				auto v = evaluate(Value.fromExpression(identified));
+				return
+					ConstantMatcher(pass, matchedArgs, p.location, v).visit(p);
+			} else {
+				return false;
+			}
+		})();
 	}
 }
