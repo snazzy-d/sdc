@@ -823,15 +823,23 @@ public:
 
 				import d.semantic.defaultinitializer;
 				auto di = InstanceBuilder(pass, calleeLoc).visit(s);
+
+				Value instance;
 				if (s.isSmall) {
-					return callCtor(location, calleeLoc, di, args);
+					auto call = callCtor(location, calleeLoc, di, args);
+					instance = Value.fromExpression(call);
+				} else {
+					auto temporary = getTemporary(di.getExpression(calleeLoc));
+					auto call = callCtor(location, calleeLoc, temporary, args);
+					auto e = temporary.getExpression(calleeLoc);
+					instance = Value.withValue(
+						build!BinaryExpression(location, e.type, BinaryOp.Comma,
+						                       call, e));
 				}
 
-				auto temporary = getTemporary(di.getExpression(calleeLoc));
-				auto call = callCtor(location, calleeLoc, temporary, args);
-				return build!BinaryExpression(
-					location, t, BinaryOp.Comma, call,
-					temporary.getExpression(calleeLoc));
+				// The instance is built unqualified, then qualified as t.
+				instance = buildExplicitCast(pass, location, t, instance);
+				return instance.getExpression(location);
 
 			default:
 				return getError(t, location, "Cannot build this type.");
