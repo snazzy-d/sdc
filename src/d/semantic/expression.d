@@ -1323,13 +1323,12 @@ public:
 				                                  second);
 
 			case Array:
-				auto base = buildAddressOf(sliced);
-				if (base is null) {
-					return getError(sliced, "Expected an lvalue.");
-				}
+				auto sloc = sliced.location;
+				auto base = Value.fromExpression(sliced).getAddress(sloc);
 
-				return
-					build!ArraySliceExpression(e.location, base, first, second);
+				sliced = base.getExpression(sloc);
+				return build!ArraySliceExpression(e.location, sliced, first,
+				                                  second);
 
 			default:
 				import std.format;
