@@ -418,33 +418,37 @@ public:
 		condition = buildExplicitCast(pass, e.condition.location,
 		                              Type.get(BuiltinType.Bool), condition);
 
-		auto ifTrue = visit(e.ifTrue);
-		auto ifFalse = visit(e.ifFalse);
+		auto trueLocation = e.ifTrue.location;
+		auto falseLocation = e.ifFalse.location;
+		auto ifTrue = Value.fromExpression(visit(e.ifTrue));
+		auto ifFalse = Value.fromExpression(visit(e.ifFalse));
+
+		auto location = e.location;
 
 		import d.semantic.typepromotion;
-		auto t = getPromotedType(pass, e.location, ifTrue.type, ifFalse.type);
+		auto t = getPromotedType(pass, location, ifTrue.type, ifFalse.type);
 
-		castOperands!buildExplicitCast(t, ifTrue, ifFalse);
+		ifTrue = buildExplicitCast(pass, trueLocation, t, ifTrue);
+		ifFalse = buildExplicitCast(pass, falseLocation, t, ifFalse);
+
+		auto c = condition.getExpression(e.condition.location);
 
 		// If both branches are addressable, the conditional itself
 		// is an lvalue. Build the ternary over the branches'
 		// addresses and load through it.
-		auto trueAddr = buildAddressOf(ifTrue);
-		auto falseAddr = (trueAddr is null) ? null : buildAddressOf(ifFalse);
-		if (falseAddr !is null) {
-			auto addr = build!TernaryExpression(
-				e.location,
-				t.getPointer(),
-				condition.getExpression(e.condition.location),
-				trueAddr,
-				falseAddr
-			);
-			return build!LoadExpression(e.location, t, addr);
+		auto hasAddress = ifTrue.hasAddress() && ifFalse.hasAddress();
+		if (hasAddress) {
+			ifTrue = ifTrue.getAddress(trueLocation);
+			ifFalse = ifFalse.getAddress(falseLocation);
+			t = t.getPointer();
 		}
 
-		return build!TernaryExpression(
-			e.location, t, condition.getExpression(e.condition.location),
-			ifTrue, ifFalse);
+		auto ternary = build!TernaryExpression(
+			location, t, c, ifTrue.getExpression(trueLocation),
+			ifFalse.getExpression(falseLocation));
+		return hasAddress
+			? Value.withAddress(ternary).getExpression(location)
+			: ternary;
 	}
 
 	/**
