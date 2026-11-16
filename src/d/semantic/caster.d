@@ -210,12 +210,12 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 			       "alias this ony works on aggregates.");
 
 			static struct AliasThisResult {
-				Expression expr;
+				Value value;
 				CastKind level;
 			}
 
 			auto level = CastKind.Invalid;
-			enum InvalidResult = AliasThisResult(null, CastKind.Invalid);
+			enum InvalidResult = AliasThisResult(Value(), CastKind.Invalid);
 
 			import d.semantic.aliasthis;
 			import std.algorithm;
@@ -227,13 +227,13 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 					value = Value.withValue(identified);
 
 					// XXX: Use buildCast?
-					auto cLevel = c.subCast(identified.type, to);
+					auto cLevel = c.subCast(value.type, to);
 					if (cLevel == CastKind.Invalid || cLevel < level) {
 						return InvalidResult;
 					}
 
 					level = cLevel;
-					return AliasThisResult(identified, cLevel);
+					return AliasThisResult(value, cLevel);
 				} else {
 					return InvalidResult;
 				}
@@ -243,19 +243,17 @@ Value buildCast(bool isExplicit)(SemanticPass pass, Location location, Type to,
 				return CastKind.Invalid;
 			}
 
-			Expression candidate;
+			bool found = false;
 			foreach (r; results) {
-				if (candidate !is null) {
+				if (found) {
 					return CastKind.Invalid;
 				}
 
-				candidate = r.expr;
+				found = true;
+				value = r.value;
 			}
 
-			assert(candidate,
-			       "if no candidate are found, level should be Invalid");
-
-			value = Value.withValue(candidate);
+			assert(found, "if no candidate are found, level should be Invalid");
 			return level;
 		} else static if (is(T : BuiltinType)) {
 			auto to = c.to;
