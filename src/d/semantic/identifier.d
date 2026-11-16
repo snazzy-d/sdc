@@ -976,18 +976,11 @@ struct ExpressionDotIdentifierResolver {
 
 		// array.ptr is a special case.
 		if (et.kind == TypeKind.Array && name == BuiltinName!"ptr") {
-			import d.semantic.expression;
-			auto ptr = ExpressionVisitor(pass.pass).buildAddressOf(e);
-			if (ptr is null) {
-				return
-					getIdentifiableError(e, e.location, "Expected an lvalue.");
-			}
-
 			import d.semantic.caster;
 			auto value =
 				buildExplicitCast(pass.pass, location, et.element.getPointer(),
-				                  Value.fromExpression(ptr));
-			return Identifiable(value.getExpression(ptr.location));
+				                  newThis.value.getAddress(location));
+			return Identifiable(value.getExpression(location));
 		}
 
 		// UFCS
